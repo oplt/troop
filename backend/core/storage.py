@@ -101,6 +101,21 @@ class ObjectStorage:
 
         return self.public_url_for(object_key)
 
+    async def download_bytes(self, *, object_key: str) -> bytes:
+        if not self.is_configured:
+            raise StorageNotConfiguredError(
+                "Object storage is not configured. Set STORAGE_BUCKET and storage credentials."
+            )
+
+        def _download() -> bytes:
+            resp = self._client.get_object(Bucket=settings.STORAGE_BUCKET, Key=object_key)
+            return resp["Body"].read()
+
+        try:
+            return await asyncio.to_thread(_download)
+        except Exception as exc:
+            raise ObjectStorageError(f"Failed to download object {object_key}") from exc
+
     async def delete_object(self, object_key: str | None) -> None:
         if not self.is_configured or not object_key:
             return

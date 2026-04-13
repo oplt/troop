@@ -20,6 +20,7 @@ from backend.modules.audit import models as audit_models  # noqa: F401
 from backend.modules.calendar import models as calendar_models  # noqa: F401
 from backend.modules.identity_access import models as identity_models  # noqa: F401
 from backend.modules.notifications import models as notification_models  # noqa: F401
+from backend.modules.orchestration import models as orchestration_models  # noqa: F401
 from backend.modules.platform import models as platform_models  # noqa: F401
 from backend.modules.profile import models as profile_models  # noqa: F401
 from backend.modules.projects import models as project_models  # noqa: F401

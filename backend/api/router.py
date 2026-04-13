@@ -5,6 +5,7 @@ from backend.modules.ai.router import router as ai_router
 from backend.modules.calendar.router import router as calendar_router
 from backend.modules.identity_access.router import router as auth_router
 from backend.modules.notifications.router import router as notifications_router
+from backend.modules.orchestration.router import router as orchestration_router
 from backend.modules.platform.router import router as platform_router
 from backend.modules.profile.router import router as profile_router
 from backend.modules.projects.router import router as projects_router
@@ -19,6 +20,7 @@ api_router.include_router(calendar_router, prefix="/calendar", tags=["calendar"]
 api_router.include_router(users_router, prefix="/users", tags=["users"])
 api_router.include_router(profile_router, prefix="/profile", tags=["profile"])
 api_router.include_router(projects_router, prefix="/projects", tags=["projects"])
+api_router.include_router(orchestration_router, prefix="/orchestration", tags=["orchestration"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(platform_router, prefix="/platform", tags=["platform"])
 api_router.include_router(settings_router, prefix="/settings", tags=["settings"])

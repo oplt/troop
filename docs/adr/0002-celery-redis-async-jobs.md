@@ -23,6 +23,7 @@ Configuration is driven through:
 - `CELERY_TASK_ALWAYS_EAGER`
 - `CELERY_TASK_DEFAULT_QUEUE`
 - `CELERY_EMAIL_QUEUE`
+- Additional orchestration queues for GitHub / model gateway / observability planes — see ADR 0006.
 
 If Celery eager mode is enabled, queued email work runs inline for lightweight local execution and test scenarios.
 

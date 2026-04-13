@@ -1,86 +1,166 @@
-# Generic App
+# Troop
 
-Generic full-stack starter with:
+Troop is now extended into a production-minded AI agent orchestration platform on top of the existing FastAPI + React application.
 
-- FastAPI backend
-- React + Vite frontend
-- PostgreSQL, Redis, and MinIO for local infrastructure
-- Celery workers for asynchronous jobs, using Redis as broker/result backend
-- JWT auth with refresh rotation
-- Admin settings, notifications, profile, and project modules
-- Optional platform modules for billing, API keys, webhooks, feature flags, and email templates
-- Sentry/OpenTelemetry hooks and S3-compatible avatar storage
+## Current Architecture
 
-## Local Setup
+- Backend: FastAPI, async SQLAlchemy, Alembic, Redis, Celery
+- Frontend: React 19, Vite, TypeScript, React Query, MUI
+- Auth: existing cookie-based JWT access/refresh flow is preserved
+- Existing modules remain intact; orchestration is added as a native extension module
 
-1. Start infrastructure:
+## New Platform Capabilities
 
-```bash
-cp infra/.env.example infra/.env
-docker compose -f infra/docker-compose.yml up -d
-```
+- Agent registry with manual creation and markdown import
+- Versioned agent specs with hierarchy, roles, tools, budgets, and memory policy
+- Orchestration projects with assigned agents, durable tasks, runs, brainstorms, docs, and activity
+- Task execution modes: single-agent, manager + worker, brainstorm, review
+- Provider settings for OpenAI-compatible and Ollama-compatible endpoints
+- GitHub connection, repo sync, issue import, task linking, approval-gated outbound comments
+- Run logs, approvals, auditability, and SSE event streaming
 
-Mailpit is included for local email capture:
+## Key Docs
 
-- SMTP server: `localhost:1025`
-- Web inbox: `http://localhost:8025`
+- [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)
+- [ARCHITECTURE_OVERVIEW.md](./ARCHITECTURE_OVERVIEW.md)
 
-2. Configure the backend:
+## Backend Setup
+
+1. Copy `backend/.env.example` to `backend/.env` and replace the placeholder secrets.
+2. Install dependencies:
 
 ```bash
 cd backend
-cp .env.example .env
 uv sync
+```
+
+3. Start infrastructure:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+4. Run migrations:
+
+```bash
+cd backend
 .venv/bin/alembic upgrade head
 ```
 
-3. Start the backend:
+5. Start the API:
 
 ```bash
 cd backend
 .venv/bin/uvicorn backend.api.main:app --reload
 ```
 
-4. Start the Celery worker:
+6. Start the worker:
 
 ```bash
 cd backend
-.venv/bin/celery -A backend.workers.celery_app:celery_app worker --loglevel=INFO --queues=default,email
+.venv/bin/celery -A backend.workers.celery_app.celery_app worker -l info
 ```
 
-5. Configure the frontend:
+## Frontend Setup
 
 ```bash
 cd frontend
-cp .env.example .env
 npm install
-```
-
-6. Start the frontend:
-
-```bash
-cd frontend
 npm run dev
 ```
 
-## Notes
+## Orchestration Routes
 
-- Local object storage uses MinIO on `http://localhost:9000` and its console on `http://localhost:9001`.
-- Local infrastructure secrets now come from `infra/.env`; the compose file no longer embeds credentials.
-- Redis now serves both app-level caching/token storage and the Celery broker/result backend.
-- The first Celery-backed workflow is outbound email delivery for verification and password reset flows.
-- Local `.env.example` defaults to Mailpit plus `CELERY_TASK_ALWAYS_EAGER=true`, so signup/reset emails work without a separate worker.
-- Avatar uploads are stored in the configured S3-compatible bucket instead of a placeholder path.
-- `/admin/platform` lets you rename the app, rename the core domain labels, pick a module pack, and manage plans, flags, and email templates.
-- Set `ADMIN_SIGNUP_INVITE_CODE` in `backend/.env` to allow invite-only admin registration during sign-up.
-- Authentication now uses `httpOnly` cookies plus a CSRF token cookie/header pair for state-changing requests.
-- Module packs are intended for clone-time reuse:
-  - `lean_saas`
-  - `automation_suite`
-  - `client_portal`
-  - `full_platform`
-- Observability is enabled through backend config:
-  - `SENTRY_DSN`
-  - `SENTRY_TRACES_SAMPLE_RATE`
-  - `OTLP_ENDPOINT`
-  - `OTLP_INSECURE`
+- `/agents`
+- `/agent-projects`
+- `/agent-projects/:projectId`
+- `/brainstorms`
+- `/github-sync`
+- `/orchestration-settings`
+- `/activity`
+
+## Agent Markdown Format
+
+```md
+---
+name: Backend Engineer
+role: specialist
+version: 1
+capabilities:
+  - coding
+tools:
+  - github
+tags:
+  - api
+budget:
+  max_tokens_per_run: 50000
+memory:
+  scope: project
+---
+
+# Mission
+Implement backend features safely.
+
+# Rules
+Be precise. Keep changes scoped. Explain tradeoffs briefly.
+
+# Output Contract
+Return a concise implementation summary.
+```
+
+Required sections:
+- `# Mission`
+- `# Rules`
+- `# Output Contract`
+
+## Provider Setup
+
+- Provider records are stored in the app through `/orchestration/providers`
+- Secrets are encrypted server-side and only masked hints are returned
+- Supported provider types:
+  - `openai`
+  - `openai_compatible`
+  - `ollama`
+  - `local`
+
+## GitHub Setup
+
+1. Open `/github-sync`
+2. Add a GitHub token-backed connection
+3. Sync repositories
+4. Import issues into an orchestration project
+5. Run work internally
+6. Approve outbound comment actions from `/activity`
+
+## Task Execution Lifecycle
+
+1. Create or import a task
+2. Assign an agent or manager/worker chain
+3. Start a run
+4. Worker persists `run_events` and updates task state
+5. Review or brainstorm flows can generate follow-up runs
+6. Linked GitHub actions pause behind approval requests
+
+## Verification
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run test
+npm run build
+```
+
+Backend smoke/unit:
+
+```bash
+PYTHONPATH=/path/to/troop .venv/bin/python -m unittest backend.tests.test_orchestration_unit
+```
+
+## Known Limitations
+
+- GitHub integration currently uses token-based sync rather than GitHub App installation flow
+- SSE run streaming is polling-backed, not websocket-backed
+- The original `projects` module remains in place for compatibility; the new orchestration workspaces live beside it
+- Provider and GitHub secrets are encrypted in-app, but external secret managers are not integrated yet

@@ -16,6 +16,7 @@ import {
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
+import { getOrchestrationOverview } from "../api/orchestration";
 import { listProjects } from "../api/projects";
 import { getNotifications } from "../api/notifications";
 import { getMe } from "../api/users";
@@ -42,6 +43,10 @@ export default function DashboardPage() {
     const { data: notifications, isLoading: notificationsLoading } = useQuery({
         queryKey: ["notifications"],
         queryFn: getNotifications,
+    });
+    const { data: orchestrationOverview, isLoading: orchestrationLoading } = useQuery({
+        queryKey: ["orchestration", "overview"],
+        queryFn: getOrchestrationOverview,
     });
 
     const coreDomainPlural = platformMetadata?.core_domain_plural ?? "Projects";
@@ -150,6 +155,29 @@ export default function DashboardPage() {
                     loading={userLoading}
                     color={user?.mfa_enabled ? "success" : "secondary"}
                 />
+                <StatCard
+                    label="Agent projects"
+                    value={orchestrationOverview?.projects.length ?? 0}
+                    description="Execution workspaces with agents and durable tasks"
+                    icon={<ProjectsIcon />}
+                    loading={orchestrationLoading}
+                />
+                <StatCard
+                    label="Active runs"
+                    value={orchestrationOverview?.active_runs.length ?? 0}
+                    description="Queued and in-progress orchestration"
+                    icon={<ArrowForwardIcon />}
+                    loading={orchestrationLoading}
+                    color="secondary"
+                />
+                <StatCard
+                    label="Pending approvals"
+                    value={orchestrationOverview?.pending_approvals.length ?? 0}
+                    description="Human decisions waiting before external actions"
+                    icon={<NotificationsIcon />}
+                    loading={orchestrationLoading}
+                    color="warning"
+                />
             </Box>
 
             <Box
@@ -227,6 +255,41 @@ export default function DashboardPage() {
                 </SectionCard>
 
                 <Stack spacing={2}>
+                    <SectionCard
+                        title="Agent Platform"
+                        description="Projects, runs, approvals, and GitHub activity from the orchestration layer."
+                        action={
+                            <Button variant="text" onClick={() => navigate("/agent-projects")}>
+                                Open platform
+                            </Button>
+                        }
+                    >
+                        <Stack spacing={1.5}>
+                            <Typography variant="body2" color="text.secondary">
+                                {orchestrationLoading
+                                    ? "Loading orchestration status..."
+                                    : `${orchestrationOverview?.agents.length ?? 0} agents across ${orchestrationOverview?.projects.length ?? 0} execution projects.`}
+                            </Typography>
+                            {(orchestrationOverview?.active_runs ?? []).slice(0, 3).map((run) => (
+                                <Box
+                                    key={run.id}
+                                    sx={(theme) => ({
+                                        p: 1.5,
+                                        borderRadius: 4,
+                                        border: `1px solid ${theme.palette.divider}`,
+                                    })}
+                                >
+                                    <Typography variant="subtitle2">
+                                        {run.run_mode.replaceAll("_", " ")} • {run.status.replaceAll("_", " ")}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {formatDateTime(run.created_at)}
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+
                     <SectionCard title="Account health" description="A quick view of the settings that affect trust and security.">
                         <Stack spacing={1.5}>
                             {accountChecks.map((item) => (

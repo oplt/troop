@@ -1,9 +1,10 @@
 from datetime import date, time
 
-from sqlalchemy import select
+from sqlalchemy import Date, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.calendar.models import CalendarEntry
+from backend.modules.orchestration.models import OrchestratorProject, OrchestratorTask
 
 
 class CalendarRepository:
@@ -53,4 +54,34 @@ class CalendarRepository:
         self.db.add(entry)
         await self.db.flush()
         return entry
+
+    async def get_entry(self, user_id: str, entry_id: str) -> CalendarEntry | None:
+        result = await self.db.execute(
+            select(CalendarEntry).where(CalendarEntry.id == entry_id, CalendarEntry.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def delete_entry(self, entry: CalendarEntry) -> None:
+        await self.db.delete(entry)
+        await self.db.flush()
+
+    async def list_orchestrator_tasks_due_for_owner(
+        self,
+        owner_user_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[tuple[OrchestratorTask, OrchestratorProject]]:
+        stmt = (
+            select(OrchestratorTask, OrchestratorProject)
+            .join(OrchestratorProject, OrchestratorTask.project_id == OrchestratorProject.id)
+            .where(
+                OrchestratorProject.owner_id == owner_user_id,
+                OrchestratorTask.due_date.isnot(None),
+                cast(OrchestratorTask.due_date, Date) >= start_date,
+                cast(OrchestratorTask.due_date, Date) <= end_date,
+            )
+            .order_by(OrchestratorTask.due_date.asc(), OrchestratorTask.created_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.all())
 

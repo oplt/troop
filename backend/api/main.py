@@ -11,6 +11,7 @@ from backend.core.storage import object_storage
 from backend.core.telemetry import setup_telemetry
 from backend.db.session import SessionLocal, engine
 from backend.modules.platform.service import PlatformService
+from backend.modules.orchestration.router import public_router as orchestration_public_router
 
 from .middleware.correlation_id import CorrelationIdMiddleware
 from .middleware.csrf import CSRFMiddleware
@@ -57,4 +58,5 @@ app.add_middleware(
 
 register_exception_handlers(app)
 app.include_router(api_router)
+app.include_router(orchestration_public_router)
 app.include_router(health_router)

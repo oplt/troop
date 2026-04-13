@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(filepath *)",
+      "Bash(as *)",
+      "Bash(content *)",
+      "Bash(old_text *)",
+      "Bash(new_text *)",
+      "Bash(old_text, *)",
+      "Bash(f.write)",
+      "Bash(print)",
+      "Bash(else:)",
+      "Bash(idx *)",
+      "Bash('escalation_rules')",
+      "Bash(idx)",
+      "Bash(pyeof)",
+      "Bash(old_method *)",
+      "Bash(new_method *)",
+      "Bash(\"\"\"\n        settings = self._project_execution_settings(project)\n        autonomy_level = settings.get(\"autonomy_level\", \"assisted\")\n\n        # autonomous mode short-circuits all gates\n        if autonomy_level == \"autonomous\":\n            return false\n\n        approval_gates = settings.get(\"approval_gates\", [])\n        return action_type in approval_gates'''\n\nif old_method in content:\n    content = content.replace(old_method, new_method)\n    with open(filepath, 'w') as f:\n        f.write(content)\n    print(\"success: *)",
+      "Bash('    const [reasonbyid, setreasonbyid] = usestate<record<string, string>>({});\\n\\n    const { data: approvals',)",
+      "Bash('    const { data: approvals')",
+      "Bash(old_mutation *)",
+      "Bash(new_mutation *)",
+      "Bash(uv *)"
+    ]
+  },
+  "$version": 3
+}

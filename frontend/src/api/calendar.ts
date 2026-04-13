@@ -1,8 +1,9 @@
 import { apiFetch } from "./client";
-import type { ProjectTaskPriority, ProjectTaskStatus } from "./projects";
+import type { ProjectTaskPriority } from "./projects";
 
 export type CalendarItemType = "event" | "appointment" | "task";
-export type CalendarItemSource = "planner" | "task";
+/** `orchestration` = agent-project tasks/milestones (from API list and/or client overlay) */
+export type CalendarItemSource = "planner" | "task" | "orchestration";
 
 export type CalendarItem = {
     id: string;
@@ -16,7 +17,8 @@ export type CalendarItem = {
     project_id: string | null;
     project_name: string | null;
     priority: ProjectTaskPriority | null;
-    status: ProjectTaskStatus | null;
+    /** Planner tasks use project task statuses; orchestration overlay uses orchestration task / milestone status strings */
+    status: string | null;
     created_at: string;
 };
 
@@ -29,6 +31,30 @@ export async function listCalendarItems(
         end_date: endDate,
     });
     return apiFetch(`/calendar/items?${params.toString()}`);
+}
+
+export async function getCalendarItem(entryId: string): Promise<CalendarItem> {
+    return apiFetch(`/calendar/items/${entryId}`);
+}
+
+export async function updateCalendarItem(
+    entryId: string,
+    payload: {
+        title?: string;
+        description?: string | null;
+        date?: string;
+        start_time?: string | null;
+        end_time?: string | null;
+    },
+): Promise<CalendarItem> {
+    return apiFetch(`/calendar/items/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteCalendarItem(entryId: string): Promise<void> {
+    await apiFetch(`/calendar/items/${entryId}`, { method: "DELETE" });
 }
 
 export async function createCalendarItem(payload: {

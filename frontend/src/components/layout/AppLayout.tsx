@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     AppBar,
@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import {
     AdminPanelSettings as AdminIcon,
+    Analytics as ActivityIcon,
     CalendarMonth as CalendarIcon,
     ChevronLeft as ChevronLeftIcon,
     ChevronRight as ChevronRightIcon,
@@ -29,10 +30,18 @@ import {
     DarkMode as DarkModeIcon,
     Extension as PlatformIcon,
     FolderOpen as ProjectsIcon,
+    Forum as BrainstormsIcon,
+    Hub as AgentProjectsIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
+    AccountTree as HierarchyIcon,
+    Schema as HierarchyBuilderIcon,
+    PrecisionManufacturing as AgentsIcon,
+    AttachMoney as CostAnalyticsIcon,
+    MultilineChart as ExecutionSignalsIcon,
     SmartToy as AiStudioIcon,
+    ViewModule as PortfolioNavIcon,
     Notifications as NotificationsIcon,
     Person as ProfileIcon,
     Settings as SettingsIcon,
@@ -42,11 +51,13 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
 import { getNotifications } from "../../api/notifications";
+import { getPendingApprovalsCount } from "../../api/orchestration";
 import { getProfile } from "../../api/profile";
 import { getMe } from "../../api/users";
 import { useAuth } from "../../hooks/useAuth";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
 import { getInitials } from "../../utils/formatters";
+import { CommandPalette } from "./CommandPalette";
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
@@ -57,6 +68,8 @@ type NavItem = {
     path: string;
     adminOnly?: boolean;
     badge?: number;
+    /** Shown under the label when the drawer is expanded (e.g. pending approvals). */
+    subtitle?: string;
     group: "workspace" | "admin";
 };
 
@@ -132,7 +145,7 @@ function NavBlock({
                                 }}
                             >
                                 {item.badge ? (
-                                    <Badge badgeContent={item.badge} color="error">
+                                    <Badge badgeContent={item.badge} color="error" max={99}>
                                         {item.icon}
                                     </Badge>
                                 ) : (
@@ -142,7 +155,13 @@ function NavBlock({
                             {!collapsed && (
                                 <ListItemText
                                     primary={item.label}
-                                    secondary={selected ? "Current section" : undefined}
+                                    secondary={
+                                        item.subtitle
+                                            ? item.subtitle
+                                            : selected
+                                              ? "Current section"
+                                              : undefined
+                                    }
                                     secondaryTypographyProps={{ sx: { fontSize: "0.74rem" } }}
                                 />
                             )}
@@ -153,8 +172,12 @@ function NavBlock({
                         return itemButton;
                     }
 
+                    const collapsedTitle =
+                        item.path === "/activity" && item.badge
+                            ? `${item.label} — ${item.badge} pending approval${item.badge === 1 ? "" : "s"}`
+                            : item.label;
                     return (
-                        <Tooltip key={item.path} title={item.label} placement="right">
+                        <Tooltip key={item.path} title={collapsedTitle} placement="right">
                             {itemButton}
                         </Tooltip>
                     );
@@ -166,8 +189,9 @@ function NavBlock({
 
 export function AppLayout() {
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
-    const { logout, isAdmin, isMfaEnabled } = useAuth();
+    const { logout, isAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
@@ -183,6 +207,11 @@ export function AppLayout() {
         queryFn: getNotifications,
         refetchInterval: 60_000,
     });
+    const { data: pendingApprovals } = useQuery({
+        queryKey: ["orchestration", "approvals", "pending-count"],
+        queryFn: getPendingApprovalsCount,
+        refetchInterval: 30_000,
+    });
     const { data: profile } = useQuery({
         queryKey: ["profile"],
         queryFn: getProfile,
@@ -190,6 +219,7 @@ export function AppLayout() {
     });
 
     const unreadCount = notifications?.filter((notification) => !notification.is_read).length ?? 0;
+    const pendingCount = pendingApprovals?.count ?? 0;
     const appName = platformMetadata?.app_name ?? "Your App";
     const coreDomainPlural = platformMetadata?.core_domain_plural ?? "Projects";
     const hasUserPlatformModule =
@@ -202,7 +232,7 @@ export function AppLayout() {
     const navItems = useMemo<NavItem[]>(
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-            { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
+
             { label: coreDomainPlural, icon: <ProjectsIcon />, path: "/projects", group: "workspace" },
             ...(hasUserPlatformModule
                 ? [{ label: "Platform", icon: <PlatformIcon />, path: "/platform", group: "workspace" as const }]
@@ -210,6 +240,26 @@ export function AppLayout() {
             ...(hasAiModule
                 ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
+            { label: "Agent Library", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
+            { label: "Team hierarchy", icon: <HierarchyIcon />, path: "/agent-hierarchy", group: "workspace" },
+            { label: "Hierarchy builder", icon: <HierarchyBuilderIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
+            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
+            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
+            {
+                label: "Activity",
+                icon: <ActivityIcon />,
+                path: "/activity",
+                group: "workspace",
+                badge: pendingCount || undefined,
+                subtitle:
+                    pendingCount > 0
+                        ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
+                        : undefined,
+            },
+            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
+            { label: "Run signals", icon: <ExecutionSignalsIcon />, path: "/analytics/execution", group: "workspace" },
+            { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
             {
                 label: "Notifications",
                 icon: <NotificationsIcon />,
@@ -222,10 +272,42 @@ export function AppLayout() {
             { label: "Platform Admin", icon: <PlatformIcon />, path: "/admin/platform", adminOnly: true, group: "admin" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
-        [coreDomainPlural, hasAiModule, hasUserPlatformModule, unreadCount]
+        [coreDomainPlural, hasAiModule, hasUserPlatformModule, unreadCount, pendingCount]
     );
 
     const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+
+    const commandRoutes = useMemo(
+        () => visibleNavItems.map((item) => ({ label: item.label, path: item.path })),
+        [visibleNavItems],
+    );
+
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            const isModK = (e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K");
+            const t = e.target as HTMLElement | null;
+            const inField =
+                !!t &&
+                (t.tagName === "INPUT" ||
+                    t.tagName === "TEXTAREA" ||
+                    t.tagName === "SELECT" ||
+                    t.isContentEditable);
+            if (isModK) {
+                e.preventDefault();
+                setCommandPaletteOpen((open) => !open);
+                return;
+            }
+            if (inField) return;
+            if (e.key === "k" || e.key === "K") {
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                e.preventDefault();
+                setCommandPaletteOpen(true);
+            }
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
+
     const currentItem = visibleNavItems.find((item) =>
         item.path === "/dashboard" ? location.pathname === item.path : location.pathname.startsWith(item.path)
     );
@@ -477,6 +559,13 @@ export function AppLayout() {
             >
                 <Outlet />
             </Box>
+
+            <CommandPalette
+                open={commandPaletteOpen}
+                onClose={() => setCommandPaletteOpen(false)}
+                routes={commandRoutes}
+                onNavigate={handleNavigate}
+            />
         </Box>
     );
 }

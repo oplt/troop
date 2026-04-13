@@ -16,6 +16,8 @@ dependencies = [
     "python-multipart",
     "email-validator",
     "httpx",
+    "pyyaml",
+    "cryptography",
     "aiosmtplib",
     "pyotp",
     "boto3",
@@ -25,6 +27,8 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-exporter-otlp-proto-grpc",
+    "pgvector",
+    "langgraph>=1.0.10,<2",
 ]
 
 [tool.ruff]

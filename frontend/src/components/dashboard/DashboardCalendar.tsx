@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dayjs, { type Dayjs } from "dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,6 +25,7 @@ import { alpha } from "@mui/material/styles";
 import { DateCalendar, PickersDay, type PickersDayProps } from "@mui/x-date-pickers";
 import type {} from "@mui/x-date-pickers/AdapterDayjs";
 import { createCalendarItem, listCalendarItems, type CalendarItem, type CalendarItemType } from "../../api/calendar";
+import type { OrchestrationProject, OrchestrationTask, ProjectMilestone } from "../../api/orchestration";
 import type { Project, ProjectTaskPriority } from "../../api/projects";
 import { useSnackbar } from "../../app/snackbarContext";
 import { formatDateOnly, humanizeKey } from "../../utils/formatters";
@@ -39,6 +40,12 @@ type DashboardCalendarProps = {
     onOpenProjects: () => void;
     allowedViews?: CalendarViewMode[];
     initialView?: CalendarViewMode;
+    /** Agent-project tasks (due_date) and milestones merged into the grid for the visible range */
+    orchestrationCalendar?: {
+        projects: OrchestrationProject[];
+        tasks: OrchestrationTask[];
+        milestones: ProjectMilestone[];
+    };
 };
 
 type CalendarDraft = {
@@ -256,6 +263,9 @@ function DayItems({
                         </Stack>
                         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                             <Chip label={humanizeKey(item.type)} size="small" variant="outlined" />
+                            {item.source === "orchestration" && (
+                                <Chip label="Agent project" size="small" color="warning" variant="outlined" />
+                            )}
                             <Chip label={formatItemTime(item)} size="small" variant="outlined" />
                             {item.project_name && (
                                 <Chip label={item.project_name} size="small" variant="outlined" />
@@ -289,6 +299,7 @@ export function DashboardCalendar({
     onOpenProjects,
     allowedViews = ["month"],
     initialView = "month",
+    orchestrationCalendar,
 }: DashboardCalendarProps) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
@@ -312,7 +323,70 @@ export function DashboardCalendar({
         queryFn: () => listCalendarItems(start, end),
     });
 
-    const itemsByDate = (calendarItems ?? []).reduce<Record<string, CalendarItem[]>>((accumulator, item) => {
+    const orchestrationOverlayItems = useMemo(() => {
+        const bundle = orchestrationCalendar;
+        if (!bundle || (bundle.tasks.length === 0 && bundle.milestones.length === 0)) {
+            return [] as CalendarItem[];
+        }
+        const nameById = Object.fromEntries(bundle.projects.map((p) => [p.id, p.name]));
+        const out: CalendarItem[] = [];
+        for (const task of bundle.tasks) {
+            if (!task.due_date) continue;
+            const dateKey = task.due_date.slice(0, 10);
+            if (dateKey < start || dateKey > end) continue;
+            out.push({
+                id: `orch-task-${task.id}`,
+                source: "orchestration",
+                type: "task",
+                title: task.title,
+                description: task.description ?? `Agent project: ${nameById[task.project_id] ?? task.project_id}`,
+                date: dateKey,
+                start_time: null,
+                end_time: null,
+                project_id: task.project_id,
+                project_name: nameById[task.project_id] ?? null,
+                priority: task.priority as ProjectTaskPriority,
+                status: task.status,
+                created_at: task.updated_at,
+            });
+        }
+        for (const milestone of bundle.milestones) {
+            if (!milestone.due_date) continue;
+            const dateKey = milestone.due_date.slice(0, 10);
+            if (dateKey < start || dateKey > end) continue;
+            out.push({
+                id: `orch-milestone-${milestone.id}`,
+                source: "orchestration",
+                type: "event",
+                title: `Milestone: ${milestone.title}`,
+                description: milestone.description,
+                date: dateKey,
+                start_time: null,
+                end_time: null,
+                project_id: milestone.project_id,
+                project_name: nameById[milestone.project_id] ?? null,
+                priority: null,
+                status: milestone.status,
+                created_at: milestone.updated_at,
+            });
+        }
+        return out;
+    }, [orchestrationCalendar, start, end]);
+
+    const mergedCalendarItems = useMemo(() => {
+        const api = calendarItems ?? [];
+        const orchFromApi = new Set(
+            api.filter((item) => item.source === "orchestration" && item.type === "task").map((item) => item.id),
+        );
+        const filteredOverlay = orchestrationOverlayItems.filter((item) => {
+            if (!item.id.startsWith("orch-task-")) return true;
+            const raw = item.id.replace(/^orch-task-/, "");
+            return !orchFromApi.has(raw);
+        });
+        return [...api, ...filteredOverlay];
+    }, [calendarItems, orchestrationOverlayItems]);
+
+    const itemsByDate = mergedCalendarItems.reduce<Record<string, CalendarItem[]>>((accumulator, item) => {
         accumulator[item.date] = [...(accumulator[item.date] ?? []), item];
         return accumulator;
     }, {});
@@ -462,11 +536,13 @@ export function DashboardCalendar({
                                     height: 5,
                                     borderRadius: "999px",
                                     backgroundColor:
-                                        item.type === "task"
-                                            ? theme.palette.success.main
-                                            : item.type === "appointment"
-                                                ? theme.palette.secondary.main
-                                                : theme.palette.primary.main,
+                                        item.source === "orchestration"
+                                            ? theme.palette.warning.main
+                                            : item.type === "task"
+                                                ? theme.palette.success.main
+                                                : item.type === "appointment"
+                                                    ? theme.palette.secondary.main
+                                                    : theme.palette.primary.main,
                                 })}
                             />
                         ))}

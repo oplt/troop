@@ -1,0 +1,398 @@
+For your app, the best memory design is **not one memory system**. It is a **layered memory architecture** with strict scopes and promotion rules.
+
+My recommendation in one sentence:
+
+**Use MemPalace-style retrieval as an optional recall layer, but keep authoritative company/project/task memory in typed stores plus workflow checkpoints.**
+
+## My verdict on MemPalace
+
+MemPalace has some very good ideas for your use case:
+
+* it keeps **raw verbatim exchanges** in ChromaDB instead of over-summarizing too early
+* it adds a useful retrieval taxonomy with **wings / halls / rooms**
+* it uses a layered recall model: always-load identity and critical facts, then retrieve room-level and deep-search context only when needed
+* it is local-first and adaptable, which fits your requirement for cloud or local model setups ([GitHub][1])
+
+But I would **not** make it the core memory methodology for your product.
+
+Why not:
+
+MemPalace is primarily a **retrieval memory** system. Your app also needs **durable execution state**, **task-state isolation**, **approval-aware promotion**, **conflict handling**, and **multi-agent scoped context**. MemPalace’s own README says its strongest result comes from **raw verbatim retrieval**, and also admits that some claims in the launch README were overstated or not yet wired as implied, including contradiction detection and the “palace boost” being largely metadata filtering rather than a novel retrieval method. That makes it useful as a component, but not sufficient as the backbone of a production multi-agent work system. ([GitHub][1])
+
+So the answer is:
+
+**MemPalace is good as a retrieval pattern. It is not, by itself, the best full memory architecture for your app.**
+
+## What I recommend instead
+
+Use **five distinct memory layers**.
+
+### 1. Execution state
+
+This is the most important one, and it should **not** live in a vector DB.
+
+Store here:
+
+* workflow status
+* current owner agent
+* retries
+* approvals
+* blockers
+* tool results
+* handoff state
+* pending GitHub sync state
+* checkpoints for in-progress runs
+
+This belongs in your workflow engine and relational database. Temporal is designed for durable workflow execution, with local workflow state, replay, recovery after failure, and long-running execution. Temporal’s own docs also warn against using memos for data critical to execution. ([Temporal Docs][2])
+
+So:
+
+* **Temporal / workflow runtime** = execution truth
+* **Postgres** = authoritative structured state
+* **not** vector search, not raw transcript memory
+
+### 2. Working memory
+
+This is the task-local scratchpad for the current run.
+
+Store here:
+
+* current task objective
+* accepted plan
+* latest findings
+* temporary notes
+* unresolved questions
+* latest code or artifact refs
+* current discussion summary
+
+This should be **thread-scoped** or **run-scoped**, not global. LangGraph explicitly separates short-term memory as thread-scoped state persisted via checkpoints, because long histories degrade model performance and increase cost. ([LangChain Docs][3])
+
+### 3. Semantic memory
+
+These are durable facts.
+
+Store here:
+
+* company policies
+* coding standards
+* architecture decisions
+* glossary
+* domain rules
+* project decisions
+* repo conventions
+* user preferences
+* model-routing preferences
+
+LangGraph’s memory model is a good fit here: long-term memory organized under namespaces and keys, with semantic, episodic, and procedural memory separated conceptually. ([LangChain Docs][3])
+
+### 4. Episodic memory
+
+These are “what happened” memories.
+
+Store here:
+
+* brainstorming outcomes
+* debugging sessions
+* failed attempts
+* incident timelines
+* issue histories
+* review exchanges
+* why a decision changed
+
+This is where MemPalace-style raw transcript retention is actually valuable. Raw logs are often useful for later investigation, replay, or “why did we decide this?” retrieval. ([GitHub][1])
+
+### 5. Procedural memory
+
+These are reusable instructions and playbooks.
+
+Store here:
+
+* agent operating instructions
+* task templates
+* “how we triage bugs”
+* “how we respond on GitHub”
+* deployment runbooks
+* review checklists
+* escalation rules
+
+LangChain explicitly frames procedural memory as one of the memory types worth separating from facts and experiences. ([LangChain Docs][3])
+
+## The best methodology for agent context during work
+
+For active agent work, I recommend this pattern:
+
+### A. Context packet, not raw global recall
+
+Every agent run should start with a **constructed context packet**, not “search everything.”
+
+That packet should include:
+
+* company brief
+* project brief
+* task brief
+* relevant agent instructions
+* latest task scratchpad
+* top retrieved artifacts
+* recent discussion summary
+* open blockers and acceptance criteria
+
+This is much better than dumping full memory because long contexts distract models and raise cost. LangGraph’s docs are explicit that long message histories can hurt performance and should be trimmed or managed deliberately. ([LangChain Docs][3])
+
+### B. Scoped retrieval first, broaden only on demand
+
+Search order should be:
+
+1. task scope
+2. current project scope
+3. company/global scope
+4. cross-project related scopes
+5. raw archive deep search
+
+This is the strongest part of the MemPalace idea: retrieval gets better when constrained by structure like wing/hall/room instead of searching everything flat. ([GitHub][1])
+
+### C. Promotion pipeline
+
+Do not promote every message to long-term memory.
+
+Use a pipeline:
+
+* raw event/log captured automatically
+* summarizer extracts candidate facts/decisions
+* validator checks duplication/conflict
+* user or manager approval for high-value facts
+* promoted memory stored in semantic layer
+
+This is where raw-only approaches usually fail in work systems: they keep recall, but they do not maintain a clean truth layer.
+
+### D. Shared blackboard + private scratchpads
+
+For multi-agent work:
+
+* each agent gets a **private task scratchpad**
+* the project gets a **shared blackboard**
+* only approved/promoted outputs move from private scratchpads to shared memory
+
+That prevents one noisy or mistaken agent from polluting the whole project memory.
+
+## How to manage company, project, and task memories
+
+I would model memory as hierarchical namespaces.
+
+LangGraph’s long-term memory uses namespaces and keys, which is exactly the right idea here. ([LangChain Docs][4])
+
+Use something like:
+
+* `company/{company_id}/semantic/*`
+
+* `company/{company_id}/procedural/*`
+
+* `company/{company_id}/episodic/*`
+
+* `project/{project_id}/semantic/*`
+
+* `project/{project_id}/procedural/*`
+
+* `project/{project_id}/episodic/*`
+
+* `task/{task_id}/working/*`
+
+* `task/{task_id}/episodic/*`
+
+* `task/{task_id}/artifacts/*`
+
+* `agent/{agent_id}/procedural/*`
+
+* `agent/{agent_id}/preferences/*`
+
+Then define inheritance rules.
+
+### Company memory
+
+This is the broadest layer. Keep it small, stable, and high-trust.
+
+Include:
+
+* org policies
+* coding style
+* security rules
+* naming conventions
+* deployment rules
+* approved model providers
+* approval rules
+* preferred Git branching strategy
+* stakeholder glossary
+
+This should be loaded as **always-available summary**, not through heavy retrieval.
+
+### Project memory
+
+This is the highest-value layer for day-to-day work.
+
+Include:
+
+* project goals
+* architecture summary
+* active repos
+* open milestones
+* current decisions / ADRs
+* integration contracts
+* dependency map
+* major risks
+* known constraints
+* key brainstorm summaries
+
+This is the default retrieval scope for most work.
+
+### Task memory
+
+This should be highly isolated and short-lived.
+
+Include:
+
+* issue/task description
+* acceptance criteria
+* linked GitHub issue / PR
+* plan
+* current branch / artifact refs
+* latest findings
+* blockers
+* review comments
+* completion summary
+
+When the task closes:
+
+* keep the raw history in episodic archive
+* promote only durable facts upward to project/company memory
+
+## The memory write policy I would enforce
+
+Use this promotion rule:
+
+### Write directly to task memory
+
+for:
+
+* work notes
+* temporary hypotheses
+* partial outputs
+* failed attempts
+* brainstorm drafts
+
+### Promote to project memory only if:
+
+* it affects architecture
+* it changes a decision
+* it establishes a reusable fix
+* it introduces a dependency/interface rule
+* it explains a recurring failure pattern
+
+### Promote to company memory only if:
+
+* it is reusable across projects
+* it is policy-level
+* it is a standard or convention
+* it changes how agents should generally behave
+
+This prevents memory bloat.
+
+## The best storage split for your app
+
+I would use this:
+
+* **Postgres** for authoritative structured memory metadata and task/project/company records
+* **pgvector or Chroma** for embedding-based retrieval
+* **blob/file storage** for raw transcripts, markdown, issue snapshots, logs, artifacts
+* **Temporal** for workflow state and checkpoints
+* optional **graph layer** for relationships between tasks, decisions, agents, repos, and issues
+
+That gives you both truth and recall.
+
+## How I would adapt the MemPalace idea instead of copying it
+
+I would keep these parts:
+
+* layered memory loading
+* scoped retrieval
+* raw archive retention
+* entity/topic grouping
+* local/offline support
+
+I would change these parts:
+
+* replace “wings/halls/rooms” with your own formal namespace model
+* use typed schemas for promoted memory instead of mostly raw recall
+* keep task execution state outside the memory engine
+* add promotion/approval/conflict-resolution logic
+* add TTL and archival rules for low-value task memory
+* add memory provenance: who wrote this, when, from which task, with what confidence
+
+So the adapted version becomes:
+
+**MemPalace-style retrieval + LangGraph-style scoped memory + Temporal/Postgres durable state**
+
+That is stronger than using MemPalace alone. ([LangChain Docs][3])
+
+## My practical recommendation for your app
+
+Build memory as these concrete modules:
+
+1. **Memory Ingest Service**
+   captures chat, task updates, GitHub events, documents, brainstorm logs
+
+2. **Memory Classifier / Promoter**
+   decides whether an item is working, episodic, semantic, or procedural memory
+
+3. **Memory Store API**
+   read/write/search by scope and type
+
+4. **Context Builder**
+   assembles the packet each agent receives before work
+
+5. **Conflict Resolver**
+   detects contradictions between promoted facts and asks for review
+
+6. **Compaction Service**
+   rolls old task memory into summaries and archives
+
+7. **Provenance Tracker**
+   every memory item stores source task, agent, timestamp, repo, issue, confidence
+
+## The simplest rule to remember
+
+For your app:
+
+* **Workflow state** answers: “what is happening now?”
+* **Working memory** answers: “what is this agent currently thinking/doing?”
+* **Semantic memory** answers: “what is true?”
+* **Episodic memory** answers: “what happened before?”
+* **Procedural memory** answers: “how do we do this here?”
+
+That separation is the main thing that will keep the system stable.
+
+## Bottom line
+
+No, I would not use MemPalace as the sole methodology.
+
+Yes, I would borrow its best ideas:
+
+* verbatim archival
+* scoped retrieval
+* layered loading
+* local-first design
+
+But the best architecture for your app is a **hybrid hierarchical memory system**:
+
+* **company memory** for stable policies and standards
+* **project memory** for decisions, architecture, and reusable findings
+* **task memory** for isolated work state and temporary context
+* **workflow engine state** for execution truth
+* **retrieval archive** for raw recall and auditability
+
+That is the design I would trust in a real multi-agent project platform.
+
+I can turn this into a concrete schema next: Postgres tables, vector collections, and namespace conventions.
+
+[1]: https://github.com/MemPalace/mempalace "GitHub - MemPalace/mempalace: The highest-scoring AI memory system ever benchmarked. And it's free. · GitHub"
+[2]: https://docs.temporal.io/workflow-execution "Temporal Workflow Execution overview | Temporal Platform Documentation"
+[3]: https://docs.langchain.com/oss/python/langgraph/memory "Memory overview - Docs by LangChain"
+[4]: https://docs.langchain.com/oss/python/langchain/long-term-memory "Long-term memory - Docs by LangChain"

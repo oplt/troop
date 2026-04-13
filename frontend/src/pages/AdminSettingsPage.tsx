@@ -15,11 +15,14 @@ import {
 } from "@mui/material";
 import {
     DeleteOutline as DeleteIcon,
+    IntegrationInstructions as GithubIcon,
     RestartAlt as RestartIcon,
+    SmartToy as AiIcon,
     SettingsSuggest as SettingsIcon,
     Storage as StorageIcon,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
+import { useSearchParams } from "react-router-dom";
 import {
     createDatabaseSetting,
     deleteDatabaseSetting,
@@ -31,7 +34,10 @@ import {
     type ConfigSettingsResponse,
     type DatabaseSetting,
 } from "../api/settings";
+import { listGithubConnections, listProviders } from "../api/orchestration";
 import { EmptyState } from "../components/ui/EmptyState";
+import { GithubSyncPanel } from "./GithubSyncPage";
+import { ProviderSettingsPanel } from "./OrchestrationSettingsPage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -55,7 +61,7 @@ type ConfigGroupId =
     | "storage"
     | "custom";
 
-type SettingsTabValue = ConfigGroupId | "database";
+type SettingsTabValue = ConfigGroupId | "database" | "ai" | "github";
 
 type ConfigGroupDefinition = {
     id: ConfigGroupId;
@@ -316,6 +322,14 @@ function AdminSettingsContent({
 }) {
     const queryClient = useQueryClient();
     const configGroups = buildConfigGroups(configData.items);
+    const { data: providers = [] } = useQuery({
+        queryKey: ["orchestration", "providers"],
+        queryFn: () => listProviders(),
+    });
+    const { data: githubConnections = [] } = useQuery({
+        queryKey: ["orchestration", "github", "connections"],
+        queryFn: () => listGithubConnections(),
+    });
     const [configDrafts, setConfigDrafts] = useState<Record<string, string>>(() =>
         Object.fromEntries(configData.items.map((item) => [item.key, item.value]))
     );
@@ -337,7 +351,7 @@ function AdminSettingsContent({
     });
 
     const activeConfigGroup =
-        activeTab === "database"
+        activeTab === "database" || activeTab === "ai" || activeTab === "github"
             ? null
             : configGroups.find((group) => group.id === activeTab) ?? configGroups[0] ?? null;
     const restartSensitiveCount = configData.items.filter((item) => item.requires_restart).length;
@@ -385,6 +399,8 @@ function AdminSettingsContent({
                         <Chip label={`${configGroups.length} config groups`} variant="outlined" />
                         <Chip label={`${customConfigCount} custom values`} variant="outlined" />
                         <Chip label={`${databaseSettings.length} database settings`} variant="outlined" />
+                        <Chip label={`${providers.length} AI providers`} variant="outlined" />
+                        <Chip label={`${githubConnections.length} GitHub connections`} variant="outlined" />
                     </>
                 }
             />
@@ -420,6 +436,20 @@ function AdminSettingsContent({
                     icon={<StorageIcon />}
                     color="secondary"
                 />
+                <StatCard
+                    label="AI providers"
+                    value={providers.length}
+                    description="Saved hosted and local model endpoints"
+                    icon={<AiIcon />}
+                    color="success"
+                />
+                <StatCard
+                    label="GitHub connections"
+                    value={githubConnections.length}
+                    description="Connected accounts available for repo sync and issue import"
+                    icon={<GithubIcon />}
+                    color="info"
+                />
             </Box>
 
             {hasConfigError && <Alert severity="error">{configErrorMessage}</Alert>}
@@ -427,18 +457,32 @@ function AdminSettingsContent({
 
             <Box
                 sx={(theme) => ({
-                    p: 1,
-                    borderRadius: 4,
+                    display: "flex",
+                    gap: 2,
+                    alignItems: "start",
                     border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 4,
                     backgroundColor: alpha(theme.palette.background.paper, 0.82),
+                    overflow: "hidden",
                 })}
             >
                 <Tabs
                     value={activeTab}
                     onChange={(_, value: SettingsTabValue) => onTabChange(value)}
+                    orientation="vertical"
                     variant="scrollable"
                     scrollButtons="auto"
-                    allowScrollButtonsMobile
+                    sx={(theme) => ({
+                        minWidth: 200,
+                        borderRight: `1px solid ${theme.palette.divider}`,
+                        flexShrink: 0,
+                        "& .MuiTab-root": {
+                            alignItems: "flex-start",
+                            textAlign: "left",
+                            px: 2.5,
+                            py: 1.5,
+                        },
+                    })}
                 >
                     {configGroups.map((group) => (
                         <Tab
@@ -451,10 +495,22 @@ function AdminSettingsContent({
                         value="database"
                         label={`Database settings (${databaseSettings.length})`}
                     />
+                    <Tab
+                        value="ai"
+                        label={`AI providers (${providers.length})`}
+                    />
+                    <Tab
+                        value="github"
+                        label={`GitHub sync (${githubConnections.length})`}
+                    />
                 </Tabs>
-            </Box>
 
-            {activeConfigGroup ? (
+                <Box sx={{ flex: 1, py: 1.5, pr: 1.5, minWidth: 0 }}>
+            {activeTab === "ai" ? (
+                <ProviderSettingsPanel />
+            ) : activeTab === "github" ? (
+                <GithubSyncPanel />
+            ) : activeConfigGroup ? (
                 <SectionCard
                     title={activeConfigGroup.label}
                     description={activeConfigGroup.description}
@@ -669,12 +725,15 @@ function AdminSettingsContent({
                     </SectionCard>
                 </Box>
             )}
+                </Box>
+            </Box>
         </PageShell>
     );
 }
 
 export default function AdminSettingsPage() {
-    const [activeTab, setActiveTab] = useState<SettingsTabValue>("application");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const requestedTab = searchParams.get("tab");
     const {
         data: configData,
         isLoading: configLoading,
@@ -709,8 +768,11 @@ export default function AdminSettingsPage() {
 
     const configGroups = buildConfigGroups(configData.items);
     const resolvedActiveTab =
-        activeTab === "database" || configGroups.some((group) => group.id === activeTab)
-            ? activeTab
+        requestedTab === "database" ||
+        requestedTab === "ai" ||
+        requestedTab === "github" ||
+        configGroups.some((group) => group.id === requestedTab)
+            ? (requestedTab as SettingsTabValue)
             : configGroups[0]?.id ?? "database";
     const settingsKey = `${configData.items.map((item) => `${item.key}:${item.value}`).join("|")}::${databaseSettings
         .map((item) => `${item.id}:${item.updated_at}`)
@@ -730,7 +792,11 @@ export default function AdminSettingsPage() {
             hasConfigError={Boolean(configError)}
             hasDatabaseError={Boolean(databaseError)}
             activeTab={resolvedActiveTab}
-            onTabChange={setActiveTab}
+            onTabChange={(nextTab) => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", nextTab);
+                setSearchParams(next, { replace: true });
+            }}
         />
     );
 }

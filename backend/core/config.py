@@ -32,7 +32,24 @@ class Settings(BaseSettings):
     CELERY_TASK_ALWAYS_EAGER: bool = False
     CELERY_TASK_DEFAULT_QUEUE: str = "default"
     CELERY_EMAIL_QUEUE: str = "email"
+    # Logical service boundaries: separate broker queues + worker processes (ADR 0006).
+    CELERY_QUEUE_GITHUB: str = "github"
+    CELERY_QUEUE_MODEL_GATEWAY: str = "model_gateway"
+    CELERY_QUEUE_OBSERVABILITY: str = "observability"
     CELERY_RESULT_EXPIRES_SECONDS: int = 3600
+    PROVIDER_HEALTHCHECK_INTERVAL_MINUTES: int = 5
+    GITHUB_ISSUE_POLL_INTERVAL_MINUTES: int = 15
+    ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE: int = 30
+    ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES: int = 20
+    AGENT_TOKEN_BUDGET_WINDOW_DAYS: int = 30
+    # When true, orchestration LLM calls use the local heuristic provider only (no outbound API).
+    ORCHESTRATION_OFFLINE_MODE: bool = False
+    # When false, model-level failover inside a single provider call is disabled (service-level candidate loop may still apply).
+    ORCHESTRATION_PROVIDER_FAILOVER: bool = True
+    # When true, execute_run routes run modes through a LangGraph StateGraph (see langgraph_runner).
+    ORCHESTRATION_USE_LANGGRAPH: bool = False
+    # Durable enqueue backend label (future: temporal). Celery is the only implementation today.
+    ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
 
     JWT_SECRET: str
     JWT_ALGORITHM: str
@@ -101,6 +118,13 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_BASE_URL: str = "https://api.anthropic.com/v1"
     ANTHROPIC_DEFAULT_MODEL: str = "claude-3-5-sonnet-latest"
+    GITHUB_APP_ID: str = ""
+    GITHUB_APP_SLUG: str = ""
+    GITHUB_APP_PRIVATE_KEY: str = ""
+    GITHUB_APP_WEBHOOK_SECRET: str = ""
+    GITHUB_APP_CLIENT_ID: str = ""
+    GITHUB_APP_CLIENT_SECRET: str = ""
+    GITHUB_APP_NAME: str = "Troop GitHub App"
 
     CORS_ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=list)
 

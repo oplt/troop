@@ -11,6 +11,8 @@ from backend.core.storage import object_storage
 from backend.core.telemetry import setup_telemetry
 from backend.db.session import SessionLocal, engine
 from backend.modules.platform.service import PlatformService
+from backend.modules.github.router import public_router as github_public_router
+from backend.modules.orchestration.graphql_router import graphql_router
 from backend.modules.orchestration.router import public_router as orchestration_public_router
 
 from .middleware.correlation_id import CorrelationIdMiddleware
@@ -58,5 +60,7 @@ app.add_middleware(
 
 register_exception_handlers(app)
 app.include_router(api_router)
+app.include_router(graphql_router, prefix="/api/v1/graphql")
+app.include_router(github_public_router)
 app.include_router(orchestration_public_router)
 app.include_router(health_router)

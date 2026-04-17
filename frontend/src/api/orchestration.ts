@@ -29,10 +29,17 @@ export type Agent = {
     memory_policy: Record<string, unknown>;
     output_schema: Record<string, unknown>;
     inheritance: AgentInheritancePreview | null;
+    lint: AgentLintSummary | null;
     metadata: Record<string, unknown>;
     version: number;
     created_at: string;
     updated_at: string;
+};
+
+export type AgentLintSummary = {
+    errors: string[];
+    warnings: string[];
+    activation_ready: boolean;
 };
 
 export type AgentResolvedProfile = {
@@ -205,6 +212,21 @@ export type RunEventTailItem = {
     created_at: string;
 };
 
+export type RunTraceStep = {
+    step_id: string;
+    title: string;
+    actor: string;
+    status: string;
+    sequence: number;
+    started_at: string | null;
+    completed_at: string | null;
+    last_error: string | null;
+    is_current: boolean;
+    resumable: boolean;
+    attempts: number;
+    metadata: Record<string, unknown>;
+};
+
 export type TaskExecutionSnapshot = {
     meta: ExecutionSnapshotMeta;
     project_id: string;
@@ -220,6 +242,7 @@ export type TaskExecutionSnapshot = {
     focal_run_id: string | null;
     checkpoint_excerpt: Record<string, unknown>;
     recent_events_tail: RunEventTailItem[];
+    trace: RunTraceStep[];
 };
 
 export type RunExecutionSnapshot = {
@@ -231,6 +254,8 @@ export type RunExecutionSnapshot = {
     pending_github_sync: PendingGithubSyncSummary[];
     checkpoint_excerpt: Record<string, unknown>;
     recent_events_tail: RunEventTailItem[];
+    trace: RunTraceStep[];
+    resumable: boolean;
 };
 
 export type Brainstorm = {
@@ -471,6 +496,19 @@ export type AgentMemoryEntry = {
     updated_at: string;
 };
 
+export type TeamTemplate = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    outcome: string;
+    roles: string[];
+    tools: string[];
+    autonomy: string;
+    visibility: string;
+    agent_template_slugs: string[];
+};
+
 export type OrchestrationOverview = {
     projects: OrchestrationProject[];
     agents: Agent[];
@@ -500,7 +538,7 @@ export async function importAgentMarkdown(file: File, projectId?: string, existi
     return apiFetch("/orchestration/agents/import", { method: "POST", body: formData });
 }
 
-export async function validateAgentMarkdown(file: File): Promise<{ valid: boolean; normalized: Record<string, unknown> | null; errors: string[] }> {
+export async function validateAgentMarkdown(file: File): Promise<{ valid: boolean; normalized: Record<string, unknown> | null; errors: string[]; warnings: string[]; activation_ready: boolean }> {
     const formData = new FormData();
     formData.append("file", file);
     return apiFetch("/orchestration/agents/validate-markdown", { method: "POST", body: formData });
@@ -895,8 +933,21 @@ export async function cancelRun(runId: string): Promise<TaskRun> {
     return apiFetch(`/orchestration/runs/${runId}/cancel`, { method: "POST" });
 }
 
-export async function replayRun(runId: string, fromEventIndex: number = 0): Promise<TaskRun> {
-    return apiFetch(`/orchestration/runs/${runId}/replay?from_event_index=${fromEventIndex}`, { method: "POST" });
+export async function resumeRun(runId: string): Promise<TaskRun> {
+    return apiFetch(`/orchestration/runs/${runId}/resume`, { method: "POST" });
+}
+
+export async function replayRun(
+    runId: string,
+    payload: { from_event_index?: number; model_name?: string } = {},
+): Promise<TaskRun> {
+    return apiFetch(`/orchestration/runs/${runId}/replay`, {
+        method: "POST",
+        body: JSON.stringify({
+            from_event_index: payload.from_event_index ?? 0,
+            model_name: payload.model_name ?? null,
+        }),
+    });
 }
 
 // ── Cost analytics ───────────────────────────────────────────
@@ -1020,6 +1071,19 @@ export type EvalRecord = {
     updated_at: string;
 };
 
+export type EvalLeaderboardEntry = {
+    agent_id: string;
+    agent_name: string;
+    wins: number;
+    losses: number;
+    ties: number;
+    total: number;
+    win_rate: number;
+    avg_score: number;
+    avg_cost_usd: number;
+    avg_latency_ms: number;
+};
+
 export async function listEvalRecords(projectId: string): Promise<EvalRecord[]> {
     return apiFetch(`/orchestration/projects/${projectId}/evals`);
 }
@@ -1038,6 +1102,34 @@ export async function startBenchmark(projectId: string, evalId: string): Promise
 
 export async function scoreEvalRecord(projectId: string, evalId: string): Promise<EvalRecord> {
     return apiFetch(`/orchestration/projects/${projectId}/evals/${evalId}/score`, { method: "POST" });
+}
+
+export async function getEvalLeaderboard(projectId: string): Promise<EvalLeaderboardEntry[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/evals/leaderboard`);
+}
+
+export async function startHistoricalBenchmarks(
+    projectId: string,
+    payload: {
+        agent_a_id: string;
+        agent_b_id: string;
+        model_a?: string;
+        model_b?: string;
+        days?: number;
+        limit?: number;
+    },
+): Promise<{ count: number; created: Array<{ eval_id: string; task_id: string; runs: Array<{ side: string; run_id: string }> }> }> {
+    const params = new URLSearchParams({
+        agent_a_id: payload.agent_a_id,
+        agent_b_id: payload.agent_b_id,
+        days: String(payload.days ?? 60),
+        limit: String(payload.limit ?? 8),
+    });
+    if (payload.model_a) params.set("model_a", payload.model_a);
+    if (payload.model_b) params.set("model_b", payload.model_b);
+    return apiFetch(`/orchestration/projects/${projectId}/evals/benchmark-historical?${params.toString()}`, {
+        method: "POST",
+    });
 }
 
 export async function listBrainstorms(projectId?: string): Promise<Brainstorm[]> {
@@ -1212,6 +1304,26 @@ export async function indexProjectRepository(projectId: string, repositoryLinkId
     return apiFetch(`/orchestration/projects/${projectId}/repositories/${repositoryLinkId}/index`, { method: "POST" });
 }
 
+export type MemoryIngestJob = {
+    id: string;
+    project_id: string | null;
+    job_type: string;
+    status: "pending" | "running" | "completed" | "failed" | string;
+    error_text: string | null;
+    created_at: string;
+    started_at: string | null;
+    finished_at: string | null;
+    payload: Record<string, unknown>;
+};
+
+export async function listProjectMemoryIngestJobs(
+    projectId: string,
+    limit: number = 60
+): Promise<MemoryIngestJob[]> {
+    const safe = Math.max(1, Math.min(limit, 300));
+    return apiFetch(`/orchestration/projects/${projectId}/memory-ingest-jobs?limit=${safe}`);
+}
+
 export type SkillPack = {
     id?: string;
     slug: string;
@@ -1264,8 +1376,117 @@ export async function listAgentTemplates(): Promise<AgentTemplate[]> {
     return apiFetch("/orchestration/agents/templates");
 }
 
+export async function createAgentTemplate(payload: Omit<AgentTemplate, "id">): Promise<AgentTemplate> {
+    return apiFetch("/orchestration/agents/templates", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateAgentTemplate(
+    slug: string,
+    payload: Partial<Omit<AgentTemplate, "id">>,
+): Promise<AgentTemplate> {
+    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteAgentTemplate(slug: string): Promise<void> {
+    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(slug)}`, {
+        method: "DELETE",
+    });
+}
+
 export async function listSkillCatalog(): Promise<SkillPack[]> {
     return apiFetch("/orchestration/agents/skills");
+}
+
+export async function createSkillPack(payload: Omit<SkillPack, "id">): Promise<SkillPack> {
+    return apiFetch("/orchestration/agents/skills", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateSkillPack(
+    slug: string,
+    payload: Partial<Omit<SkillPack, "id" | "slug">>,
+): Promise<SkillPack> {
+    return apiFetch(`/orchestration/agents/skills/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteSkillPack(slug: string): Promise<void> {
+    return apiFetch(`/orchestration/agents/skills/${encodeURIComponent(slug)}`, {
+        method: "DELETE",
+    });
+}
+
+export async function listTeamTemplates(): Promise<TeamTemplate[]> {
+    return apiFetch("/orchestration/teams/templates");
+}
+
+export async function createTeamTemplate(payload: Omit<TeamTemplate, "id">): Promise<TeamTemplate> {
+    return apiFetch("/orchestration/teams/templates", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateTeamTemplate(
+    templateId: string,
+    payload: Partial<Omit<TeamTemplate, "id" | "slug">>,
+): Promise<TeamTemplate> {
+    return apiFetch(`/orchestration/teams/templates/${encodeURIComponent(templateId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteTeamTemplate(templateId: string): Promise<void> {
+    return apiFetch(`/orchestration/teams/templates/${encodeURIComponent(templateId)}`, {
+        method: "DELETE",
+    });
+}
+
+export async function simulateAgent(
+    agentId: string,
+    payload: { scenarios?: Array<Record<string, unknown>> } = {},
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/agents/${agentId}/simulate`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function bootstrapProjectFromText(prompt: string): Promise<Record<string, unknown>> {
+    return apiFetch("/orchestration/projects/bootstrap-from-text", {
+        method: "POST",
+        body: JSON.stringify({ prompt }),
+    });
+}
+
+export async function applyBootstrappedProject(payload: Record<string, unknown>): Promise<OrchestrationProject> {
+    return apiFetch("/orchestration/projects/bootstrap-apply", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function getRunExplanation(runId: string): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/runs/${runId}/explanation`);
+}
+
+export async function getAgentPerformance(days: number = 30): Promise<Array<Record<string, unknown>>> {
+    return apiFetch(`/orchestration/analytics/agent-performance?days=${days}`);
+}
+
+export async function getBudgetProjection(days: number = 30): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/analytics/budget-projection?days=${days}`);
 }
 
 export async function createAgentFromTemplate(slug: string, overrides: Record<string, unknown>): Promise<Agent> {

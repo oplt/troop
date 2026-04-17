@@ -4,6 +4,22 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core.schemas import RequestModel
+from backend.modules.github.schemas import (
+    GithubAppInstallResponse,
+    GithubCommentRequest,
+    GithubConnectionCreate,
+    GithubConnectionResponse,
+    GithubIssueImportRequest,
+    GithubIssueLinkResponse,
+    GithubRepositoryResponse,
+    GithubSyncEventResponse,
+    GithubWebhookResponse,
+)
+from backend.modules.team.schemas import (
+    ProjectAgentMembershipCreate,
+    ProjectAgentMembershipResponse,
+    ProjectAgentMembershipUpdate,
+)
 
 TaskStatus = Literal[
     "backlog",
@@ -35,6 +51,14 @@ class AgentMarkdownValidationResponse(BaseModel):
     valid: bool
     normalized: dict[str, Any] | None = None
     errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    activation_ready: bool = False
+
+
+class AgentLintSummary(BaseModel):
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    activation_ready: bool = False
 
 
 class AgentResolvedProfile(BaseModel):
@@ -82,6 +106,8 @@ class AgentCreate(RequestModel):
     retry_limit: int = Field(default=1, ge=0, le=10)
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] = Field(default_factory=dict)
+    task_filters: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentUpdate(RequestModel):
@@ -111,6 +137,8 @@ class AgentUpdate(RequestModel):
     retry_limit: int | None = Field(default=None, ge=0, le=10)
     memory_policy: dict[str, Any] | None = None
     output_schema: dict[str, Any] | None = None
+    task_filters: list[str] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class AgentVersionResponse(BaseModel):
@@ -156,6 +184,8 @@ class AgentResponse(BaseModel):
     memory_policy: dict[str, Any]
     output_schema: dict[str, Any]
     inheritance: AgentInheritancePreview | None = None
+    lint: AgentLintSummary | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
     version: int
     created_at: datetime
     updated_at: datetime
@@ -337,28 +367,6 @@ class ProjectRepositoryLinkResponse(BaseModel):
     metadata: dict[str, Any]
 
 
-class ProjectAgentMembershipCreate(RequestModel):
-    agent_id: str
-    role: str = "member"
-    is_default_manager: bool = False
-
-
-class ProjectAgentMembershipUpdate(RequestModel):
-    role: str | None = None
-    is_default_manager: bool | None = None
-
-
-class ProjectAgentMembershipResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    project_id: str
-    agent_id: str
-    role: str
-    is_default_manager: bool
-    created_at: datetime
-
-
 class TaskCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
     description: str | None = None
@@ -494,7 +502,7 @@ class TaskResponse(BaseModel):
     due_date: datetime | None
     response_sla_hours: int | None = None
     labels: list[str]
-    result_summary: str | None
+    result_summary: str | None = None
     result_payload: dict[str, Any]
     position: int
     metadata: dict[str, Any]
@@ -598,6 +606,21 @@ class RunEventTailItem(BaseModel):
     created_at: datetime
 
 
+class RunTraceStep(BaseModel):
+    step_id: str
+    title: str
+    actor: str
+    status: str
+    sequence: int
+    started_at: str | None
+    completed_at: str | None
+    last_error: str | None
+    is_current: bool
+    resumable: bool
+    attempts: int
+    metadata: dict[str, Any]
+
+
 class TaskExecutionSnapshotResponse(BaseModel):
     meta: ExecutionSnapshotMeta
     project_id: str
@@ -613,6 +636,7 @@ class TaskExecutionSnapshotResponse(BaseModel):
     focal_run_id: str | None
     checkpoint_excerpt: dict[str, Any]
     recent_events_tail: list[RunEventTailItem]
+    trace: list[RunTraceStep] = Field(default_factory=list)
 
 
 class RunExecutionSnapshotResponse(BaseModel):
@@ -624,6 +648,8 @@ class RunExecutionSnapshotResponse(BaseModel):
     pending_github_sync: list[PendingGithubSyncSummary]
     checkpoint_excerpt: dict[str, Any]
     recent_events_tail: list[RunEventTailItem]
+    trace: list[RunTraceStep] = Field(default_factory=list)
+    resumable: bool = False
 
 
 class WorkingMemoryResponse(BaseModel):
@@ -744,6 +770,18 @@ class PendingSemanticWriteResponse(BaseModel):
     pending: bool = True
     approval_id: str
     approval_type: str = "semantic_memory_write"
+
+
+class MemoryIngestJobResponse(BaseModel):
+    id: str
+    project_id: str | None
+    job_type: str
+    status: str
+    error_text: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class SemanticMergeRequest(RequestModel):
@@ -909,102 +947,6 @@ class BrainstormMessageResponse(BaseModel):
     content: str
     metadata: dict[str, Any]
     created_at: datetime
-
-
-class GithubConnectionCreate(RequestModel):
-    name: str = Field(min_length=2, max_length=255)
-    api_url: str = "https://api.github.com"
-    token: str | None = None
-
-
-class GithubConnectionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    name: str
-    api_url: str
-    connection_mode: str = "token"
-    installation_id: int | None = None
-    organization_login: str | None = None
-    token_hint: str | None
-    account_login: str | None
-    is_active: bool
-    metadata: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-
-
-class GithubRepositoryResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    connection_id: str
-    project_id: str | None
-    owner_name: str
-    repo_name: str
-    full_name: str
-    default_branch: str | None
-    repo_url: str | None
-    is_active: bool
-    metadata: dict[str, Any]
-    last_synced_at: datetime | None
-    created_at: datetime
-
-
-class GithubIssueImportRequest(RequestModel):
-    project_id: str
-    repository_id: str
-    issue_numbers: list[int] = Field(default_factory=list)
-    auto_assign_agent_id: str | None = None
-
-
-class GithubIssueLinkResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    repository_id: str
-    task_id: str | None
-    issue_number: int
-    title: str
-    body: str | None
-    state: str
-    labels: list[str]
-    assignee_login: str | None
-    issue_url: str | None
-    sync_status: str
-    last_comment_posted_at: datetime | None
-    last_synced_at: datetime | None
-    last_error: str | None
-    metadata: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-
-
-class GithubSyncEventResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    repository_id: str | None
-    issue_link_id: str | None
-    action: str
-    status: str
-    detail: str | None
-    payload: dict[str, Any]
-    created_at: datetime
-
-
-class GithubCommentRequest(RequestModel):
-    body: str = Field(min_length=1)
-    close_issue: bool = False
-
-
-class GithubAppInstallResponse(BaseModel):
-    install_url: str
-
-
-class GithubWebhookResponse(BaseModel):
-    accepted: bool = True
-    sync_event_id: str | None = None
 
 
 class ApprovalDecision(RequestModel):
@@ -1185,6 +1127,48 @@ class AgentTemplateResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class AgentTemplateCreate(RequestModel):
+    slug: str = Field(min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    name: str = Field(min_length=2, max_length=255)
+    role: str = "specialist"
+    description: str = ""
+    parent_template_slug: str | None = None
+    system_prompt: str = ""
+    mission_markdown: str = ""
+    rules_markdown: str = ""
+    output_contract_markdown: str = ""
+    capabilities: list[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    model_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    memory_policy: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentTemplateUpdate(RequestModel):
+    slug: str | None = Field(default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    role: str | None = None
+    description: str | None = None
+    parent_template_slug: str | None = None
+    system_prompt: str | None = None
+    mission_markdown: str | None = None
+    rules_markdown: str | None = None
+    output_contract_markdown: str | None = None
+    capabilities: list[str] | None = None
+    allowed_tools: list[str] | None = None
+    tags: list[str] | None = None
+    skills: list[str] | None = None
+    model_policy: dict[str, Any] | None = None
+    budget: dict[str, Any] | None = None
+    memory_policy: dict[str, Any] | None = None
+    output_schema: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+
 class AgentFromTemplateRequest(RequestModel):
     project_id: str | None = None
     name: str | None = None
@@ -1245,6 +1229,63 @@ class SkillPackResponse(BaseModel):
     allowed_tools: list[str]
     rules_markdown: str
     tags: list[str]
+
+
+class SkillPackCreate(RequestModel):
+    slug: str = Field(min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    name: str = Field(min_length=2, max_length=255)
+    description: str | None = None
+    capabilities: list[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
+    rules_markdown: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+
+class SkillPackUpdate(RequestModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = None
+    capabilities: list[str] | None = None
+    allowed_tools: list[str] | None = None
+    rules_markdown: str | None = None
+    tags: list[str] | None = None
+
+
+class TeamTemplateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str | None = None
+    slug: str
+    name: str
+    description: str
+    outcome: str
+    roles: list[str]
+    tools: list[str]
+    autonomy: str
+    visibility: str
+    agent_template_slugs: list[str]
+
+
+class TeamTemplateCreate(RequestModel):
+    slug: str = Field(min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    name: str = Field(min_length=2, max_length=255)
+    description: str = ""
+    outcome: str = ""
+    roles: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
+    autonomy: str = "medium"
+    visibility: str = "private"
+    agent_template_slugs: list[str] = Field(default_factory=list)
+
+
+class TeamTemplateUpdate(RequestModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = None
+    outcome: str | None = None
+    roles: list[str] | None = None
+    tools: list[str] | None = None
+    autonomy: str | None = None
+    visibility: str | None = None
+    agent_template_slugs: list[str] | None = None
 
 
 class TaskDecomposeRequest(RequestModel):
@@ -1325,7 +1366,7 @@ class ProjectDecisionResponse(BaseModel):
 
 VALID_GATE_ACTIONS = frozenset([
     "post_to_github", "open_pr", "mark_complete",
-    "write_memory", "use_expensive_model", "run_tool",
+    "change_task_ownership", "write_memory", "use_expensive_model", "run_tool",
 ])
 
 VALID_AUTONOMY_LEVELS = frozenset(["autonomous", "semi_autonomous", "assisted", "supervised"])
@@ -1397,6 +1438,24 @@ class EvalRecordResponse(BaseModel):
     metadata_json: dict
     created_at: datetime
     updated_at: datetime
+
+
+class EvalLeaderboardEntryResponse(BaseModel):
+    agent_id: str
+    agent_name: str
+    wins: int
+    losses: int
+    ties: int
+    total: int
+    win_rate: float
+    avg_score: float
+    avg_cost_usd: float
+    avg_latency_ms: float
+
+
+class ReplayRunRequest(RequestModel):
+    from_event_index: int = Field(default=0, ge=0)
+    model_name: str | None = None
 
 
 class CostAggregationResponse(BaseModel):

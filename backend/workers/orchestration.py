@@ -1,6 +1,7 @@
 import asyncio
 
 from backend.core.config import settings
+from backend.modules.orchestration.cpu_executor import execute_code_job
 from backend.modules.orchestration.service import OrchestrationService
 from backend.workers.celery_app import celery_app
 
@@ -75,6 +76,28 @@ class OrchestrationWorkerRuntime:
         async with SessionLocal() as db:
             service = OrchestrationService(db)
             await service.process_episodic_index_embedding_batch()
+
+
+@celery_app.task(
+    name="backend.workers.orchestration.run_code_execution",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=1,
+    ignore_result=False,
+)
+def run_code_execution(
+    shell_cmd: str,
+    cwd: str,
+    timeout_seconds: int,
+    use_shell_wrap: bool = True,
+) -> dict:
+    return execute_code_job(
+        shell_cmd=shell_cmd,
+        cwd=cwd,
+        timeout=timeout_seconds,
+        use_shell_wrap=use_shell_wrap,
+    )
 
 
 @celery_app.task(
@@ -235,3 +258,15 @@ def queue_provider_healthcheck() -> None:
             loop.create_task(OrchestrationWorkerRuntime().health_check_providers())
         return
     provider_healthcheck.apply_async(queue=settings.CELERY_QUEUE_MODEL_GATEWAY)
+
+
+def queue_memory_ingest_jobs() -> None:
+    if settings.CELERY_TASK_ALWAYS_EAGER:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(OrchestrationWorkerRuntime().process_memory_ingest_jobs())
+        else:
+            loop.create_task(OrchestrationWorkerRuntime().process_memory_ingest_jobs())
+        return
+    process_memory_ingest_jobs.apply_async(queue=settings.CELERY_QUEUE_MODEL_GATEWAY)

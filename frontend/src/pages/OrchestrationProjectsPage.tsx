@@ -6,6 +6,7 @@ import {
     Box,
     Button,
     Chip,
+    Divider,
     LinearProgress,
     MenuItem,
     Paper,
@@ -16,6 +17,8 @@ import {
 import { Hub as ProjectIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import {
+    applyBootstrappedProject,
+    bootstrapProjectFromText,
     createOrchestrationProject,
     listOrchestrationProjects,
     listProjectAgents,
@@ -45,6 +48,8 @@ export default function OrchestrationProjectsPage() {
     const { register, handleSubmit, reset } = useForm<ProjectForm>();
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [sortKey, setSortKey] = useState<SortKey>("last_active");
+    const [bootstrapPrompt, setBootstrapPrompt] = useState("");
+    const [bootstrapDraft, setBootstrapDraft] = useState<Record<string, unknown> | null>(null);
 
     const { data: projects = [] } = useQuery({
         queryKey: ["orchestration", "projects"],
@@ -118,6 +123,18 @@ export default function OrchestrationProjectsPage() {
             navigate(`/agent-projects/${project.id}`);
         },
     });
+    const bootstrapMutation = useMutation({
+        mutationFn: () => bootstrapProjectFromText(bootstrapPrompt),
+        onSuccess: (draft) => setBootstrapDraft(draft),
+    });
+    const applyBootstrapMutation = useMutation({
+        mutationFn: () => applyBootstrappedProject(bootstrapDraft ?? {}),
+        onSuccess: async (project) => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            showToast({ message: "Bootstrapped project created.", severity: "success" });
+            navigate(`/agent-projects/${project.id}`);
+        },
+    });
 
     return (
         <PageShell maxWidth="xl">
@@ -143,6 +160,40 @@ export default function OrchestrationProjectsPage() {
                         <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
                         {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Failed to create project."}</Alert>}
                         <Button type="submit" variant="contained">Create project</Button>
+                    </Stack>
+                    <Divider sx={{ my: 2 }} />
+                    <Stack spacing={1.5}>
+                        <Typography variant="subtitle2">Natural language setup</Typography>
+                        <TextField
+                            label='Example: "Create a project to build a REST API for payments"'
+                            value={bootstrapPrompt}
+                            onChange={(e) => setBootstrapPrompt(e.target.value)}
+                            multiline
+                            minRows={2}
+                        />
+                        <Button
+                            variant="outlined"
+                            disabled={!bootstrapPrompt.trim() || bootstrapMutation.isPending}
+                            onClick={() => bootstrapMutation.mutate()}
+                        >
+                            Generate draft plan
+                        </Button>
+                        {bootstrapDraft && (
+                            <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    Draft ready. Review and apply to create goals, milestones, and starter tasks.
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    sx={{ mt: 1 }}
+                                    variant="contained"
+                                    onClick={() => applyBootstrapMutation.mutate()}
+                                    disabled={applyBootstrapMutation.isPending}
+                                >
+                                    Approve and create project
+                                </Button>
+                            </Paper>
+                        )}
                     </Stack>
                 </SectionCard>
 

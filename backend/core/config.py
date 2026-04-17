@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     CELERY_QUEUE_GITHUB: str = "github"
     CELERY_QUEUE_MODEL_GATEWAY: str = "model_gateway"
     CELERY_QUEUE_OBSERVABILITY: str = "observability"
+    CELERY_QUEUE_CPU: str = "cpu"
     CELERY_RESULT_EXPIRES_SECONDS: int = 3600
     PROVIDER_HEALTHCHECK_INTERVAL_MINUTES: int = 5
     GITHUB_ISSUE_POLL_INTERVAL_MINUTES: int = 15
@@ -50,6 +51,7 @@ class Settings(BaseSettings):
     ORCHESTRATION_USE_LANGGRAPH: bool = False
     # Durable enqueue backend label (future: temporal). Celery is the only implementation today.
     ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
+    ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: int = 180
 
     JWT_SECRET: str
     JWT_ALGORITHM: str

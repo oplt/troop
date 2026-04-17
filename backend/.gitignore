@@ -191,3 +191,10 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 ../commands.txt
+# .graphifyignore
+vendor/
+node_modules/
+dist/
+*.generated.py
+
+.claude

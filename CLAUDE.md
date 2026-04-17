@@ -1,13 +1,8 @@
+## graphify
 
-## Code standards
-- Prefer TypeScript strict types
-- Avoid adding new dependencies unless necessary
-- Keep functions small and side effects explicit
+This project has a graphify knowledge graph at graphify-out/.
 
-## Architecture
-- Backend logic stays in services, not controllers
-- Do not couple UI components to data-fetching details
-
-## Workflow
-- For large changes, propose a short plan first
-- For bug fixes, reproduce before patching
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

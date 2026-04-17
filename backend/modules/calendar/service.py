@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.calendar.models import CalendarEntry
 from backend.modules.calendar.repository import CalendarRepository
 from backend.modules.calendar.schemas import CalendarItemCreate, CalendarItemResponse, CalendarItemUpdate
-from backend.modules.orchestration.models import OrchestratorProject, OrchestratorTask
+from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.identity_access.models import User
 from backend.modules.projects.models import Project, ProjectTask
 from backend.modules.projects.repository import ProjectsRepository
@@ -193,4 +193,3 @@ class CalendarService:
             raise HTTPException(status_code=404, detail="Calendar entry not found")
         await self.repo.delete_entry(entry)
         await self.db.commit()
-

@@ -38,13 +38,16 @@ import {
     getRun,
     getRunCostSummary,
     getRunExecutionState,
+    getRunExplanation,
     getRunWorkingMemory,
     listRunEvents,
     patchRunWorkingMemory,
+    resumeRun,
     replayRun,
     type RunCostSummary,
     type RunEvent,
     type RunExecutionSnapshot,
+    type RunTraceStep,
     type TaskRun,
     type WorkingMemory,
 } from "../api/orchestration";
@@ -495,7 +498,101 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
     );
 }
 
-const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+const TERMINAL = new Set(["completed", "failed", "cancelled", "blocked"]);
+
+function readTraceSteps(snapshot: RunExecutionSnapshot | undefined, events: RunEvent[]): RunTraceStep[] {
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+        const candidate = events[i]?.payload?.trace;
+        if (Array.isArray(candidate)) {
+            return candidate as RunTraceStep[];
+        }
+    }
+    return snapshot?.trace ?? [];
+}
+
+function RunTraceView({ trace }: { trace: RunTraceStep[] }) {
+    if (trace.length === 0) {
+        return <Typography variant="body2" color="text.secondary">No durable trace recorded yet.</Typography>;
+    }
+    return (
+        <Stack spacing={1}>
+            {trace.map((step) => (
+                <Paper
+                    key={step.step_id}
+                    variant="outlined"
+                    sx={(theme) => ({
+                        p: 1.5,
+                        borderRadius: 2,
+                        borderColor: step.is_current ? theme.palette.info.main : undefined,
+                    })}
+                >
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                        <Box>
+                            <Typography variant="subtitle2">{step.sequence}. {step.title}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {humanizeKey(step.actor)} · attempts {step.attempts}
+                            </Typography>
+                        </Box>
+                        <Chip
+                            size="small"
+                            color={
+                                step.status === "completed"
+                                    ? "success"
+                                    : step.status === "failed"
+                                      ? "error"
+                                      : step.status === "blocked"
+                                        ? "warning"
+                                        : step.status === "in_progress"
+                                          ? "info"
+                                          : "default"
+                            }
+                            label={humanizeKey(step.status)}
+                        />
+                    </Stack>
+                    {(step.started_at || step.completed_at || step.last_error) && (
+                        <Stack spacing={0.5} sx={{ mt: 1 }}>
+                            {step.started_at && (
+                                <Typography variant="caption" color="text.secondary">
+                                    Started {formatDateTime(step.started_at)}
+                                </Typography>
+                            )}
+                            {step.completed_at && (
+                                <Typography variant="caption" color="text.secondary">
+                                    Completed {formatDateTime(step.completed_at)}
+                                </Typography>
+                            )}
+                            {step.last_error && <Alert severity="warning">{step.last_error}</Alert>}
+                        </Stack>
+                    )}
+                </Paper>
+            ))}
+        </Stack>
+    );
+}
+
+function WorkflowGraphView({ trace }: { trace: RunTraceStep[] }) {
+    if (trace.length === 0) {
+        return <Typography variant="body2" color="text.secondary">No workflow steps recorded yet.</Typography>;
+    }
+    const edges = trace.slice(1).map((step, idx) => ({
+        from: trace[idx],
+        to: step,
+    }));
+    return (
+        <Stack spacing={1}>
+            {edges.map((edge, idx) => (
+                <Paper key={`${edge.from.step_id}-${edge.to.step_id}-${idx}`} sx={{ p: 1.25, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                    <Typography variant="body2">
+                        <strong>{humanizeKey(edge.from.step_id)}</strong> {" -> "} <strong>{humanizeKey(edge.to.step_id)}</strong>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {humanizeKey(edge.from.status)} {" -> "} {humanizeKey(edge.to.status)}
+                    </Typography>
+                </Paper>
+            ))}
+        </Stack>
+    );
+}
 
 export default function RunInspectorPage() {
     const { runId } = useParams<{ runId: string }>();
@@ -504,7 +601,8 @@ export default function RunInspectorPage() {
     const [events, setEvents] = useState<RunEvent[]>([]);
     const [streaming, setStreaming] = useState(false);
     const [streamError, setStreamError] = useState<string | null>(null);
-    const [tab, setTab] = useState<"timeline" | "conversation">("timeline");
+    const [tab, setTab] = useState<"timeline" | "trace" | "graph" | "conversation">("timeline");
+    const [replayModelName, setReplayModelName] = useState("");
     const bottomRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
 
@@ -534,6 +632,11 @@ export default function RunInspectorPage() {
             return st && TERMINAL.has(st) ? false : 4000;
         },
     });
+    const { data: runExplanation } = useQuery({
+        queryKey: ["orchestration", "run", runId, "explanation"],
+        queryFn: () => getRunExplanation(runId!),
+        enabled: Boolean(runId),
+    });
 
     const { data: workingMemory } = useQuery({
         queryKey: ["orchestration", "run", runId, "working-memory"],
@@ -550,7 +653,7 @@ export default function RunInspectorPage() {
         setWmObjective(workingMemory.objective);
         setWmFindings(workingMemory.latest_findings);
         setWmQuestions(workingMemory.open_questions);
-    }, [workingMemory?.updated_at]);
+    }, [workingMemory]);
 
     const wmPatchMutation = useMutation({
         mutationFn: (patch: Partial<Pick<WorkingMemory, "objective" | "latest_findings" | "open_questions">>) =>
@@ -576,9 +679,22 @@ export default function RunInspectorPage() {
     });
 
     const replayMutation = useMutation({
-        mutationFn: (fromIndex: number) => replayRun(runId!, fromIndex),
+        mutationFn: (fromIndex: number) => replayRun(runId!, {
+            from_event_index: fromIndex,
+            model_name: replayModelName.trim() || undefined,
+        }),
         onSuccess: (newRun) => {
             navigate(`/runs/${newRun.id}`);
+        },
+    });
+
+    const resumeMutation = useMutation({
+        mutationFn: () => resumeRun(runId!),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId] });
+            await queryClient.invalidateQueries({
+                queryKey: ["orchestration", "run", runId, "execution-state"],
+            });
         },
     });
 
@@ -678,9 +794,12 @@ export default function RunInspectorPage() {
 
     const isLive = !TERMINAL.has(run.status);
     const isFailed = run.status === "failed";
+    const isBlocked = run.status === "blocked";
     const wmEditable = ["queued", "in_progress", "blocked"].includes(run.status);
     const selectionMeta = readOrchestrationSelectionMeta(run);
     const modelRationale = selectionMeta.model_rationale;
+    const traceSteps = readTraceSteps(execSnapshot, events);
+    const canResume = Boolean(execSnapshot?.resumable) && (isFailed || isBlocked);
 
     // Build per-event timestamps for delta display
     const eventTimes = events.map((e) => new Date(e.created_at).getTime());
@@ -694,6 +813,14 @@ export default function RunInspectorPage() {
                 actions={
                     <Stack direction="row" spacing={1}>
                         <Button variant="outlined" onClick={() => navigate(-1)}>Back</Button>
+                        <TextField
+                            size="small"
+                            label="Replay model override"
+                            value={replayModelName}
+                            onChange={(e) => setReplayModelName(e.target.value)}
+                            placeholder={run.model_name || "Use original model"}
+                            sx={{ minWidth: 220 }}
+                        />
                         {isLive && (
                             <Button
                                 variant="outlined"
@@ -724,11 +851,26 @@ export default function RunInspectorPage() {
                                 Replay from checkpoint
                             </Button>
                         )}
+                        {canResume && (
+                            <Button
+                                variant="contained"
+                                color="warning"
+                                disabled={resumeMutation.isPending}
+                                onClick={() => resumeMutation.mutate()}
+                            >
+                                Resume from checkpoint
+                            </Button>
+                        )}
                     </Stack>
                 }
             />
 
             <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} />
+            {runExplanation && (
+                <SectionCard title="Explain this run" description="Plain-English narrative for stakeholders and audit reviews.">
+                    <Typography variant="body2">{String(runExplanation.summary ?? "")}</Typography>
+                </SectionCard>
+            )}
 
             <SectionCard
                 title="Execution snapshot"
@@ -863,6 +1005,8 @@ export default function RunInspectorPage() {
             <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
                 <Tabs value={tab} onChange={(_, v) => setTab(v)}>
                     <Tab label={`Timeline (${events.length})`} value="timeline" />
+                    <Tab label={`Trace (${traceSteps.length})`} value="trace" />
+                    <Tab label="Workflow graph" value="graph" />
                     <Tab label="Conversation" value="conversation" />
                 </Tabs>
             </Box>
@@ -899,6 +1043,24 @@ export default function RunInspectorPage() {
                         ))}
                         <div ref={bottomRef} />
                     </Stack>
+                </SectionCard>
+            )}
+
+            {tab === "trace" && (
+                <SectionCard
+                    title="Execution trace"
+                    description="Durable supervisor/worker workflow trace from checkpointed execution steps."
+                >
+                    <RunTraceView trace={traceSteps} />
+                </SectionCard>
+            )}
+
+            {tab === "graph" && (
+                <SectionCard
+                    title="Workflow graph"
+                    description="Step-to-step DAG derived from durable trace transitions."
+                >
+                    <WorkflowGraphView trace={traceSteps} />
                 </SectionCard>
             )}
 

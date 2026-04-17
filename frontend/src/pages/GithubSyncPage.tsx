@@ -15,12 +15,14 @@ import {
     createGithubConnection,
     getGithubAppInstallUrl,
     importGithubIssues,
+    listAgents,
     listGithubConnections,
     listGithubIssueLinks,
     listGithubRepositories,
     listGithubSyncEvents,
     listOrchestrationProjects,
     syncGithubRepositories,
+    updateOrchestrationTask,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -34,10 +36,19 @@ export function GithubSyncPanel() {
     const [importForm, setImportForm] = useState({ project_id: "", repository_id: "", issue_numbers: "" });
 
     const { data: projects = [] } = useQuery({ queryKey: ["orchestration", "projects"], queryFn: listOrchestrationProjects });
+    const { data: agents = [] } = useQuery({ queryKey: ["orchestration", "agents"], queryFn: () => listAgents() });
     const { data: connections = [] } = useQuery({ queryKey: ["orchestration", "github", "connections"], queryFn: listGithubConnections });
     const { data: repositories = [] } = useQuery({ queryKey: ["orchestration", "github", "repositories"], queryFn: listGithubRepositories });
-    const { data: issueLinks = [] } = useQuery({ queryKey: ["orchestration", "github", "issues"], queryFn: () => listGithubIssueLinks() });
-    const { data: syncEvents = [] } = useQuery({ queryKey: ["orchestration", "github", "events"], queryFn: () => listGithubSyncEvents() });
+    const { data: issueLinks = [] } = useQuery({
+        queryKey: ["orchestration", "github", "issues"],
+        queryFn: () => listGithubIssueLinks(),
+        refetchInterval: 5000,
+    });
+    const { data: syncEvents = [] } = useQuery({
+        queryKey: ["orchestration", "github", "events"],
+        queryFn: () => listGithubSyncEvents(),
+        refetchInterval: 5000,
+    });
 
     const installAppMutation = useMutation({
         mutationFn: getGithubAppInstallUrl,
@@ -71,6 +82,14 @@ export function GithubSyncPanel() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "github"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project"] });
             showToast({ message: "Issues imported into internal tasks.", severity: "success" });
+        },
+    });
+    const assignMutation = useMutation({
+        mutationFn: ({ projectId, taskId, agentId }: { projectId: string; taskId: string; agentId: string }) =>
+            updateOrchestrationTask(projectId, taskId, { assigned_agent_id: agentId || null }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "issues"] });
+            showToast({ message: "Issue assignment mirrored to internal task.", severity: "success" });
         },
     });
 
@@ -136,6 +155,25 @@ export function GithubSyncPanel() {
                             <Paper key={item.id} sx={{ p: 1.5, borderRadius: 3 }}>
                                 <Typography variant="subtitle2">#{item.issue_number} {item.title}</Typography>
                                 <Typography variant="caption" color="text.secondary">{item.state} • task {item.task_id || "pending"}</Typography>
+                                {item.task_id && typeof item.metadata?.project_id === "string" && (
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Assigned agent"
+                                        value={String(item.metadata?.assigned_agent_id ?? "")}
+                                        onChange={(event) => assignMutation.mutate({
+                                            projectId: String(item.metadata.project_id),
+                                            taskId: item.task_id!,
+                                            agentId: event.target.value,
+                                        })}
+                                        sx={{ mt: 1, minWidth: 220 }}
+                                    >
+                                        <MenuItem value="">Unassigned</MenuItem>
+                                        {agents.map((agent) => (
+                                            <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                )}
                             </Paper>
                         ))}
                     </Stack>

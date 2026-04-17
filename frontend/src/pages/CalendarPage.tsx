@@ -70,7 +70,7 @@ export default function CalendarPage() {
                         >
                             Open {coreDomainPlural}
                         </Button>
-                        <Button variant="text" onClick={() => navigate("/agent-projects")}>
+                        <Button variant="text" onClick={() => navigate("/projects?tab=agents")}>
                             Agent projects
                         </Button>
                     </Stack>

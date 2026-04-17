@@ -74,6 +74,7 @@ export function ProviderSettingsPanel() {
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
         queryFn: () => listProviders(),
+        refetchInterval: 10_000,
     });
     const { data: modelCapabilities = [] } = useQuery({
         queryKey: ["orchestration", "provider-model-capabilities"],
@@ -86,6 +87,23 @@ export function ProviderSettingsPanel() {
             accumulator[item.provider_type].push(item.model_slug);
             return accumulator;
         }, {});
+    }, [modelCapabilities]);
+    const capabilityMatrix = useMemo(() => {
+        const rows = modelCapabilities.map((item) => ({
+            providerType: item.provider_type,
+            modelSlug: item.model_slug,
+            supportsTools: item.supports_tools,
+            supportsVision: item.supports_vision,
+            contextTokens: item.max_context_tokens,
+            inputCost: item.cost_per_1k_input,
+            outputCost: item.cost_per_1k_output,
+        }));
+        rows.sort((a, b) =>
+            a.providerType === b.providerType
+                ? a.modelSlug.localeCompare(b.modelSlug)
+                : a.providerType.localeCompare(b.providerType)
+        );
+        return rows;
     }, [modelCapabilities]);
 
     const createMutation = useMutation({
@@ -440,6 +458,29 @@ export function ProviderSettingsPanel() {
                             </Box>
                         </>
                     )}
+                </Stack>
+            </SectionCard>
+            <SectionCard
+                title="Model capability matrix"
+                description="Provider × model × capabilities view used for policy routing and execution planning."
+            >
+                <Stack spacing={1.25}>
+                    {capabilityMatrix.map((item) => (
+                        <Paper key={`${item.providerType}-${item.modelSlug}`} sx={{ p: 1.5, borderRadius: 3 }}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} justifyContent="space-between">
+                                <Typography variant="body2">
+                                    <strong>{item.providerType}</strong> · {item.modelSlug}
+                                </Typography>
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip size="small" label={item.supportsTools ? "tools" : "no-tools"} />
+                                    <Chip size="small" label={item.supportsVision ? "vision" : "text-only"} />
+                                    <Chip size="small" label={`${item.contextTokens.toLocaleString()} ctx`} />
+                                    <Chip size="small" label={`in $${item.inputCost.toFixed(4)}/1k`} />
+                                    <Chip size="small" label={`out $${item.outputCost.toFixed(4)}/1k`} />
+                                </Stack>
+                            </Stack>
+                        </Paper>
+                    ))}
                 </Stack>
             </SectionCard>
         </Stack>

@@ -361,3 +361,5 @@ frontend/build
 frontend/dist
 frontend/node_modules
 .gitnexus
+.aider*
+opencode.json

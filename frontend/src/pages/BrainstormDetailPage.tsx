@@ -102,9 +102,18 @@ export default function BrainstormDetailPage() {
     const consensusColor =
         brainstorm?.consensus_status === "consensus" || brainstorm?.consensus_status === "soft_consensus"
             ? "success"
-            : brainstorm?.consensus_status === "loop_detected"
+            : brainstorm?.consensus_status === "loop_detected" || brainstorm?.consensus_status === "conflict"
                 ? "warning"
                 : "default";
+    const stopConditions = brainstorm?.stop_conditions ?? {};
+    const roundSummaries = useMemo(
+        () => (brainstorm?.decision_log ?? []).filter((entry) => entry.type === "round_summary"),
+        [brainstorm?.decision_log],
+    );
+    const finalEntries = useMemo(
+        () => (brainstorm?.decision_log ?? []).filter((entry) => entry.type === "final_output"),
+        [brainstorm?.decision_log],
+    );
 
     const exportMarkdown = useCallback(() => {
         if (!brainstorm) return;
@@ -299,8 +308,14 @@ export default function BrainstormDetailPage() {
                             <Typography variant="body2" color="text.secondary">
                                 Last updated: {formatDateTime(brainstorm.updated_at)}
                             </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Moderator: {agents.find((item) => item.id === brainstorm.moderator_agent_id)?.name || brainstorm.moderator_agent_id || "Auto"}
+                            </Typography>
                             <Typography variant="subtitle2" sx={{ mt: 1 }}>Consensus</Typography>
                             <Chip label={humanizeKey(brainstorm.consensus_status)} color={consensusColor} size="small" />
+                            {brainstorm.consensus_status === "conflict" ? (
+                                <Alert severity="warning">The room detected split positions with low similarity. Use the moderator summary before spending another round.</Alert>
+                            ) : null}
                             <Typography variant="subtitle2" sx={{ mt: 1 }}>Latest round summary</Typography>
                             <Typography variant="body2" color="text.secondary">
                                 {brainstorm.latest_round_summary || "No round summary yet."}
@@ -356,6 +371,59 @@ export default function BrainstormDetailPage() {
                                 Computing discourse hints…
                             </Typography>
                         )}
+                    </SectionCard>
+
+                    <SectionCard title="Guardrails" description="Room mode, stop conditions, and moderator thresholds.">
+                        <Stack spacing={1}>
+                            <Typography variant="body2" color="text.secondary">
+                                Stop on consensus: {stopConditions.stop_on_consensus ? "yes" : "no"} · Accept soft consensus: {stopConditions.accept_soft_consensus ? "yes" : "no"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Escalate on no consensus: {stopConditions.escalate_on_no_consensus ? "yes" : "no"} · Conflict requires moderation: {stopConditions.conflict_requires_moderation ? "yes" : "no"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Cost cap: ${Number(stopConditions.max_cost_usd ?? 0).toFixed(2)} · Loop threshold: {(Number(stopConditions.max_repetition_score ?? 0) * 100).toFixed(1)}%
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Soft-consensus floor: {(Number(stopConditions.soft_consensus_min_similarity ?? 0) * 100).toFixed(1)}% · Conflict ceiling: {(Number(stopConditions.conflict_pairwise_max_similarity ?? 0) * 100).toFixed(1)}%
+                            </Typography>
+                        </Stack>
+                    </SectionCard>
+
+                    <SectionCard title="Moderator log" description="Round summaries and finalization records captured in the room decision log.">
+                        <Stack spacing={1}>
+                            {roundSummaries.map((entry, index) => (
+                                <Paper key={`round-summary-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="subtitle2">Round {String(entry.round ?? index + 1)}</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Consensus: {humanizeKey(String(entry.consensus_kind ?? "open"))}
+                                        {" · "}
+                                        Conflict: {entry.conflict_signal ? "yes" : "no"}
+                                        {" · "}
+                                        Repetition: {entry.repetition_score != null ? `${(Number(entry.repetition_score) * 100).toFixed(1)}%` : "n/a"}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                        {String(entry.summary ?? "")}
+                                    </Typography>
+                                </Paper>
+                            ))}
+                            {finalEntries.map((entry, index) => (
+                                <Paper key={`final-output-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="subtitle2">Final output</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Reason: {humanizeKey(String(entry.reason ?? "completed"))} · Output: {humanizeKey(String(entry.output_type ?? brainstorm.output_type))}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                        {String(entry.content ?? "")}
+                                    </Typography>
+                                </Paper>
+                            ))}
+                            {roundSummaries.length === 0 && finalEntries.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">
+                                    No moderator records yet.
+                                </Typography>
+                            ) : null}
+                        </Stack>
                     </SectionCard>
 
                     <SectionCard title="Participants" description="Agents currently taking part in the room.">

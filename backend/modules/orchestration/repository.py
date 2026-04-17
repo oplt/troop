@@ -7,6 +7,8 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.github.repository import GithubRepositoryMixin
+from backend.modules.memory.repository import MemoryRepositoryMixin
 from backend.modules.orchestration.models import (
     AgentMemoryEntry,
     AgentProfile,
@@ -45,9 +47,16 @@ from backend.modules.orchestration.models import (
     TaskDependency,
     TaskRun,
 )
+from backend.modules.projects.orchestration_repository import OrchestrationProjectsRepositoryMixin
+from backend.modules.team.repository import TeamRepositoryMixin
 
 
-class OrchestrationRepository:
+class OrchestrationRepository(
+    TeamRepositoryMixin,
+    OrchestrationProjectsRepositoryMixin,
+    GithubRepositoryMixin,
+    MemoryRepositoryMixin,
+):
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -1436,6 +1445,20 @@ class OrchestrationRepository:
             .where(MemoryIngestJob.status == "pending")
             .order_by(MemoryIngestJob.created_at.asc())
             .limit(max(1, min(limit, 100)))
+        )
+        return list(res.scalars().all())
+
+    async def list_memory_ingest_jobs_for_project(
+        self, owner_id: str, project_id: str, *, limit: int = 80
+    ) -> list[MemoryIngestJob]:
+        res = await self.db.execute(
+            select(MemoryIngestJob)
+            .where(
+                MemoryIngestJob.owner_id == owner_id,
+                MemoryIngestJob.project_id == project_id,
+            )
+            .order_by(MemoryIngestJob.created_at.desc())
+            .limit(max(1, min(limit, 300)))
         )
         return list(res.scalars().all())
 

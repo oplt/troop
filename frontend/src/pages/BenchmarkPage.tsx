@@ -20,11 +20,13 @@ import {
 } from "@mui/icons-material";
 import {
     createEvalRecord,
+    getEvalLeaderboard,
     listAgents,
     listEvalRecords,
     listOrchestrationTasks,
     scoreEvalRecord,
     startBenchmark,
+    startHistoricalBenchmarks,
     updateEvalRecord,
     type EvalRecord,
 } from "../api/orchestration";
@@ -235,8 +237,14 @@ export default function BenchmarkPage() {
         queryKey: ["orchestration", "agents"],
         queryFn: () => listAgents(),
     });
+    const { data: leaderboard = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "evals", "leaderboard"],
+        queryFn: () => getEvalLeaderboard(projectId!),
+        enabled: Boolean(projectId),
+    });
 
     const [form, setForm] = useState({ name: "", task_id: "", agent_a_id: "", agent_b_id: "", model_a: "", model_b: "" });
+    const [historicalForm, setHistoricalForm] = useState({ agent_a_id: "", agent_b_id: "", model_a: "", model_b: "", days: "60", limit: "8" });
 
     const createMutation = useMutation({
         mutationFn: () =>
@@ -252,6 +260,21 @@ export default function BenchmarkPage() {
             setForm({ name: "", task_id: "", agent_a_id: "", agent_b_id: "", model_a: "", model_b: "" });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "evals"] });
             showToast({ message: "Benchmark created.", severity: "success" });
+        },
+    });
+    const historicalMutation = useMutation({
+        mutationFn: () => startHistoricalBenchmarks(projectId!, {
+            agent_a_id: historicalForm.agent_a_id,
+            agent_b_id: historicalForm.agent_b_id,
+            model_a: historicalForm.model_a || undefined,
+            model_b: historicalForm.model_b || undefined,
+            days: Number(historicalForm.days || 60),
+            limit: Number(historicalForm.limit || 8),
+        }),
+        onSuccess: async (result) => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "evals"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "evals", "leaderboard"] });
+            showToast({ message: `Started ${result.count} historical benchmarks.`, severity: "success" });
         },
     });
 
@@ -333,9 +356,48 @@ export default function BenchmarkPage() {
                         </Button>
                     </Stack>
                 </SectionCard>
+                <SectionCard title="Historical benchmark" description="Run A/B benchmarks across previously completed GitHub-linked issues.">
+                    <Stack spacing={2}>
+                        <TextField select label="Agent A" value={historicalForm.agent_a_id} onChange={(e) => setHistoricalForm((f) => ({ ...f, agent_a_id: e.target.value }))} size="small">
+                            <MenuItem value="">Select agent</MenuItem>
+                            {agents.map((a) => <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>)}
+                        </TextField>
+                        <TextField select label="Agent B" value={historicalForm.agent_b_id} onChange={(e) => setHistoricalForm((f) => ({ ...f, agent_b_id: e.target.value }))} size="small">
+                            <MenuItem value="">Select agent</MenuItem>
+                            {agents.map((a) => <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>)}
+                        </TextField>
+                        <TextField label="Days lookback" type="number" value={historicalForm.days} onChange={(e) => setHistoricalForm((f) => ({ ...f, days: e.target.value }))} size="small" />
+                        <TextField label="Issue limit" type="number" value={historicalForm.limit} onChange={(e) => setHistoricalForm((f) => ({ ...f, limit: e.target.value }))} size="small" />
+                        <Button
+                            variant="outlined"
+                            disabled={!historicalForm.agent_a_id || !historicalForm.agent_b_id || historicalMutation.isPending}
+                            onClick={() => historicalMutation.mutate()}
+                        >
+                            Benchmark historical issues
+                        </Button>
+                    </Stack>
+                </SectionCard>
 
                 {/* Eval list */}
                 <Stack spacing={2}>
+                    <SectionCard title="Leaderboard" description="Aggregate benchmark performance ranking by win rate, score, cost, and latency.">
+                        <Stack spacing={1}>
+                            {leaderboard.map((entry, index) => (
+                                <Paper key={entry.agent_id} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Typography variant="subtitle2">#{index + 1} {entry.agent_name}</Typography>
+                                        <Chip label={`${(entry.win_rate * 100).toFixed(1)}% win`} size="small" color="success" variant="outlined" />
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary">
+                                        W/L/T {entry.wins}/{entry.losses}/{entry.ties} • score {entry.avg_score.toFixed(1)} • ${entry.avg_cost_usd.toFixed(5)} • {entry.avg_latency_ms.toFixed(0)} ms
+                                    </Typography>
+                                </Paper>
+                            ))}
+                            {leaderboard.length === 0 && (
+                                <Typography variant="body2" color="text.secondary">No leaderboard data yet.</Typography>
+                            )}
+                        </Stack>
+                    </SectionCard>
                     {isLoading && [1, 2].map((i) => (
                         <Paper key={i} sx={{ height: 180, borderRadius: 4 }} />
                     ))}

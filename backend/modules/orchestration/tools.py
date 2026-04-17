@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.modules.orchestration.cpu_executor import execute_code_job_async
 from backend.modules.orchestration.models import (
     GithubConnection,
     GithubIssueLink,
@@ -313,87 +313,31 @@ class OrchestrationToolbox:
 
         timeout = max(1, min(int(arguments.get("timeout_seconds", 30)), 120))
         cwd = self._workspace_root()
-
-        # Try Docker sandbox first
-        docker_available = await asyncio.to_thread(self._docker_available)
-        if docker_available:
-            return await self._code_execute_docker(shell_cmd, cwd, timeout)
-
-        # Fallback: direct subprocess (host execution)
-        if use_shell_wrap:
-            args = ["bash", "-lc", shell_cmd]
-        else:
-            args = shell_cmd.split()
-
-        def _run() -> subprocess.CompletedProcess[str]:
-            return subprocess.run(
-                args,
+        if settings.CELERY_TASK_ALWAYS_EAGER:
+            result = await execute_code_job_async(
+                shell_cmd=shell_cmd,
                 cwd=str(cwd),
-                capture_output=True,
-                text=True,
                 timeout=timeout,
-                check=False,
+                use_shell_wrap=use_shell_wrap,
             )
+        else:
+            from backend.workers.orchestration import run_code_execution
 
-        result = await asyncio.to_thread(_run)
-        return {
-            "command": args,
-            "cwd": str(cwd),
-            "returncode": result.returncode,
-            "stdout": result.stdout[-4000:],
-            "stderr": result.stderr[-4000:],
-            "sandbox": "host",
-        }
-
-    @staticmethod
-    def _docker_available() -> bool:
-        try:
-            result = subprocess.run(
-                ["docker", "info"],
-                capture_output=True,
-                timeout=3,
-                check=False,
+            async_result = run_code_execution.apply_async(
+                args=[shell_cmd, str(cwd), timeout, use_shell_wrap],
+                queue=settings.CELERY_QUEUE_CPU,
             )
-            return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return False
-
-    async def _code_execute_docker(
-        self, shell_cmd: str, cwd: Path, timeout: int
-    ) -> dict[str, Any]:
-        workspace_str = str(cwd)
-        docker_args = [
-            "docker", "run",
-            "--rm",
-            "--network", "none",
-            "--memory", "256m",
-            "--cpus", "0.5",
-            "--read-only",
-            "--tmpfs", "/tmp:rw,size=64m",
-            "-v", f"{workspace_str}:/workspace:ro",
-            "-w", "/workspace",
-            "python:3.12-slim",
-            "bash", "-c", shell_cmd,
-        ]
-
-        def _run() -> subprocess.CompletedProcess[str]:
-            return subprocess.run(
-                docker_args,
-                capture_output=True,
-                text=True,
-                timeout=timeout + 10,  # extra buffer for container startup
-                check=False,
+            result = await asyncio.to_thread(
+                async_result.get,
+                timeout=max(timeout + 20, settings.ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS),
+                propagate=False,
             )
-
-        result = await asyncio.to_thread(_run)
-        return {
-            "command": shell_cmd,
-            "cwd": "/workspace",
-            "returncode": result.returncode,
-            "stdout": result.stdout[-4000:],
-            "stderr": result.stderr[-4000:],
-            "sandbox": "docker",
-        }
+            if not isinstance(result, dict):
+                raise ToolExecutionError("CPU worker returned an invalid code execution payload")
+        sandbox_mode = str(((self.project.settings_json or {}).get("hitl") or {}).get("sandbox_mode") or "allow_host_fallback")
+        if sandbox_mode == "docker_required" and str(result.get("sandbox") or "host") != "docker":
+            raise ToolExecutionError("Sandbox policy requires Docker isolation, but execution fell back to host.")
+        return result
 
     async def _fs_read(self, arguments: dict[str, Any]) -> dict[str, Any]:
         relative_path = str(arguments.get("path") or "").strip()

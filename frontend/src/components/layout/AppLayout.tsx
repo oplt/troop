@@ -36,8 +36,6 @@ import {
     Logout as LogoutIcon,
     Menu as MenuIcon,
     AccountTree as HierarchyIcon,
-    Schema as HierarchyBuilderIcon,
-    PrecisionManufacturing as AgentsIcon,
     AttachMoney as CostAnalyticsIcon,
     MultilineChart as ExecutionSignalsIcon,
     SmartToy as AiStudioIcon,
@@ -240,9 +238,7 @@ export function AppLayout() {
             ...(hasAiModule
                 ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
-            { label: "Agent Library", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
-            { label: "Team hierarchy", icon: <HierarchyIcon />, path: "/agent-hierarchy", group: "workspace" },
-            { label: "Hierarchy builder", icon: <HierarchyBuilderIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Hierarchy", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
             { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },

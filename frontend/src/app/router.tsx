@@ -19,8 +19,7 @@ const AdminUsersPage = lazy(() => import("../pages/AdminUsersPage"));
 const AdminPlatformPage = lazy(() => import("../pages/AdminPlatformPage"));
 const AdminSettingsPage = lazy(() => import("../pages/AdminSettingsPage"));
 const AiStudioPage = lazy(() => import("../pages/AiStudioPage"));
-const AgentLibraryPage = lazy(() => import("../pages/AgentLibraryPage"));
-const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProjectsPage"));
+const HierarchyPage = lazy(() => import("../pages/HierarchyPage"));
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
 const BrainstormsPage = lazy(() => import("../pages/BrainstormsPage"));
 const BrainstormDetailPage = lazy(() => import("../pages/BrainstormDetailPage"));
@@ -83,12 +82,11 @@ export function AppRouter() {
                     <Route path="/projects/:projectId" element={<SuspensePage><ProjectDetailPage /></SuspensePage>} />
                     <Route path="/platform" element={<SuspensePage><PlatformPage /></SuspensePage>} />
                     <Route path="/ai" element={<SuspensePage><AiStudioPage /></SuspensePage>} />
-                    <Route path="/agents" element={<SuspensePage><AgentLibraryPage /></SuspensePage>} />
-                    <Route path="/agent-hierarchy" element={<SuspensePage><AgentLibraryPage /></SuspensePage>} />
-                    <Route path="/hierarchy-builder" element={<SuspensePage><AgentLibraryPage /></SuspensePage>} />
+                    <Route path="/hierarchy" element={<Navigate to="/hierarchy-builder" replace />} />
+                    <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
-                    <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
+                    <Route path="/agent-projects" element={<Navigate to="/projects?tab=agents" replace />} />
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />

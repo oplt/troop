@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -63,7 +63,11 @@ import {
     listProjectDecisions,
     listProjectDocuments,
     listProjectMemory,
+    listProjectMemoryIngestJobs,
+    listSemanticMemory,
     listProjectMilestones,
+    getProjectMemorySettings,
+    patchProjectMemorySettings,
     listProviders,
     listRuns,
     searchProjectKnowledge,
@@ -73,6 +77,7 @@ import {
     startTaskRun,
     updateOrchestrationTask,
     updateOrchestrationProject,
+    updateAgent,
     updateProjectAgent,
     updateProjectMilestone,
     uploadProjectDocument,
@@ -96,6 +101,22 @@ import { formatDateTime, humanizeKey } from "../utils/formatters";
 type DetailTab = "overview" | "board" | "dag" | "agents" | "brainstorms" | "decisions" | "github" | "knowledge" | "activity";
 type ExecutionMode = "single_agent" | "manager_worker" | "debate";
 
+const BRAINSTORM_MODE_OPTIONS = [
+    { value: "exploration", label: "Exploration" },
+    { value: "solution_design", label: "Solution design" },
+    { value: "code_review", label: "Code review debate" },
+    { value: "incident_triage", label: "Incident triage" },
+    { value: "root_cause", label: "Root-cause analysis" },
+    { value: "architecture_proposal", label: "Architecture proposal" },
+] as const;
+
+const BRAINSTORM_OUTPUT_OPTIONS = [
+    { value: "implementation_plan", label: "Implementation plan" },
+    { value: "adr", label: "ADR" },
+    { value: "test_plan", label: "Test plan" },
+    { value: "risk_register", label: "Risk register" },
+] as const;
+
 const KANBAN_COLUMNS: { status: string; label: string; color: "default" | "warning" | "info" | "success" | "error" }[] = [
     { status: "backlog", label: "Backlog", color: "default" },
     { status: "queued", label: "Queued", color: "warning" },
@@ -104,6 +125,146 @@ const KANBAN_COLUMNS: { status: string; label: string; color: "default" | "warni
     { status: "completed", label: "Done", color: "success" },
     { status: "failed", label: "Failed", color: "error" },
 ];
+
+function extractApiErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error === "object" && error && "detail" in error) {
+        const detail = (error as { detail?: unknown }).detail;
+        if (typeof detail === "string" && detail.trim()) return detail;
+        if (typeof detail === "object" && detail && "message" in detail) {
+            const message = (detail as { message?: unknown }).message;
+            if (typeof message === "string" && message.trim()) return message;
+        }
+    }
+    return fallback;
+}
+
+type PolicyRoutingRule = {
+    field?: string;
+    operator?: string;
+    value?: unknown;
+    route_to?: "cheap_model_slug" | "strong_model_slug" | "local_model_slug" | string;
+};
+
+function policyFieldValue(
+    field: string,
+    sample: { priority: string; taskType: string; labels: string[]; projectSensitive: boolean }
+): unknown {
+    if (field === "task.priority") return sample.priority;
+    if (field === "task.task_type") return sample.taskType;
+    if (field === "task.labels") return sample.labels;
+    if (field === "project.is_sensitive") return sample.projectSensitive;
+    return null;
+}
+
+function policyRuleMatches(actual: unknown, operator: string, expected: unknown): boolean {
+    if (operator === "equals") return actual === expected;
+    if (operator === "contains") {
+        if (Array.isArray(actual)) return actual.includes(expected);
+        if (typeof actual === "string") return String(actual).includes(String(expected ?? ""));
+    }
+    return false;
+}
+
+function milestoneStatusColor(status: string): "success" | "warning" | "default" {
+    if (status === "completed") return "success";
+    if (status === "in_progress" || status === "active") return "warning";
+    return "default";
+}
+
+function dueDateToTime(value: string | null) {
+    return value ? new Date(value).getTime() : null;
+}
+
+type AcceptanceCriterionItem = {
+    item: string;
+    passed: boolean;
+    evidence_excerpt?: string;
+};
+
+function getAcceptanceItems(check: { name: string } & Record<string, unknown>): AcceptanceCriterionItem[] {
+    if (check.name !== "acceptance_criteria" || !Array.isArray(check.items)) {
+        return [];
+    }
+    return check.items.filter((item): item is AcceptanceCriterionItem => {
+        if (typeof item !== "object" || item === null) {
+            return false;
+        }
+        const candidate = item as Partial<AcceptanceCriterionItem>;
+        return typeof candidate.item === "string" && typeof candidate.passed === "boolean";
+    });
+}
+
+function MilestoneTimeline({ milestones }: { milestones: Array<{ id: string; title: string; due_date: string | null; status: string }> }) {
+    const theme = useTheme();
+    const sorted = useMemo(
+        () =>
+            [...milestones].sort(
+                (a, b) =>
+                    (a.due_date != null ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER) -
+                    (b.due_date != null ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER),
+            ),
+        [milestones],
+    );
+
+    if (sorted.length === 0) return null;
+
+    const dated = sorted.filter((item) => item.due_date);
+    const firstDue = dueDateToTime(dated[0]?.due_date ?? null);
+    const lastDue = dueDateToTime(dated[dated.length - 1]?.due_date ?? null);
+    const range = firstDue != null && lastDue != null ? Math.max(lastDue - firstDue, 1) : null;
+
+    return (
+        <Box sx={{ display: "grid", gap: 1.25 }}>
+            <Box sx={{ position: "relative", px: 1, pt: 1.5 }}>
+                <Box sx={{ position: "absolute", top: 14, left: 16, right: 16, height: 2, backgroundColor: theme.palette.divider }} />
+                <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 0.5 }}>
+                    {sorted.map((milestone) => {
+                        const due = milestone.due_date ? new Date(milestone.due_date) : null;
+                        const position = firstDue != null && range != null && due
+                            ? `${Math.min(100, Math.max(0, ((due.getTime() - firstDue) / range) * 100))}%`
+                            : "50%";
+                        return (
+                            <Paper
+                                key={milestone.id}
+                                variant="outlined"
+                                sx={{
+                                    position: "relative",
+                                    minWidth: 180,
+                                    p: 1.5,
+                                    borderRadius: 3,
+                                    borderColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.divider,
+                                    backgroundColor: alpha(
+                                        milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
+                                        0.06,
+                                    ),
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        position: "absolute",
+                                        top: -10,
+                                        left: `clamp(14px, ${position}, calc(100% - 14px))`,
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: "50%",
+                                        backgroundColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
+                                        border: `2px solid ${theme.palette.background.paper}`,
+                                        transform: "translateX(-50%)",
+                                    }}
+                                />
+                                <Chip label={humanizeKey(milestone.status)} size="small" color={milestoneStatusColor(milestone.status)} sx={{ mb: 1 }} />
+                                <Typography variant="subtitle2">{milestone.title}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {due ? `Due ${due.toLocaleDateString()}` : "No due date"}
+                                </Typography>
+                            </Paper>
+                        );
+                    })}
+                </Box>
+            </Box>
+        </Box>
+    );
+}
 
 // ── Acceptance Check Dialog ──────────────────────────────────
 
@@ -135,15 +296,38 @@ function AcceptanceDialog({
                             label={data.passed ? "All checks passed" : "Some checks failed"}
                             color={data.passed ? "success" : "error"}
                         />
-                        {data.checks.map((check) => (
-                            <Stack key={check.name} direction="row" spacing={1} alignItems="flex-start">
-                                {check.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
-                                <Box>
-                                    <Typography variant="body2">{check.name}</Typography>
-                                    <Typography variant="caption" color="text.secondary">{check.detail}</Typography>
-                                </Box>
+                        {data.checks.map((check) => {
+                            const acceptanceItems = getAcceptanceItems(check as { name: string } & Record<string, unknown>);
+                            return (
+                            <Stack key={check.name} spacing={0.75}>
+                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                    {check.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
+                                    <Box>
+                                        <Typography variant="body2">{check.name}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{check.detail}</Typography>
+                                    </Box>
+                                </Stack>
+                                {acceptanceItems.length > 0 ? (
+                                    <Stack spacing={0.75} sx={{ ml: 3 }}>
+                                        {acceptanceItems.map((item) => (
+                                            <Paper key={item.item} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                                    {item.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
+                                                    <Box>
+                                                        <Typography variant="body2">{item.item}</Typography>
+                                                        {item.evidence_excerpt ? (
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Evidence: {item.evidence_excerpt}
+                                                            </Typography>
+                                                        ) : null}
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                ) : null}
                             </Stack>
-                        ))}
+                        );})}
                     </Stack>
                 )}
             </DialogContent>
@@ -157,6 +341,8 @@ function AcceptanceDialog({
 function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; taskId: string; taskTitle: string }) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
+    const [maxSubtasks, setMaxSubtasks] = useState("4");
+    const [context, setContext] = useState("");
 
     const { data: subtasks = [], isLoading } = useQuery({
         queryKey: ["orchestration", "subtasks", taskId],
@@ -164,25 +350,53 @@ function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; tas
     });
 
     const decomposeMutation = useMutation({
-        mutationFn: () => decomposeTask(projectId, taskId),
+        mutationFn: () => {
+            const parsed = Number(maxSubtasks);
+            return decomposeTask(projectId, taskId, {
+                max_subtasks: Number.isFinite(parsed) && parsed > 0 ? Math.min(10, Math.max(1, parsed)) : 4,
+                context: context.trim() || undefined,
+            });
+        },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "subtasks", taskId] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
             showToast({ message: "Task decomposed into subtasks.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Failed to decompose task."), severity: "error" });
         },
     });
 
     return (
         <Box>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+            <Stack spacing={1} sx={{ mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary">Subtasks of: {taskTitle}</Typography>
-                <Button
-                    size="small"
-                    startIcon={decomposeMutation.isPending ? <CircularProgress size={12} /> : <DecomposeIcon />}
-                    disabled={decomposeMutation.isPending}
-                    onClick={() => decomposeMutation.mutate()}
-                >
-                    Decompose
-                </Button>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <TextField
+                        size="small"
+                        label="Context"
+                        value={context}
+                        onChange={(e) => setContext(e.target.value)}
+                        placeholder="payments, onboarding, migration..."
+                        fullWidth
+                    />
+                    <TextField
+                        size="small"
+                        label="Max"
+                        type="number"
+                        value={maxSubtasks}
+                        onChange={(e) => setMaxSubtasks(e.target.value)}
+                        sx={{ width: { xs: "100%", sm: 96 } }}
+                    />
+                    <Button
+                        size="small"
+                        startIcon={decomposeMutation.isPending ? <CircularProgress size={12} /> : <DecomposeIcon />}
+                        disabled={decomposeMutation.isPending}
+                        onClick={() => decomposeMutation.mutate()}
+                    >
+                        Decompose
+                    </Button>
+                </Stack>
             </Stack>
             {isLoading ? (
                 <CircularProgress size={16} />
@@ -191,8 +405,10 @@ function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; tas
             ) : (
                 <Stack spacing={0.5}>
                     {subtasks.map((sub) => (
-                        <Stack key={sub.id} direction="row" spacing={1} alignItems="center">
+                        <Stack key={sub.id} direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                             <Chip label={sub.status} size="small" variant="outlined" />
+                            {sub.metadata.parallelizable ? <Chip label="parallel" size="small" color="info" variant="outlined" /> : null}
+                            {typeof sub.metadata.blueprint_kind === "string" ? <Chip label={String(sub.metadata.blueprint_kind)} size="small" variant="outlined" /> : null}
                             <Typography variant="body2">{sub.title}</Typography>
                         </Stack>
                     ))}
@@ -295,6 +511,7 @@ function KanbanBoard({
     onPrModeChange: (taskId: string, enabled: boolean) => void;
 }) {
     const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
     const [dragging, setDragging] = useState<string | null>(null);
     const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
@@ -303,6 +520,9 @@ function KanbanBoard({
             updateOrchestrationTask(projectId, taskId, { status }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Task status update failed."), severity: "error" });
         },
     });
     const assignMutation = useMutation({
@@ -515,6 +735,50 @@ function KanbanBoard({
                                                             {row.detail ? (
                                                                 <Typography variant="caption" color="text.secondary">{row.detail}</Typography>
                                                             ) : null}
+                                                            {typeof row.payload.issue_number === "number" && task.github_repository_full_name && (
+                                                                <Link
+                                                                    href={`https://github.com/${task.github_repository_full_name}/issues/${String(row.payload.issue_number)}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    underline="hover"
+                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
+                                                                >
+                                                                    GitHub issue #{String(row.payload.issue_number)}
+                                                                </Link>
+                                                            )}
+                                                            {typeof row.payload.pr_number === "number" && task.github_repository_full_name && (
+                                                                <Link
+                                                                    href={`https://github.com/${task.github_repository_full_name}/pull/${String(row.payload.pr_number)}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    underline="hover"
+                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
+                                                                >
+                                                                    Pull request #{String(row.payload.pr_number)}
+                                                                </Link>
+                                                            )}
+                                                            {typeof row.payload.branch === "string" && task.github_repository_full_name && (
+                                                                <Link
+                                                                    href={`https://github.com/${task.github_repository_full_name}/tree/${encodeURIComponent(String(row.payload.branch))}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    underline="hover"
+                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
+                                                                >
+                                                                    Branch {String(row.payload.branch)}
+                                                                </Link>
+                                                            )}
+                                                            {(typeof row.payload.head_sha === "string" || typeof row.payload.merge_commit_sha === "string") && task.github_repository_full_name && (
+                                                                <Link
+                                                                    href={`https://github.com/${task.github_repository_full_name}/commit/${String(row.payload.merge_commit_sha || row.payload.head_sha)}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    underline="hover"
+                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
+                                                                >
+                                                                    Commit {String(row.payload.merge_commit_sha || row.payload.head_sha).slice(0, 12)}
+                                                                </Link>
+                                                            )}
                                                         </Paper>
                                                     ))
                                                 )}
@@ -678,42 +942,88 @@ export default function OrchestrationProjectDetailPage() {
     });
     const [selectedTaskId, setSelectedTaskId] = useState<string>("");
     const [selectedAgentId, setSelectedAgentId] = useState("");
-    const [brainstormTopic, setBrainstormTopic] = useState("");
-    const [brainstormParticipants, setBrainstormParticipants] = useState("");
+    const [brainstormForm, setBrainstormForm] = useState({
+        topic: "",
+        task_id: "",
+        moderator_agent_id: "",
+        participant_agent_ids: [] as string[],
+        mode: "exploration",
+        output_type: "implementation_plan",
+        max_rounds: "3",
+        max_cost_usd: "10",
+        max_repetition_score: "0.92",
+        soft_consensus_min_similarity: "0.72",
+        conflict_pairwise_max_similarity: "0.38",
+        stop_on_consensus: true,
+        accept_soft_consensus: true,
+        escalate_on_no_consensus: true,
+    });
     const [milestoneForm, setMilestoneForm] = useState({ title: "", description: "", due_date: "" });
     const [decisionForm, setDecisionForm] = useState({ title: "", decision: "", rationale: "", author_label: "" });
     const [knowledgeQuery, setKnowledgeQuery] = useState("");
+    const [includeDecisionRecall, setIncludeDecisionRecall] = useState(true);
     const [documentTtlDays, setDocumentTtlDays] = useState("30");
     const [expandedDocumentId, setExpandedDocumentId] = useState<string | null>(null);
-    const [githubForm, setGithubForm] = useState({
-        branch_prefix: "troop/{task_id}-{slug}",
-        auto_post_progress: false,
-        auto_review_on_pr_review: false,
-    });
-    const [hitlForm, setHitlForm] = useState({
-        sandbox_note: "",
-        secret_scope: "project_default",
-    });
+    const [githubForm, setGithubForm] = useState<Partial<{
+        branch_prefix: string;
+        enforce_branch_naming: boolean;
+        auto_post_progress: boolean;
+        auto_activate_review_on_pr_open: boolean;
+        auto_review_on_pr_review: boolean;
+        close_issue_with_manager_summary: boolean;
+        sync_labels_to_github: boolean;
+        sync_assignees_to_github: boolean;
+        sync_state_to_github: boolean;
+        sync_milestone_to_github: boolean;
+        repo_agent_pools_json: string;
+    }>>({});
+    const [hitlForm, setHitlForm] = useState<Partial<{
+        sandbox_note: string;
+        secret_scope: string;
+        sandbox_mode: string;
+    }>>({});
+    const [approvalReasonById, setApprovalReasonById] = useState<Record<string, string>>({});
     const [acceptanceTaskId, setAcceptanceTaskId] = useState<string | null>(null);
     const [taskRunModes, setTaskRunModes] = useState<Record<string, ExecutionMode>>({});
     const [taskPrModes, setTaskPrModes] = useState<Record<string, boolean>>({});
     const [dagDrawerTaskId, setDagDrawerTaskId] = useState<string | null>(null);
+    const [dagDependencyDrafts, setDagDependencyDrafts] = useState<Record<string, string[]>>({});
     const [projectTeamSettings, setProjectTeamSettings] = useState<null | {
         manager_agent_id: string;
         reviewer_agent_ids: string[];
+        reviewer_chain_mode: string;
         autonomy_level: string;
         provider_config_id: string;
         model_name: string;
         fallback_model: string;
+        escalation_target_agent_id: string;
         stuck_for_minutes: string;
         cost_exceeds_usd: string;
         no_consensus_after_rounds: string;
         routing_mode: string;
         sibling_load_balance: string;
         skip_unhealthy_worker_providers: boolean;
+        offline_local_only_mode: boolean;
+        enforce_project_model_policy: boolean;
+        allowed_provider_types_csv: string;
+        allowed_model_slugs_csv: string;
+        blocked_handoff_mode: string;
+        blocked_handoff_target_agent_id: string;
+        blocked_handoff_fallback_to_manager: boolean;
         sla_enabled: boolean;
         sla_warn_hours: string;
         sla_escalate_after_due_hours: string;
+    }>(null);
+    const [policyPreviewForm, setPolicyPreviewForm] = useState({
+        priority: "normal",
+        taskType: "general",
+        labelsCsv: "",
+        projectSensitive: false,
+    });
+    const [memorySettingsDraft, setMemorySettingsDraft] = useState<null | {
+        semantic_write_requires_approval: boolean;
+        episodic_retention_days: string;
+        deep_recall_mode: boolean;
     }>(null);
 
     const { data: project } = useQuery({
@@ -764,9 +1074,25 @@ export default function OrchestrationProjectDetailPage() {
         enabled: Boolean(projectId),
     });
     const { data: knowledgeResults = [] } = useQuery({
-        queryKey: ["orchestration", "project", projectId, "knowledge", knowledgeQuery],
-        queryFn: () => searchProjectKnowledge(projectId, knowledgeQuery),
+        queryKey: ["orchestration", "project", projectId, "knowledge", knowledgeQuery, includeDecisionRecall],
+        queryFn: () => searchProjectKnowledge(projectId, knowledgeQuery, undefined, { includeDecisions: includeDecisionRecall }),
         enabled: Boolean(projectId) && knowledgeQuery.trim().length >= 3,
+    });
+    const { data: semanticEntries = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "semantic-memory", knowledgeQuery],
+        queryFn: () => listSemanticMemory(projectId, knowledgeQuery.trim() ? { q: knowledgeQuery, limit: 25 } : { limit: 25 }),
+        enabled: Boolean(projectId),
+    });
+    const { data: projectMemorySettings } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "memory-settings"],
+        queryFn: () => getProjectMemorySettings(projectId),
+        enabled: Boolean(projectId),
+    });
+    const { data: memoryIngestJobs = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"],
+        queryFn: () => listProjectMemoryIngestJobs(projectId, 80),
+        enabled: Boolean(projectId),
+        refetchInterval: 5000,
     });
     const { data: memoryEntries = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "memory"],
@@ -807,21 +1133,6 @@ export default function OrchestrationProjectDetailPage() {
         queryFn: () => listWorkflowTemplates(),
     });
 
-    useEffect(() => {
-        if (!project) return;
-        const gh = (project.settings?.github as Record<string, unknown> | undefined) ?? {};
-        setGithubForm({
-            branch_prefix: String(gh.branch_prefix ?? "troop/{task_id}-{slug}"),
-            auto_post_progress: Boolean(gh.auto_post_progress),
-            auto_review_on_pr_review: Boolean(gh.auto_review_on_pr_review),
-        });
-        const hitl = (project.settings?.hitl as Record<string, unknown> | undefined) ?? {};
-        setHitlForm({
-            sandbox_note: String(hitl.sandbox_note ?? ""),
-            secret_scope: String(hitl.secret_scope ?? "project_default"),
-        });
-    }, [project?.id, project?.updated_at, project]);
-
     const { data: dagReadyList = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "dag-ready"],
         queryFn: () => listDagReadyTasks(projectId),
@@ -829,8 +1140,27 @@ export default function OrchestrationProjectDetailPage() {
     });
 
     const projectAgentMap = useMemo(() => new Set(projectAgents.map((item) => item.agent_id)), [projectAgents]);
+    const projectAgentProfiles = useMemo(
+        () => allAgents.filter((agent) => projectAgentMap.has(agent.id)),
+        [allAgents, projectAgentMap],
+    );
     const availableAgents = allAgents.filter((agent) => !projectAgentMap.has(agent.id));
     const activeRuns = runs.filter((item) => ["queued", "in_progress"].includes(item.status));
+    const brainstormParticipantProfiles = useMemo(
+        () => allAgents.filter((agent) => brainstormForm.participant_agent_ids.includes(agent.id)),
+        [allAgents, brainstormForm.participant_agent_ids],
+    );
+    const brainstormSuggestedOutput = useMemo(() => {
+        const byMode: Record<string, string> = {
+            exploration: "implementation_plan",
+            solution_design: "implementation_plan",
+            code_review: "test_plan",
+            incident_triage: "risk_register",
+            root_cause: "risk_register",
+            architecture_proposal: "adr",
+        };
+        return byMode[brainstormForm.mode] ?? "implementation_plan";
+    }, [brainstormForm.mode]);
     const dagTask = useMemo(
         () => (dagDrawerTaskId ? tasks.find((t) => t.id === dagDrawerTaskId) ?? null : null),
         [tasks, dagDrawerTaskId],
@@ -845,24 +1175,172 @@ export default function OrchestrationProjectDetailPage() {
         if (!dagTask) return [];
         return tasks.filter((t) => t.parent_task_id === dagTask.id);
     }, [tasks, dagTask]);
+    const dagTaskDependents = useMemo(() => {
+        if (!dagTask) return [];
+        return tasks.filter((task) => (task.dependency_ids ?? []).includes(dagTask.id));
+    }, [tasks, dagTask]);
+    const dagBlockedSuggestion = useMemo(() => {
+        if (!dagTask) return null;
+        const targetId = typeof dagTask.metadata?.suggested_handoff_agent_id === "string" ? dagTask.metadata.suggested_handoff_agent_id : "";
+        if (!targetId) return null;
+        const targetAgent = allAgents.find((agent) => agent.id === targetId);
+        return {
+            agentName: targetAgent?.name || targetId,
+            via: String(dagTask.metadata?.handoff_suggested_via || "handoff rule"),
+            reason: String(dagTask.metadata?.handoff_blocked_reason || ""),
+        };
+    }, [allAgents, dagTask]);
+    const dagDescendantIds = useMemo(() => {
+        if (!dagTask) return new Set<string>();
+        const dependentsById = new Map<string, string[]>();
+        for (const task of tasks) {
+            for (const depId of task.dependency_ids ?? []) {
+                const current = dependentsById.get(depId) ?? [];
+                current.push(task.id);
+                dependentsById.set(depId, current);
+            }
+        }
+        const descendants = new Set<string>();
+        const stack = [...(dependentsById.get(dagTask.id) ?? [])];
+        while (stack.length > 0) {
+            const current = stack.pop();
+            if (!current || descendants.has(current)) continue;
+            descendants.add(current);
+            stack.push(...(dependentsById.get(current) ?? []));
+        }
+        return descendants;
+    }, [dagTask, tasks]);
+    const currentDagDependencySelection = dagTask ? (dagDependencyDrafts[dagTask.id] ?? dagTask.dependency_ids ?? []) : [];
+    const githubDefaults = useMemo(() => {
+        const gh = (project?.settings?.github as Record<string, unknown> | undefined) ?? {};
+        return {
+            branch_prefix: String(gh.branch_prefix ?? "troop/{task_id}-{slug}"),
+            enforce_branch_naming: Boolean(gh.enforce_branch_naming ?? true),
+            auto_post_progress: Boolean(gh.auto_post_progress),
+            auto_activate_review_on_pr_open: Boolean(gh.auto_activate_review_on_pr_open ?? true),
+            auto_review_on_pr_review: Boolean(gh.auto_review_on_pr_review),
+            close_issue_with_manager_summary: Boolean(gh.close_issue_with_manager_summary ?? true),
+            sync_labels_to_github: Boolean(gh.sync_labels_to_github ?? true),
+            sync_assignees_to_github: Boolean(gh.sync_assignees_to_github ?? true),
+            sync_state_to_github: Boolean(gh.sync_state_to_github ?? true),
+            sync_milestone_to_github: Boolean(gh.sync_milestone_to_github ?? true),
+            repo_agent_pools_json: JSON.stringify(gh.repo_agent_pools ?? {}, null, 2),
+        };
+    }, [project?.settings]);
+    const resolvedGithubForm = { ...githubDefaults, ...githubForm };
+    const hitlDefaults = useMemo(() => {
+        const hitl = (project?.settings?.hitl as Record<string, unknown> | undefined) ?? {};
+        return {
+            sandbox_note: String(hitl.sandbox_note ?? ""),
+            secret_scope: String(hitl.secret_scope ?? "project_default"),
+            sandbox_mode: String(hitl.sandbox_mode ?? "allow_host_fallback"),
+        };
+    }, [project?.settings]);
+    const resolvedHitlForm = { ...hitlDefaults, ...hitlForm };
     const executionSettings = ((project?.settings?.execution as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
     const resolvedProjectTeamSettings = projectTeamSettings ?? {
         manager_agent_id: String((executionSettings.manager_agent_id as string | undefined) ?? ""),
         reviewer_agent_ids: Array.isArray(executionSettings.reviewer_agent_ids) ? executionSettings.reviewer_agent_ids as string[] : [],
+        reviewer_chain_mode: String((executionSettings.reviewer_chain_mode as string | undefined) ?? "sequential"),
         autonomy_level: String((executionSettings.autonomy_level as string | undefined) ?? "semi-autonomous"),
         provider_config_id: String((executionSettings.provider_config_id as string | undefined) ?? ""),
         model_name: String((executionSettings.model_name as string | undefined) ?? ""),
         fallback_model: String((executionSettings.fallback_model as string | undefined) ?? ""),
+        escalation_target_agent_id: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? [])[0]?.escalate_to as string | undefined) ?? ""),
         stuck_for_minutes: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "stuck_for_minutes")?.value as number | undefined) ?? 30),
         cost_exceeds_usd: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "cost_exceeds_usd")?.value as number | undefined) ?? 10),
         no_consensus_after_rounds: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "no_consensus_after_rounds")?.value as number | undefined) ?? 3),
-        routing_mode: String((executionSettings.routing_mode as string | undefined) ?? "balanced"),
+        routing_mode: String((executionSettings.routing_mode as string | undefined) ?? "capability_based"),
         sibling_load_balance: String((executionSettings.sibling_load_balance as string | undefined) ?? "queue_depth"),
         skip_unhealthy_worker_providers: executionSettings.skip_unhealthy_worker_providers !== false,
+        offline_local_only_mode: Boolean(executionSettings.offline_local_only_mode),
+        enforce_project_model_policy: Boolean(executionSettings.enforce_project_model_policy),
+        allowed_provider_types_csv: Array.isArray(executionSettings.allowed_provider_types)
+            ? (executionSettings.allowed_provider_types as string[]).join(", ")
+            : "",
+        allowed_model_slugs_csv: Array.isArray(executionSettings.allowed_model_slugs)
+            ? (executionSettings.allowed_model_slugs as string[]).join(", ")
+            : "",
+        blocked_handoff_mode: String(((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.mode as string | undefined) ?? "escalation_path"),
+        blocked_handoff_target_agent_id: String(((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.target_agent_id as string | undefined) ?? ""),
+        blocked_handoff_fallback_to_manager: ((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.fallback_to_manager as boolean | undefined) !== false,
         sla_enabled: ((executionSettings.sla as Record<string, unknown> | undefined)?.enabled as boolean | undefined) !== false,
         sla_warn_hours: String(((executionSettings.sla as Record<string, unknown> | undefined)?.warn_hours_before_due as number | undefined) ?? 24),
         sla_escalate_after_due_hours: String(((executionSettings.sla as Record<string, unknown> | undefined)?.escalate_hours_after_due as number | undefined) ?? 0),
     };
+    const policyRoutingPreview = useMemo(() => {
+        const policy = ((executionSettings.policy_routing as Record<string, unknown> | undefined) ?? {}) as {
+            cheap_model_slug?: string;
+            strong_model_slug?: string;
+            local_model_slug?: string;
+            rules?: PolicyRoutingRule[];
+        };
+        const labels = policyPreviewForm.labelsCsv
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+        const sample = {
+            priority: policyPreviewForm.priority,
+            taskType: policyPreviewForm.taskType,
+            labels,
+            projectSensitive: policyPreviewForm.projectSensitive,
+        };
+        const rules = Array.isArray(policy.rules) ? policy.rules : [];
+        let matchedRule: PolicyRoutingRule | null = null;
+        let routeKey = "";
+        for (const rule of rules) {
+            const field = String(rule.field ?? "");
+            const operator = String(rule.operator ?? "equals");
+            const actual = policyFieldValue(field, sample);
+            if (!policyRuleMatches(actual, operator, rule.value)) continue;
+            matchedRule = rule;
+            routeKey = String(rule.route_to ?? "");
+            break;
+        }
+        const fallbackModel =
+            resolvedProjectTeamSettings.model_name ||
+            providers.find((provider) => provider.id === resolvedProjectTeamSettings.provider_config_id)?.default_model ||
+            "provider/default";
+        const modelFromRoute = routeKey
+            ? String((policy as Record<string, unknown>)[routeKey] ?? "")
+            : "";
+        const selectedModel = modelFromRoute || fallbackModel;
+        const selectedProvider =
+            routeKey === "local_model_slug"
+                ? providers.find((provider) => provider.provider_type === "ollama" && provider.is_enabled) ?? null
+                : providers.find((provider) => provider.id === resolvedProjectTeamSettings.provider_config_id) ?? null;
+        return {
+            matchedRule,
+            routeKey,
+            selectedModel,
+            selectedProviderName: selectedProvider?.name ?? (routeKey === "local_model_slug" ? "local runtime fallback" : "project/default provider"),
+        };
+    }, [
+        executionSettings.policy_routing,
+        policyPreviewForm.labelsCsv,
+        policyPreviewForm.priority,
+        policyPreviewForm.projectSensitive,
+        policyPreviewForm.taskType,
+        providers,
+        resolvedProjectTeamSettings.model_name,
+        resolvedProjectTeamSettings.provider_config_id,
+    ]);
+    const resolvedMemorySettings = memorySettingsDraft ?? {
+        semantic_write_requires_approval: Boolean(projectMemorySettings?.semantic_write_requires_approval),
+        episodic_retention_days: String(projectMemorySettings?.episodic_retention_days ?? 90),
+        deep_recall_mode: Boolean(projectMemorySettings?.deep_recall_mode),
+    };
+    const memoryIngestCounts = useMemo(() => {
+        const counts = { pending: 0, running: 0, completed: 0, failed: 0 };
+        for (const job of memoryIngestJobs) {
+            const status = String(job.status);
+            if (status === "pending") counts.pending += 1;
+            else if (status === "running") counts.running += 1;
+            else if (status === "completed") counts.completed += 1;
+            else if (status === "failed") counts.failed += 1;
+        }
+        return counts;
+    }, [memoryIngestJobs]);
 
     const milestoneProgress = milestones.length === 0 ? 0
         : Math.round((milestones.filter((m) => m.status === "completed").length / milestones.length) * 100);
@@ -935,6 +1413,14 @@ export default function OrchestrationProjectDetailPage() {
             showToast({ message: "Project team updated.", severity: "success" });
         },
     });
+    const updateHierarchyAgentMutation = useMutation({
+        mutationFn: ({ agentId, payload }: { agentId: string; payload: Record<string, unknown> }) =>
+            updateAgent(agentId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
+            showToast({ message: "Reporting line updated.", severity: "success" });
+        },
+    });
     const saveProjectSettingsMutation = useMutation({
         mutationFn: (payload: Record<string, unknown>) => updateOrchestrationProject(projectId, payload),
         onSuccess: async () => {
@@ -952,10 +1438,29 @@ export default function OrchestrationProjectDetailPage() {
     const brainstormMutation = useMutation({
         mutationFn: (payload: Record<string, unknown>) => createBrainstorm(payload),
         onSuccess: async (brainstorm) => {
+            setBrainstormForm({
+                topic: "",
+                task_id: "",
+                moderator_agent_id: "",
+                participant_agent_ids: [],
+                mode: "exploration",
+                output_type: "implementation_plan",
+                max_rounds: "3",
+                max_cost_usd: "10",
+                max_repetition_score: "0.92",
+                soft_consensus_min_similarity: "0.72",
+                conflict_pairwise_max_similarity: "0.38",
+                stop_on_consensus: true,
+                accept_soft_consensus: true,
+                escalate_on_no_consensus: true,
+            });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "brainstorms"] });
             showToast({ message: "Brainstorm created.", severity: "success" });
             await startBrainstorm(brainstorm.id);
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Failed to create brainstorm."), severity: "error" });
         },
     });
     const milestoneMutation = useMutation({
@@ -971,6 +1476,23 @@ export default function OrchestrationProjectDetailPage() {
             updateProjectMilestone(projectId, id, { status }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "milestones"] });
+        },
+    });
+    const updateDagTaskMutation = useMutation({
+        mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, payload),
+        onSuccess: async (_, variables) => {
+            setDagDependencyDrafts((current) => {
+                const next = { ...current };
+                delete next[variables.taskId];
+                return next;
+            });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "dag-ready"] });
+            showToast({ message: "Task graph updated.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Failed to update task graph."), severity: "error" });
         },
     });
     const decisionMutation = useMutation({
@@ -1012,16 +1534,26 @@ export default function OrchestrationProjectDetailPage() {
         },
     });
     const memoryApprovalMutation = useMutation({
-        mutationFn: ({ approvalId, status }: { approvalId: string; status: "approved" | "rejected" }) =>
-            decideApproval(approvalId, { status }),
+        mutationFn: ({ approvalId, status, reason }: { approvalId: string; status: "approved" | "rejected"; reason?: string }) =>
+            decideApproval(approvalId, { status, reason }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
             showToast({ message: "Memory review updated.", severity: "success" });
         },
     });
+    const memorySettingsMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => patchProjectMemorySettings(projectId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory-settings"] });
+            showToast({ message: "Memory rules updated.", severity: "success" });
+        },
+    });
     const pendingMemoryApprovals = approvals.filter(
         (approval) => approval.project_id === projectId && approval.approval_type === "agent_memory_write" && approval.status === "pending",
+    );
+    const pendingProjectApprovals = approvals.filter(
+        (approval) => approval.project_id === projectId && approval.status === "pending",
     );
 
     const providerOptions: ProviderConfig[] = providers;
@@ -1030,17 +1562,17 @@ export default function OrchestrationProjectDetailPage() {
             {
                 condition: "stuck_for_minutes",
                 value: Number(resolvedProjectTeamSettings.stuck_for_minutes || 0),
-                escalate_to: resolvedProjectTeamSettings.manager_agent_id || null,
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
             },
             {
                 condition: "cost_exceeds_usd",
                 value: Number(resolvedProjectTeamSettings.cost_exceeds_usd || 0),
-                escalate_to: resolvedProjectTeamSettings.manager_agent_id || null,
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
             },
             {
                 condition: "no_consensus_after_rounds",
                 value: Number(resolvedProjectTeamSettings.no_consensus_after_rounds || 0),
-                escalate_to: resolvedProjectTeamSettings.manager_agent_id || null,
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
             },
         ];
         saveProjectSettingsMutation.mutate({
@@ -1050,14 +1582,30 @@ export default function OrchestrationProjectDetailPage() {
                     ...executionSettings,
                     manager_agent_id: resolvedProjectTeamSettings.manager_agent_id || null,
                     reviewer_agent_ids: resolvedProjectTeamSettings.reviewer_agent_ids,
+                    reviewer_chain_mode: resolvedProjectTeamSettings.reviewer_chain_mode || "sequential",
                     autonomy_level: resolvedProjectTeamSettings.autonomy_level,
                     provider_config_id: resolvedProjectTeamSettings.provider_config_id || null,
                     model_name: resolvedProjectTeamSettings.model_name || null,
                     fallback_model: resolvedProjectTeamSettings.fallback_model || null,
                     escalation_rules: escalationRules,
-                    routing_mode: resolvedProjectTeamSettings.routing_mode || "balanced",
+                    routing_mode: resolvedProjectTeamSettings.routing_mode || "capability_based",
                     sibling_load_balance: resolvedProjectTeamSettings.sibling_load_balance || "queue_depth",
                     skip_unhealthy_worker_providers: resolvedProjectTeamSettings.skip_unhealthy_worker_providers,
+                    offline_local_only_mode: resolvedProjectTeamSettings.offline_local_only_mode,
+                    enforce_project_model_policy: resolvedProjectTeamSettings.enforce_project_model_policy,
+                    allowed_provider_types: resolvedProjectTeamSettings.allowed_provider_types_csv
+                        .split(",")
+                        .map((item) => item.trim().toLowerCase())
+                        .filter(Boolean),
+                    allowed_model_slugs: resolvedProjectTeamSettings.allowed_model_slugs_csv
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    blocked_handoff: {
+                        mode: resolvedProjectTeamSettings.blocked_handoff_mode || "escalation_path",
+                        target_agent_id: resolvedProjectTeamSettings.blocked_handoff_target_agent_id || null,
+                        fallback_to_manager: resolvedProjectTeamSettings.blocked_handoff_fallback_to_manager,
+                    },
                     sla: {
                         enabled: resolvedProjectTeamSettings.sla_enabled,
                         warn_hours_before_due: Number(resolvedProjectTeamSettings.sla_warn_hours || 24),
@@ -1069,14 +1617,29 @@ export default function OrchestrationProjectDetailPage() {
     };
 
     const saveGithubIntegration = () => {
+        let repoAgentPools: Record<string, unknown> = {};
+        try {
+            repoAgentPools = JSON.parse(resolvedGithubForm.repo_agent_pools_json || "{}") as Record<string, unknown>;
+        } catch {
+            showToast({ message: "Repo agent pools must be valid JSON.", severity: "error" });
+            return;
+        }
         saveProjectSettingsMutation.mutate({
             settings: {
                 ...(project?.settings ?? {}),
                 github: {
                     ...((project?.settings?.github as Record<string, unknown> | undefined) ?? {}),
-                    branch_prefix: githubForm.branch_prefix,
-                    auto_post_progress: githubForm.auto_post_progress,
-                    auto_review_on_pr_review: githubForm.auto_review_on_pr_review,
+                    branch_prefix: resolvedGithubForm.branch_prefix,
+                    enforce_branch_naming: resolvedGithubForm.enforce_branch_naming,
+                    auto_post_progress: resolvedGithubForm.auto_post_progress,
+                    auto_activate_review_on_pr_open: resolvedGithubForm.auto_activate_review_on_pr_open,
+                    auto_review_on_pr_review: resolvedGithubForm.auto_review_on_pr_review,
+                    close_issue_with_manager_summary: resolvedGithubForm.close_issue_with_manager_summary,
+                    sync_labels_to_github: resolvedGithubForm.sync_labels_to_github,
+                    sync_assignees_to_github: resolvedGithubForm.sync_assignees_to_github,
+                    sync_state_to_github: resolvedGithubForm.sync_state_to_github,
+                    sync_milestone_to_github: resolvedGithubForm.sync_milestone_to_github,
+                    repo_agent_pools: repoAgentPools,
                 },
             },
         });
@@ -1088,8 +1651,9 @@ export default function OrchestrationProjectDetailPage() {
                 ...(project?.settings ?? {}),
                 hitl: {
                     ...((project?.settings?.hitl as Record<string, unknown> | undefined) ?? {}),
-                    sandbox_note: hitlForm.sandbox_note,
-                    secret_scope: hitlForm.secret_scope,
+                    sandbox_note: resolvedHitlForm.sandbox_note,
+                    secret_scope: resolvedHitlForm.secret_scope,
+                    sandbox_mode: resolvedHitlForm.sandbox_mode,
                 },
             },
         });
@@ -1119,11 +1683,11 @@ export default function OrchestrationProjectDetailPage() {
                         <Button
                             variant="outlined"
                             size="small"
-                            onClick={() => navigate(`/agent-projects/${projectId}/memory`)}
+                            onClick={() => navigate(`/projects/${projectId}/memory`)}
                         >
                             Memory
                         </Button>
-                        <Button variant="outlined" size="small" onClick={() => navigate(`/agent-projects/${projectId}/benchmark`)}>
+                        <Button variant="outlined" size="small" onClick={() => navigate(`/projects/${projectId}/benchmark`)}>
                             Benchmarks
                         </Button>
                     </Stack>
@@ -1156,12 +1720,15 @@ export default function OrchestrationProjectDetailPage() {
                             description="Track project milestones and overall progress."
                         >
                             {milestones.length > 0 && (
-                                <Box sx={{ mb: 2 }}>
-                                    <LinearProgress variant="determinate" value={milestoneProgress} sx={{ height: 6, borderRadius: 3 }} />
-                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                                        {milestones.filter((m) => m.status === "completed").length} / {milestones.length} completed
-                                    </Typography>
-                                </Box>
+                                <Stack spacing={2} sx={{ mb: 2 }}>
+                                    <Box>
+                                        <LinearProgress variant="determinate" value={milestoneProgress} sx={{ height: 6, borderRadius: 3 }} />
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                                            {milestones.filter((m) => m.status === "completed").length} / {milestones.length} completed
+                                        </Typography>
+                                    </Box>
+                                    <MilestoneTimeline milestones={milestones} />
+                                </Stack>
                             )}
                             <Stack spacing={1}>
                                 {milestones.map((m) => (
@@ -1186,6 +1753,7 @@ export default function OrchestrationProjectDetailPage() {
                             <Divider sx={{ my: 1.5 }} />
                             <Stack spacing={1}>
                                 <TextField size="small" label="Milestone title" value={milestoneForm.title} onChange={(e) => setMilestoneForm((f) => ({ ...f, title: e.target.value }))} />
+                                <TextField size="small" label="Description" value={milestoneForm.description} onChange={(e) => setMilestoneForm((f) => ({ ...f, description: e.target.value }))} multiline minRows={2} />
                                 <TextField
                                     size="small" type="date" label="Due date"
                                     InputLabelProps={{ shrink: true }}
@@ -1197,6 +1765,7 @@ export default function OrchestrationProjectDetailPage() {
                                     disabled={!milestoneForm.title.trim()}
                                     onClick={() => milestoneMutation.mutate({
                                         title: milestoneForm.title,
+                                        description: milestoneForm.description || null,
                                         due_date: milestoneForm.due_date || null,
                                     })}
                                 >
@@ -1283,6 +1852,56 @@ export default function OrchestrationProjectDetailPage() {
                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
                                             Suggested: {JSON.stringify(tpl.suggested_execution)}
                                         </Typography>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </SectionCard>
+                        <SectionCard
+                            title="Pending approvals"
+                            description="Approve or reject blocked actions inline. Rejections require a reason."
+                        >
+                            <Stack spacing={1.5}>
+                                {pendingProjectApprovals.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary">No pending approvals.</Typography>
+                                ) : pendingProjectApprovals.map((approval) => (
+                                    <Paper key={approval.id} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                        <Stack spacing={1}>
+                                            <Typography variant="subtitle2">{humanizeKey(approval.approval_type)}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Requested {formatDateTime(approval.created_at)}
+                                            </Typography>
+                                            <TextField
+                                                size="small"
+                                                label="Reason"
+                                                value={approvalReasonById[approval.id] ?? ""}
+                                                onChange={(e) => setApprovalReasonById((current) => ({ ...current, [approval.id]: e.target.value }))}
+                                                placeholder="Required when rejecting"
+                                            />
+                                            <Stack direction="row" spacing={1}>
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "approved", reason: approvalReasonById[approval.id] || undefined })}
+                                                >
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="error"
+                                                    onClick={() => {
+                                                        const reason = (approvalReasonById[approval.id] ?? "").trim();
+                                                        if (!reason) {
+                                                            showToast({ message: "Rejection reason is required.", severity: "warning" });
+                                                            return;
+                                                        }
+                                                        memoryApprovalMutation.mutate({ approvalId: approval.id, status: "rejected", reason });
+                                                    }}
+                                                >
+                                                    Reject
+                                                </Button>
+                                            </Stack>
+                                        </Stack>
                                     </Paper>
                                 ))}
                             </Stack>
@@ -1380,7 +1999,14 @@ export default function OrchestrationProjectDetailPage() {
                             </Button>
                         </Stack>
                     </SectionCard>
-                    <SectionCard title="Task dependency graph" description="Nodes represent tasks; click a node for details and shortcuts. Arrows point from dependency → dependent. Drag tasks on the board tab to change status.">
+                    <SectionCard title="Task dependency graph" description="Nodes represent tasks; click a node to edit dependencies, inspect downstream impact, and run or merge work. Arrows point from dependency → dependent. Drag tasks on the board tab to change status.">
+                        {dagReadyList.length > 0 ? (
+                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                                {dagReadyList.slice(0, 8).map((task) => (
+                                    <Chip key={task.id} label={`Ready: ${task.title}`} size="small" color="info" variant="outlined" />
+                                ))}
+                            </Stack>
+                        ) : null}
                         <DagView
                             tasks={tasks}
                             selectedDagTaskId={dagDrawerTaskId}
@@ -1431,6 +2057,38 @@ export default function OrchestrationProjectDetailPage() {
                                                     <MenuItem value="reviewer">Reviewer</MenuItem>
                                                     <MenuItem value="moderator">Moderator</MenuItem>
                                                 </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reports to"
+                                                    value={agent?.parent_agent_id ?? ""}
+                                                    onChange={(event) => updateHierarchyAgentMutation.mutate({
+                                                        agentId: membership.agent_id,
+                                                        payload: { parent_agent_id: event.target.value || null },
+                                                    })}
+                                                    sx={{ minWidth: 180 }}
+                                                >
+                                                    <MenuItem value="">None</MenuItem>
+                                                    {projectAgentProfiles.filter((item) => item.id !== membership.agent_id).map((candidate) => (
+                                                        <MenuItem key={`parent-${candidate.id}`} value={candidate.id}>{candidate.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reviewer"
+                                                    value={agent?.reviewer_agent_id ?? ""}
+                                                    onChange={(event) => updateHierarchyAgentMutation.mutate({
+                                                        agentId: membership.agent_id,
+                                                        payload: { reviewer_agent_id: event.target.value || null },
+                                                    })}
+                                                    sx={{ minWidth: 180 }}
+                                                >
+                                                    <MenuItem value="">None</MenuItem>
+                                                    {projectAgentProfiles.filter((item) => item.id !== membership.agent_id).map((candidate) => (
+                                                        <MenuItem key={`reviewer-${candidate.id}`} value={candidate.id}>{candidate.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
                                                 <Button
                                                     size="small"
                                                     variant={membership.is_default_manager ? "contained" : "outlined"}
@@ -1464,17 +2122,29 @@ export default function OrchestrationProjectDetailPage() {
                                 <TextField
                                     select
                                     SelectProps={{ multiple: true }}
-                                    label="Reviewer agents"
+                                    label="Reviewer chain"
                                     value={resolvedProjectTeamSettings.reviewer_agent_ids}
                                     onChange={(event) => setProjectTeamSettings((current) => ({
                                         ...(current ?? resolvedProjectTeamSettings),
                                         reviewer_agent_ids: typeof event.target.value === "string" ? [event.target.value] : event.target.value,
                                     }))}
+                                    helperText="Ordered reviewers. Each approval hands off to the next reviewer before the task is finally approved."
                                 >
                                     {projectAgents.map((membership) => {
                                         const agent = allAgents.find((item) => item.id === membership.agent_id);
                                         return <MenuItem key={`reviewer-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
                                     })}
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Reviewer chain mode"
+                                    value={resolvedProjectTeamSettings.reviewer_chain_mode}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        reviewer_chain_mode: event.target.value,
+                                    }))}
+                                >
+                                    <MenuItem value="sequential">Sequential</MenuItem>
                                 </TextField>
                                 <TextField
                                     select
@@ -1514,19 +2184,21 @@ export default function OrchestrationProjectDetailPage() {
                                 <Divider />
                                 <Typography variant="subtitle2">Worker routing</Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    Auto-assignment uses required_tools coverage, queue depth, task due_date when routing_mode is SLA-aware, and provider health when a health check has marked a provider unhealthy.
-                                    User-pinned workers (task or project execution) still win over auto-selection.
+                                    Auto-assignment can optimize for capability match, deadlines, provider health, cost, or explicit pinning. User-pinned workers still win over auto-selection.
                                 </Typography>
                                 <TextField
                                     select
                                     label="Routing mode"
                                     value={resolvedProjectTeamSettings.routing_mode}
                                     onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), routing_mode: event.target.value }))}
-                                    helperText="sla_priority weights queue depth more as due_date approaches."
+                                    helperText="Matches the Stage 2 routing modes. Pinned workers still override automatic routing."
                                 >
-                                    <MenuItem value="balanced">Balanced (default)</MenuItem>
-                                    <MenuItem value="sla_priority">SLA / due-date priority</MenuItem>
-                                    <MenuItem value="throughput">Throughput (lighter queue weight)</MenuItem>
+                                    <MenuItem value="capability_based">Capability-based</MenuItem>
+                                    <MenuItem value="priority_sla">Priority / SLA aware</MenuItem>
+                                    <MenuItem value="cost_aware">Cost-aware</MenuItem>
+                                    <MenuItem value="model_availability">Model availability</MenuItem>
+                                    <MenuItem value="user_pinned">User-pinned fallback mode</MenuItem>
+                                    <MenuItem value="throughput">Throughput</MenuItem>
                                 </TextField>
                                 <TextField
                                     select
@@ -1548,6 +2220,97 @@ export default function OrchestrationProjectDetailPage() {
                                     />
                                     <Typography variant="body2">Deprioritize workers whose provider failed the last health check</Typography>
                                 </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.offline_local_only_mode}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            offline_local_only_mode: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Offline/local-only mode (restrict execution to local providers)</Typography>
+                                </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.enforce_project_model_policy}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            enforce_project_model_policy: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Enforce project model policy allowlists</Typography>
+                                </Stack>
+                                <TextField
+                                    label="Allowed provider types (CSV)"
+                                    value={resolvedProjectTeamSettings.allowed_provider_types_csv}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        allowed_provider_types_csv: event.target.value,
+                                    }))}
+                                    helperText="Example: openai, openai_compatible, ollama"
+                                />
+                                <TextField
+                                    label="Allowed model slugs (CSV)"
+                                    value={resolvedProjectTeamSettings.allowed_model_slugs_csv}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        allowed_model_slugs_csv: event.target.value,
+                                    }))}
+                                    helperText="Optional strict allowlist for model names."
+                                />
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Stack spacing={1.25}>
+                                        <Typography variant="subtitle2">Policy routing preview</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Simulate routing for a sample task before starting a run.
+                                        </Typography>
+                                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25}>
+                                            <TextField
+                                                select
+                                                label="Sample priority"
+                                                value={policyPreviewForm.priority}
+                                                onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, priority: event.target.value }))}
+                                                fullWidth
+                                            >
+                                                <MenuItem value="low">low</MenuItem>
+                                                <MenuItem value="normal">normal</MenuItem>
+                                                <MenuItem value="high">high</MenuItem>
+                                                <MenuItem value="urgent">urgent</MenuItem>
+                                            </TextField>
+                                            <TextField
+                                                label="Sample task type"
+                                                value={policyPreviewForm.taskType}
+                                                onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, taskType: event.target.value }))}
+                                                fullWidth
+                                            />
+                                        </Stack>
+                                        <TextField
+                                            label="Sample labels (CSV)"
+                                            value={policyPreviewForm.labelsCsv}
+                                            onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, labelsCsv: event.target.value }))}
+                                        />
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Switch
+                                                checked={policyPreviewForm.projectSensitive}
+                                                onChange={(_, checked) => setPolicyPreviewForm((current) => ({ ...current, projectSensitive: checked }))}
+                                            />
+                                            <Typography variant="body2">Project is sensitive</Typography>
+                                        </Stack>
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                            <Chip
+                                                size="small"
+                                                color={policyRoutingPreview.routeKey ? "info" : "default"}
+                                                label={
+                                                    policyRoutingPreview.routeKey
+                                                        ? `Matched route: ${policyRoutingPreview.routeKey}`
+                                                        : "No matching route rule"
+                                                }
+                                            />
+                                            <Chip size="small" color="success" label={`Model: ${policyRoutingPreview.selectedModel}`} />
+                                            <Chip size="small" variant="outlined" label={`Provider: ${policyRoutingPreview.selectedProviderName}`} />
+                                        </Stack>
+                                    </Stack>
+                                </Paper>
                                 <Divider />
                                 <Typography variant="subtitle2">Task SLA (deadline scan)</Typography>
                                 <Typography variant="body2" color="text.secondary">
@@ -1586,6 +2349,22 @@ export default function OrchestrationProjectDetailPage() {
                                 </Stack>
                                 <Divider />
                                 <Typography variant="subtitle2">Escalation rules</Typography>
+                                <TextField
+                                    select
+                                    label="Escalation target"
+                                    value={resolvedProjectTeamSettings.escalation_target_agent_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        escalation_target_agent_id: event.target.value,
+                                    }))}
+                                    helperText="Default recipient for rule-based escalations."
+                                >
+                                    <MenuItem value="">Project manager</MenuItem>
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={`escalate-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
                                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                     <TextField
                                         label="Stuck for minutes"
@@ -1605,6 +2384,47 @@ export default function OrchestrationProjectDetailPage() {
                                         onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), no_consensus_after_rounds: event.target.value }))}
                                         fullWidth
                                     />
+                                </Stack>
+                                <Divider />
+                                <Typography variant="subtitle2">Blocked handoff</Typography>
+                                <TextField
+                                    select
+                                    label="Blocked-task handoff mode"
+                                    value={resolvedProjectTeamSettings.blocked_handoff_mode}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        blocked_handoff_mode: event.target.value,
+                                    }))}
+                                >
+                                    <MenuItem value="escalation_path">Worker escalation path</MenuItem>
+                                    <MenuItem value="configured_agent">Configured fallback agent</MenuItem>
+                                    <MenuItem value="sibling_with_capacity">Sibling with capacity</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Configured handoff agent"
+                                    value={resolvedProjectTeamSettings.blocked_handoff_target_agent_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        blocked_handoff_target_agent_id: event.target.value,
+                                    }))}
+                                    helperText="Used when blocked-task handoff mode is configured_agent."
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={`handoff-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.blocked_handoff_fallback_to_manager}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            blocked_handoff_fallback_to_manager: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Fall back to project manager when the selected handoff target is unavailable</Typography>
                                 </Stack>
                                 <Button variant="contained" onClick={saveProjectExecutionSettings} disabled={saveProjectSettingsMutation.isPending}>
                                     Save execution settings
@@ -1644,6 +2464,7 @@ export default function OrchestrationProjectDetailPage() {
                                             { key: "post_to_github", label: "Post to GitHub", description: "Post comments or results to a GitHub issue" },
                                             { key: "open_pr", label: "Open pull request", description: "Create a PR from generated code" },
                                             { key: "mark_complete", label: "Mark complete", description: "Transition a task to completed status" },
+                                            { key: "change_task_ownership", label: "Change task ownership", description: "Reassign task assignee/owner" },
                                             { key: "write_memory", label: "Write to memory", description: "Persist information to project memory" },
                                             { key: "use_expensive_model", label: "Use expensive model", description: "Switch to a higher-cost model mid-run" },
                                             { key: "run_tool", label: "Run external tool", description: "Execute code or call an external tool" },
@@ -1689,17 +2510,135 @@ export default function OrchestrationProjectDetailPage() {
             {/* ── Brainstorms ── */}
             {tab === "brainstorms" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0, 1fr)" } }}>
-                    <SectionCard title="Start brainstorm" description="Pick participants and queue a structured multi-agent discussion.">
+                    <SectionCard title="Start brainstorm" description="Configure room mode, participants, moderator, and guardrails before launching the discussion.">
                         <Stack spacing={2}>
-                            <TextField label="Topic" value={brainstormTopic} onChange={(e) => setBrainstormTopic(e.target.value)} />
-                            <TextField label="Participant agent IDs" helperText="Comma-separated" value={brainstormParticipants} onChange={(e) => setBrainstormParticipants(e.target.value)} multiline minRows={3} />
+                            <TextField label="Topic" value={brainstormForm.topic} onChange={(e) => setBrainstormForm((current) => ({ ...current, topic: e.target.value }))} />
+                            <TextField
+                                select
+                                label="Linked task"
+                                value={brainstormForm.task_id}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, task_id: e.target.value }))}
+                                helperText="Optional. Use this when the brainstorm should directly support a task."
+                            >
+                                <MenuItem value="">None</MenuItem>
+                                {tasks.map((task) => (
+                                    <MenuItem key={task.id} value={task.id}>{task.title}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                label="Moderator"
+                                value={brainstormForm.moderator_agent_id}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, moderator_agent_id: e.target.value }))}
+                                helperText="Leave empty to use the project manager automatically."
+                            >
+                                <MenuItem value="">Auto-select project manager</MenuItem>
+                                {projectAgentProfiles.map((agent) => (
+                                    <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                SelectProps={{ multiple: true }}
+                                label="Participants"
+                                value={brainstormForm.participant_agent_ids}
+                                onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    setBrainstormForm((current) => ({
+                                        ...current,
+                                        participant_agent_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                    }));
+                                }}
+                                helperText="At least two agents are required."
+                            >
+                                {projectAgentProfiles.map((agent) => (
+                                    <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                ))}
+                            </TextField>
+                            {brainstormParticipantProfiles.length > 0 ? (
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                    {brainstormParticipantProfiles.map((agent) => (
+                                        <Chip key={agent.id} label={agent.name} size="small" variant="outlined" />
+                                    ))}
+                                </Stack>
+                            ) : null}
+                            <TextField
+                                select
+                                label="Mode"
+                                value={brainstormForm.mode}
+                                onChange={(e) => {
+                                    const mode = e.target.value;
+                                    setBrainstormForm((current) => ({
+                                        ...current,
+                                        mode,
+                                        output_type: current.output_type === brainstormSuggestedOutput ? mode === "code_review" ? "test_plan" : mode === "incident_triage" || mode === "root_cause" ? "risk_register" : mode === "architecture_proposal" ? "adr" : "implementation_plan" : current.output_type,
+                                    }));
+                                }}
+                            >
+                                {BRAINSTORM_MODE_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                label="Output"
+                                value={brainstormForm.output_type}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, output_type: e.target.value }))}
+                                helperText={`Recommended for this mode: ${humanizeKey(brainstormSuggestedOutput)}`}
+                            >
+                                {BRAINSTORM_OUTPUT_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                <TextField label="Max rounds" type="number" value={brainstormForm.max_rounds} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_rounds: e.target.value }))} fullWidth />
+                                <TextField label="Cost cap (USD)" type="number" value={brainstormForm.max_cost_usd} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_cost_usd: e.target.value }))} fullWidth />
+                            </Stack>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                <TextField label="Loop threshold" type="number" value={brainstormForm.max_repetition_score} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_repetition_score: e.target.value }))} fullWidth />
+                                <TextField label="Soft consensus similarity" type="number" value={brainstormForm.soft_consensus_min_similarity} onChange={(e) => setBrainstormForm((current) => ({ ...current, soft_consensus_min_similarity: e.target.value }))} fullWidth />
+                            </Stack>
+                            <TextField label="Conflict similarity ceiling" type="number" value={brainstormForm.conflict_pairwise_max_similarity} onChange={(e) => setBrainstormForm((current) => ({ ...current, conflict_pairwise_max_similarity: e.target.value }))} />
+                            <FormControlLabel
+                                control={<Switch checked={brainstormForm.stop_on_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, stop_on_consensus: checked }))} />}
+                                label="Stop when consensus is reached"
+                            />
+                            <FormControlLabel
+                                control={<Switch checked={brainstormForm.accept_soft_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, accept_soft_consensus: checked }))} />}
+                                label="Accept soft consensus"
+                            />
+                            <FormControlLabel
+                                control={<Switch checked={brainstormForm.escalate_on_no_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, escalate_on_no_consensus: checked }))} />}
+                                label="Escalate if no consensus after the final round"
+                            />
+                            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                <Typography variant="subtitle2">Guardrails</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    The moderator will summarize each round automatically. The room stops on consensus, cost cap, round cap, or loop detection.
+                                </Typography>
+                            </Paper>
                             <Button
                                 variant="contained"
+                                disabled={!brainstormForm.topic.trim() || brainstormForm.participant_agent_ids.length < 2}
                                 onClick={() =>
                                     brainstormMutation.mutate({
                                         project_id: projectId,
-                                        topic: brainstormTopic,
-                                        participant_agent_ids: brainstormParticipants.split(",").map((item) => item.trim()).filter(Boolean),
+                                        task_id: brainstormForm.task_id || null,
+                                        moderator_agent_id: brainstormForm.moderator_agent_id || null,
+                                        topic: brainstormForm.topic,
+                                        participant_agent_ids: brainstormForm.participant_agent_ids,
+                                        mode: brainstormForm.mode,
+                                        output_type: brainstormForm.output_type,
+                                        max_rounds: Number(brainstormForm.max_rounds || 3),
+                                        max_cost_usd: Number(brainstormForm.max_cost_usd || 10),
+                                        max_repetition_score: Number(brainstormForm.max_repetition_score || 0.92),
+                                        stop_conditions: {
+                                            stop_on_consensus: brainstormForm.stop_on_consensus,
+                                            accept_soft_consensus: brainstormForm.accept_soft_consensus,
+                                            escalate_on_no_consensus: brainstormForm.escalate_on_no_consensus,
+                                            soft_consensus_min_similarity: Number(brainstormForm.soft_consensus_min_similarity || 0.72),
+                                            conflict_pairwise_max_similarity: Number(brainstormForm.conflict_pairwise_max_similarity || 0.38),
+                                        },
                                     })
                                 }
                             >
@@ -1711,29 +2650,44 @@ export default function OrchestrationProjectDetailPage() {
                         <Stack spacing={1.5}>
                             {brainstorms.map((brainstorm) => (
                                 <Paper key={brainstorm.id} sx={{ p: 2, borderRadius: 4 }}>
-                                    <Typography variant="subtitle2">{brainstorm.topic}</Typography>
-                                    <Typography variant="body2" color="text.secondary">{brainstorm.summary || brainstorm.final_recommendation || "Run pending or no summary yet."}</Typography>
-                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                    <Stack spacing={1.25}>
+                                        <Box>
+                                            <Typography variant="subtitle2">{brainstorm.topic}</Typography>
+                                            <Typography variant="body2" color="text.secondary">{brainstorm.summary || brainstorm.final_recommendation || "Run pending or no summary yet."}</Typography>
+                                        </Box>
+                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                            <Chip label={humanizeKey(brainstorm.status)} size="small" />
+                                            <Chip label={humanizeKey(brainstorm.mode)} size="small" variant="outlined" />
+                                            <Chip label={humanizeKey(brainstorm.output_type)} size="small" variant="outlined" />
+                                            <Chip label={`Round ${brainstorm.current_round}/${brainstorm.max_rounds}`} size="small" variant="outlined" />
+                                            <Chip
+                                                label={humanizeKey(brainstorm.consensus_status)}
+                                                size="small"
+                                                color={brainstorm.consensus_status === "consensus" || brainstorm.consensus_status === "soft_consensus" ? "success" : brainstorm.consensus_status === "conflict" || brainstorm.consensus_status === "loop_detected" ? "warning" : "default"}
+                                            />
+                                        </Stack>
                                         <Typography variant="caption" color="text.secondary">
-                                            {humanizeKey(brainstorm.status)} • {formatDateTime(brainstorm.updated_at)}
+                                            {brainstorm.participant_count} participants • updated {formatDateTime(brainstorm.updated_at)}
                                         </Typography>
-                                        <Button size="small" variant="text" onClick={() => navigate(`/brainstorms/${brainstorm.id}`)}>
-                                            Open room
-                                        </Button>
-                                        {brainstorm.final_recommendation && (
-                                            <Button
-                                                size="small" variant="text"
-                                                onClick={() => decisionMutation.mutate({
-                                                    title: brainstorm.topic,
-                                                    decision: brainstorm.final_recommendation!,
-                                                    rationale: brainstorm.summary || "",
-                                                    author_label: "Brainstorm",
-                                                    brainstorm_id: brainstorm.id,
-                                                })}
-                                            >
-                                                Promote to decision
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                            <Button size="small" variant="text" onClick={() => navigate(`/brainstorms/${brainstorm.id}`)}>
+                                                Open room
                                             </Button>
-                                        )}
+                                            {brainstorm.final_recommendation && (
+                                                <Button
+                                                    size="small" variant="text"
+                                                    onClick={() => decisionMutation.mutate({
+                                                        title: brainstorm.topic,
+                                                        decision: brainstorm.final_recommendation!,
+                                                        rationale: brainstorm.summary || "",
+                                                        author_label: "Brainstorm",
+                                                        brainstorm_id: brainstorm.id,
+                                                    })}
+                                                >
+                                                    Promote to decision
+                                                </Button>
+                                            )}
+                                        </Stack>
                                     </Stack>
                                 </Paper>
                             ))}
@@ -1788,34 +2742,109 @@ export default function OrchestrationProjectDetailPage() {
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" } }}>
                     <SectionCard
                         title="GitHub integration"
-                        description="Branch naming for auto-PRs, optional progress comments, and PR-review triggered review runs."
+                        description="Branch policy, approval-gated GitHub writes, repo-specific routing, and review automation."
                     >
                         <Stack spacing={2}>
                             <TextField
                                 label="Branch name template"
                                 size="small"
                                 fullWidth
-                                value={githubForm.branch_prefix}
+                                value={resolvedGithubForm.branch_prefix}
                                 onChange={(e) => setGithubForm((f) => ({ ...f, branch_prefix: e.target.value }))}
                                 helperText="Placeholders: {task_id}, {slug} (from task title). Used when generating PR branches."
                             />
                             <FormControlLabel
                                 control={(
                                     <Switch
-                                        checked={githubForm.auto_post_progress}
-                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_post_progress: checked }))}
+                                        checked={resolvedGithubForm.enforce_branch_naming}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, enforce_branch_naming: checked }))}
                                     />
                                 )}
-                                label="Post agent progress notes to GitHub (when enabled server-side)"
+                                label="Enforce branch naming convention on GitHub PR open events"
                             />
                             <FormControlLabel
                                 control={(
                                     <Switch
-                                        checked={githubForm.auto_review_on_pr_review}
+                                        checked={resolvedGithubForm.auto_post_progress}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_post_progress: checked }))}
+                                    />
+                                )}
+                                label="Draft agent progress notes for approval when runs complete"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.auto_activate_review_on_pr_open}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_activate_review_on_pr_open: checked }))}
+                                    />
+                                )}
+                                label="Queue a Troop review run as soon as a GitHub PR opens"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.auto_review_on_pr_review}
                                         onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_review_on_pr_review: checked }))}
                                     />
                                 )}
                                 label="Queue a Troop review run when a GitHub PR review is submitted"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.close_issue_with_manager_summary}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, close_issue_with_manager_summary: checked }))}
+                                    />
+                                )}
+                                label="Draft a manager-authored issue closure summary for approval on managed runs"
+                            />
+                            <Divider />
+                            <Typography variant="subtitle2">Bidirectional sync</Typography>
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_labels_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_labels_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal labels back to GitHub issues"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_assignees_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_assignees_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal assignee changes back to GitHub issues"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_state_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_state_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal task completion state back to GitHub issue state"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_milestone_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_milestone_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync `metadata.github_milestone_number` back to GitHub issue milestone"
+                            />
+                            <TextField
+                                label="Repo agent pools JSON"
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={8}
+                                value={resolvedGithubForm.repo_agent_pools_json}
+                                onChange={(e) => setGithubForm((f) => ({ ...f, repo_agent_pools_json: e.target.value }))}
+                                helperText='Map repository id or "owner/name" to routing config. Example: {"org/repo":{"worker_agent_ids":["agent-1"],"default_assignee_agent_id":"agent-1","default_reviewer_agent_id":"agent-2","github_assignee_map":{"octocat":"agent-1"}}}'
                             />
                             <Button variant="contained" onClick={saveGithubIntegration} disabled={saveProjectSettingsMutation.isPending}>
                                 Save GitHub settings
@@ -1824,20 +2853,32 @@ export default function OrchestrationProjectDetailPage() {
                     </SectionCard>
                     <SectionCard
                         title="Sandbox & secret scoping (beta)"
-                        description="Document operational intent for HITL. Enforcement still follows agent permissions, tool allowlists, and provider configuration."
+                        description="Enforce sandbox and secret boundaries for agent tool execution."
                     >
                         <Stack spacing={2}>
                             <TextField
                                 select
+                                label="Sandbox execution policy"
+                                size="small"
+                                value={resolvedHitlForm.sandbox_mode}
+                                onChange={(e) => setHitlForm((f) => ({ ...f, sandbox_mode: e.target.value }))}
+                                fullWidth
+                            >
+                                <MenuItem value="allow_host_fallback">Allow host fallback when Docker is unavailable</MenuItem>
+                                <MenuItem value="docker_required">Require Docker sandbox (block host fallback)</MenuItem>
+                            </TextField>
+                            <TextField
+                                select
                                 label="Secret scope posture"
                                 size="small"
-                                value={hitlForm.secret_scope}
+                                value={resolvedHitlForm.secret_scope}
                                 onChange={(e) => setHitlForm((f) => ({ ...f, secret_scope: e.target.value }))}
                                 fullWidth
                             >
                                 <MenuItem value="project_default">Project default (env + provider keys)</MenuItem>
                                 <MenuItem value="repo_scoped">Prefer repository-scoped tokens when available</MenuItem>
                                 <MenuItem value="agent_scoped">Prefer per-agent secret slots (manual rotation)</MenuItem>
+                                <MenuItem value="deny_external">Deny external network + GitHub tools</MenuItem>
                             </TextField>
                             <TextField
                                 label="Sandbox / runner notes"
@@ -1845,12 +2886,12 @@ export default function OrchestrationProjectDetailPage() {
                                 multiline
                                 minRows={2}
                                 fullWidth
-                                value={hitlForm.sandbox_note}
+                                value={resolvedHitlForm.sandbox_note}
                                 onChange={(e) => setHitlForm((f) => ({ ...f, sandbox_note: e.target.value }))}
                                 placeholder="e.g. Dedicated worker queue, CPU seconds cap, egress deny list…"
                             />
                             <Button variant="outlined" onClick={saveHitlSettings} disabled={saveProjectSettingsMutation.isPending}>
-                                Save HITL notes
+                                Save HITL controls
                             </Button>
                         </Stack>
                     </SectionCard>
@@ -1959,7 +3000,97 @@ export default function OrchestrationProjectDetailPage() {
                             )}
                         </SectionCard>
                     </Stack>
-                    <SectionCard title="Semantic search" description="Query indexed chunks (minimum three characters).">
+                    <SectionCard title="Memory expiration rules" description="Control retention + approval gate for long-term memory writes.">
+                        <Stack spacing={1.25}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch
+                                    checked={resolvedMemorySettings.semantic_write_requires_approval}
+                                    onChange={(_, checked) =>
+                                        setMemorySettingsDraft((current) => ({
+                                            ...(current ?? resolvedMemorySettings),
+                                            semantic_write_requires_approval: checked,
+                                        }))
+                                    }
+                                />
+                                <Typography variant="body2">Require approval before long-term semantic memory writes</Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch
+                                    checked={resolvedMemorySettings.deep_recall_mode}
+                                    onChange={(_, checked) =>
+                                        setMemorySettingsDraft((current) => ({
+                                            ...(current ?? resolvedMemorySettings),
+                                            deep_recall_mode: checked,
+                                        }))
+                                    }
+                                />
+                                <Typography variant="body2">Enable deep recall mode for episodic retrieval</Typography>
+                            </Stack>
+                            <TextField
+                                label="Episodic retention days"
+                                value={resolvedMemorySettings.episodic_retention_days}
+                                onChange={(event) =>
+                                    setMemorySettingsDraft((current) => ({
+                                        ...(current ?? resolvedMemorySettings),
+                                        episodic_retention_days: event.target.value,
+                                    }))
+                                }
+                                helperText="Older episodic records are archived/expired by background jobs."
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={() =>
+                                    memorySettingsMutation.mutate({
+                                        semantic_write_requires_approval:
+                                            resolvedMemorySettings.semantic_write_requires_approval,
+                                        deep_recall_mode: resolvedMemorySettings.deep_recall_mode,
+                                        episodic_retention_days: Number(
+                                            resolvedMemorySettings.episodic_retention_days || 90
+                                        ),
+                                    })
+                                }
+                                disabled={memorySettingsMutation.isPending}
+                            >
+                                Save memory rules
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Ingestion jobs" description="Queue/worker visibility for repository indexing and document ingestion.">
+                        <Stack spacing={1.25}>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Chip size="small" color="warning" label={`Pending ${memoryIngestCounts.pending}`} />
+                                <Chip size="small" color="info" label={`Running ${memoryIngestCounts.running}`} />
+                                <Chip size="small" color="success" label={`Completed ${memoryIngestCounts.completed}`} />
+                                <Chip size="small" color="error" label={`Failed ${memoryIngestCounts.failed}`} />
+                            </Stack>
+                            {memoryIngestJobs.slice(0, 12).map((job) => (
+                                <Paper key={job.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
+                                        <Box>
+                                            <Typography variant="body2">{job.job_type}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatDateTime(job.created_at)}
+                                                {job.started_at ? ` • started ${formatDateTime(job.started_at)}` : ""}
+                                                {job.finished_at ? ` • finished ${formatDateTime(job.finished_at)}` : ""}
+                                            </Typography>
+                                        </Box>
+                                        <Chip size="small" label={job.status} color={job.status === "failed" ? "error" : job.status === "completed" ? "success" : job.status === "running" ? "info" : "warning"} />
+                                    </Stack>
+                                    {job.error_text ? (
+                                        <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                            {job.error_text}
+                                        </Typography>
+                                    ) : null}
+                                </Paper>
+                            ))}
+                            {memoryIngestJobs.length === 0 && (
+                                <Typography variant="body2" color="text.secondary">
+                                    No ingestion jobs yet.
+                                </Typography>
+                            )}
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Semantic search" description="Query indexed chunks and optional decision recall (minimum three characters).">
                         <TextField
                             label="Search knowledge"
                             value={knowledgeQuery}
@@ -1967,6 +3098,10 @@ export default function OrchestrationProjectDetailPage() {
                             helperText="Matches ranked by relevance; each row is a chunk used during agent runs."
                             fullWidth
                         />
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+                            <Switch checked={includeDecisionRecall} onChange={(_, checked) => setIncludeDecisionRecall(checked)} />
+                            <Typography variant="body2">Decision recall: include project decisions ("what did we decide about X?")</Typography>
+                        </Stack>
                         {knowledgeQuery.trim().length >= 3 && (
                             <Paper sx={{ p: 2, borderRadius: 4, mt: 2 }}>
                                 <Typography variant="subtitle2">Results</Typography>
@@ -1988,6 +3123,24 @@ export default function OrchestrationProjectDetailPage() {
                                 </Stack>
                             </Paper>
                         )}
+                    </SectionCard>
+                    <SectionCard title="Semantic memory explorer" description="Per-project semantic memory entries created from runs, documents, and decisions.">
+                        <Stack spacing={1.25}>
+                            {semanticEntries.length > 0 ? semanticEntries.map((entry) => (
+                                <Paper key={entry.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+                                        <Typography variant="body2">{entry.title}</Typography>
+                                        <Chip size="small" variant="outlined" label={entry.entry_type} />
+                                        <Chip size="small" variant="outlined" label={entry.namespace} />
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mt: 0.75, display: "block" }}>
+                                        {entry.body.slice(0, 400)}
+                                    </Typography>
+                                </Paper>
+                            )) : (
+                                <Typography variant="body2" color="text.secondary">No semantic memory entries yet.</Typography>
+                            )}
+                        </Stack>
                     </SectionCard>
                 </Box>
             )}
@@ -2048,7 +3201,7 @@ export default function OrchestrationProjectDetailPage() {
                                                 <Button size="small" variant="contained" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "approved" })}>
                                                     Approve
                                                 </Button>
-                                                <Button size="small" variant="outlined" color="error" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "rejected" })}>
+                                                <Button size="small" variant="outlined" color="error" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "rejected", reason: "Rejected from memory panel" })}>
                                                     Reject
                                                 </Button>
                                             </Stack>
@@ -2079,6 +3232,59 @@ export default function OrchestrationProjectDetailPage() {
                             <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
                                 {dagTask.description}
                             </Typography>
+                        ) : null}
+                        <TextField
+                            select
+                            SelectProps={{ multiple: true }}
+                            size="small"
+                            label="Dependencies"
+                            value={currentDagDependencySelection}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (!dagTask) return;
+                                setDagDependencyDrafts((current) => ({
+                                    ...current,
+                                    [dagTask.id]: Array.isArray(nextValue)
+                                        ? nextValue
+                                        : String(nextValue).split(",").filter(Boolean),
+                                }));
+                            }}
+                            helperText="Selected tasks must finish before this one can run."
+                            fullWidth
+                        >
+                            {tasks
+                                .filter((candidate) => candidate.id !== dagTask.id && !dagDescendantIds.has(candidate.id))
+                                .map((candidate) => (
+                                    <MenuItem key={candidate.id} value={candidate.id}>
+                                        {candidate.title} · {humanizeKey(candidate.status)}
+                                    </MenuItem>
+                                ))}
+                        </TextField>
+                        <Button
+                            variant="outlined"
+                            disabled={updateDagTaskMutation.isPending}
+                            onClick={() => updateDagTaskMutation.mutate({
+                                taskId: dagTask.id,
+                                payload: { dependency_ids: currentDagDependencySelection },
+                            })}
+                        >
+                            Save dependencies
+                        </Button>
+                        {dagTaskDependents.length > 0 ? (
+                            <Stack spacing={0.5}>
+                                <Typography variant="caption" color="text.secondary">Downstream tasks</Typography>
+                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                    {dagTaskDependents.map((dependent) => (
+                                        <Chip key={dependent.id} label={dependent.title} size="small" variant="outlined" />
+                                    ))}
+                                </Stack>
+                            </Stack>
+                        ) : null}
+                        {dagBlockedSuggestion ? (
+                            <Alert severity="warning">
+                                Suggested handoff: {dagBlockedSuggestion.agentName} via {humanizeKey(dagBlockedSuggestion.via)}.
+                                {dagBlockedSuggestion.reason ? ` ${dagBlockedSuggestion.reason}` : ""}
+                            </Alert>
                         ) : null}
                         <Stack spacing={1}>
                             <Button variant="outlined" onClick={() => { setTab("board"); setDagDrawerTaskId(null); }}>

@@ -4,17 +4,20 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import io
 import json
 import logging
+import uuid
 from difflib import unified_diff
 import math
 import re
+import tarfile
 import time
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Sequence
 
 import httpx
 import jwt
@@ -28,36 +31,27 @@ from backend.core.storage import StorageNotConfiguredError, object_storage
 from backend.core.config import settings
 from backend.modules.ai.providers import AiProviderRegistry
 from backend.modules.audit.repository import AuditRepository
+from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
+from backend.modules.memory.models import (
+    AgentMemoryEntry,
+    ProceduralPlaybook,
+    ProjectDocument,
+    SemanticMemoryEntry,
+    SemanticMemoryLink,
+    normalize_embedding_for_vector,
+)
 from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.orchestration.markdown import parse_agent_markdown
 from backend.modules.orchestration.model_catalog import BUILTIN_MODEL_CAPABILITIES
-from backend.modules.orchestration.templates import BUILTIN_AGENT_TEMPLATES, BUILTIN_SKILL_PACKS
 from backend.modules.orchestration.models import (
-    AgentMemoryEntry,
-    AgentProfile,
-    AgentTemplateCatalog,
     ApprovalRequest,
     Brainstorm,
     EvalRecord,
-    GithubConnection,
-    GithubIssueLink,
-    GithubRepository,
     ModelCapability,
-    OrchestratorProject,
-    OrchestratorTask,
-    ProceduralPlaybook,
-    ProjectDecision,
-    ProjectDocument,
-    ProjectMilestone,
     ProviderConfig,
     RunEvent,
-    SemanticMemoryEntry,
-    SemanticMemoryLink,
-    SkillPack,
-    TaskArtifact,
     TaskRun,
-    normalize_embedding_for_vector,
 )
 from backend.modules.orchestration.providers import execute_prompt, list_provider_models, test_provider
 from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
@@ -68,6 +62,17 @@ from backend.modules.orchestration.execution_state import (
     SNAPSHOT_SOURCES_TASK,
     checkpoint_excerpt,
     extract_execution_metadata_views,
+)
+from backend.modules.orchestration.execution_workflow import (
+    WORKFLOW_STATE_KEY,
+    current_step,
+    ensure_workflow_state,
+    get_workflow_artifact,
+    increment_resume_count,
+    mark_step,
+    set_workflow_artifact,
+    summarize_trace,
+    workflow_state,
 )
 from backend.modules.orchestration.memory_coordination import (
     MEMORY_COORDINATION_KEY,
@@ -91,6 +96,15 @@ from backend.modules.orchestration.working_memory import (
 )
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret, mask_secret
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
+from backend.modules.projects.orchestration_models import (
+    OrchestratorProject,
+    OrchestratorTask,
+    ProjectDecision,
+    ProjectMilestone,
+    TaskArtifact,
+)
+from backend.modules.team.models import AgentProfile, AgentTemplateCatalog, SkillPack, TeamTemplateCatalog
+
 
 logger = logging.getLogger(__name__)
 
@@ -206,13 +220,13 @@ class OrchestrationService:
 
     async def validate_agent_markdown(
         self, user: User, content: str
-    ) -> tuple[dict[str, Any] | None, list[str]]:
+    ) -> tuple[dict[str, Any] | None, list[str], list[str]]:
         await self._ensure_catalog_seeded()
         normalized, errors = parse_agent_markdown(content)
         if errors or normalized is None:
-            return normalized, errors
-        lint_errors = await self.lint_agent_payload(user, normalized)
-        return normalized, lint_errors
+            return normalized, errors, []
+        lint = await self.lint_agent_payload_detailed(user, normalized)
+        return normalized, lint["errors"], lint["warnings"]
 
     async def list_agents(self, user: User, project_id: str | None = None) -> list[AgentProfile]:
         await self._ensure_catalog_seeded()
@@ -222,6 +236,7 @@ class OrchestrationService:
         await self._ensure_catalog_seeded()
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
         payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
+        payload["is_active"] = bool(payload.get("is_active", False))
         agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
         await self._snapshot_agent(agent, user.id)
         await self.audit_repo.log(
@@ -268,6 +283,7 @@ class OrchestrationService:
             agent.version += 1
         else:
             await self._ensure_unique_agent_slug(user.id, normalized["slug"], None)
+            normalized["is_active"] = False
             agent = await self.repo.create_agent(
                 owner_id=user.id, **self._agent_payload_to_model(normalized)
             )
@@ -317,6 +333,7 @@ class OrchestrationService:
             **self._agent_model_to_payload(source),
             "slug": duplicate_slug,
             "name": f"{source.name} Copy",
+            "is_active": False,
             "version": 1,
         }
         copy = await self.repo.create_agent(owner_id=user.id, **payload)
@@ -327,6 +344,17 @@ class OrchestrationService:
 
     async def set_agent_active_state(self, user: User, agent_id: str, is_active: bool) -> AgentProfile:
         agent = await self.get_agent(user, agent_id)
+        if is_active:
+            lint = await self.summarize_agent_lint(user, agent)
+            if lint["errors"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "errors": lint["errors"],
+                        "warnings": lint["warnings"],
+                        "message": "Agent must pass validation before activation.",
+                    },
+                )
         agent.is_active = is_active
         await self.db.commit()
         await self.db.refresh(agent)
@@ -386,6 +414,7 @@ class OrchestrationService:
             "autonomy_level": settings.get("autonomy_level", "assisted"),
             "approval_gates": settings.get("approval_gates", [
                 "post_to_github", "open_pr", "mark_complete",
+                "change_task_ownership",
                 "write_memory", "use_expensive_model", "run_tool",
             ]),
         }
@@ -451,9 +480,70 @@ class OrchestrationService:
         await self.get_project(user, project_id)
         return await self.repo.list_project_repositories(project_id)
 
+    async def list_project_memory_ingest_jobs(
+        self, user: User, project_id: str, *, limit: int = 60
+    ) -> list[dict[str, Any]]:
+        await self.get_project(user, project_id)
+        rows = await self.repo.list_memory_ingest_jobs_for_project(user.id, project_id, limit=limit)
+        return [
+            {
+                "id": row.id,
+                "project_id": row.project_id,
+                "job_type": row.job_type,
+                "status": row.status,
+                "error_text": row.error_text,
+                "created_at": row.created_at,
+                "started_at": row.started_at,
+                "finished_at": row.finished_at,
+                "payload": row.payload_json or {},
+            }
+            for row in rows
+        ]
+
     async def index_project_repository(
         self, user: User, project_id: str, repository_link_id: str
     ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        repository_link = await self.repo.get_project_repository(project.id, repository_link_id)
+        if repository_link is None:
+            raise HTTPException(status_code=404, detail="Project repository link not found")
+        if not repository_link.github_repository_id:
+            raise HTTPException(status_code=422, detail="Project repository is not linked to GitHub")
+        job = await self.repo.create_memory_ingest_job(
+            owner_id=user.id,
+            project_id=project.id,
+            job_type="repo_index",
+            payload_json={
+                "project_id": project.id,
+                "repository_link_id": repository_link.id,
+                "requested_by_user_id": user.id,
+            },
+            status="pending",
+        )
+        await self.db.commit()
+        try:
+            from backend.workers.orchestration import queue_memory_ingest_jobs
+
+            queue_memory_ingest_jobs()
+        except Exception as exc:
+            logger.warning("queue memory ingest jobs failed for repo index: %s", exc)
+        return {
+            "queued": True,
+            "job_id": job.id,
+            "project_id": project.id,
+            "repository_link_id": repository_link.id,
+            "status": job.status,
+        }
+
+    async def _run_repository_index_job(
+        self,
+        *,
+        owner_id: str,
+        project_id: str,
+        repository_link_id: str,
+        requested_by_user_id: str | None = None,
+    ) -> dict[str, Any]:
+        user = SimpleNamespace(id=owner_id)
         project = await self.get_project(user, project_id)
         repository_link = await self.repo.get_project_repository(project.id, repository_link_id)
         if repository_link is None:
@@ -468,69 +558,64 @@ class OrchestrationService:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
 
         branch = repository_link.default_branch or github_repository.default_branch or "main"
-        tree_response = await self._github_request(
+        archive_response = await self._github_request(
             connection,
             "GET",
-            f"/repos/{github_repository.full_name}/git/trees/{branch}",
-            params={"recursive": "1"},
+            f"/repos/{github_repository.full_name}/tarball/{branch}",
         )
-        if tree_response.status_code >= 400:
-            raise HTTPException(status_code=502, detail="Failed to fetch repository tree")
-        tree_items = list((tree_response.json() or {}).get("tree", []))
+        if archive_response.status_code >= 400:
+            raise HTTPException(status_code=502, detail="Failed to fetch repository snapshot")
         allowed_suffixes = {
             ".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".sql"
         }
         indexed = 0
         chunk_total = 0
-        for item in tree_items:
-            path = str(item.get("path") or "")
-            if item.get("type") != "blob" or not any(path.endswith(suffix) for suffix in allowed_suffixes):
-                continue
-            if indexed >= 50:
-                break
-            file_response = await self._github_request(
-                connection,
-                "GET",
-                f"/repos/{github_repository.full_name}/contents/{path}",
-                params={"ref": branch},
-            )
-            if file_response.status_code >= 400:
-                continue
-            payload = file_response.json() or {}
-            encoded = payload.get("content")
-            if not encoded:
-                continue
-            try:
-                content = base64.b64decode(encoded).decode("utf-8")
-            except Exception:
-                continue
-            document = await self.repo.create_document(
-                project_id=project.id,
-                task_id=None,
-                uploaded_by_user_id=user.id,
-                filename=path,
-                content_type="text/plain",
-                source_text=content,
-                object_key=None,
-                size_bytes=len(content.encode("utf-8")),
-                summary_text=content[:500],
-                ingestion_status="pending",
-                chunk_count=0,
-                ttl_days=None,
-                expires_at=None,
-                metadata_json={
-                    "source_kind": "repo_index",
-                    "repository_link_id": repository_link.id,
-                    "repository_full_name": github_repository.full_name,
-                    "branch": branch,
-                    "path": path,
-                    "sha": payload.get("sha"),
-                },
-            )
-            await self._index_project_document(document)
-            indexed += 1
-            chunk_total += document.chunk_count
-        await self.db.commit()
+        max_files = 200
+        with tarfile.open(fileobj=io.BytesIO(archive_response.content), mode="r:gz") as tf:
+            for member in tf.getmembers():
+                if indexed >= max_files:
+                    break
+                if not member.isfile():
+                    continue
+                raw_name = str(member.name or "")
+                _, _, path = raw_name.partition("/")
+                if not path or not any(path.endswith(suffix) for suffix in allowed_suffixes):
+                    continue
+                extracted = tf.extractfile(member)
+                if extracted is None:
+                    continue
+                payload = extracted.read()
+                if not payload:
+                    continue
+                try:
+                    content = payload.decode("utf-8")
+                except UnicodeDecodeError:
+                    continue
+                document = await self.repo.create_document(
+                    project_id=project.id,
+                    task_id=None,
+                    uploaded_by_user_id=requested_by_user_id or user.id,
+                    filename=path,
+                    content_type="text/plain",
+                    source_text=content,
+                    object_key=None,
+                    size_bytes=len(payload),
+                    summary_text=content[:500],
+                    ingestion_status="pending",
+                    chunk_count=0,
+                    ttl_days=None,
+                    expires_at=None,
+                    metadata_json={
+                        "source_kind": "repo_index",
+                        "repository_link_id": repository_link.id,
+                        "repository_full_name": github_repository.full_name,
+                        "branch": branch,
+                        "path": path,
+                    },
+                )
+                await self._index_project_document(document)
+                indexed += 1
+                chunk_total += document.chunk_count
         return {
             "repository_link_id": repository_link.id,
             "repository_full_name": github_repository.full_name,
@@ -577,13 +662,72 @@ class OrchestrationService:
             metadata_json=payload.get("metadata", {}),
             position=position,
         )
-        await self.repo.replace_task_dependencies(task.id, payload.get("dependency_ids", []))
+        dependency_ids = list(payload.get("dependency_ids", []) or [])
+        await self._validate_task_dependencies(project.id, task.id, dependency_ids)
+        await self.repo.replace_task_dependencies(task.id, dependency_ids)
         await self.db.commit()
         await self.db.refresh(task)
         return task
 
     async def update_task(self, user: User, project_id: str, task_id: str, updates: dict[str, Any]):
         task = await self.get_task(user, project_id, task_id)
+        project = await self.db.get(OrchestratorProject, project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if "assigned_agent_id" in updates and updates.get("assigned_agent_id") != task.assigned_agent_id:
+            if self.action_requires_approval(project, "change_task_ownership"):
+                approval = await self.repo.create_approval(
+                    project_id=project.id,
+                    task_id=task.id,
+                    run_id=None,
+                    issue_link_id=task.github_issue_link_id,
+                    requested_by_user_id=user.id,
+                    approval_type="task_assignment_change",
+                    status="pending",
+                    payload_json={
+                        "task_id": task.id,
+                        "from_assigned_agent_id": task.assigned_agent_id,
+                        "to_assigned_agent_id": updates.get("assigned_agent_id"),
+                    },
+                )
+                await self.db.commit()
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Changing task ownership requires approval.",
+                        "approval_id": approval.id,
+                    },
+                )
+        if "status" in updates and updates.get("status") in {"completed", "approved"}:
+            if self.action_requires_approval(project, "mark_complete"):
+                approval = await self.repo.create_approval(
+                    project_id=project.id,
+                    task_id=task.id,
+                    run_id=None,
+                    issue_link_id=task.github_issue_link_id,
+                    requested_by_user_id=user.id,
+                    approval_type="task_mark_complete",
+                    status="pending",
+                    payload_json={
+                        "task_id": task.id,
+                        "from_status": task.status,
+                        "to_status": updates.get("status"),
+                    },
+                )
+                await self.db.commit()
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Marking tasks complete requires approval.",
+                        "approval_id": approval.id,
+                    },
+                )
+        prev_snapshot = {
+            "status": task.status,
+            "assigned_agent_id": getattr(task, "assigned_agent_id", None),
+            "labels": list(getattr(task, "labels_json", None) or []),
+            "metadata": dict(getattr(task, "metadata_json", None) or {}),
+        }
         prev_status = task.status
         if "assigned_agent_id" in updates and updates["assigned_agent_id"]:
             await self.get_agent(user, updates["assigned_agent_id"])
@@ -597,8 +741,20 @@ class OrchestrationService:
             elif field == "metadata":
                 task.metadata_json = value
             elif field == "dependency_ids":
-                await self.repo.replace_task_dependencies(task.id, value)
+                dependency_ids = list(value or [])
+                await self._validate_task_dependencies(project_id, task.id, dependency_ids)
+                await self.repo.replace_task_dependencies(task.id, dependency_ids)
             elif field == "status":
+                if value in {"completed", "approved"}:
+                    acceptance = await self._check_task_acceptance_payload(task)
+                    if not acceptance["passed"]:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "message": "Acceptance checks must pass before the task can be marked done.",
+                                "checks": acceptance["checks"],
+                            },
+                        )
                 await self._transition_task_status(task, value, reason="manual update")
             elif field == "priority":
                 setattr(task, field, _normalize_task_priority(str(value) if value is not None else None))
@@ -606,11 +762,61 @@ class OrchestrationService:
                 setattr(task, field, value)
         await self.db.commit()
         await self.db.refresh(task)
+        await self._queue_task_github_sync_from_internal_changes(user, task, prev_snapshot)
         if prev_status != task.status and task.status in {"completed", "archived", "synced_to_github"}:
-            project = await self.db.get(OrchestratorProject, task.project_id)
-            if project:
-                await self._maybe_promote_task_close_working_memory(user, project, task)
+            await self._maybe_promote_task_close_working_memory(user, project, task)
         return task
+
+    async def _validate_task_dependencies(
+        self,
+        project_id: str,
+        task_id: str,
+        dependency_ids: Sequence[str],
+    ) -> None:
+        normalized = [str(item) for item in dependency_ids if str(item).strip()]
+        if len(set(normalized)) != len(normalized):
+            raise HTTPException(status_code=409, detail="Duplicate task dependencies are not allowed.")
+        if task_id in normalized:
+            raise HTTPException(status_code=409, detail="A task cannot depend on itself.")
+
+        tasks = await self.repo.list_tasks(project_id)
+        task_ids = {item.id for item in tasks}
+        missing = [dep_id for dep_id in normalized if dep_id not in task_ids]
+        if missing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Dependency tasks not found in this project: {', '.join(missing[:5])}",
+            )
+
+        adjacency: dict[str, list[str]] = {
+            item.id: [str(dep_id) for dep_id in (item.dependency_ids or []) if str(dep_id).strip()]
+            for item in tasks
+        }
+        adjacency[task_id] = normalized
+        for dep_id in normalized:
+            if self._task_dependency_path_exists(adjacency, dep_id, task_id):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Dependency update would create a cycle in the task DAG.",
+                )
+
+    def _task_dependency_path_exists(
+        self,
+        adjacency: dict[str, Sequence[str]],
+        start_id: str,
+        target_id: str,
+    ) -> bool:
+        stack = [start_id]
+        seen: set[str] = set()
+        while stack:
+            current = stack.pop()
+            if current == target_id:
+                return True
+            if current in seen:
+                continue
+            seen.add(current)
+            stack.extend(str(item) for item in adjacency.get(current, []))
+        return False
 
     async def delete_task(self, user: User, project_id: str, task_id: str):
         task = await self.get_task(user, project_id, task_id)
@@ -934,6 +1140,76 @@ class OrchestrationService:
         merged.sort(key=lambda row: row["created_at"])
         return merged
 
+    async def _queue_task_github_sync_from_internal_changes(
+        self,
+        user: User,
+        task: OrchestratorTask,
+        prev_snapshot: dict[str, Any],
+    ) -> None:
+        if not task.github_issue_link_id:
+            return
+        issue_link = await self.db.get(GithubIssueLink, task.github_issue_link_id)
+        if issue_link is None:
+            return
+        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        project = await self.db.get(OrchestratorProject, task.project_id)
+        if repository is None or project is None:
+            return
+        github = self._project_github_settings(project)
+        issue_update: dict[str, Any] = {}
+        if github.get("sync_state_to_github", True):
+            next_state = self._task_state_to_github_issue_state(task)
+            prev_state = "closed" if prev_snapshot.get("status") in {"approved", "completed", "synced_to_github", "archived"} else "open"
+            if next_state != prev_state:
+                issue_update["state"] = next_state
+        if github.get("sync_labels_to_github", True):
+            next_labels = [str(item) for item in (task.labels_json or [])]
+            prev_labels = [str(item) for item in (prev_snapshot.get("labels") or [])]
+            if next_labels != prev_labels:
+                issue_update["labels"] = next_labels
+        if github.get("sync_assignees_to_github", True):
+            next_assignee = await self._task_assignee_login_for_github(task, project)
+            prev_assignee = None
+            prev_assignee_id = prev_snapshot.get("assigned_agent_id")
+            if prev_assignee_id:
+                shadow = SimpleNamespace(
+                    assigned_agent_id=prev_assignee_id,
+                    github_issue_link_id=task.github_issue_link_id,
+                    project_id=task.project_id,
+                )
+                prev_assignee = await self._task_assignee_login_for_github(shadow, project)
+            if next_assignee != prev_assignee:
+                issue_update["assignees"] = [next_assignee] if next_assignee else []
+        if github.get("sync_milestone_to_github", True):
+            next_milestone = (task.metadata_json or {}).get("github_milestone_number")
+            prev_milestone = (prev_snapshot.get("metadata") or {}).get("github_milestone_number")
+            if next_milestone != prev_milestone:
+                issue_update["milestone"] = next_milestone
+        if not issue_update:
+            return
+        await self._create_github_write_approval(
+            user_id=user.id,
+            project_id=task.project_id,
+            task_id=task.id,
+            run_id=None,
+            issue_link_id=issue_link.id,
+            approval_type="github_issue_sync",
+            payload_json={
+                "repository_id": repository.id,
+                "issue_number": issue_link.issue_number,
+                "issue_update": issue_update,
+            },
+        )
+        await self.repo.create_sync_event(
+            repository_id=repository.id,
+            issue_link_id=issue_link.id,
+            action="sync_issue_fields_pending",
+            status="pending",
+            detail="Internal task changes queued for GitHub sync approval.",
+            payload_json={"issue_update": issue_update, "task_id": task.id},
+        )
+        await self.db.commit()
+
     async def list_task_artifacts(self, user: User, project_id: str, task_id: str):
         await self.get_task(user, project_id, task_id)
         return await self.repo.list_task_artifacts(task_id)
@@ -951,26 +1227,45 @@ class OrchestrationService:
 
     async def decompose_task(self, user: User, project_id: str, task_id: str, max_subtasks: int = 5, context: str | None = None) -> list[OrchestratorTask]:
         parent = await self.get_task(user, project_id, task_id)
-        labels = ["Research", "Design", "Implement", "Test", "Document"][:max_subtasks]
+        existing = await self.repo.list_subtasks(task_id)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="Task already has subtasks. Update or archive the existing branch plan before decomposing again.",
+            )
+        blueprint = self._generate_subtask_blueprint(parent, max_subtasks=max_subtasks, context=context)
         subtasks = []
-        for i, label in enumerate(labels):
+        for i, item in enumerate(blueprint):
             position = await self.repo.get_next_task_position(project_id)
             task = await self.repo.create_task(
                 project_id=project_id,
                 created_by_user_id=user.id,
-                title=f"{label}: {parent.title}",
-                description=(f"Subtask {i + 1} of {len(labels)} for: {parent.title}" + (f"\n\nContext: {context}" if context else "")),
+                title=str(item["title"]),
+                description=str(item["description"]),
                 source="decompose",
                 task_type=parent.task_type,
                 priority=parent.priority,
                 status="backlog",
                 parent_task_id=task_id,
                 position=position,
-                labels_json=[],
+                labels_json=list(item.get("labels") or []),
                 result_payload_json={},
-                metadata_json={},
+                metadata_json={
+                    "parallelizable": bool(item.get("parallelizable", False)),
+                    "required_tools": list(item.get("required_tools") or []),
+                    "blueprint_kind": item.get("kind"),
+                },
+                acceptance_criteria=item.get("acceptance_criteria"),
             )
             subtasks.append(task)
+        for index, task in enumerate(subtasks):
+            dependency_indexes = list(blueprint[index].get("dependency_indexes") or [])
+            dependency_ids = [
+                subtasks[dep_index].id
+                for dep_index in dependency_indexes
+                if 0 <= dep_index < len(subtasks)
+            ]
+            await self.repo.replace_task_dependencies(task.id, dependency_ids)
         await self.db.commit()
         for t in subtasks:
             await self.db.refresh(t)
@@ -978,16 +1273,20 @@ class OrchestrationService:
 
     async def check_task_acceptance(self, user: User, project_id: str, task_id: str) -> dict:
         task = await self.get_task(user, project_id, task_id)
+        return await self._check_task_acceptance_payload(task)
+
+    async def _check_task_acceptance_payload(self, task: OrchestratorTask) -> dict:
         checks: list[dict] = []
 
-        has_output = bool(task.result_payload_json)
-        checks.append({"name": "has_output", "passed": has_output, "detail": "Task has result payload" if has_output else "No result payload yet"})
+        output_text = self._task_output_text(task)
+        has_output = bool(output_text.strip())
+        checks.append({"name": "has_output", "passed": has_output, "detail": "Task has output summary or payload" if has_output else "No task output yet"})
 
         valid_statuses = {"completed", "needs_review"}
         in_valid_status = task.status in valid_statuses
         checks.append({"name": "valid_status", "passed": in_valid_status, "detail": f"Status is '{task.status}'" if in_valid_status else f"Status '{task.status}' is not a terminal state"})
 
-        dep_rows = await self.repo.list_task_dependencies_for_task(task_id)
+        dep_rows = await self.repo.list_task_dependencies_for_task(task.id)
         if dep_rows:
             incomplete_count = 0
             for dep in dep_rows:
@@ -999,10 +1298,169 @@ class OrchestrationService:
         else:
             checks.append({"name": "dependencies_complete", "passed": True, "detail": "No dependencies"})
 
-        has_criteria = bool(task.description and len(task.description) > 20)
-        checks.append({"name": "has_criteria", "passed": has_criteria, "detail": "Task has description/criteria" if has_criteria else "Task description is missing or too short"})
+        criteria_items = self._acceptance_criteria_items(task.acceptance_criteria or "")
+        if criteria_items:
+            item_checks = [self._acceptance_item_check(item, output_text) for item in criteria_items]
+            missing = [item["item"] for item in item_checks if not item["passed"]]
+            checks.append({
+                "name": "acceptance_criteria",
+                "passed": len(missing) == 0,
+                "detail": "All acceptance criteria matched output." if not missing else f"Missing acceptance evidence for {len(missing)} item(s): {', '.join(missing[:3])}",
+                "items": item_checks,
+            })
+        else:
+            checks.append({
+                "name": "acceptance_criteria",
+                "passed": False,
+                "detail": "No acceptance criteria defined.",
+                "items": [],
+            })
 
-        return {"task_id": task_id, "passed": all(c["passed"] for c in checks), "checks": checks}
+        if (getattr(task, "metadata_json", None) or {}).get("latest_reopen"):
+            checks.append({
+                "name": "reopen_items_resolved",
+                "passed": False,
+                "detail": "Latest review requested rework; rerun after addressing checklist items.",
+            })
+        else:
+            checks.append({
+                "name": "reopen_items_resolved",
+                "passed": True,
+                "detail": "No outstanding rework checklist.",
+            })
+
+        return {"task_id": task.id, "passed": all(c["passed"] for c in checks), "checks": checks}
+
+    def _task_output_text(self, task: OrchestratorTask | Any) -> str:
+        payload = getattr(task, "result_payload_json", None) or {}
+        summary = getattr(task, "result_summary", None) or ""
+        if not summary and isinstance(payload, dict):
+            summary = str(payload.get("summary") or payload.get("final_output") or "")
+        return "\n".join(
+            chunk for chunk in [str(summary).strip(), json.dumps(payload, default=str) if payload else ""] if chunk
+        )
+
+    def _acceptance_criteria_items(self, text: str) -> list[str]:
+        items: list[str] = []
+        for raw_line in str(text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            normalized = re.sub(r"^[-*]\s+", "", line)
+            normalized = re.sub(r"^\d+\.\s+", "", normalized)
+            if normalized:
+                items.append(normalized)
+        if not items and str(text or "").strip():
+            items.append(str(text).strip())
+        return items
+
+    def _acceptance_item_matches_output(self, item: str, output_text: str) -> bool:
+        return self._acceptance_item_check(item, output_text)["passed"]
+
+    def _acceptance_item_check(self, item: str, output_text: str) -> dict[str, Any]:
+        required_tokens = [token for token in re.findall(r"[a-z0-9]+", item.lower()) if len(token) > 2]
+        if not required_tokens:
+            return {"item": item, "passed": True, "evidence_excerpt": ""}
+        output_tokens = set(re.findall(r"[a-z0-9]+", output_text.lower()))
+        overlap = sum(1 for token in required_tokens if token in output_tokens)
+        passed = overlap >= max(1, math.ceil(len(required_tokens) * 0.5))
+        return {
+            "item": item,
+            "passed": passed,
+            "evidence_excerpt": self._acceptance_evidence_excerpt(item, output_text) if passed else "",
+        }
+
+    def _acceptance_evidence_excerpt(self, item: str, output_text: str) -> str:
+        lowered = output_text.lower()
+        for token in re.findall(r"[a-z0-9]+", item.lower()):
+            if len(token) <= 2:
+                continue
+            index = lowered.find(token)
+            if index >= 0:
+                start = max(0, index - 40)
+                end = min(len(output_text), index + 120)
+                return output_text[start:end].strip()
+        return output_text[:160].strip()
+
+    def _generate_subtask_blueprint(
+        self,
+        parent: OrchestratorTask | Any,
+        *,
+        max_subtasks: int,
+        context: str | None = None,
+    ) -> list[dict[str, Any]]:
+        criteria = self._acceptance_criteria_items(getattr(parent, "acceptance_criteria", "") or "")
+        task_title = str(getattr(parent, "title", "Task")).strip()
+        task_type = str(getattr(parent, "task_type", "general")).strip()
+        shared_context = f"Context: {context}\n\n" if context else ""
+        criteria_text = " ".join(criteria).lower()
+        wants_docs = any(token in criteria_text for token in ["document", "docs", "adr", "summary"])
+        wants_tests = any(token in criteria_text for token in ["test", "verify", "validation", "qa"])
+        plan: list[dict[str, Any]] = [
+            {
+                "kind": "plan",
+                "title": f"Plan scope for {task_title}",
+                "description": f"{shared_context}Define the execution plan, assumptions, and dependency/risk map for this {task_type} task.",
+                "dependency_indexes": [],
+                "parallelizable": False,
+                "required_tools": ["fs_read"],
+                "labels": ["planning"],
+                "acceptance_criteria": "Document execution plan, assumptions, and risks.",
+            }
+        ]
+        if criteria:
+            plan.append(
+                {
+                    "kind": "implement",
+                    "title": f"Implement core work for {task_title}",
+                    "description": f"{shared_context}Deliver the main implementation required by the task and cover these criteria:\n- " + "\n- ".join(criteria[:4]),
+                    "dependency_indexes": [0],
+                    "parallelizable": False,
+                    "required_tools": ["code_execute"],
+                    "labels": ["implementation"],
+                    "acceptance_criteria": "\n".join(criteria[: min(3, len(criteria))]),
+                }
+            )
+        else:
+            plan.append(
+                {
+                    "kind": "implement",
+                    "title": f"Implement {task_title}",
+                    "description": f"{shared_context}Ship the main implementation for this task.",
+                    "dependency_indexes": [0],
+                    "parallelizable": False,
+                    "required_tools": ["code_execute"],
+                    "labels": ["implementation"],
+                    "acceptance_criteria": "Primary implementation completed.",
+                }
+            )
+        if wants_tests or max_subtasks >= 3:
+            plan.append(
+                {
+                    "kind": "verify",
+                    "title": f"Verify and test {task_title}",
+                    "description": f"{shared_context}Run tests, validate acceptance criteria, and record any follow-up issues.",
+                    "dependency_indexes": [1],
+                    "parallelizable": False,
+                    "required_tools": ["code_execute"],
+                    "labels": ["testing"],
+                    "acceptance_criteria": "Tests pass and acceptance criteria are validated.",
+                }
+            )
+        if wants_docs or max_subtasks >= 4:
+            plan.append(
+                {
+                    "kind": "document",
+                    "title": f"Document rollout for {task_title}",
+                    "description": f"{shared_context}Capture the final summary, operator notes, and any rollout caveats.",
+                    "dependency_indexes": [1],
+                    "parallelizable": True,
+                    "required_tools": ["fs_write"],
+                    "labels": ["documentation"],
+                    "acceptance_criteria": "Documentation and rollout notes are updated.",
+                }
+            )
+        return plan[:max_subtasks]
 
     async def list_milestones(self, user: User, project_id: str) -> list[ProjectMilestone]:
         await self.get_project(user, project_id)
@@ -1077,6 +1535,79 @@ class OrchestrationService:
             )
         return out
 
+    def _workflow_steps_for_run(self, run: TaskRun) -> list[dict[str, Any]]:
+        if run.run_mode == "manager_worker":
+            return [
+                {"id": "supervisor_plan", "title": "Supervisor plan", "actor": "supervisor"},
+                {"id": "route_workers", "title": "Route workers", "actor": "supervisor"},
+                {"id": "run_branches", "title": "Run delegated branches", "actor": "worker_pool"},
+                {"id": "synthesize", "title": "Synthesize outputs", "actor": "supervisor"},
+                {"id": "persist_output", "title": "Persist outputs", "actor": "system"},
+            ]
+        return [
+            {"id": "build_prompt", "title": "Build prompt", "actor": "system"},
+            {"id": "plan_execution", "title": "Plan execution", "actor": "supervisor"},
+            {"id": "run_tools", "title": "Run tools", "actor": "worker_pool"},
+            {"id": "model_response", "title": "Model response", "actor": "worker"},
+            {"id": "persist_output", "title": "Persist outputs", "actor": "system"},
+        ]
+
+    def _ensure_run_workflow(self, run: TaskRun) -> dict[str, Any]:
+        run.checkpoint_json = ensure_workflow_state(
+            run.checkpoint_json,
+            run_mode=run.run_mode,
+            steps=self._workflow_steps_for_run(run),
+        )
+        return workflow_state(run.checkpoint_json)
+
+    def _workflow_trace_payload(self, run: TaskRun) -> list[dict[str, Any]]:
+        return summarize_trace(run.checkpoint_json)
+
+    def _run_is_resumable(self, run: TaskRun) -> bool:
+        state = workflow_state(run.checkpoint_json)
+        if run.status not in {"failed", "blocked"}:
+            return False
+        step = current_step(run.checkpoint_json)
+        return bool(step and step.get("resumable", True))
+
+    async def _mark_run_step(
+        self,
+        run: TaskRun,
+        *,
+        step_id: str,
+        status: str,
+        message: str,
+        event_type: str = "workflow_step",
+        level: str = "info",
+        metadata: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        run.checkpoint_json = mark_step(
+            run.checkpoint_json,
+            step_id=step_id,
+            status=status,
+            error=error,
+            metadata=metadata,
+        )
+        await self._emit_run_event(
+            run,
+            event_type=event_type,
+            level=level,
+            message=message,
+            payload={
+                "step_id": step_id,
+                "status": status,
+                "trace": self._workflow_trace_payload(run),
+                **dict(metadata or {}),
+            },
+        )
+
+    def _workflow_checkpoint_artifact(self, run: TaskRun, key: str, default: Any = None) -> Any:
+        return get_workflow_artifact(run.checkpoint_json, key, default)
+
+    def _set_workflow_checkpoint_artifact(self, run: TaskRun, *, key: str, value: Any) -> None:
+        run.checkpoint_json = set_workflow_artifact(run.checkpoint_json, key=key, value=value)
+
     async def get_task_execution_snapshot(self, user: User, project_id: str, task_id: str) -> dict[str, Any]:
         """Compose Layer-1 execution snapshot from Postgres only (no embedding search)."""
         task = await self.get_task(user, project_id, task_id)
@@ -1148,6 +1679,7 @@ class OrchestrationService:
             "focal_run_id": focal.id if focal else None,
             "checkpoint_excerpt": cp_excerpt,
             "recent_events_tail": events_tail,
+            "trace": self._workflow_trace_payload(focal) if focal else [],
         }
 
     async def get_run_execution_snapshot(self, user: User, run_id: str) -> dict[str, Any]:
@@ -1194,6 +1726,8 @@ class OrchestrationService:
             ],
             "checkpoint_excerpt": checkpoint_excerpt(run.checkpoint_json),
             "recent_events_tail": events_tail,
+            "trace": self._workflow_trace_payload(run),
+            "resumable": self._run_is_resumable(run),
         }
 
     async def get_working_memory(self, user: User, run_id: str) -> dict[str, Any]:
@@ -1797,6 +2331,32 @@ class OrchestrationService:
         self, user: User, project_id: str, task_id: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
         task = await self.get_task(user, project_id, task_id)
+        project = await self.db.get(OrchestratorProject, project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if "shared" in payload and payload["shared"] is not None:
+            if self.action_requires_approval(project, "write_memory"):
+                approval = await self.repo.create_approval(
+                    project_id=project.id,
+                    task_id=task.id,
+                    run_id=None,
+                    issue_link_id=task.github_issue_link_id,
+                    requested_by_user_id=user.id,
+                    approval_type="shared_memory_write",
+                    status="pending",
+                    payload_json={
+                        "task_id": task.id,
+                        "shared": str(payload["shared"]),
+                    },
+                )
+                await self.db.commit()
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Writing shared task memory requires approval.",
+                        "approval_id": approval.id,
+                    },
+                )
         meta = dict(task.metadata_json or {})
         cur: dict[str, Any] = dict(meta.get(MEMORY_COORDINATION_KEY) or {})
         if "shared" in payload and payload["shared"] is not None:
@@ -2102,6 +2662,21 @@ class OrchestrationService:
                     await self.embed_semantic_memory_entry_worker(str(payload.get("entry_id")))
                 elif jt == "episodic_embed_index":
                     await self.process_episodic_index_embedding_batch(limit=5)
+                elif jt == "document_ingest":
+                    document = await self.repo.get_document(
+                        str(payload.get("project_id") or ""),
+                        str(payload.get("document_id") or ""),
+                    )
+                    if document is None:
+                        raise RuntimeError("document_ingest target not found")
+                    await self._index_project_document(document)
+                elif jt == "repo_index":
+                    await self._run_repository_index_job(
+                        owner_id=str(job.owner_id),
+                        project_id=str(payload.get("project_id") or ""),
+                        repository_link_id=str(payload.get("repository_link_id") or ""),
+                        requested_by_user_id=str(payload.get("requested_by_user_id") or "") or None,
+                    )
                 elif jt == "classifier_stub":
                     pass
                 await self.repo.update_memory_ingest_job(
@@ -2377,7 +2952,7 @@ class OrchestrationService:
             else:
                 parts.append("No required_tools filter; chose lowest active-run load, then name order.")
             parts.append(f"Queued depth for this agent was {qd} other in-flight runs.")
-            rm = execution_settings.get("routing_mode") or "balanced"
+            rm = execution_settings.get("routing_mode") or "capability_based"
             sb = execution_settings.get("sibling_load_balance") or "queue_depth"
             su = bool(execution_settings.get("skip_unhealthy_worker_providers", True))
             parts.append(
@@ -2418,7 +2993,7 @@ class OrchestrationService:
             "orchestrator_agent_id": orchestrator_agent_id,
             "worker_agent_id": worker_agent_id,
             "model_name": model_name,
-            "routing_mode": execution_settings.get("routing_mode") or "balanced",
+            "routing_mode": execution_settings.get("routing_mode") or "capability_based",
             "sibling_load_balance": execution_settings.get("sibling_load_balance") or "queue_depth",
             "skip_unhealthy_worker_providers": bool(
                 execution_settings.get("skip_unhealthy_worker_providers", True)
@@ -2451,6 +3026,17 @@ class OrchestrationService:
         if reviewer_agent_id is None:
             reviewer_ids = execution_settings.get("reviewer_agent_ids", [])
             reviewer_agent_id = reviewer_ids[0] if reviewer_ids else None
+        if reviewer_agent_id and task.reviewer_agent_id != reviewer_agent_id:
+            task.reviewer_agent_id = reviewer_agent_id
+            chain = [str(item).strip() for item in execution_settings.get("reviewer_agent_ids", []) if str(item).strip()]
+            if chain and reviewer_agent_id in chain:
+                meta = dict(task.metadata_json or {})
+                meta["review_chain"] = {
+                    "reviewer_agent_ids": chain,
+                    "current_index": chain.index(reviewer_agent_id),
+                }
+                task.metadata_json = meta
+                orm_attributes.flag_modified(task, "metadata_json")
 
         worker_explicit = "worker_agent_id" in payload and payload.get("worker_agent_id") is not None
         if worker_explicit:
@@ -2602,7 +3188,36 @@ class OrchestrationService:
         await self.db.refresh(run)
         return run
 
-    async def replay_run(self, user: User, run_id: str, from_event_index: int = 0):
+    async def resume_run(self, user: User, run_id: str):
+        run = await self.get_run(user, run_id)
+        if not self._run_is_resumable(run):
+            raise HTTPException(status_code=409, detail="Run is not resumable from its current checkpoint.")
+        run.status = "queued"
+        run.error_message = None
+        run.completed_at = None
+        run.cancelled_at = None
+        run.checkpoint_json = increment_resume_count(run.checkpoint_json)
+        await self._emit_run_event(
+            run,
+            event_type="workflow_resumed",
+            message="Run resumed from durable checkpoint.",
+            payload={"trace": self._workflow_trace_payload(run)},
+        )
+        await self.db.commit()
+        from backend.modules.orchestration.durable_execution import submit_orchestration_run
+
+        submit_orchestration_run(run.id)
+        await self.db.refresh(run)
+        return run
+
+    async def replay_run(
+        self,
+        user: User,
+        run_id: str,
+        from_event_index: int = 0,
+        *,
+        model_name: str | None = None,
+    ):
         """Queue a new run that carries forward transcript context from a parent run."""
         await self._enforce_orchestration_run_rate_limit(user.id)
         old = await self.get_run(user, run_id)
@@ -2641,9 +3256,10 @@ class OrchestrationService:
             brainstorm_id=old.brainstorm_id,
             run_mode=old.run_mode,
             status="queued",
-            model_name=old.model_name,
+            model_name=(str(model_name).strip() or old.model_name) if model_name is not None else old.model_name,
             attempt_number=old.attempt_number + 1,
             retry_count=old.retry_count,
+            checkpoint_json=dict(old.checkpoint_json or {}),
             input_payload_json=base_input,
         )
         task = await self.db.get(OrchestratorTask, new_run.task_id) if new_run.task_id else None
@@ -2690,6 +3306,390 @@ class OrchestrationService:
             "total_cost_usd": total_cost,
             "total_tokens": raw["total_tokens"],
         }
+
+    async def run_agent_simulation(
+        self,
+        user: User,
+        agent_id: str,
+        *,
+        scenarios: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        agent = await self.get_agent(user, agent_id)
+        cases = scenarios or [
+            {"title": "Bug triage", "description": "Identify likely root cause and first fix.", "acceptance_criteria": "Clear diagnosis + first patch."},
+            {"title": "Spec drafting", "description": "Write a concise API spec with risks.", "acceptance_criteria": "Endpoints + risks + rollout plan."},
+            {"title": "Review response", "description": "Review a patch proposal for correctness.", "acceptance_criteria": "Find at least one risk and test gap."},
+        ]
+        results: list[dict[str, Any]] = []
+        pass_count = 0
+        for idx, case in enumerate(cases, start=1):
+            probe = await self.test_run_agent(
+                user,
+                agent_id,
+                {
+                    "prompt": str(case.get("description") or case.get("title") or "Simulation task"),
+                    "max_output_tokens": 400,
+                    "temperature": 0.2,
+                    "simulate_tools": True,
+                },
+            )
+            output = str(probe.get("output_text") or "")
+            passed = len(output.strip()) >= 40
+            if passed:
+                pass_count += 1
+            results.append(
+                {
+                    "scenario_index": idx,
+                    "title": str(case.get("title") or f"Scenario {idx}"),
+                    "passed": passed,
+                    "latency_ms": int(probe.get("latency_ms") or 0),
+                    "token_total": int(probe.get("token_total") or 0),
+                    "estimated_cost_usd": float(probe.get("estimated_cost_usd") or 0),
+                    "output_preview": output[:280],
+                }
+            )
+        avg_cost = sum(float(item["estimated_cost_usd"]) for item in results) / max(len(results), 1)
+        avg_latency = sum(int(item["latency_ms"]) for item in results) / max(len(results), 1)
+        readiness = "ready" if pass_count >= max(1, int(len(results) * 0.67)) and avg_cost < 0.5 else "needs_tuning"
+        return {
+            "agent_id": agent.id,
+            "agent_name": agent.name,
+            "readiness": readiness,
+            "pass_rate": round(pass_count / max(len(results), 1), 3),
+            "avg_cost_usd": round(avg_cost, 6),
+            "avg_latency_ms": round(avg_latency, 1),
+            "results": results,
+        }
+
+    async def bootstrap_project_from_text(self, user: User, prompt: str) -> dict[str, Any]:
+        text = str(prompt or "").strip()
+        if not text:
+            raise HTTPException(status_code=422, detail="Prompt is required")
+        sentence = text[:200]
+        slug_base = re.sub(r"[^a-z0-9]+", "-", sentence.lower()).strip("-")[:40] or "new-project"
+        return {
+            "approved": False,
+            "proposal": {
+                "name": sentence[:80].title(),
+                "slug": slug_base,
+                "description": f"Bootstrapped from natural-language request: {sentence}",
+                "goals": [
+                    f"Deliver requested outcome: {sentence}",
+                    "Establish milestones and measurable acceptance criteria",
+                    "Keep cost and risk within project policies",
+                ],
+                "milestones": [
+                    {"title": "Discovery & scope", "description": "Clarify scope and dependencies"},
+                    {"title": "Implementation", "description": "Build and validate core functionality"},
+                    {"title": "Release readiness", "description": "Review, approvals, and rollout"},
+                ],
+                "tasks": [
+                    {"title": "Draft implementation plan", "task_type": "planning", "priority": "high"},
+                    {"title": "Implement core feature set", "task_type": "feature", "priority": "normal"},
+                    {"title": "Validation and handoff", "task_type": "review", "priority": "normal"},
+                ],
+                "team_suggestion": {"manager_role": "manager", "worker_roles": ["specialist", "reviewer"]},
+            },
+        }
+
+    async def apply_bootstrap_project(self, user: User, payload: dict[str, Any]) -> OrchestratorProject:
+        proposal = dict(payload.get("proposal") or payload)
+        project = await self.create_project(
+            user,
+            {
+                "name": proposal.get("name") or "Bootstrapped Project",
+                "slug": proposal.get("slug"),
+                "description": proposal.get("description"),
+                "goals_markdown": "\n".join(f"- {g}" for g in (proposal.get("goals") or [])),
+                "settings": {"bootstrap_source": "natural_language"},
+            },
+        )
+        for idx, ms in enumerate((proposal.get("milestones") or [])[:12]):
+            await self.create_milestone(
+                user,
+                project.id,
+                title=str(ms.get("title") or f"Milestone {idx + 1}"),
+                description=str(ms.get("description") or ""),
+                due_date=None,
+                status="open",
+                position=idx,
+            )
+        for t in (proposal.get("tasks") or [])[:30]:
+            await self.create_task(
+                user,
+                project.id,
+                {
+                    "title": str(t.get("title") or "Bootstrapped task"),
+                    "description": str(t.get("description") or ""),
+                    "task_type": str(t.get("task_type") or "general"),
+                    "priority": str(t.get("priority") or "normal"),
+                    "status": "backlog",
+                },
+            )
+        return project
+
+    async def agent_performance_scorecard(self, user: User, days: int = 30) -> list[dict[str, Any]]:
+        since = datetime.now(UTC) - timedelta(days=max(1, min(days, 365)))
+        runs = await self.repo.list_runs(user.id, None)
+        by_agent: dict[str, dict[str, Any]] = {}
+        for run in runs:
+            if run.created_at < since:
+                continue
+            agent_id = run.worker_agent_id or run.orchestrator_agent_id
+            if not agent_id:
+                continue
+            row = by_agent.setdefault(
+                agent_id,
+                {"agent_id": agent_id, "runs": 0, "accepted": 0, "latency": 0, "cost": 0, "escalations": 0, "review_pass": 0, "review_total": 0},
+            )
+            row["runs"] += 1
+            row["latency"] += int(run.latency_ms or 0)
+            row["cost"] += float(run.estimated_cost_micros or 0) / 1_000_000
+            if run.status == "completed":
+                row["accepted"] += 1
+            if run.run_mode == "review":
+                row["review_total"] += 1
+                if run.status == "completed":
+                    row["review_pass"] += 1
+            evs = await self.repo.list_run_events(run.id)
+            row["escalations"] += sum(1 for e in evs if e.event_type in {"rule_escalation", "task_escalation"})
+        output: list[dict[str, Any]] = []
+        for aid, row in by_agent.items():
+            agent = await self.db.get(AgentProfile, aid)
+            runs_n = max(int(row["runs"]), 1)
+            acc_rate = float(row["accepted"]) / runs_n
+            avg_cost = float(row["cost"]) / runs_n
+            avg_lat = float(row["latency"]) / runs_n
+            review_pass_rate = float(row["review_pass"]) / max(int(row["review_total"]), 1) if row["review_total"] else 1.0
+            under = acc_rate < 0.6 or review_pass_rate < 0.6 or avg_cost > 2.0
+            output.append(
+                {
+                    "agent_id": aid,
+                    "agent_name": agent.name if agent else aid[:8],
+                    "acceptance_rate": round(acc_rate, 3),
+                    "avg_cost_usd": round(avg_cost, 6),
+                    "avg_latency_ms": round(avg_lat, 2),
+                    "review_pass_rate": round(review_pass_rate, 3),
+                    "escalation_frequency": round(float(row["escalations"]) / runs_n, 3),
+                    "underperforming": under,
+                    "suggestion": "Tune prompts/skills and lower-risk routing." if under else "Performance within target.",
+                }
+            )
+        output.sort(key=lambda item: (item["underperforming"], -item["acceptance_rate"]), reverse=True)
+        return output
+
+    async def project_budget_projection(self, user: User, days: int = 30) -> dict[str, Any]:
+        cost = await self.aggregate_cost_analytics(user, days=days)
+        total = float(cost.get("total_cost_usd") or 0)
+        burn_daily = total / max(days, 1)
+        projected_month = burn_daily * 30.0
+        return {
+            "days": days,
+            "total_cost_usd": round(total, 6),
+            "daily_burn_usd": round(burn_daily, 6),
+            "projected_monthly_usd": round(projected_month, 6),
+            "soft_cap_warning": projected_month > 1000,
+            "hard_cap_exceeded": projected_month > 5000,
+        }
+
+    async def explain_run(self, user: User, run_id: str) -> dict[str, Any]:
+        run = await self.get_run(user, run_id)
+        events = await self.repo.list_run_events(run.id)
+        approvals = await self.repo.list_pending_approvals_for_run(user.id, run.id)
+        tools = [str(e.payload_json.get("tool") or "") for e in events if e.event_type.startswith("tool_call_")]
+        tools = [t for t in tools if t]
+        selection = read_orchestration_selection_meta(run.input_payload_json or {})
+        return {
+            "run_id": run.id,
+            "summary": (
+                f"Run used agent {run.worker_agent_id or run.orchestrator_agent_id}, "
+                f"model {run.model_name or 'default'}, executed {len(tools)} tool calls, "
+                f"and finished with status {run.status}."
+            ),
+            "agent_rationale": selection.worker_agent_rationale,
+            "model_rationale": selection.model_rationale,
+            "tools_called": tools[:50],
+            "approvals_pending": len(approvals),
+            "approvals_pending_types": [a.approval_type for a in approvals],
+        }
+
+    async def _compress_run_context_if_needed(self, run: TaskRun) -> None:
+        payload = dict(run.input_payload_json or {})
+        replay = payload.get("orchestration_replay")
+        if not isinstance(replay, dict):
+            return
+        transcript = str(replay.get("prior_transcript") or "")
+        if len(transcript) < 4000:
+            return
+        compressed = transcript[:1800] + "\n...\n" + transcript[-1200:]
+        replay["prior_transcript"] = compressed
+        payload["orchestration_replay"] = replay
+        run.input_payload_json = payload
+        saved_chars = max(len(transcript) - len(compressed), 0)
+        run.checkpoint_json = set_workflow_artifact(
+            run.checkpoint_json,
+            key="context_compression",
+            value={
+                "saved_chars": saved_chars,
+                "saved_tokens_estimate": int(saved_chars / 4),
+            },
+        )
+        await self._emit_run_event(
+            run,
+            event_type="context_compressed",
+            message="Replay context compressed to reduce token usage.",
+            payload={"saved_chars": saved_chars, "saved_tokens_estimate": int(saved_chars / 4)},
+        )
+
+    async def _enforce_run_output_schema(self, run: TaskRun) -> None:
+        agent = await self._load_agent_for_run(run.worker_agent_id or run.orchestrator_agent_id)
+        schema = (agent.output_schema_json or {}) if agent else {}
+        fmt = str(schema.get("format") or "").strip()
+        final_output = str((run.output_payload_json or {}).get("final_output") or (run.output_payload_json or {}).get("summary") or "")
+        if not fmt or not final_output:
+            return
+        valid = True
+        if fmt == "json":
+            try:
+                json.loads(final_output)
+            except Exception:
+                valid = False
+        elif fmt == "checklist":
+            valid = "- " in final_output or "1." in final_output
+        elif fmt == "adr":
+            low = final_output.lower()
+            valid = "decision" in low and "context" in low
+        if not valid:
+            raise BlockedExecution(f"Output validation failed for schema format '{fmt}'.")
+
+    async def _detect_and_log_task_output_conflict(self, task: OrchestratorTask, run: TaskRun) -> None:
+        if not task.id:
+            return
+        all_runs = await self.repo.list_runs(task.created_by_user_id, task.project_id)
+        related = [r for r in all_runs if r.task_id == task.id and r.id != run.id and r.status == "completed"]
+        if not related:
+            return
+        current = str((run.output_payload_json or {}).get("final_output") or (run.output_payload_json or {}).get("summary") or "").strip()
+        if not current:
+            return
+        previous = str((related[-1].output_payload_json or {}).get("final_output") or (related[-1].output_payload_json or {}).get("summary") or "").strip()
+        if not previous:
+            return
+        contradict = ("approve" in current.lower() and "reject" in previous.lower()) or ("reject" in current.lower() and "approve" in previous.lower())
+        if not contradict:
+            return
+        await self.repo.create_approval(
+            project_id=task.project_id,
+            task_id=task.id,
+            run_id=run.id,
+            issue_link_id=task.github_issue_link_id,
+            requested_by_user_id=run.triggered_by_user_id,
+            approval_type="output_conflict_resolution",
+            status="pending",
+            payload_json={
+                "current_run_id": run.id,
+                "previous_run_id": related[-1].id,
+                "current_summary": current[:500],
+                "previous_summary": previous[:500],
+            },
+        )
+        await self._transition_task_status(task, "blocked", run=run, reason="conflicting agent outputs require resolution")
+
+    async def ingest_incident_alert(self, user: User, payload: dict[str, Any]) -> OrchestratorTask:
+        project_id = str(payload.get("project_id") or "")
+        project = await self.get_project(user, project_id)
+        source = str(payload.get("source") or "webhook")
+        title = str(payload.get("title") or "Incident alert")
+        body = str(payload.get("body") or "")
+        severity = str(payload.get("severity") or "high")
+        task = await self.create_task(
+            user,
+            project.id,
+            {
+                "title": f"[Incident:{severity}] {title}",
+                "description": body,
+                "priority": "urgent" if severity in {"critical", "sev1"} else "high",
+                "task_type": "incident",
+                "status": "planned",
+                "metadata": {"incident_source": source, "alert_payload": payload},
+            },
+        )
+        return task
+
+    async def pr_assistant_review(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
+        repo = str(payload.get("repository_full_name") or "unknown/repo")
+        pr_number = int(payload.get("pr_number") or 0)
+        summary = str(payload.get("diff_summary") or payload.get("title") or "")
+        findings = []
+        if "TODO" in summary or "FIXME" in summary:
+            findings.append("Found unresolved TODO/FIXME markers in PR summary.")
+        if "secret" in summary.lower() or "token" in summary.lower():
+            findings.append("Potential secret handling risk detected; review carefully.")
+        verdict = "request_changes" if findings else "approve"
+        return {
+            "repository_full_name": repo,
+            "pr_number": pr_number,
+            "verdict": verdict,
+            "findings": findings or ["No blocking findings in lightweight assistant review."],
+        }
+
+    async def list_custom_workflow_templates(self, user: User, project_id: str) -> list[dict[str, Any]]:
+        project = await self.get_project(user, project_id)
+        return list((project.settings_json or {}).get("custom_workflow_templates") or [])
+
+    async def save_custom_workflow_template(self, user: User, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        settings = dict(project.settings_json or {})
+        current = list(settings.get("custom_workflow_templates") or [])
+        item = {
+            "id": str(payload.get("id") or uuid.uuid4()),
+            "name": str(payload.get("name") or "Custom workflow"),
+            "stages": list(payload.get("stages") or []),
+            "forked_from": payload.get("forked_from"),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        current = [c for c in current if str(c.get("id")) != item["id"]]
+        current.append(item)
+        settings["custom_workflow_templates"] = current
+        project.settings_json = self._normalize_project_settings(settings)
+        await self.db.commit()
+        await self.db.refresh(project)
+        return item
+
+    async def pin_agent_skills(self, user: User, agent_id: str, payload: dict[str, Any]) -> AgentProfile:
+        agent = await self.get_agent(user, agent_id)
+        pins = list(payload.get("skill_pins") or [])
+        meta = dict(agent.metadata_json or {})
+        meta["skill_pins"] = pins
+        agent.metadata_json = meta
+        await self.db.commit()
+        await self.db.refresh(agent)
+        return agent
+
+    async def list_agent_schedules(self, user: User, project_id: str) -> list[dict[str, Any]]:
+        project = await self.get_project(user, project_id)
+        return list((((project.settings_json or {}).get("execution") or {}).get("agent_schedules") or []))
+
+    async def save_agent_schedule(self, user: User, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        settings = dict(project.settings_json or {})
+        execution = dict(settings.get("execution") or {})
+        rows = list(execution.get("agent_schedules") or [])
+        item = {
+            "id": str(payload.get("id") or uuid.uuid4()),
+            "agent_id": str(payload.get("agent_id") or ""),
+            "cron": str(payload.get("cron") or ""),
+            "action": str(payload.get("action") or "triage"),
+            "enabled": bool(payload.get("enabled", True)),
+        }
+        rows = [r for r in rows if str(r.get("id")) != item["id"]]
+        rows.append(item)
+        execution["agent_schedules"] = rows
+        settings["execution"] = execution
+        project.settings_json = self._normalize_project_settings(settings)
+        await self.db.commit()
+        await self.db.refresh(project)
+        return item
 
     async def list_eval_records(self, user: User, project_id: str) -> list[EvalRecord]:
         await self.get_project(user, project_id)
@@ -2781,6 +3781,133 @@ class OrchestrationService:
         await self.db.commit()
         await self.db.refresh(record)
         return record
+
+    async def eval_leaderboard(self, user: User, project_id: str) -> list[dict[str, Any]]:
+        await self.get_project(user, project_id)
+        records = await self.repo.list_eval_records(project_id)
+        if not records:
+            return []
+        board: dict[str, dict[str, Any]] = {}
+
+        def ensure(agent_id: str) -> dict[str, Any]:
+            item = board.get(agent_id)
+            if item is None:
+                item = {
+                    "agent_id": agent_id,
+                    "agent_name": agent_id[:8],
+                    "wins": 0,
+                    "losses": 0,
+                    "ties": 0,
+                    "total": 0,
+                    "score_sum": 0.0,
+                    "score_n": 0,
+                    "cost_sum": 0.0,
+                    "cost_n": 0,
+                    "lat_sum": 0.0,
+                    "lat_n": 0,
+                }
+                board[agent_id] = item
+            return item
+
+        for record in records:
+            pairs = [
+                ("a", record.agent_a_id, record.score_a),
+                ("b", record.agent_b_id, record.score_b),
+            ]
+            metrics = (record.metadata_json or {}).get("benchmark_run_metrics") or {}
+            for side, agent_id, score in pairs:
+                if not agent_id:
+                    continue
+                row = ensure(agent_id)
+                row["total"] += 1
+                if score is not None:
+                    row["score_sum"] += float(score)
+                    row["score_n"] += 1
+                side_metrics = metrics.get(side) if isinstance(metrics, dict) else None
+                if isinstance(side_metrics, dict):
+                    if side_metrics.get("cost_usd") is not None:
+                        row["cost_sum"] += float(side_metrics["cost_usd"])
+                        row["cost_n"] += 1
+                    if side_metrics.get("latency_ms") is not None:
+                        row["lat_sum"] += float(side_metrics["latency_ms"])
+                        row["lat_n"] += 1
+            if record.winner == "a" and record.agent_a_id:
+                ensure(record.agent_a_id)["wins"] += 1
+                if record.agent_b_id:
+                    ensure(record.agent_b_id)["losses"] += 1
+            elif record.winner == "b" and record.agent_b_id:
+                ensure(record.agent_b_id)["wins"] += 1
+                if record.agent_a_id:
+                    ensure(record.agent_a_id)["losses"] += 1
+            elif record.winner == "tie":
+                if record.agent_a_id:
+                    ensure(record.agent_a_id)["ties"] += 1
+                if record.agent_b_id:
+                    ensure(record.agent_b_id)["ties"] += 1
+
+        for agent_id, row in board.items():
+            agent = await self.db.get(AgentProfile, agent_id)
+            if agent:
+                row["agent_name"] = agent.name
+
+        result = []
+        for row in board.values():
+            total = max(int(row["total"]), 1)
+            result.append(
+                {
+                    "agent_id": row["agent_id"],
+                    "agent_name": row["agent_name"],
+                    "wins": int(row["wins"]),
+                    "losses": int(row["losses"]),
+                    "ties": int(row["ties"]),
+                    "total": int(row["total"]),
+                    "win_rate": round(float(row["wins"]) / total, 4),
+                    "avg_score": round(float(row["score_sum"]) / max(int(row["score_n"]), 1), 2),
+                    "avg_cost_usd": round(float(row["cost_sum"]) / max(int(row["cost_n"]), 1), 6),
+                    "avg_latency_ms": round(float(row["lat_sum"]) / max(int(row["lat_n"]), 1), 2),
+                }
+            )
+        result.sort(key=lambda item: (item["win_rate"], item["wins"], item["avg_score"]), reverse=True)
+        return result
+
+    async def benchmark_historical_issues(
+        self,
+        user: User,
+        project_id: str,
+        *,
+        agent_a_id: str,
+        agent_b_id: str,
+        model_a: str | None = None,
+        model_b: str | None = None,
+        days: int = 60,
+        limit: int = 8,
+    ) -> dict[str, Any]:
+        await self.get_project(user, project_id)
+        await self.get_agent(user, agent_a_id)
+        await self.get_agent(user, agent_b_id)
+        tasks = await self.repo.list_tasks(project_id)
+        since = datetime.now(UTC) - timedelta(days=max(1, min(days, 3650)))
+        candidate_tasks = [
+            t for t in tasks
+            if t.github_issue_link_id and t.created_at >= since and t.status in {"completed", "approved", "synced_to_github", "archived"}
+        ][: max(1, min(limit, 50))]
+        created: list[dict[str, Any]] = []
+        for task in candidate_tasks:
+            record = await self.create_eval_record(
+                user,
+                project_id,
+                {
+                    "name": f"Historical benchmark: {task.title[:80]}",
+                    "task_id": task.id,
+                    "agent_a_id": agent_a_id,
+                    "agent_b_id": agent_b_id,
+                    "model_a": model_a,
+                    "model_b": model_b,
+                },
+            )
+            launched = await self.start_benchmark(user, project_id, record.id)
+            created.append({"eval_id": record.id, "task_id": task.id, "runs": launched.get("runs", [])})
+        return {"created": created, "count": len(created)}
 
     async def start_benchmark(self, user: User, project_id: str, eval_id: str) -> dict[str, Any]:
         await self._enforce_orchestration_run_rate_limit(user.id)
@@ -2914,6 +4041,8 @@ class OrchestrationService:
             raise RuntimeError(f"Run {run_id} not found")
         if run.status == "cancelled":
             return run
+        prior_status = run.status
+        workflow = self._ensure_run_workflow(run)
         run.status = "in_progress"
         run.started_at = datetime.now(UTC)
         run.checkpoint_json = {
@@ -2936,10 +4065,22 @@ class OrchestrationService:
             run,
             event_type="started",
             message="Run execution started.",
-            payload={"run_mode": run.run_mode},
+            payload={
+                "run_mode": run.run_mode,
+                "durable_backend": workflow.get("backend"),
+                "trace": self._workflow_trace_payload(run),
+            },
         )
+        if prior_status in {"failed", "blocked"}:
+            await self._emit_run_event(
+                run,
+                event_type="workflow_recovery",
+                message="Worker resumed execution from checkpoint after a recoverable interruption.",
+                payload={"prior_status": prior_status, "trace": self._workflow_trace_payload(run)},
+            )
 
         try:
+            await self._compress_run_context_if_needed(run)
             if settings.ORCHESTRATION_USE_LANGGRAPH:
                 from backend.modules.orchestration.langgraph_runner import run_via_langgraph
 
@@ -2955,8 +4096,18 @@ class OrchestrationService:
             else:
                 await self._execute_single_agent_run(run)
 
+            await self._enforce_run_output_schema(run)
             run.status = "completed"
             run.completed_at = datetime.now(UTC)
+            run.checkpoint_json = set_workflow_artifact(
+                mark_step(
+                    run.checkpoint_json,
+                    step_id=self._workflow_steps_for_run(run)[-1]["id"],
+                    status="completed",
+                ),
+                key="final_status",
+                value="completed",
+            )
             if task and run.run_mode != "brainstorm":
                 task.result_summary = (
                     str(
@@ -2970,6 +4121,7 @@ class OrchestrationService:
                     next_status = "needs_review" if task.reviewer_agent_id else "completed"
                     await self._transition_task_status(task, next_status, run=run, reason="run completed")
                 self._update_task_execution_memory(task, run)
+                await self._detect_and_log_task_output_conflict(task, run)
             await self._emit_run_event(
                 run,
                 event_type="completed",
@@ -3004,6 +4156,16 @@ class OrchestrationService:
         except BlockedExecution as exc:
             run.status = "blocked"
             run.error_message = str(exc)
+            step = current_step(run.checkpoint_json)
+            if step:
+                await self._mark_run_step(
+                    run,
+                    step_id=str(step.get("id")),
+                    status="blocked",
+                    level="warning",
+                    message=f"Checkpoint captured at blocked step '{step.get('title')}'.",
+                    error=str(exc),
+                )
             if task:
                 await self._transition_task_status(task, "blocked", run=run, reason=str(exc))
             await self._emit_run_event(
@@ -3019,6 +4181,16 @@ class OrchestrationService:
         except Exception as exc:
             run.status = "failed"
             run.error_message = str(exc)
+            step = current_step(run.checkpoint_json)
+            if step:
+                await self._mark_run_step(
+                    run,
+                    step_id=str(step.get("id")),
+                    status="failed",
+                    level="error",
+                    message=f"Failure captured for step '{step.get('title')}'.",
+                    error=str(exc),
+                )
             if task:
                 if task.status != "blocked":
                     await self._transition_task_status(task, "failed", run=run, reason=str(exc))
@@ -3194,18 +4366,38 @@ class OrchestrationService:
 
     async def create_brainstorm(self, user: User, payload: dict[str, Any]):
         project = await self.get_project(user, payload["project_id"])
+        if payload.get("task_id"):
+            await self.get_task(user, project.id, payload["task_id"])
         stop_conditions = self._normalize_brainstorm_stop_conditions(payload)
+        participant_ids: list[str] = []
+        seen_participants: set[str] = set()
+        for raw_id in payload.get("participant_agent_ids", []):
+            agent_id = str(raw_id).strip()
+            if not agent_id or agent_id in seen_participants:
+                continue
+            seen_participants.add(agent_id)
+            participant_ids.append(agent_id)
+        if len(participant_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="A brainstorm requires at least two unique participant agents.",
+            )
+        moderator_agent_id = payload.get("moderator_agent_id")
+        if moderator_agent_id:
+            await self.get_agent(user, moderator_agent_id)
+        else:
+            manager = await self._project_default_manager(project.id, project=project)
+            moderator_agent_id = manager.id if manager else participant_ids[0]
         item = await self.repo.create_brainstorm(
             project_id=project.id,
             task_id=payload.get("task_id"),
             initiator_user_id=user.id,
-            moderator_agent_id=payload.get("moderator_agent_id"),
+            moderator_agent_id=moderator_agent_id,
             topic=payload["topic"],
             max_rounds=payload.get("max_rounds", 3),
             stop_conditions_json=stop_conditions,
             decision_log_json=[],
         )
-        participant_ids = list(payload.get("participant_agent_ids", []))
         profiles: list[AgentProfile] = []
         for agent_id in participant_ids:
             profiles.append(await self.get_agent(user, agent_id))
@@ -3491,9 +4683,17 @@ class OrchestrationService:
         repository = await self.repo.get_github_repository(user.id, payload["repository_id"])
         if not repository:
             raise HTTPException(status_code=404, detail="GitHub repository not found")
+        repository.project_id = project.id
         connection = await self.repo.get_github_connection(user.id, repository.connection_id)
         if not connection:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
+        repo_pool = self._repo_pool_config(project, repository=repository)
+        default_worker = str(
+            payload.get("auto_assign_agent_id")
+            or repo_pool.get("default_assignee_agent_id")
+            or ""
+        ).strip() or None
+        default_reviewer = str(repo_pool.get("default_reviewer_agent_id") or "").strip() or None
         issues = await self._fetch_github_issues(connection, repository, payload.get("issue_numbers", []))
         results = []
         for issue in issues:
@@ -3515,8 +4715,8 @@ class OrchestrationService:
                 task = await self.repo.create_task(
                     project_id=project.id,
                     created_by_user_id=user.id,
-                    assigned_agent_id=payload.get("auto_assign_agent_id"),
-                    reviewer_agent_id=None,
+                    assigned_agent_id=default_worker,
+                    reviewer_agent_id=default_reviewer,
                     title=issue["title"][:255],
                     description=issue.get("body"),
                     source="github",
@@ -3527,7 +4727,10 @@ class OrchestrationService:
                     due_date=None,
                     labels_json=[item["name"] for item in issue.get("labels", [])],
                     result_payload_json={},
-                    metadata_json={"github_issue_number": issue["number"]},
+                    metadata_json={
+                        "github_issue_number": issue["number"],
+                        "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
+                    },
                     position=await self.repo.get_next_task_position(project.id),
                 )
                 link.task_id = task.id
@@ -3650,12 +4853,24 @@ class OrchestrationService:
         approval = await self.repo.get_approval(user.id, approval_id)
         if not approval:
             raise HTTPException(status_code=404, detail="Approval request not found")
+        if status == "rejected" and not str(reason or "").strip():
+            raise HTTPException(status_code=422, detail="A rejection reason is required.")
         approval.status = status
         approval.reason = reason
         approval.approved_by_user_id = user.id
         approval.resolved_at = datetime.now(UTC)
-        if status == "approved" and approval.approval_type == "github_comment" and approval.issue_link_id:
+        if status == "approved" and approval.approval_type in {
+            "github_comment",
+            "github_progress_comment",
+            "github_manager_closure",
+        } and approval.issue_link_id:
             await self._post_approved_github_comment(approval)
+        elif status == "approved" and approval.approval_type == "github_create_pr":
+            await self._approve_github_create_pr(approval)
+        elif status == "approved" and approval.approval_type == "github_pr_review_comment":
+            await self._approve_github_pr_review_comment(approval)
+        elif status == "approved" and approval.approval_type == "github_issue_sync":
+            await self._approve_github_issue_sync(approval)
         elif approval.approval_type == "agent_memory_write":
             memory_entry_id = (approval.payload_json or {}).get("memory_entry_id")
             if memory_entry_id:
@@ -3699,6 +4914,35 @@ class OrchestrationService:
                     )
                     await self.db.delete(entry)
                     await self.db.commit()
+        elif approval.approval_type == "task_assignment_change":
+            if status == "approved" and approval.task_id:
+                task = await self.db.get(OrchestratorTask, approval.task_id)
+                if task:
+                    payload = approval.payload_json or {}
+                    task.assigned_agent_id = payload.get("to_assigned_agent_id")
+        elif approval.approval_type == "task_mark_complete":
+            if status == "approved" and approval.task_id:
+                task = await self.db.get(OrchestratorTask, approval.task_id)
+                if task:
+                    payload = approval.payload_json or {}
+                    target_status = str(payload.get("to_status") or "completed")
+                    if target_status not in TASK_STATUS_VALUES:
+                        target_status = "completed"
+                    await self._transition_task_status(
+                        task,
+                        target_status,
+                        reason="approval granted for task completion",
+                    )
+        elif approval.approval_type == "shared_memory_write":
+            if status == "approved" and approval.task_id:
+                task = await self.db.get(OrchestratorTask, approval.task_id)
+                if task:
+                    payload = approval.payload_json or {}
+                    meta = dict(task.metadata_json or {})
+                    cur = dict(meta.get(MEMORY_COORDINATION_KEY) or {})
+                    cur["shared"] = str(payload.get("shared") or "")
+                    meta[MEMORY_COORDINATION_KEY] = cur
+                    task.metadata_json = meta
         elif status == "approved" and approval.run_id:
             # Approved actions unblock the task run
             run = await self.db.get(TaskRun, approval.run_id)
@@ -3739,6 +4983,19 @@ class OrchestrationService:
                             run=run,
                             reason="re-plan triggered by rejected approval",
                         )
+        await self.audit_repo.log(
+            actor_user_id=user.id,
+            action_type=f"orchestration.approval.{status}",
+            entity_type="approval_request",
+            entity_id=approval.id,
+            metadata_json={
+                "approval_type": approval.approval_type,
+                "project_id": approval.project_id,
+                "task_id": approval.task_id,
+                "run_id": approval.run_id,
+                "reason": reason,
+            },
+        )
         await self.db.commit()
         await self.db.refresh(approval)
         return approval
@@ -3810,8 +5067,20 @@ class OrchestrationService:
             expires_at=(datetime.now(UTC) + timedelta(days=ttl_days)) if ttl_days else None,
             metadata_json={"source_kind": "uploaded"},
         )
-        await self._index_project_document(item)
+        await self.repo.create_memory_ingest_job(
+            owner_id=user.id,
+            project_id=project_id,
+            job_type="document_ingest",
+            payload_json={"project_id": project_id, "document_id": item.id},
+            status="pending",
+        )
         await self.db.commit()
+        try:
+            from backend.workers.orchestration import queue_memory_ingest_jobs
+
+            queue_memory_ingest_jobs()
+        except Exception as exc:
+            logger.warning("queue memory ingest jobs failed for upload_document: %s", exc)
         await self.db.refresh(item)
         return item
 
@@ -3982,10 +5251,182 @@ class OrchestrationService:
         templates = await self.repo.list_agent_templates()
         return [self._template_model_to_payload(item) for item in templates]
 
+    async def create_agent_template(self, payload: dict) -> dict:
+        data = {
+            "slug": payload["slug"],
+            "name": payload["name"],
+            "role": payload.get("role", "specialist"),
+            "description": payload.get("description"),
+            "parent_template_slug": payload.get("parent_template_slug"),
+            "system_prompt": payload.get("system_prompt", ""),
+            "mission_markdown": payload.get("mission_markdown", ""),
+            "rules_markdown": payload.get("rules_markdown", ""),
+            "output_contract_markdown": payload.get("output_contract_markdown", ""),
+            "capabilities_json": payload.get("capabilities", []),
+            "allowed_tools_json": payload.get("allowed_tools", []),
+            "skills_json": payload.get("skills", []),
+            "tags_json": payload.get("tags", []),
+            "model_policy_json": payload.get("model_policy", {}),
+            "budget_json": payload.get("budget", {}),
+            "memory_policy_json": payload.get("memory_policy", {}),
+            "output_schema_json": payload.get("output_schema", {}),
+            "metadata_json": payload.get("metadata", {}),
+        }
+        template = await self.repo.create_agent_template(**data)
+        await self.db.commit()
+        await self.db.refresh(template)
+        return self._template_model_to_payload(template)
+
+    async def update_agent_template(self, slug: str, payload: dict) -> dict:
+        template = await self.repo.get_agent_template_by_slug(slug)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"Template '{slug}' not found")
+        if "slug" in payload and payload["slug"] != slug:
+            existing = await self.repo.get_agent_template_by_slug(payload["slug"])
+            if existing is not None:
+                raise HTTPException(status_code=409, detail="Template slug already exists")
+        field_map = {
+            "slug": "slug",
+            "name": "name",
+            "role": "role",
+            "description": "description",
+            "parent_template_slug": "parent_template_slug",
+            "system_prompt": "system_prompt",
+            "mission_markdown": "mission_markdown",
+            "rules_markdown": "rules_markdown",
+            "output_contract_markdown": "output_contract_markdown",
+            "capabilities": "capabilities_json",
+            "allowed_tools": "allowed_tools_json",
+            "skills": "skills_json",
+            "tags": "tags_json",
+            "model_policy": "model_policy_json",
+            "budget": "budget_json",
+            "memory_policy": "memory_policy_json",
+            "output_schema": "output_schema_json",
+            "metadata": "metadata_json",
+        }
+        for key, value in payload.items():
+            target = field_map.get(key)
+            if target is not None:
+                setattr(template, target, value)
+        await self.db.commit()
+        await self.db.refresh(template)
+        return self._template_model_to_payload(template)
+
+    async def delete_agent_template(self, slug: str) -> None:
+        template = await self.repo.get_agent_template_by_slug(slug)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"Template '{slug}' not found")
+        await self.db.delete(template)
+        await self.db.commit()
+
     async def list_skill_catalog(self) -> list[dict[str, Any]]:
         await self._ensure_catalog_seeded()
         skills = await self.repo.list_skill_packs()
         return [self._skill_model_to_payload(item) for item in skills]
+
+    async def create_skill_pack(self, payload: dict[str, Any]) -> dict[str, Any]:
+        await self._ensure_catalog_seeded()
+        existing = await self.repo.get_skill_pack_by_slug(payload["slug"])
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="Skill slug already exists")
+        skill = await self.repo.create_skill_pack(
+            slug=payload["slug"],
+            name=payload["name"],
+            description=payload.get("description"),
+            capabilities_json=payload.get("capabilities", []),
+            allowed_tools_json=payload.get("allowed_tools", []),
+            rules_markdown=payload.get("rules_markdown", ""),
+            tags_json=payload.get("tags", []),
+        )
+        await self.db.commit()
+        await self.db.refresh(skill)
+        return self._skill_model_to_payload(skill)
+
+    async def update_skill_pack(self, slug: str, payload: dict[str, Any]) -> dict[str, Any]:
+        await self._ensure_catalog_seeded()
+        skill = await self.repo.get_skill_pack_by_slug(slug)
+        if skill is None:
+            raise HTTPException(status_code=404, detail=f"Skill '{slug}' not found")
+        field_map = {
+            "name": "name",
+            "description": "description",
+            "capabilities": "capabilities_json",
+            "allowed_tools": "allowed_tools_json",
+            "rules_markdown": "rules_markdown",
+            "tags": "tags_json",
+        }
+        for key, value in payload.items():
+            target = field_map.get(key)
+            if target is not None:
+                setattr(skill, target, value)
+        await self.db.commit()
+        await self.db.refresh(skill)
+        return self._skill_model_to_payload(skill)
+
+    async def delete_skill_pack(self, slug: str) -> None:
+        await self._ensure_catalog_seeded()
+        skill = await self.repo.get_skill_pack_by_slug(slug)
+        if skill is None:
+            raise HTTPException(status_code=404, detail=f"Skill '{slug}' not found")
+        await self.db.delete(skill)
+        await self.db.commit()
+
+    async def list_team_templates(self) -> list[dict[str, Any]]:
+        await self._ensure_team_template_catalog_seeded()
+        items = await self.repo.list_team_templates()
+        return [self._team_template_model_to_payload(item) for item in items]
+
+    async def create_team_template(self, payload: dict[str, Any]) -> dict[str, Any]:
+        await self._ensure_team_template_catalog_seeded()
+        existing = await self.repo.get_team_template_by_slug(payload["slug"])
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="Team template slug already exists")
+        item = await self.repo.create_team_template(
+            slug=payload["slug"],
+            name=payload["name"],
+            description=payload.get("description"),
+            outcome=payload.get("outcome", ""),
+            roles_json=payload.get("roles", []),
+            tools_json=payload.get("tools", []),
+            autonomy=payload.get("autonomy", "medium"),
+            visibility=payload.get("visibility", "private"),
+            agent_template_slugs_json=payload.get("agent_template_slugs", []),
+        )
+        await self.db.commit()
+        await self.db.refresh(item)
+        return self._team_template_model_to_payload(item)
+
+    async def update_team_template(self, template_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        await self._ensure_team_template_catalog_seeded()
+        item = await self.repo.get_team_template(template_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Team template not found")
+        field_map = {
+            "name": "name",
+            "description": "description",
+            "outcome": "outcome",
+            "roles": "roles_json",
+            "tools": "tools_json",
+            "autonomy": "autonomy",
+            "visibility": "visibility",
+            "agent_template_slugs": "agent_template_slugs_json",
+        }
+        for key, value in payload.items():
+            target = field_map.get(key)
+            if target is not None:
+                setattr(item, target, value)
+        await self.db.commit()
+        await self.db.refresh(item)
+        return self._team_template_model_to_payload(item)
+
+    async def delete_team_template(self, template_id: str) -> None:
+        await self._ensure_team_template_catalog_seeded()
+        item = await self.repo.get_team_template(template_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Team template not found")
+        await self.db.delete(item)
+        await self.db.commit()
 
     async def create_agent_from_template(
         self, user: User, template_slug: str, overrides: dict[str, Any]
@@ -4006,6 +5447,7 @@ class OrchestrationService:
             "from_template": template_slug,
         }
         payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
+        payload["is_active"] = bool(payload.get("is_active", False))
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
         agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
         await self._snapshot_agent(agent, user.id)
@@ -4314,6 +5756,22 @@ class OrchestrationService:
             raw["rules"] = incoming["rules"]
         return raw
 
+    def _normalize_execution_model_policy(self, execution: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "enforce_project_model_policy": bool(execution.get("enforce_project_model_policy", False)),
+            "offline_local_only_mode": bool(execution.get("offline_local_only_mode", False)),
+            "allowed_provider_types": [
+                str(item).strip().lower()
+                for item in (execution.get("allowed_provider_types") or [])
+                if str(item).strip()
+            ],
+            "allowed_model_slugs": [
+                str(item).strip()
+                for item in (execution.get("allowed_model_slugs") or [])
+                if str(item).strip()
+            ],
+        }
+
     def _policy_field_value(
         self, project: OrchestratorProject | None, task: OrchestratorTask | None, field: str
     ) -> Any:
@@ -4376,8 +5834,19 @@ class OrchestrationService:
         project = await self.db.get(OrchestratorProject, run.project_id) if run else None
         target_provider = provider
         run_payload = run.input_payload_json if run else {}
+        run_meta = (
+            run_payload.get("orchestration_meta")
+            if isinstance(run_payload.get("orchestration_meta"), dict)
+            else {}
+        )
         target_model = run.model_name if run else None
         policy_reason = None
+        execution_settings = self._project_execution_settings(project) if project else {}
+        exec_model_policy = self._normalize_execution_model_policy(execution_settings)
+        enforce_project_model_policy = bool(exec_model_policy["enforce_project_model_policy"])
+        offline_local_only_mode = bool(exec_model_policy["offline_local_only_mode"])
+        allowed_provider_types = set(exec_model_policy["allowed_provider_types"])
+        allowed_model_slugs = set(exec_model_policy["allowed_model_slugs"])
         if not target_model:
             target_provider, policy_model, policy_reason = await self._policy_routed_target(
                 project=project,
@@ -4387,6 +5856,17 @@ class OrchestrationService:
             if policy_model:
                 target_model = policy_model
         effective_policy = (agent.model_policy_json if agent else {}) or {}
+        if effective_policy.get("model") and (
+            not target_model or run_meta.get("model_source") == "project_execution"
+        ):
+            target_model = str(effective_policy.get("model"))
+            if run is not None:
+                await self._emit_run_event(
+                    run,
+                    event_type="agent_model_routed",
+                    message=f"Agent model policy selected {target_model} for {purpose}.",
+                    payload={"source": "agent.model_policy.model"},
+                )
         if not target_model:
             target_model = (
                 effective_policy.get("model")
@@ -4403,8 +5883,55 @@ class OrchestrationService:
                 model_candidates.append(candidate)
         if not model_candidates:
             model_candidates = [None]
+        if offline_local_only_mode and not target_model:
+            model_candidates = [self._global_policy_routing().get("local_model_slug"), None]
+        if enforce_project_model_policy and allowed_model_slugs:
+            model_candidates = [
+                candidate for candidate in model_candidates if candidate is None or candidate in allowed_model_slugs
+            ]
+            if not model_candidates:
+                raise HTTPException(
+                    status_code=422,
+                    detail="No candidate model is allowed by execution.allowed_model_slugs.",
+                )
         if not settings.ORCHESTRATION_PROVIDER_FAILOVER:
             model_candidates = model_candidates[:1]
+        if (
+            run is not None
+            and project is not None
+            and self.action_requires_approval(project, "use_expensive_model")
+            and target_provider is not None
+            and model_candidates
+        ):
+            expensive_threshold = float(
+                execution_settings.get("expensive_model_cost_per_1k_usd") or 0.01
+            )
+            first_candidate = model_candidates[0]
+            if first_candidate:
+                est_for_1k = self._estimate_cost_micros(
+                    target_provider, 1000, 1000, model_name=first_candidate
+                ) / 1_000_000
+                if est_for_1k >= expensive_threshold:
+                    approval = await self.repo.create_approval(
+                        project_id=project.id,
+                        task_id=task.id if task else None,
+                        run_id=run.id,
+                        issue_link_id=task.github_issue_link_id if task else None,
+                        requested_by_user_id=run.triggered_by_user_id,
+                        approval_type="expensive_model_use",
+                        status="pending",
+                        payload_json={
+                            "model_name": first_candidate,
+                            "estimated_cost_per_1k_usd": est_for_1k,
+                            "threshold_per_1k_usd": expensive_threshold,
+                            "purpose": purpose,
+                        },
+                    )
+                    await self.db.commit()
+                    raise BlockedExecution(
+                        f"Model '{first_candidate}' exceeds expensive-model threshold and requires approval "
+                        f"(approval_id={approval.id})."
+                    )
         if policy_reason:
             if run is not None:
                 await self._emit_run_event(
@@ -4427,6 +5954,23 @@ class OrchestrationService:
                 if p.is_enabled and p.id not in seen_ids:
                     seen_ids.add(p.id)
                     provider_chain.append(p)
+        if offline_local_only_mode:
+            provider_chain = [
+                p for p in provider_chain if p is None or p.provider_type in {"ollama", "local"}
+            ]
+            if not provider_chain:
+                provider_chain = [None]
+        if enforce_project_model_policy and allowed_provider_types:
+            provider_chain = [
+                p
+                for p in provider_chain
+                if p is None or p.provider_type.lower() in allowed_provider_types
+            ]
+            if not provider_chain:
+                raise HTTPException(
+                    status_code=422,
+                    detail="No provider satisfies execution.allowed_provider_types policy.",
+                )
 
         outer_errors: list[str] = []
 
@@ -4562,29 +6106,87 @@ class OrchestrationService:
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
             raise RuntimeError("Run project not found")
-        await self._emit_run_event(run, event_type="prompt_building", message="Building task prompt...")
-        prompt = await self._build_task_prompt(run, agent)
-        execution_plan = await self._plan_agent_execution(
-            run,
-            provider=provider,
-            agent=agent,
-            prompt=prompt,
-            purpose="single-agent task execution",
-        )
-        tool_results = await self._execute_tool_calls(
-            run,
-            project=project,
-            task=task,
-            tool_calls=execution_plan.get("tool_calls", []),
-            allowed_tools=(agent.allowed_tools_json if agent else []),
-            agent=agent,
-        )
+        prompt = self._workflow_checkpoint_artifact(run, "single_agent.prompt")
+        if not isinstance(prompt, str) or not prompt.strip():
+            await self._mark_run_step(
+                run,
+                step_id="build_prompt",
+                status="in_progress",
+                message="Building task prompt.",
+            )
+            await self._emit_run_event(run, event_type="prompt_building", message="Building task prompt...")
+            prompt = await self._build_task_prompt(run, agent)
+            self._set_workflow_checkpoint_artifact(run, key="single_agent.prompt", value=prompt)
+            await self._mark_run_step(
+                run,
+                step_id="build_prompt",
+                status="completed",
+                message="Task prompt checkpoint saved.",
+            )
+
+        execution_plan = self._workflow_checkpoint_artifact(run, "single_agent.plan")
+        if not isinstance(execution_plan, dict) or not execution_plan:
+            await self._mark_run_step(
+                run,
+                step_id="plan_execution",
+                status="in_progress",
+                message="Planning single-agent execution.",
+            )
+            execution_plan = await self._plan_agent_execution(
+                run,
+                provider=provider,
+                agent=agent,
+                prompt=prompt,
+                purpose="single-agent task execution",
+            )
+            self._set_workflow_checkpoint_artifact(run, key="single_agent.plan", value=execution_plan)
+            await self._mark_run_step(
+                run,
+                step_id="plan_execution",
+                status="completed",
+                message="Execution plan checkpoint saved.",
+                metadata={"tool_call_count": len(execution_plan.get("tool_calls", []))},
+            )
+
+        tool_results = self._workflow_checkpoint_artifact(run, "single_agent.tool_results")
+        if not isinstance(tool_results, list):
+            await self._mark_run_step(
+                run,
+                step_id="run_tools",
+                status="in_progress",
+                message="Executing planned tools.",
+            )
+            tool_results = await self._execute_tool_calls(
+                run,
+                project=project,
+                task=task,
+                tool_calls=execution_plan.get("tool_calls", []),
+                allowed_tools=(agent.allowed_tools_json if agent else []),
+                agent=agent,
+            )
+            self._set_workflow_checkpoint_artifact(
+                run, key="single_agent.tool_results", value=tool_results
+            )
+            await self._mark_run_step(
+                run,
+                step_id="run_tools",
+                status="completed",
+                message="Tool results checkpoint saved.",
+                metadata={"completed_tools": len(tool_results)},
+            )
+
         final_prompt = self._build_final_prompt(
             base_prompt=prompt,
             execution_plan=execution_plan,
             tool_results=tool_results,
         )
         model_name = run.model_name or (provider.default_model if provider else None)
+        await self._mark_run_step(
+            run,
+            step_id="model_response",
+            status="in_progress",
+            message=f"Requesting model response ({model_name or 'default'}).",
+        )
         await self._emit_run_event(
             run,
             event_type="llm_request",
@@ -4607,12 +6209,36 @@ class OrchestrationService:
             "final_output": result.output_text,
             "structured_output_json": result.output_json,
         }
+        self._set_workflow_checkpoint_artifact(
+            run,
+            key="single_agent.output_payload",
+            value=run.output_payload_json,
+        )
+        await self._mark_run_step(
+            run,
+            step_id="model_response",
+            status="completed",
+            message="Model response checkpoint saved.",
+            metadata={"output_chars": len(result.output_text)},
+        )
+        await self._mark_run_step(
+            run,
+            step_id="persist_output",
+            status="in_progress",
+            message="Persisting execution artifacts.",
+        )
         await self._write_artifact(
             run,
             kind="run_output",
             title="Execution output",
             content=result.output_text,
             metadata={"tool_calls": len(tool_results)},
+        )
+        await self._mark_run_step(
+            run,
+            step_id="persist_output",
+            status="completed",
+            message="Execution artifacts persisted.",
         )
 
     async def _execute_manager_worker_run(self, run: TaskRun) -> None:
@@ -4632,22 +6258,42 @@ class OrchestrationService:
             event_type="manager_planning",
             message="Manager agent building execution graph...",
         )
-        planning_prompt = await self._build_task_prompt(
-            run,
-            manager,
-            prefix=(
-                "Produce a JSON execution graph with sub_tasks, required_tools, required_capabilities, "
-                "and whether each branch can run in parallel."
-            ),
-        )
-        manager_plan = await self._plan_agent_execution(
-            run,
-            provider=provider,
-            agent=manager,
-            prompt=planning_prompt,
-            purpose="manager delegation graph",
-            default_tool_calls=[],
-        )
+        manager_plan = self._workflow_checkpoint_artifact(run, "manager_worker.plan")
+        routed_sub_tasks = self._workflow_checkpoint_artifact(run, "manager_worker.routed_sub_tasks")
+        branch_results = self._workflow_checkpoint_artifact(run, "manager_worker.branch_results")
+
+        if not isinstance(manager_plan, dict) or not manager_plan:
+            await self._mark_run_step(
+                run,
+                step_id="supervisor_plan",
+                status="in_progress",
+                message="Supervisor is planning delegated work.",
+            )
+            planning_prompt = await self._build_task_prompt(
+                run,
+                manager,
+                prefix=(
+                    "Produce a JSON execution graph with sub_tasks, required_tools, required_capabilities, "
+                    "and whether each branch can run in parallel."
+                ),
+            )
+            manager_plan = await self._plan_agent_execution(
+                run,
+                provider=provider,
+                agent=manager,
+                prompt=planning_prompt,
+                purpose="manager delegation graph",
+                default_tool_calls=[],
+            )
+            self._set_workflow_checkpoint_artifact(run, key="manager_worker.plan", value=manager_plan)
+            await self._mark_run_step(
+                run,
+                step_id="supervisor_plan",
+                status="completed",
+                message="Supervisor plan checkpoint saved.",
+                metadata={"sub_task_count": len(manager_plan.get("sub_tasks") or [])},
+            )
+
         sub_tasks = manager_plan.get("sub_tasks") or [
             {
                 "title": task.title if task else "Primary task",
@@ -4657,35 +6303,79 @@ class OrchestrationService:
                 "parallelizable": False,
             }
         ]
-        candidate_workers = await self._candidate_workers(project.id, manager=manager, explicit_worker=explicit_worker)
-        routed_sub_tasks = await self._route_sub_tasks_to_agents(
-            project.id,
-            sub_tasks,
-            candidate_workers,
-            manager=manager,
-            parent_task=task,
-        )
-        await self._emit_run_event(
-            run,
-            event_type="manager_plan",
-            message="Manager created an execution graph.",
-            payload={"sub_tasks": routed_sub_tasks},
-        )
-        parallel, sequential = self._partition_subtasks(routed_sub_tasks)
-        branch_results: list[dict[str, Any]] = []
-        if parallel:
-            branch_results.extend(
-                await asyncio.gather(
-                    *[
-                        self._execute_subtask_branch(run, provider, item, project=project, manager=manager)
-                        for item in parallel
-                    ]
+
+        if not isinstance(routed_sub_tasks, list) or not routed_sub_tasks:
+            await self._mark_run_step(
+                run,
+                step_id="route_workers",
+                status="in_progress",
+                message="Supervisor is routing subtasks to workers.",
+            )
+            candidate_workers = await self._candidate_workers(
+                project.id, manager=manager, explicit_worker=explicit_worker, task=task
+            )
+            routed_sub_tasks = await self._route_sub_tasks_to_agents(
+                project.id,
+                sub_tasks,
+                candidate_workers,
+                manager=manager,
+                parent_task=task,
+            )
+            self._set_workflow_checkpoint_artifact(
+                run,
+                key="manager_worker.routed_sub_tasks",
+                value=routed_sub_tasks,
+            )
+            await self._emit_run_event(
+                run,
+                event_type="manager_plan",
+                message="Manager created an execution graph.",
+                payload={"sub_tasks": routed_sub_tasks},
+            )
+            await self._mark_run_step(
+                run,
+                step_id="route_workers",
+                status="completed",
+                message="Worker routing checkpoint saved.",
+            )
+
+        if not isinstance(branch_results, list):
+            await self._mark_run_step(
+                run,
+                step_id="run_branches",
+                status="in_progress",
+                message="Executing delegated branches.",
+            )
+            parallel, sequential = self._partition_subtasks(routed_sub_tasks)
+            branch_results = []
+            if parallel:
+                branch_results.extend(
+                    await asyncio.gather(
+                        *[
+                            self._execute_subtask_branch(run, provider, item, project=project, manager=manager)
+                            for item in parallel
+                        ]
+                    )
                 )
+            for item in sequential:
+                branch_results.append(
+                    await self._execute_subtask_branch(
+                        run, provider, item, project=project, manager=manager
+                    )
+                )
+            self._set_workflow_checkpoint_artifact(
+                run,
+                key="manager_worker.branch_results",
+                value=branch_results,
             )
-        for item in sequential:
-            branch_results.append(
-                await self._execute_subtask_branch(run, provider, item, project=project, manager=manager)
+            await self._mark_run_step(
+                run,
+                step_id="run_branches",
+                status="completed",
+                message="Branch execution checkpoint saved.",
+                metadata={"branch_count": len(branch_results)},
             )
+
         blocked = [item for item in branch_results if item.get("status") == "blocked"]
         if blocked:
             if manager:
@@ -4709,6 +6399,12 @@ class OrchestrationService:
             raise BlockedExecution("Delegated sub-task execution is blocked and requires escalation")
         synthesis_input = json.dumps(branch_results, indent=2)
         synth_agent = explicit_worker or manager
+        await self._mark_run_step(
+            run,
+            step_id="synthesize",
+            status="in_progress",
+            message="Supervisor is synthesizing branch outputs.",
+        )
         _, synthesis_result = await self._execute_with_routing(
             run,
             provider=provider,
@@ -4728,12 +6424,35 @@ class OrchestrationService:
             "summary": synthesis_result.output_text[:1200],
             "final_output": synthesis_result.output_text,
         }
+        self._set_workflow_checkpoint_artifact(
+            run,
+            key="manager_worker.output_payload",
+            value=run.output_payload_json,
+        )
+        await self._mark_run_step(
+            run,
+            step_id="synthesize",
+            status="completed",
+            message="Supervisor synthesis checkpoint saved.",
+        )
+        await self._mark_run_step(
+            run,
+            step_id="persist_output",
+            status="in_progress",
+            message="Persisting manager execution graph.",
+        )
         await self._write_artifact(
             run,
             kind="execution_graph",
             title="Manager execution graph",
             content=json.dumps(manager_plan, indent=2),
             metadata={"sub_task_count": len(routed_sub_tasks)},
+        )
+        await self._mark_run_step(
+            run,
+            step_id="persist_output",
+            status="completed",
+            message="Manager execution graph persisted.",
         )
 
     async def _execute_review_run(self, run: TaskRun) -> None:
@@ -4781,7 +6500,18 @@ class OrchestrationService:
         }
         if task:
             if review_payload.get("decision") == "approved":
-                await self._transition_task_status(task, "approved", run=run, reason="review approved")
+                project = await self.db.get(OrchestratorProject, task.project_id)
+                advanced = await self._advance_task_reviewer_chain(task, project, run.reviewer_agent_id)
+                if advanced:
+                    run.output_payload_json["next_reviewer_agent_id"] = task.reviewer_agent_id
+                    await self._emit_run_event(
+                        run,
+                        event_type="review_handoff",
+                        message="Review approved and handed off to the next reviewer in chain.",
+                        payload={"next_reviewer_agent_id": task.reviewer_agent_id},
+                    )
+                else:
+                    await self._transition_task_status(task, "approved", run=run, reason="review approved")
             else:
                 self._append_structured_reopen_record(task, review_payload, run=run)
                 await self._transition_task_status(task, "planned", run=run, reason="review requested rework")
@@ -4818,8 +6548,14 @@ class OrchestrationService:
 
     def _normalize_brainstorm_stop_conditions(self, payload: dict[str, Any]) -> dict[str, Any]:
         stop_conditions = dict(payload.get("stop_conditions") or {})
-        stop_conditions["mode"] = payload.get("mode") or stop_conditions.get("mode") or "exploration"
-        stop_conditions["output_type"] = payload.get("output_type") or stop_conditions.get("output_type") or "implementation_plan"
+        mode = self._normalize_brainstorm_mode(
+            payload.get("mode") or stop_conditions.get("mode") or "exploration"
+        )
+        output_type = self._normalize_brainstorm_output_type(
+            payload.get("output_type") or stop_conditions.get("output_type") or self._brainstorm_default_output_type(mode)
+        )
+        stop_conditions["mode"] = mode
+        stop_conditions["output_type"] = output_type
         stop_conditions["max_cost_usd"] = float(payload.get("max_cost_usd") or stop_conditions.get("max_cost_usd") or 10)
         stop_conditions["max_repetition_score"] = float(payload.get("max_repetition_score") or stop_conditions.get("max_repetition_score") or 0.92)
         stop_conditions["stop_on_consensus"] = bool(stop_conditions.get("stop_on_consensus", True))
@@ -4832,7 +6568,48 @@ class OrchestrationService:
         stop_conditions["conflict_pairwise_max_similarity"] = float(
             stop_conditions.get("conflict_pairwise_max_similarity", 0.38)
         )
+        stop_conditions["conflict_requires_moderation"] = bool(
+            stop_conditions.get("conflict_requires_moderation", True)
+        )
         return stop_conditions
+
+    def _normalize_brainstorm_mode(self, value: Any) -> str:
+        raw = re.sub(r"[^a-z0-9]+", "_", str(value or "exploration").strip().lower()).strip("_")
+        aliases = {
+            "exploration": "exploration",
+            "solution_design": "solution_design",
+            "code_review": "code_review",
+            "code_review_debate": "code_review",
+            "incident_triage": "incident_triage",
+            "root_cause": "root_cause",
+            "root_cause_analysis": "root_cause",
+            "architecture_proposal": "architecture_proposal",
+        }
+        return aliases.get(raw, "exploration")
+
+    def _normalize_brainstorm_output_type(self, value: Any) -> str:
+        raw = re.sub(r"[^a-z0-9]+", "_", str(value or "implementation_plan").strip().lower()).strip("_")
+        aliases = {
+            "adr": "adr",
+            "architecture_decision_record": "adr",
+            "implementation_plan": "implementation_plan",
+            "delivery_plan": "implementation_plan",
+            "test_plan": "test_plan",
+            "verification_plan": "test_plan",
+            "risk_register": "risk_register",
+        }
+        return aliases.get(raw, "implementation_plan")
+
+    def _brainstorm_default_output_type(self, mode: str) -> str:
+        defaults = {
+            "exploration": "implementation_plan",
+            "solution_design": "implementation_plan",
+            "code_review": "test_plan",
+            "incident_triage": "risk_register",
+            "root_cause": "risk_register",
+            "architecture_proposal": "adr",
+        }
+        return defaults.get(mode, "implementation_plan")
 
     def _brainstorm_mode(self, brainstorm: Brainstorm) -> str:
         return str((brainstorm.stop_conditions_json or {}).get("mode") or "exploration")
@@ -5128,6 +6905,8 @@ class OrchestrationService:
             )
         if consensus_reached:
             stop_conditions["consensus_status"] = "consensus" if hard_consensus else "soft_consensus"
+        elif bool(consensus_metrics.get("conflict_signal")):
+            stop_conditions["consensus_status"] = "conflict"
         elif repetition_score >= float(stop_conditions.get("max_repetition_score", 0.92)):
             stop_conditions["consensus_status"] = "loop_detected"
         else:
@@ -5539,9 +7318,37 @@ class OrchestrationService:
         results: list[dict[str, Any]] = []
         failures = 0
         effective_allowed = set(allowed_tools or [])
+        dangerous_tools = {"code_execute", "db_query", "fs_write", "github_create_pr", "github_label_issue"}
+        hitl_settings = (project.settings_json or {}).get("hitl") or {}
+        secret_scope = str(hitl_settings.get("secret_scope") or "project_default")
         for index, call in enumerate(tool_calls, start=1):
             tool_name = str(call.get("tool") or "").strip()
             self._tool_allowed_for_agent_permissions(tool_name, agent)
+            if self.action_requires_approval(project, "run_tool") and tool_name in dangerous_tools:
+                approval = await self.repo.create_approval(
+                    project_id=project.id,
+                    task_id=task.id if task else None,
+                    run_id=run.id,
+                    issue_link_id=task.github_issue_link_id if task else None,
+                    requested_by_user_id=run.triggered_by_user_id,
+                    approval_type="dangerous_tool_call",
+                    status="pending",
+                    payload_json={"tool": tool_name, "arguments": call.get("arguments") or {}},
+                )
+                await self.db.commit()
+                raise BlockedExecution(
+                    f"Dangerous tool '{tool_name}' requires approval (approval_id={approval.id})."
+                )
+            if secret_scope == "deny_external" and tool_name in {
+                "github_comment",
+                "github_label_issue",
+                "github_create_pr",
+                "web_fetch",
+                "web_search",
+            }:
+                raise BlockedExecution(
+                    f"Tool '{tool_name}' blocked by secret scope policy ({secret_scope})."
+                )
             if effective_allowed and tool_name not in effective_allowed:
                 raise BlockedExecution(f"Tool '{tool_name}' is not allowed for this agent")
             await self._emit_run_event(
@@ -5663,14 +7470,24 @@ class OrchestrationService:
                 message=f"Token budget {token_budget} exceeded ({run.token_total} used).",
             )
 
-    async def _candidate_workers(self, project_id: str, *, manager=None, explicit_worker=None) -> list:
+    async def _candidate_workers(
+        self, project_id: str, *, manager=None, explicit_worker=None, task: OrchestratorTask | None = None
+    ) -> list:
         if explicit_worker is not None:
             return [explicit_worker]
         memberships = await self.repo.list_project_memberships(project_id)
+        allowed_agent_ids: set[str] | None = None
+        if task is not None:
+            repo_pool = await self._task_repo_pool_config(task)
+            configured = [str(item).strip() for item in (repo_pool.get("worker_agent_ids") or []) if str(item).strip()]
+            if configured:
+                allowed_agent_ids = set(configured)
         workers = []
         for membership in memberships:
             agent = await self._load_agent_for_run(membership.agent_id)
             if agent is None or not agent.is_active:
+                continue
+            if allowed_agent_ids is not None and agent.id not in allowed_agent_ids:
                 continue
             if manager and not self._is_agent_descendant(manager, agent) and manager.id != agent.id:
                 continue
@@ -5753,6 +7570,16 @@ class OrchestrationService:
         manager,
     ) -> dict[str, Any]:
         worker = await self._load_agent_for_run(sub_task.get("assigned_agent_id"))
+        await self._emit_run_event(
+            run,
+            event_type="branch_started",
+            message=f"Starting delegated branch '{sub_task.get('title', 'Untitled')}'.",
+            payload={
+                "branch_title": sub_task.get("title"),
+                "assigned_agent_id": sub_task.get("assigned_agent_id"),
+                "trace": self._workflow_trace_payload(run),
+            },
+        )
         if worker is None:
             await self._emit_run_event(
                 run,
@@ -5796,7 +7623,7 @@ class OrchestrationService:
             run,
             event_type="worker_response",
             message=f"Worker {worker.name} completed sub-task '{sub_task.get('title', 'Untitled')}'.",
-            payload={"agent_id": worker.id},
+            payload={"agent_id": worker.id, "branch_title": sub_task.get("title")},
         )
         return {
             **sub_task,
@@ -5831,7 +7658,7 @@ class OrchestrationService:
             task_type="general",
             due_date=None,
         )
-        candidates = await self._candidate_workers(project_id)
+        candidates = await self._candidate_workers(project_id, task=task)
         if task is not None:
             candidates = [a for a in candidates if self._agent_eligible_for_task_by_filters(a, task)]
         ranked = await self._rank_worker_candidates(project_id, task_ns, candidates)
@@ -5854,7 +7681,7 @@ class OrchestrationService:
         exe = self._project_execution_settings(project) if project else {}
         candidates = [
             agent
-            for agent in await self._candidate_workers(project_id)
+            for agent in await self._candidate_workers(project_id, task=task)
             if agent.id not in exclude and self._agent_eligible_for_task_by_filters(agent, task)
         ]
         if not candidates:
@@ -5878,7 +7705,7 @@ class OrchestrationService:
         exe = self._project_execution_settings(project) if project else {}
         candidates = [
             agent
-            for agent in await self._candidate_workers(project_id)
+            for agent in await self._candidate_workers(project_id, task=task)
             if agent.id not in exclude and self._agent_eligible_for_task_by_filters(agent, task)
         ]
         if len(candidates) <= 2:
@@ -5893,7 +7720,17 @@ class OrchestrationService:
         second = next((a for a in ranked[1:] if a.id != first.id), ranked[1])
         return [first, second]
 
-    async def _project_default_manager(self, project_id: str) -> AgentProfile | None:
+    async def _project_default_manager(
+        self, project_id: str, *, project: OrchestratorProject | None = None
+    ) -> AgentProfile | None:
+        if project is None:
+            project = await self.db.get(OrchestratorProject, project_id)
+        if project is not None:
+            manager_id = self._project_execution_settings(project).get("manager_agent_id")
+            if manager_id:
+                manager = await self._load_agent_for_run(str(manager_id))
+                if manager and manager.is_active:
+                    return manager
         memberships = await self.repo.list_project_memberships(project_id)
         manager_membership = next(
             (item for item in memberships if item.is_default_manager or item.role in {"manager", "team_lead"}),
@@ -5909,13 +7746,23 @@ class OrchestrationService:
         execution.setdefault("autonomy_level", "assisted")
         execution.setdefault("manager_agent_id", None)
         execution.setdefault("reviewer_agent_ids", [])
+        execution.setdefault("reviewer_chain_mode", "sequential")
         execution.setdefault("provider_config_id", None)
         execution.setdefault("model_name", None)
         execution.setdefault("fallback_model", None)
         execution.setdefault("escalation_rules", [])
-        execution.setdefault("routing_mode", "balanced")
+        execution.setdefault("routing_mode", "capability_based")
         execution.setdefault("sibling_load_balance", "queue_depth")
         execution.setdefault("skip_unhealthy_worker_providers", True)
+        execution.setdefault("offline_local_only_mode", False)
+        execution.setdefault("enforce_project_model_policy", False)
+        execution.setdefault("allowed_provider_types", [])
+        execution.setdefault("allowed_model_slugs", [])
+        blocked_handoff = dict(execution.get("blocked_handoff") or {})
+        blocked_handoff.setdefault("mode", "escalation_path")
+        blocked_handoff.setdefault("target_agent_id", None)
+        blocked_handoff.setdefault("fallback_to_manager", True)
+        execution["blocked_handoff"] = blocked_handoff
         sla = dict(execution.get("sla") or {})
         sla.setdefault("enabled", True)
         sla.setdefault("warn_hours_before_due", 24)
@@ -5925,12 +7772,34 @@ class OrchestrationService:
             "post_to_github",
             "open_pr",
             "mark_complete",
+            "change_task_ownership",
             "write_memory",
             "use_expensive_model",
             "run_tool",
         ])
+        execution.setdefault("expensive_model_cost_per_1k_usd", 0.01)
         execution["policy_routing"] = self._normalize_policy_routing(execution.get("policy_routing"))
         raw["execution"] = execution
+        github = dict(raw.get("github") or {})
+        github.setdefault("branch_prefix", "troop/{task_id}-{slug}")
+        github.setdefault("enforce_branch_naming", True)
+        github.setdefault("auto_post_progress", False)
+        github.setdefault("auto_review_on_pr_review", False)
+        github.setdefault("auto_activate_review_on_pr_open", True)
+        github.setdefault("draft_prs_by_default", True)
+        github.setdefault("close_issue_with_manager_summary", True)
+        github.setdefault("write_requires_approval", True)
+        github.setdefault("sync_labels_to_github", True)
+        github.setdefault("sync_assignees_to_github", True)
+        github.setdefault("sync_state_to_github", True)
+        github.setdefault("sync_milestone_to_github", True)
+        github.setdefault("repo_agent_pools", {})
+        raw["github"] = github
+        hitl = dict(raw.get("hitl") or {})
+        hitl.setdefault("sandbox_note", "")
+        hitl.setdefault("secret_scope", "project_default")
+        hitl.setdefault("sandbox_mode", "allow_host_fallback")
+        raw["hitl"] = hitl
         mem_defaults = merge_memory_settings({})
         mem_in = dict(raw.get("memory") or {})
         raw["memory"] = {**mem_defaults, **mem_in}
@@ -5951,6 +7820,45 @@ class OrchestrationService:
 
     def _project_execution_settings(self, project: OrchestratorProject) -> dict[str, Any]:
         return self._normalize_project_settings(project.settings_json).get("execution", {})
+
+    def _project_github_settings(self, project: OrchestratorProject | None) -> dict[str, Any]:
+        if project is None:
+            return self._normalize_project_settings({}).get("github", {})
+        return self._normalize_project_settings(project.settings_json).get("github", {})
+
+    def _repo_pool_config(
+        self,
+        project: OrchestratorProject | None,
+        *,
+        repository: GithubRepository | None = None,
+        repository_id: str | None = None,
+        repository_full_name: str | None = None,
+    ) -> dict[str, Any]:
+        github = self._project_github_settings(project)
+        pools = dict(github.get("repo_agent_pools") or {})
+        keys = [repository_id, repository_full_name]
+        if repository is not None:
+            keys = [repository.id, repository.full_name, *keys]
+        for key in keys:
+            text = str(key or "").strip()
+            if text and isinstance(pools.get(text), dict):
+                return dict(pools[text])
+        return {}
+
+    async def _task_github_repository(self, task: OrchestratorTask | None) -> GithubRepository | None:
+        if task is None or not task.github_issue_link_id:
+            return None
+        issue_link = await self.db.get(GithubIssueLink, task.github_issue_link_id)
+        if issue_link is None:
+            return None
+        return await self.db.get(GithubRepository, issue_link.repository_id)
+
+    async def _task_repo_pool_config(self, task: OrchestratorTask | None) -> dict[str, Any]:
+        if task is None:
+            return {}
+        project = await self.db.get(OrchestratorProject, task.project_id)
+        repository = await self._task_github_repository(task)
+        return self._repo_pool_config(project, repository=repository)
 
     def _delegation_edge_allowed(self, manager: AgentProfile | None, worker: AgentProfile | None) -> bool:
         if manager is None or worker is None:
@@ -6006,17 +7914,43 @@ class OrchestrationService:
         worker = await self._load_agent_for_run(worker_id) if worker_id else None
         handoff_id: str | None = None
         handoff_via: str | None = None
-        if worker:
+        execution = self._project_execution_settings(project)
+        blocked_handoff = dict(execution.get("blocked_handoff") or {})
+        blocked_mode = str(blocked_handoff.get("mode") or "escalation_path").strip().lower()
+        member_ids = {m.agent_id for m in await self.repo.list_project_memberships(project.id)}
+        if blocked_mode == "configured_agent":
+            target_id = blocked_handoff.get("target_agent_id")
+            if target_id:
+                target = await self.repo.get_agent(project.owner_id, str(target_id))
+                if target and target.is_active and target.id in member_ids:
+                    handoff_id = target.id
+                    handoff_via = "configured_agent"
+        if handoff_id is None and blocked_mode == "sibling_with_capacity" and worker:
+            candidates = [
+                agent
+                for agent in await self._candidate_workers(project.id, task=task)
+                if agent.id != worker.id and agent.parent_agent_id == worker.parent_agent_id
+            ]
+            if candidates:
+                ranked = await self._rank_worker_candidates(
+                    project.id,
+                    task,
+                    candidates,
+                    execution_settings=execution,
+                )
+                if ranked:
+                    handoff_id = ranked[0].id
+                    handoff_via = "sibling_with_capacity"
+        if handoff_id is None and worker:
             esc = (worker.model_policy_json or {}).get("escalation_path")
             if esc:
                 target = await self.repo.get_agent_by_slug(project.owner_id, str(esc).strip())
                 if target and target.is_active:
-                    member_ids = {m.agent_id for m in await self.repo.list_project_memberships(project.id)}
                     if target.id in member_ids:
                         handoff_id = target.id
                         handoff_via = "escalation_path"
-        if handoff_id is None:
-            mgr = self._project_execution_settings(project).get("manager_agent_id")
+        if handoff_id is None and bool(blocked_handoff.get("fallback_to_manager", True)):
+            mgr = execution.get("manager_agent_id")
             if mgr:
                 handoff_id = str(mgr)
                 handoff_via = "project_manager"
@@ -6026,7 +7960,8 @@ class OrchestrationService:
             if reason:
                 meta["handoff_blocked_reason"] = str(reason)[:2000]
             task.metadata_json = meta
-            orm_attributes.flag_modified(task, "metadata_json")
+            if hasattr(task, "_sa_instance_state"):
+                orm_attributes.flag_modified(task, "metadata_json")
 
     async def _rank_worker_candidates(
         self,
@@ -6042,7 +7977,7 @@ class OrchestrationService:
         exe = execution_settings
         if exe is None:
             exe = self._project_execution_settings(project) if project else {}
-        routing_mode = str(exe.get("routing_mode") or "balanced").lower()
+        routing_mode = str(exe.get("routing_mode") or "capability_based").lower()
         sibling_mode = str(exe.get("sibling_load_balance") or "queue_depth").lower()
         skip_unhealthy = bool(exe.get("skip_unhealthy_worker_providers", True))
 
@@ -6057,12 +7992,13 @@ class OrchestrationService:
             hours_to_due = (due - now).total_seconds() / 3600.0
 
         def sla_multiplier() -> float:
-            if routing_mode == "sla_priority":
+            if routing_mode in {"sla_priority", "priority_sla"}:
                 if hours_to_due is None:
-                    return 1.0
+                    return 2.0 if getattr(task, "priority", "normal") in {"high", "urgent"} else 1.0
                 if hours_to_due <= 0:
-                    return 4.0
-                return max(1.0, min(72.0, 24.0 / max(hours_to_due, 0.25)))
+                    return 5.0
+                priority_boost = 2.0 if getattr(task, "priority", "normal") == "urgent" else 1.5 if getattr(task, "priority", "normal") == "high" else 1.0
+                return priority_boost * max(1.0, min(72.0, 24.0 / max(hours_to_due, 0.25)))
             if routing_mode == "throughput":
                 return 0.75
             return 1.0
@@ -6083,14 +8019,70 @@ class OrchestrationService:
             qd = queue_depths.get(agent.id, 0)
             weighted_qd = qd * m
             unhealthy_penalty = 0
-            if skip_unhealthy and agent.provider_config_id:
+            health_rank = 0
+            if agent.provider_config_id:
                 snap = health_snapshots.get(agent.provider_config_id)
-                if snap and snap[1] is not None and snap[0] is False:
-                    unhealthy_penalty = 10_000
-            key = (-tool_hits, weighted_qd + unhealthy_penalty, *tie_key(agent))
+                if snap and snap[1] is not None:
+                    if snap[0] is False:
+                        unhealthy_penalty = 10_000 if skip_unhealthy or routing_mode == "model_availability" else 100
+                        health_rank = 1
+                    else:
+                        health_rank = -1
+            estimated_cost = self._agent_estimated_run_cost(agent)
+            if routing_mode == "cost_aware":
+                key = (-tool_hits, estimated_cost, weighted_qd + unhealthy_penalty, *tie_key(agent))
+            elif routing_mode == "model_availability":
+                key = (-tool_hits, health_rank, weighted_qd + unhealthy_penalty, *tie_key(agent))
+            elif routing_mode == "user_pinned":
+                key = (weighted_qd + unhealthy_penalty, -tool_hits, *tie_key(agent))
+            else:
+                key = (-tool_hits, weighted_qd + unhealthy_penalty, *tie_key(agent))
             scored.append((key, agent))
         scored.sort(key=lambda item: item[0])
         return [pair[1] for pair in scored]
+
+    def _agent_estimated_run_cost(self, agent: AgentProfile) -> float:
+        model_name = (agent.model_policy_json or {}).get("model")
+        if not model_name:
+            return 0.0
+        for item in getattr(self, "_cached_model_capabilities", []) or []:
+            if item.model_slug == model_name:
+                return float(item.cost_per_1k_input or 0.0) + float(item.cost_per_1k_output or 0.0)
+        return 0.0
+
+    def _reviewer_chain_for_project(self, project: OrchestratorProject | None) -> list[str]:
+        if project is None:
+            return []
+        execution = self._project_execution_settings(project)
+        return [str(item).strip() for item in execution.get("reviewer_agent_ids") or [] if str(item).strip()]
+
+    async def _advance_task_reviewer_chain(
+        self,
+        task: OrchestratorTask,
+        project: OrchestratorProject | None,
+        reviewer_agent_id: str | None,
+    ) -> bool:
+        chain = self._reviewer_chain_for_project(project)
+        if not chain or not reviewer_agent_id:
+            return False
+        try:
+            current_index = chain.index(str(reviewer_agent_id))
+        except ValueError:
+            return False
+        if current_index >= len(chain) - 1:
+            return False
+        next_reviewer_id = chain[current_index + 1]
+        metadata = dict(task.metadata_json or {})
+        metadata["review_chain"] = {
+            "reviewer_agent_ids": chain,
+            "current_index": current_index + 1,
+            "last_completed_reviewer_agent_id": reviewer_agent_id,
+        }
+        task.metadata_json = metadata
+        task.reviewer_agent_id = next_reviewer_id
+        if hasattr(task, "_sa_instance_state"):
+            orm_attributes.flag_modified(task, "metadata_json")
+        return True
 
     async def _apply_project_escalation_rules(
         self,
@@ -6206,26 +8198,51 @@ class OrchestrationService:
     async def _resolve_provider_for_run(
         self, run: TaskRun, agent: AgentProfile | None
     ) -> ProviderConfig | None:
+        project = await self.db.get(OrchestratorProject, run.project_id)
+        execution_settings = self._project_execution_settings(project) if project else {}
+        offline_local_only_mode = bool(execution_settings.get("offline_local_only_mode"))
+
+        async def _local_provider_for_project() -> ProviderConfig | None:
+            if project is None:
+                return None
+            providers = await self.repo.list_providers(project.owner_id, project.id)
+            return next(
+                (
+                    item
+                    for item in providers
+                    if item.is_enabled and item.provider_type in {"ollama", "local"}
+                ),
+                None,
+            )
+
         if run.provider_config_id:
             provider = await self.db.get(ProviderConfig, run.provider_config_id)
             if provider:
+                if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
+                    return await _local_provider_for_project()
                 return provider
-        project = await self.db.get(OrchestratorProject, run.project_id)
         if project is not None:
-            execution_settings = self._project_execution_settings(project)
             if execution_settings.get("provider_config_id"):
                 provider = await self.db.get(ProviderConfig, execution_settings["provider_config_id"])
                 if provider:
+                    if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
+                        return await _local_provider_for_project()
                     return provider
         if agent and agent.provider_config_id:
             provider = await self.db.get(ProviderConfig, agent.provider_config_id)
             if provider:
+                if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
+                    return await _local_provider_for_project()
                 return provider
         if agent and agent.project_id:
             providers = await self.repo.list_providers(agent.owner_id, agent.project_id)
             default = next((item for item in providers if item.is_default), None)
             if default:
+                if offline_local_only_mode and default.provider_type not in {"ollama", "local"}:
+                    return await _local_provider_for_project()
                 return default
+        if offline_local_only_mode:
+            return await _local_provider_for_project()
         return None
 
     async def _index_project_document(self, document: ProjectDocument) -> None:
@@ -6676,40 +8693,9 @@ class OrchestrationService:
     async def _ensure_catalog_seeded(self) -> None:
         existing_skills = await self.repo.list_skill_packs()
         existing_models = await self.repo.list_model_capabilities(active_only=False)
-        if not existing_skills:
-            for item in BUILTIN_SKILL_PACKS:
-                await self.repo.create_skill_pack(
-                    slug=item["slug"],
-                    name=item["name"],
-                    description=item.get("description"),
-                    capabilities_json=item.get("capabilities", []),
-                    allowed_tools_json=item.get("allowed_tools", []),
-                    rules_markdown=item.get("rules_markdown", ""),
-                    tags_json=item.get("tags", []),
-                )
+
         existing_templates = await self.repo.list_agent_templates()
-        if not existing_templates:
-            for item in BUILTIN_AGENT_TEMPLATES:
-                await self.repo.create_agent_template(
-                    slug=item["slug"],
-                    name=item["name"],
-                    role=item.get("role", "specialist"),
-                    description=item.get("description"),
-                    parent_template_slug=item.get("parent_template_slug"),
-                    system_prompt=item.get("system_prompt", ""),
-                    mission_markdown=item.get("mission_markdown", ""),
-                    rules_markdown=item.get("rules_markdown", ""),
-                    output_contract_markdown=item.get("output_contract_markdown", ""),
-                    capabilities_json=item.get("capabilities", []),
-                    allowed_tools_json=item.get("allowed_tools", []),
-                    skills_json=item.get("skills", []),
-                    tags_json=item.get("tags", []),
-                    model_policy_json=item.get("model_policy", {}),
-                    budget_json=item.get("budget", {}),
-                    memory_policy_json=item.get("memory_policy", {}),
-                    output_schema_json=item.get("output_schema", {}),
-                    metadata_json=item.get("metadata", {}),
-                )
+
         existing_model_keys = {
             (item.provider_type, item.model_slug) for item in existing_models
         }
@@ -6732,6 +8718,13 @@ class OrchestrationService:
         if not existing_skills or not existing_templates or len(existing_model_keys) != len(BUILTIN_MODEL_CAPABILITIES):
             await self.db.commit()
 
+    async def _ensure_team_template_catalog_seeded(self) -> None:
+        existing_templates = await self.repo.list_team_templates()
+        if existing_templates:
+            return
+
+        await self.db.commit()
+
     async def _validate_and_normalize_agent_payload(
         self,
         user: User,
@@ -6740,39 +8733,15 @@ class OrchestrationService:
         existing_agent_id: str | None,
     ) -> dict[str, Any]:
         await self._ensure_catalog_seeded()
-        normalized = dict(payload)
-        if "skills_json" in normalized and "skills" not in normalized:
-            normalized["skills"] = normalized["skills_json"]
-        if "capabilities_json" in normalized and "capabilities" not in normalized:
-            normalized["capabilities"] = normalized["capabilities_json"]
-        if "allowed_tools_json" in normalized and "allowed_tools" not in normalized:
-            normalized["allowed_tools"] = normalized["allowed_tools_json"]
-        if "tags_json" in normalized and "tags" not in normalized:
-            normalized["tags"] = normalized["tags_json"]
-        if "model_policy_json" in normalized and "model_policy" not in normalized:
-            normalized["model_policy"] = normalized["model_policy_json"]
-        if "budget_json" in normalized and "budget" not in normalized:
-            normalized["budget"] = normalized["budget_json"]
-        if "memory_policy_json" in normalized and "memory_policy" not in normalized:
-            normalized["memory_policy"] = normalized["memory_policy_json"]
-        if "output_schema_json" in normalized and "output_schema" not in normalized:
-            normalized["output_schema"] = normalized["output_schema_json"]
-        if "metadata_json" in normalized and "metadata" not in normalized:
-            normalized["metadata"] = normalized["metadata_json"]
-
-        normalized["skills"] = [str(item).strip() for item in normalized.get("skills", []) if str(item).strip()]
-        normalized["capabilities"] = [str(item).strip() for item in normalized.get("capabilities", []) if str(item).strip()]
-        normalized["allowed_tools"] = [str(item).strip() for item in normalized.get("allowed_tools", []) if str(item).strip()]
-        normalized["tags"] = [str(item).strip() for item in normalized.get("tags", []) if str(item).strip()]
-        normalized["budget"] = normalized.get("budget") or {}
-        normalized["memory_policy"] = normalized.get("memory_policy") or {}
-        normalized["model_policy"] = normalized.get("model_policy") or {}
-        normalized["output_schema"] = normalized.get("output_schema") or {}
-        normalized["metadata"] = normalized.get("metadata") or {}
-
-        lint_errors = await self.lint_agent_payload(user, normalized, existing_agent_id=existing_agent_id)
-        if lint_errors:
-            raise HTTPException(status_code=422, detail={"errors": lint_errors})
+        normalized = self._normalize_agent_payload_shape(payload)
+        lint = await self.lint_agent_payload_detailed(
+            user, normalized, existing_agent_id=existing_agent_id
+        )
+        if lint["errors"]:
+            raise HTTPException(
+                status_code=422,
+                detail={"errors": lint["errors"], "warnings": lint["warnings"]},
+            )
         return normalized
 
     async def lint_agent_payload(
@@ -6782,7 +8751,20 @@ class OrchestrationService:
         *,
         existing_agent_id: str | None = None,
     ) -> list[str]:
+        lint = await self.lint_agent_payload_detailed(
+            user, payload, existing_agent_id=existing_agent_id
+        )
+        return lint["errors"]
+
+    async def lint_agent_payload_detailed(
+        self,
+        user: User,
+        payload: dict[str, Any],
+        *,
+        existing_agent_id: str | None = None,
+    ) -> dict[str, list[str] | bool]:
         errors: list[str] = []
+        warnings: list[str] = []
         allowed_tools = {
             "github_comment",
             "github_label_issue",
@@ -6875,7 +8857,91 @@ class OrchestrationService:
         permission_level = (payload.get("model_policy") or {}).get("permissions")
         if isinstance(permission_level, str) and permission_level not in {"read-only", "comment-only", "code-write", "merge-blocked"}:
             errors.append("permissions must be one of: read-only, comment-only, code-write, merge-blocked.")
-        return errors
+        if not str(payload.get("description") or "").strip():
+            warnings.append("Description is missing.")
+        if not str(payload.get("mission_markdown") or "").strip():
+            warnings.append("Mission section is missing.")
+        if not str(payload.get("rules_markdown") or "").strip():
+            warnings.append("Rules section is missing.")
+        if not str(payload.get("output_contract_markdown") or "").strip():
+            warnings.append("Output Contract section is missing.")
+        if not payload.get("capabilities"):
+            warnings.append("Capabilities are empty.")
+        if not payload.get("allowed_tools"):
+            warnings.append("Allowed tools are empty.")
+        if not (payload.get("model_policy") or {}).get("model"):
+            warnings.append("Primary model is not configured.")
+        if not permission_level:
+            warnings.append("Permissions are not configured.")
+        if not memory_scope:
+            warnings.append("Memory policy scope is not configured.")
+        if budget.get("token_budget") is None:
+            warnings.append("Token budget is not configured.")
+        if budget.get("time_budget_seconds") is None:
+            warnings.append("Time budget is not configured.")
+        if not task_filters:
+            warnings.append("Task filters are empty.")
+        if not output_format:
+            warnings.append("Output schema format is not configured.")
+        if not (payload.get("model_policy") or {}).get("escalation_path"):
+            warnings.append("Escalation path is not configured.")
+        return {
+            "errors": errors,
+            "warnings": warnings,
+            "activation_ready": not errors,
+        }
+
+    async def summarize_agent_lint(self, user: User, agent: AgentProfile) -> dict[str, Any]:
+        payload = self._normalize_agent_payload_shape(self._agent_model_to_payload(agent))
+        lint = await self.lint_agent_payload_detailed(user, payload, existing_agent_id=agent.id)
+        return {
+            "errors": list(lint["errors"]),
+            "warnings": list(lint["warnings"]),
+            "activation_ready": bool(lint["activation_ready"]),
+        }
+
+    def _normalize_agent_payload_shape(self, payload: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(payload)
+        if "skills_json" in normalized and "skills" not in normalized:
+            normalized["skills"] = normalized["skills_json"]
+        if "capabilities_json" in normalized and "capabilities" not in normalized:
+            normalized["capabilities"] = normalized["capabilities_json"]
+        if "allowed_tools_json" in normalized and "allowed_tools" not in normalized:
+            normalized["allowed_tools"] = normalized["allowed_tools_json"]
+        if "tags_json" in normalized and "tags" not in normalized:
+            normalized["tags"] = normalized["tags_json"]
+        if "model_policy_json" in normalized and "model_policy" not in normalized:
+            normalized["model_policy"] = normalized["model_policy_json"]
+        if "budget_json" in normalized and "budget" not in normalized:
+            normalized["budget"] = normalized["budget_json"]
+        if "memory_policy_json" in normalized and "memory_policy" not in normalized:
+            normalized["memory_policy"] = normalized["memory_policy_json"]
+        if "output_schema_json" in normalized and "output_schema" not in normalized:
+            normalized["output_schema"] = normalized["output_schema_json"]
+        if "metadata_json" in normalized and "metadata" not in normalized:
+            normalized["metadata"] = normalized["metadata_json"]
+        normalized["skills"] = [
+            str(item).strip() for item in normalized.get("skills", []) if str(item).strip()
+        ]
+        normalized["capabilities"] = [
+            str(item).strip()
+            for item in normalized.get("capabilities", [])
+            if str(item).strip()
+        ]
+        normalized["allowed_tools"] = [
+            str(item).strip()
+            for item in normalized.get("allowed_tools", [])
+            if str(item).strip()
+        ]
+        normalized["tags"] = [
+            str(item).strip() for item in normalized.get("tags", []) if str(item).strip()
+        ]
+        normalized["budget"] = normalized.get("budget") or {}
+        normalized["memory_policy"] = normalized.get("memory_policy") or {}
+        normalized["model_policy"] = normalized.get("model_policy") or {}
+        normalized["output_schema"] = normalized.get("output_schema") or {}
+        normalized["metadata"] = normalized.get("metadata") or {}
+        return normalized
 
     async def _resolve_template_effective_profile(self, template: AgentTemplateCatalog) -> dict[str, Any]:
         inherited: dict[str, Any] = {}
@@ -7001,6 +9067,20 @@ class OrchestrationService:
             "allowed_tools": list(skill.allowed_tools_json or []),
             "rules_markdown": skill.rules_markdown,
             "tags": list(skill.tags_json or []),
+        }
+
+    def _team_template_model_to_payload(self, template: TeamTemplateCatalog) -> dict[str, Any]:
+        return {
+            "id": template.id,
+            "slug": template.slug,
+            "name": template.name,
+            "description": template.description or "",
+            "outcome": template.outcome,
+            "roles": list(template.roles_json or []),
+            "tools": list(template.tools_json or []),
+            "autonomy": template.autonomy,
+            "visibility": template.visibility,
+            "agent_template_slugs": list(template.agent_template_slugs_json or []),
         }
 
     async def _ensure_unique_agent_slug(
@@ -7192,6 +9272,84 @@ class OrchestrationService:
             payload_json={**payload, "body": comment_body},
         )
 
+    async def _approve_github_create_pr(self, approval: ApprovalRequest) -> None:
+        payload = approval.payload_json or {}
+        run_id = payload.get("run_id")
+        task_id = approval.task_id or payload.get("task_id")
+        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        if not run_id or not task_id or issue_link is None:
+            raise HTTPException(status_code=422, detail="PR approval payload is incomplete")
+        run = await self.db.get(TaskRun, str(run_id))
+        task = await self.db.get(OrchestratorTask, str(task_id))
+        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        if run is None or task is None or repository is None:
+            raise HTTPException(status_code=404, detail="PR approval target could not be resolved")
+        await self._create_github_pr_for_run(run, task, repository, issue_link)
+
+    async def _approve_github_pr_review_comment(self, approval: ApprovalRequest) -> None:
+        payload = approval.payload_json or {}
+        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        if issue_link is None:
+            raise HTTPException(status_code=404, detail="Issue link not found")
+        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        connection = await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        pr_number = payload.get("pr_number")
+        body = str(payload.get("body") or "").strip()
+        if connection is None or repository is None or not pr_number or not body:
+            raise HTTPException(status_code=422, detail="PR review approval payload is incomplete")
+        response = await self._github_request(
+            connection,
+            "POST",
+            f"/repos/{repository.full_name}/pulls/{pr_number}/reviews",
+            json_body={"body": body[:5000], "event": "COMMENT"},
+        )
+        await self.repo.create_sync_event(
+            repository_id=repository.id,
+            issue_link_id=issue_link.id,
+            action="post_pr_review",
+            status="completed" if response.status_code < 400 else "failed",
+            detail=f"Approved reviewer PR comment posted on #{pr_number}."
+            if response.status_code < 400
+            else "Failed to post approved reviewer PR comment.",
+            payload_json=payload,
+        )
+
+    async def _approve_github_issue_sync(self, approval: ApprovalRequest) -> None:
+        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        if issue_link is None:
+            raise HTTPException(status_code=404, detail="Issue link not found")
+        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        connection = await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        payload = dict(approval.payload_json or {})
+        body = dict(payload.get("issue_update") or {})
+        if repository is None or connection is None or not body:
+            raise HTTPException(status_code=422, detail="GitHub issue sync approval payload is incomplete")
+        response = await self._github_request(
+            connection,
+            "PATCH",
+            f"/repos/{repository.full_name}/issues/{issue_link.issue_number}",
+            json_body=body,
+        )
+        if response.status_code < 400:
+            issue_link.last_synced_at = datetime.now(UTC)
+            if "state" in body:
+                issue_link.state = str(body["state"])
+            if "labels" in body and isinstance(body["labels"], list):
+                issue_link.labels_json = [str(item) for item in body["labels"]]
+            if "assignees" in body:
+                assignees = body.get("assignees") or []
+                issue_link.assignee_login = str(assignees[0]) if assignees else None
+        await self.repo.create_sync_event(
+            repository_id=repository.id,
+            issue_link_id=issue_link.id,
+            action="sync_issue_fields",
+            status="completed" if response.status_code < 400 else "failed",
+            detail="Approved internal task changes synced back to GitHub."
+            if response.status_code < 400
+            else "Failed to sync internal task changes back to GitHub.",
+            payload_json=payload,
+        )
+
     def validate_github_webhook_signature(self, body: bytes, signature: str | None) -> bool:
         if not settings.GITHUB_APP_WEBHOOK_SECRET:
             return False
@@ -7233,6 +9391,8 @@ class OrchestrationService:
             await self._process_webhook_issue_opened(sync_event, payload)
         elif sync_event.action == "webhook.issues.assigned":
             await self._process_webhook_issue_assigned(sync_event, payload)
+        elif sync_event.action.startswith("webhook.issues."):
+            await self._process_webhook_issue_changed(sync_event, payload)
         elif sync_event.action == "webhook.issue_comment.created":
             await self._process_webhook_issue_comment(sync_event, payload)
         elif sync_event.action == "webhook.pull_request.opened":
@@ -7304,6 +9464,8 @@ class OrchestrationService:
             sync_event.detail = "Repository is not linked to an orchestration project."
             return
         owner_id = await self._owner_id_for_repository(repository)
+        project = await self.db.get(OrchestratorProject, repository.project_id)
+        repo_pool = self._repo_pool_config(project, repository=repository)
         link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
         if link is None:
             link = await self.repo.create_issue_link(
@@ -7323,8 +9485,8 @@ class OrchestrationService:
             task = await self.repo.create_task(
                 project_id=repository.project_id,
                 created_by_user_id=owner_id,
-                assigned_agent_id=None,
-                reviewer_agent_id=None,
+                assigned_agent_id=str(repo_pool.get("default_assignee_agent_id") or "").strip() or None,
+                reviewer_agent_id=str(repo_pool.get("default_reviewer_agent_id") or "").strip() or None,
                 title=(issue.get("title") or "GitHub issue")[:255],
                 description=issue.get("body"),
                 source="github",
@@ -7335,7 +9497,10 @@ class OrchestrationService:
                 due_date=None,
                 labels_json=[item["name"] for item in issue.get("labels", [])],
                 result_payload_json={},
-                metadata_json={"github_issue_number": issue.get("number")},
+                metadata_json={
+                    "github_issue_number": issue.get("number"),
+                    "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
+                },
                 position=await self.repo.get_next_task_position(repository.project_id),
             )
             task.github_issue_link_id = link.id
@@ -7357,7 +9522,18 @@ class OrchestrationService:
             sync_event.detail = "No linked task or assignee mapping available."
             return
         owner_id = await self._owner_id_for_repository(repository)
-        agent = await self.repo.get_agent_by_slug(owner_id, assignee_login)
+        project = await self.db.get(OrchestratorProject, repository.project_id) if repository.project_id else None
+        repo_pool = self._repo_pool_config(project, repository=repository)
+        assignee_map = dict(repo_pool.get("github_assignee_map") or {})
+        mapped = assignee_map.get(assignee_login)
+        agent = None
+        if mapped:
+            mapped_text = str(mapped).strip()
+            agent = await self._load_agent_for_run(mapped_text)
+            if agent is None:
+                agent = await self.repo.get_agent_by_slug(owner_id, mapped_text)
+        if agent is None:
+            agent = await self.repo.get_agent_by_slug(owner_id, assignee_login)
         if agent is None:
             sync_event.status = "ignored"
             sync_event.detail = f"No agent slug matches GitHub assignee '{assignee_login}'."
@@ -7371,6 +9547,39 @@ class OrchestrationService:
         sync_event.status = "completed"
         sync_event.detail = f"Issue #{issue['number']} assigned to agent {agent.slug}."
         sync_event.payload_json = {**payload, "agent_id": agent.id}
+
+    async def _process_webhook_issue_changed(self, sync_event, payload: dict[str, Any]) -> None:
+        repository = await self._ensure_repository_from_webhook_payload(payload)
+        issue = payload.get("issue") or {}
+        if repository is None:
+            sync_event.status = "ignored"
+            return
+        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
+        if link is None:
+            sync_event.status = "ignored"
+            sync_event.detail = "Issue link does not exist yet."
+            return
+        link.title = str(issue.get("title") or link.title)[:255]
+        link.body = issue.get("body") or link.body
+        link.state = str(issue.get("state") or link.state)
+        link.labels_json = [item["name"] for item in issue.get("labels", []) if isinstance(item, dict)]
+        link.assignee_login = ((issue.get("assignee") or {}).get("login"))
+        link.issue_url = issue.get("html_url") or link.issue_url
+        link.last_synced_at = datetime.now(UTC)
+        link.metadata_json = {**(link.metadata_json or {}), "last_webhook_issue": issue}
+        task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
+        if task is not None:
+            task.labels_json = list(link.labels_json or [])
+            meta = dict(task.metadata_json or {})
+            meta["github_milestone_number"] = ((issue.get("milestone") or {}).get("number"))
+            task.metadata_json = meta
+            orm_attributes.flag_modified(task, "metadata_json")
+            if link.state == "closed" and task.status not in {"completed", "synced_to_github", "archived"}:
+                await self._transition_task_status(task, "synced_to_github", reason="github issue closed")
+            elif link.state == "open" and task.status == "synced_to_github":
+                await self._transition_task_status(task, "planned", reason="github issue reopened")
+        sync_event.status = "completed"
+        sync_event.detail = f"Issue #{issue['number']} metadata synced from GitHub."
 
     async def _enqueue_github_pr_review_run(
         self,
@@ -7460,6 +9669,7 @@ class OrchestrationService:
         issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
         if issue_link and issue_link.task_id:
             task = await self.db.get(OrchestratorTask, issue_link.task_id)
+            project = await self.db.get(OrchestratorProject, task.project_id) if task else None
             if task:
                 task.result_payload_json = {
                     **(task.result_payload_json or {}),
@@ -7468,8 +9678,38 @@ class OrchestrationService:
                         "url": pr.get("html_url"),
                         "state": pr.get("state"),
                         "head": ((pr.get("head") or {}).get("ref")),
+                        "base": ((pr.get("base") or {}).get("ref")),
+                        "commits": pr.get("commits"),
+                        "head_sha": ((pr.get("head") or {}).get("sha")),
                     },
                 }
+                if project and self._project_github_settings(project).get("enforce_branch_naming", True):
+                    branch_name = (pr.get("head") or {}).get("ref")
+                    if not self._github_branch_name_valid_for_task(project, task, branch_name):
+                        await self.repo.create_task_comment(
+                            task_id=task.id,
+                            author_user_id=None,
+                            author_agent_id=None,
+                            body=(
+                                f"[GitHub branch policy] Expected `{self._github_branch_name_for_task(project, task)}` "
+                                f"but received `{branch_name}`."
+                            ),
+                        )
+                        await self.repo.create_sync_event(
+                            repository_id=repository.id,
+                            issue_link_id=issue_link.id,
+                            action="branch_policy_violation",
+                            status="failed",
+                            detail="Opened PR branch does not match the project's naming convention.",
+                            payload_json={"branch": branch_name, "expected": self._github_branch_name_for_task(project, task)},
+                        )
+                if project and self._project_github_settings(project).get("auto_activate_review_on_pr_open", True):
+                    await self._enqueue_github_pr_review_run(
+                        task,
+                        project,
+                        review={"state": "commented", "body": "PR opened"},
+                        pr=pr,
+                    )
         sync_event.status = "completed"
         sync_event.detail = f"Pull request #{pr['number']} opened."
 
@@ -7517,6 +9757,7 @@ class OrchestrationService:
                         "number": pr.get("number"),
                         "url": pr.get("html_url"),
                         "state": "merged",
+                        "merge_commit_sha": pr.get("merge_commit_sha"),
                     },
                 }
                 if task.status in {"approved", "completed", "synced_to_github"}:
@@ -7534,32 +9775,28 @@ class OrchestrationService:
         if repository is None:
             return
         project = await self.db.get(OrchestratorProject, task.project_id)
+        github_settings = self._project_github_settings(project)
         progress_note = (
             str(run.output_payload_json.get("summary") or run.output_payload_json.get("final_output") or task.result_summary or "")
         )[:2000]
-        github_settings = (project.settings_json or {}).get("github", {}) if project else {}
         auto_post_progress = bool(github_settings.get("auto_post_progress", False))
         if auto_post_progress:
-            connection = await self.db.get(GithubConnection, repository.connection_id)
-            if connection:
-                response = await self._github_request(
-                    connection,
-                    "POST",
-                    f"/repos/{repository.full_name}/issues/{issue_link.issue_number}/comments",
-                    json_body={"body": progress_note},
-                )
-                if response.status_code < 400:
-                    issue_link.last_comment_posted_at = datetime.now(UTC)
-                    issue_link.last_synced_at = datetime.now(UTC)
-                    await self.repo.create_sync_event(
-                        repository_id=repository.id,
-                        issue_link_id=issue_link.id,
-                        action="agent_progress_comment",
-                        status="completed",
-                        detail="Agent posted a progress note to GitHub.",
-                        payload_json={"run_id": run.id, "agent_id": run.worker_agent_id or run.orchestrator_agent_id},
-                    )
-        else:
+            await self._create_github_write_approval(
+                user_id=run.triggered_by_user_id,
+                project_id=task.project_id,
+                task_id=task.id,
+                run_id=run.id,
+                issue_link_id=issue_link.id,
+                approval_type="github_progress_comment",
+                payload_json={
+                    "body": progress_note,
+                    "close_issue": False,
+                    "repository_id": repository.id,
+                    "issue_number": issue_link.issue_number,
+                    "run_id": run.id,
+                    "agent_id": run.worker_agent_id or run.orchestrator_agent_id,
+                },
+            )
             await self.repo.create_sync_event(
                 repository_id=repository.id,
                 issue_link_id=issue_link.id,
@@ -7568,8 +9805,57 @@ class OrchestrationService:
                 detail="Agent produced a GitHub progress note draft pending approval.",
                 payload_json={"run_id": run.id, "body": progress_note, "agent_id": run.worker_agent_id or run.orchestrator_agent_id},
             )
+        if (
+            github_settings.get("close_issue_with_manager_summary", True)
+            and run.run_mode == "manager_worker"
+            and task.status in {"completed", "approved", "synced_to_github"}
+        ):
+            final_summary = str(run.output_payload_json.get("final_output") or progress_note)[:5000]
+            await self._create_github_write_approval(
+                user_id=run.triggered_by_user_id,
+                project_id=task.project_id,
+                task_id=task.id,
+                run_id=run.id,
+                issue_link_id=issue_link.id,
+                approval_type="github_manager_closure",
+                payload_json={
+                    "body": final_summary,
+                    "close_issue": True,
+                    "repository_id": repository.id,
+                    "issue_number": issue_link.issue_number,
+                    "run_id": run.id,
+                },
+            )
+            await self.repo.create_sync_event(
+                repository_id=repository.id,
+                issue_link_id=issue_link.id,
+                action="manager_closure_summary_pending",
+                status="pending",
+                detail="Manager generated a final issue closure summary pending approval.",
+                payload_json={"run_id": run.id},
+            )
         if bool(run.input_payload_json.get("create_pr")):
-            await self._create_github_pr_for_run(run, task, repository, issue_link)
+            await self._create_github_write_approval(
+                user_id=run.triggered_by_user_id,
+                project_id=task.project_id,
+                task_id=task.id,
+                run_id=run.id,
+                issue_link_id=issue_link.id,
+                approval_type="github_create_pr",
+                payload_json={
+                    "run_id": run.id,
+                    "task_id": task.id,
+                    "draft_pr": bool(run.input_payload_json.get("draft_pr", github_settings.get("draft_prs_by_default", True))),
+                },
+            )
+            await self.repo.create_sync_event(
+                repository_id=repository.id,
+                issue_link_id=issue_link.id,
+                action="create_pr_pending",
+                status="pending",
+                detail="Agent drafted a PR proposal pending approval.",
+                payload_json={"run_id": run.id, "task_id": task.id},
+            )
 
     def _github_branch_name_for_task(self, project: OrchestratorProject | None, task: OrchestratorTask) -> str:
         template = ((project.settings_json or {}).get("github", {}) if project else {}).get(
@@ -7578,6 +9864,56 @@ class OrchestrationService:
         branch = str(template).format(task_id=task.id, slug=self._slugify(task.title))
         branch = branch.replace("//", "/").strip("/")
         return branch[:120]
+
+    def _github_branch_name_valid_for_task(
+        self, project: OrchestratorProject | None, task: OrchestratorTask, branch_name: str | None
+    ) -> bool:
+        expected = self._github_branch_name_for_task(project, task)
+        actual = str(branch_name or "").strip().strip("/")
+        if not actual:
+            return False
+        return actual == expected
+
+    def _task_state_to_github_issue_state(self, task: OrchestratorTask) -> str:
+        return "closed" if task.status in {"approved", "completed", "synced_to_github", "archived"} else "open"
+
+    async def _task_assignee_login_for_github(
+        self, task: OrchestratorTask, project: OrchestratorProject | None
+    ) -> str | None:
+        if not task.assigned_agent_id:
+            return None
+        repo_pool = await self._task_repo_pool_config(task)
+        assignee_map = dict(repo_pool.get("github_assignee_map") or {})
+        if task.assigned_agent_id in assignee_map:
+            return str(assignee_map[task.assigned_agent_id]).strip() or None
+        agent = await self._load_agent_for_run(task.assigned_agent_id)
+        if agent and agent.slug:
+            return agent.slug
+        return None
+
+    async def _create_github_write_approval(
+        self,
+        *,
+        user_id: str | None,
+        project_id: str | None,
+        task_id: str | None,
+        run_id: str | None,
+        issue_link_id: str | None,
+        approval_type: str,
+        payload_json: dict[str, Any],
+    ) -> ApprovalRequest:
+        approval = await self.repo.create_approval(
+            project_id=project_id,
+            task_id=task_id,
+            run_id=run_id,
+            issue_link_id=issue_link_id,
+            requested_by_user_id=user_id,
+            approval_type=approval_type,
+            status="pending",
+            payload_json=payload_json,
+        )
+        await self.db.flush()
+        return approval
 
     async def _create_github_pr_for_run(
         self,
@@ -7591,6 +9927,7 @@ class OrchestrationService:
         if connection is None:
             return
         branch_name = self._github_branch_name_for_task(project, task)
+        github_settings = self._project_github_settings(project)
         patch_body = str(
             run.output_payload_json.get("final_output")
             or run.output_payload_json.get("summary")
@@ -7685,7 +10022,7 @@ class OrchestrationService:
                 "head": branch_name,
                 "base": default_branch,
                 "body": pr_body,
-                "draft": bool(run.input_payload_json.get("draft_pr", True)),
+                "draft": bool(run.input_payload_json.get("draft_pr", github_settings.get("draft_prs_by_default", True))),
             },
         )
         if pr_response.status_code >= 400:
@@ -7718,6 +10055,7 @@ class OrchestrationService:
                 "run_id": run.id,
                 "task_id": task.id,
                 "branch": branch_name,
+                "head_sha": new_commit_sha,
                 "pr_number": pr_payload.get("number"),
                 "agent_id": run.worker_agent_id or run.orchestrator_agent_id,
             },
@@ -7730,23 +10068,31 @@ class OrchestrationService:
         if issue_link is None:
             return
         repository = await self.db.get(GithubRepository, issue_link.repository_id)
-        connection = await self.db.get(GithubConnection, repository.connection_id) if repository else None
         pr_payload = (task.result_payload_json or {}).get("github_pr") or {}
         pr_number = pr_payload.get("number")
-        if connection is None or repository is None or not pr_number:
+        if repository is None or not pr_number:
             return
-        response = await self._github_request(
-            connection,
-            "POST",
-            f"/repos/{repository.full_name}/pulls/{pr_number}/reviews",
-            json_body={"body": review_text[:5000], "event": "COMMENT"},
+        await self._create_github_write_approval(
+            user_id=run.triggered_by_user_id,
+            project_id=task.project_id,
+            task_id=task.id,
+            run_id=run.id,
+            issue_link_id=issue_link.id,
+            approval_type="github_pr_review_comment",
+            payload_json={
+                "run_id": run.id,
+                "task_id": task.id,
+                "pr_number": pr_number,
+                "body": review_text[:5000],
+                "agent_id": run.reviewer_agent_id or run.worker_agent_id,
+            },
         )
         await self.repo.create_sync_event(
             repository_id=repository.id,
             issue_link_id=issue_link.id,
             action="post_pr_review",
-            status="completed" if response.status_code < 400 else "failed",
-            detail=f"Reviewer agent posted PR comment on #{pr_number}." if response.status_code < 400 else "Failed to post reviewer PR comment.",
+            status="pending",
+            detail=f"Reviewer agent drafted a PR comment for #{pr_number} pending approval.",
             payload_json={"run_id": run.id, "pr_number": pr_number, "agent_id": run.reviewer_agent_id or run.worker_agent_id},
         )
 

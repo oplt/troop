@@ -28,7 +28,7 @@ export default function OrchestrationPortfolioPage() {
                     </Typography>
                 ) : rows.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                        No orchestration projects yet. Create one from Agent Projects.
+                        No orchestration projects yet. Create one from Projects.
                     </Typography>
                 ) : (
                     <Table size="small">

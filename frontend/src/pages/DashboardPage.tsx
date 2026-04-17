@@ -16,8 +16,7 @@ import {
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { getOrchestrationOverview } from "../api/orchestration";
-import { listProjects } from "../api/projects";
+import { getOrchestrationOverview, listOrchestrationProjects } from "../api/orchestration";
 import { getNotifications } from "../api/notifications";
 import { getMe } from "../api/users";
 import { DashboardCalendar } from "../components/dashboard/DashboardCalendar";
@@ -38,7 +37,7 @@ export default function DashboardPage() {
     });
     const { data: projects, isLoading: projectsLoading } = useQuery({
         queryKey: ["projects"],
-        queryFn: listProjects,
+        queryFn: listOrchestrationProjects,
     });
     const { data: notifications, isLoading: notificationsLoading } = useQuery({
         queryKey: ["notifications"],
@@ -256,11 +255,11 @@ export default function DashboardPage() {
 
                 <Stack spacing={2}>
                     <SectionCard
-                        title="Agent Platform"
-                        description="Projects, runs, approvals, and GitHub activity from the orchestration layer."
+                        title="Projects"
+                        description="Projects, runs, approvals, and GitHub activity from execution workspace."
                         action={
-                            <Button variant="text" onClick={() => navigate("/agent-projects")}>
-                                Open platform
+                            <Button variant="text" onClick={() => navigate("/projects")}>
+                                Open projects
                             </Button>
                         }
                     >
@@ -268,7 +267,7 @@ export default function DashboardPage() {
                             <Typography variant="body2" color="text.secondary">
                                 {orchestrationLoading
                                     ? "Loading orchestration status..."
-                                    : `${orchestrationOverview?.agents.length ?? 0} agents across ${orchestrationOverview?.projects.length ?? 0} execution projects.`}
+                                    : `${orchestrationOverview?.agents.length ?? 0} agents across ${orchestrationOverview?.projects.length ?? 0} projects.`}
                             </Typography>
                             {(orchestrationOverview?.active_runs ?? []).slice(0, 3).map((run) => (
                                 <Box

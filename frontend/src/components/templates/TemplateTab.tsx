@@ -386,6 +386,7 @@ export function TemplateTab(props: TemplateTabProps) {
             autonomy: "custom",
             visibility: "private",
             agent_template_slugs: [],
+            canvas_layout: {},
         });
     }
 

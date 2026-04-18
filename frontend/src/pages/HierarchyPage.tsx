@@ -31,6 +31,7 @@ import {
     Add as AddIcon,
     AutoGraph as LayoutIcon,
     Close as CloseIcon,
+    CloudUpload as UploadIcon,
     ContentCopy as DuplicateIcon,
     DeleteOutline as DeleteIcon,
     ExpandMore as ExpandMoreIcon,
@@ -89,6 +90,27 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { AgentTemplateImportReviewDrawer } from "../features/agentTemplateImport/AgentTemplateImportReviewDrawer";
+import {
+    createImportedSourceSummary,
+    draftToAgentTemplateFormState,
+    parseAgentTemplateMarkdown,
+} from "../features/agentTemplateImport/parser";
+import type { AgentTemplateImportDraft } from "../features/agentTemplateImport/types";
+import { SkillTemplateImportReviewDrawer } from "../features/skillTemplateImport/SkillTemplateImportReviewDrawer";
+import {
+    createSkillImportedSourceSummary,
+    draftToSkillTemplateFormState,
+    parseSkillTemplateMarkdown,
+} from "../features/skillTemplateImport/parser";
+import type { SkillTemplateImportDraft } from "../features/skillTemplateImport/types";
+import {
+    EMPTY_AGENT_TEMPLATE_FORM,
+    buildAgentTemplateFormFromTemplate,
+    buildAgentTemplatePayloadFromForm,
+    parseAgentTemplateCsv,
+    parseAgentTemplateLooseList,
+} from "../features/agentTemplates/formState";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 import { formatDateTime } from "../utils/formatters";
 
@@ -113,29 +135,6 @@ const AGENT_ROLE_GUIDANCE: Record<(typeof ROLE_OPTIONS)[number], { summary: stri
         promptHint: "Define review criteria, evidence required, failure conditions, and what counts as approval.",
         filtersHint: "Use routing rules for review-style work: QA, compliance, acceptance checks, release review.",
     },
-};
-
-const EMPTY_FORM = {
-    name: "",
-    slug: "",
-    description: "",
-    role: "specialist",
-    system_prompt: "",
-    parent_template_slug: "",
-    capabilities: "",
-    allowed_tools: "",
-    skills: [] as string[],
-    tags: "",
-    task_filters: "",
-    model: "",
-    fallback_model: "",
-    escalation_path: "",
-    permission: "read-only",
-    memory_scope: "project-only",
-    output_format: "json",
-    token_budget: "8000",
-    time_budget_seconds: "300",
-    retry_budget: "1",
 };
 
 type BuilderTab = "library" | "hierarchy";
@@ -187,6 +186,9 @@ type TeamLayoutSnapshot = {
     persistence: "local-only";
 };
 
+const TEAM_GRAPH_STORAGE_KEY = "troop:hierarchy-builder:team-graph-layout:v1";
+const TEAM_GRAPH_AUTOSAVE_DELAY_MS = 700;
+
 type StringListFieldProps = {
     label: string;
     value: string[];
@@ -220,17 +222,11 @@ type TeamTemplateFormState = {
 };
 
 function parseCsv(value: string): string[] {
-    return value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
+    return parseAgentTemplateCsv(value);
 }
 
 function parseLooseList(value: string): string[] {
-    return value
-        .split(/[\n,]/g)
-        .map((item) => item.trim())
-        .filter(Boolean);
+    return parseAgentTemplateLooseList(value);
 }
 
 function slugify(value: string) {
@@ -347,35 +343,6 @@ function TaskFiltersField({
     );
 }
 
-function buildFormFromTemplate(template: AgentTemplate): typeof EMPTY_FORM {
-    const taskFilters = Array.isArray(template.metadata?.task_filters)
-        ? template.metadata.task_filters.filter((item): item is string => typeof item === "string")
-        : [];
-
-    return {
-        name: template.name,
-        slug: template.slug,
-        description: template.description ?? "",
-        role: template.role,
-        system_prompt: template.system_prompt ?? "",
-        parent_template_slug: template.parent_template_slug ?? "",
-        capabilities: template.capabilities.join(", "),
-        allowed_tools: template.allowed_tools.join(", "),
-        skills: template.skills,
-        tags: template.tags.join(", "),
-        task_filters: taskFilters.join("\n"),
-        model: String((template.model_policy?.model as string | undefined) || ""),
-        fallback_model: String((template.model_policy?.fallback_model as string | undefined) || ""),
-        escalation_path: String((template.model_policy?.escalation_path as string | undefined) || ""),
-        permission: String((template.model_policy?.permissions as string | undefined) || "read-only"),
-        memory_scope: String((template.memory_policy?.scope as string | undefined) || "project-only"),
-        output_format: String((template.output_schema?.format as string | undefined) || "json"),
-        token_budget: String((template.budget?.token_budget as number | undefined) || 8000),
-        time_budget_seconds: String((template.budget?.time_budget_seconds as number | undefined) || 300),
-        retry_budget: String((template.budget?.retry_budget as number | undefined) || 1),
-    };
-}
-
 function buildSkillForm(skill?: SkillPack): SkillTemplateFormState {
     return {
         name: skill?.name ?? "",
@@ -387,6 +354,7 @@ function buildSkillForm(skill?: SkillPack): SkillTemplateFormState {
         rules_markdown: skill?.rules_markdown ?? "",
     };
 }
+
 
 function buildTeamTemplateForm(template?: TeamTemplate): TeamTemplateFormState {
     return {
@@ -995,6 +963,41 @@ function graphSignature(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): string 
     });
 }
 
+function readSavedTeamLayoutSnapshot(): TeamLayoutSnapshot | null {
+    if (typeof window === "undefined") {
+        return null;
+    }
+    try {
+        const raw = window.localStorage.getItem(TEAM_GRAPH_STORAGE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw) as TeamLayoutSnapshot;
+        if (!parsed || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges) || typeof parsed.savedAt !== "string") {
+            return null;
+        }
+        return {
+            savedAt: parsed.savedAt,
+            nodes: parsed.nodes,
+            edges: parsed.edges,
+            persistence: "local-only",
+        };
+    } catch {
+        return null;
+    }
+}
+
+function persistTeamLayoutSnapshot(snapshot: TeamLayoutSnapshot | null) {
+    if (typeof window === "undefined") {
+        return;
+    }
+    if (!snapshot) {
+        window.localStorage.removeItem(TEAM_GRAPH_STORAGE_KEY);
+        return;
+    }
+    window.localStorage.setItem(TEAM_GRAPH_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
 function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
     const tone = data.role === "manager" ? "#175cd3" : data.role === "reviewer" ? "#b26a00" : "#087443";
     const statusDotColor =
@@ -1314,14 +1317,30 @@ export default function AgentLibraryPage() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
 
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState(EMPTY_AGENT_TEMPLATE_FORM);
     const [manualTab, setManualTab] = useState<BuilderTab | null>(null);
     const [addAgentDialogOpen, setAddAgentDialogOpen] = useState(false);
     const [agentToAddId, setAgentToAddId] = useState("");
     const [agentTemplateDrawerOpen, setAgentTemplateDrawerOpen] = useState(false);
     const [editingAgentTemplateSlug, setEditingAgentTemplateSlug] = useState<string | null>(null);
+    const [agentTemplateImportDraft, setAgentTemplateImportDraft] = useState<AgentTemplateImportDraft | null>(null);
+    const [agentTemplateImportReviewOpen, setAgentTemplateImportReviewOpen] = useState(false);
+    const [agentTemplateImportBanner, setAgentTemplateImportBanner] = useState<{
+        fileName: string;
+        rawMarkdown: string;
+        bannerText: string;
+        warningCount: number;
+    } | null>(null);
     const [skillTemplateDrawerOpen, setSkillTemplateDrawerOpen] = useState(false);
     const [editingSkillSlug, setEditingSkillSlug] = useState<string | null>(null);
+    const [skillTemplateImportDraft, setSkillTemplateImportDraft] = useState<SkillTemplateImportDraft | null>(null);
+    const [skillTemplateImportReviewOpen, setSkillTemplateImportReviewOpen] = useState(false);
+    const [skillTemplateImportBanner, setSkillTemplateImportBanner] = useState<{
+        fileName: string;
+        rawMarkdown: string;
+        bannerText: string;
+        warningCount: number;
+    } | null>(null);
     const [teamTemplateDrawerOpen, setTeamTemplateDrawerOpen] = useState(false);
     const [editingTeamTemplateId, setEditingTeamTemplateId] = useState<string | null>(null);
     const [skillForm, setSkillForm] = useState<SkillTemplateFormState>(buildSkillForm());
@@ -1334,7 +1353,7 @@ export default function AgentLibraryPage() {
     const [edgeSemanticDraft, setEdgeSemanticDraft] = useState<TeamGraphEdgeSemantic>("delegates_to");
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-    const [savedLayout, setSavedLayout] = useState<TeamLayoutSnapshot | null>(null);
+    const [savedLayout, setSavedLayout] = useState<TeamLayoutSnapshot | null>(() => readSavedTeamLayoutSnapshot());
     const [showValidationPanel, setShowValidationPanel] = useState(false);
     const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<TeamGraphNode, TeamGraphEdge> | null>(null);
     const [graphDirty, setGraphDirty] = useState(false);
@@ -1451,17 +1470,55 @@ export default function AgentLibraryPage() {
         () => graphSignature(initialGraph.nodes, initialGraph.edges),
         [initialGraph],
     );
+    const savedLayoutSignature = useMemo(
+        () => savedLayout ? graphSignature(savedLayout.nodes, savedLayout.edges) : null,
+        [savedLayout],
+    );
     const currentGraphStateSignature = useMemo(
         () => graphSignature(nodes, edges),
         [edges, nodes],
     );
 
     useEffect(() => {
-        if (!graphDirty && currentGraphStateSignature !== initialGraphStateSignature) {
+        if (savedLayout && !graphDirty && savedLayoutSignature && currentGraphStateSignature !== savedLayoutSignature) {
+            setNodes(savedLayout.nodes);
+            setEdges(savedLayout.edges);
+            return;
+        }
+        if (!savedLayout && !graphDirty && currentGraphStateSignature !== initialGraphStateSignature) {
             setNodes(initialGraph.nodes);
             setEdges(initialGraph.edges);
         }
-    }, [currentGraphStateSignature, graphDirty, initialGraph, initialGraphStateSignature, setEdges, setNodes]);
+    }, [
+        currentGraphStateSignature,
+        graphDirty,
+        initialGraph,
+        initialGraphStateSignature,
+        savedLayout,
+        savedLayoutSignature,
+        setEdges,
+        setNodes,
+    ]);
+
+    useEffect(() => {
+        if (!graphDirty) {
+            return undefined;
+        }
+
+        const timeout = window.setTimeout(() => {
+            const snapshot: TeamLayoutSnapshot = {
+                savedAt: new Date().toISOString(),
+                nodes,
+                edges,
+                persistence: "local-only",
+            };
+            setSavedLayout(snapshot);
+            persistTeamLayoutSnapshot(snapshot);
+            setGraphDirty(false);
+        }, TEAM_GRAPH_AUTOSAVE_DELAY_MS);
+
+        return () => window.clearTimeout(timeout);
+    }, [edges, graphDirty, nodes]);
 
     const handleFlowNodesChange = useCallback<typeof onNodesChange>((changes) => {
         onNodesChange(changes);
@@ -1565,7 +1622,28 @@ export default function AgentLibraryPage() {
 
     function openAgentTemplateDrawer(template?: AgentTemplate) {
         setEditingAgentTemplateSlug(template?.slug ?? null);
-        setForm(template ? buildFormFromTemplate(template) : EMPTY_FORM);
+        setForm(template ? buildAgentTemplateFormFromTemplate(template) : EMPTY_AGENT_TEMPLATE_FORM);
+        setAgentTemplateImportBanner(null);
+        setAgentTemplateDrawerOpen(true);
+    }
+
+    async function importAgentTemplateMarkdown(file: File) {
+        const markdown = await file.text();
+        const draft = parseAgentTemplateMarkdown({
+            markdown,
+            fileName: file.name,
+            toolCatalog: stringOptions.tools,
+        });
+        setAgentTemplateImportDraft(draft);
+        setAgentTemplateImportReviewOpen(true);
+    }
+
+    function continueImportedAgentTemplateDraft(draft: AgentTemplateImportDraft) {
+        setEditingAgentTemplateSlug(null);
+        setForm(draftToAgentTemplateFormState(draft));
+        setAgentTemplateImportBanner(createImportedSourceSummary(draft));
+        setAgentTemplateImportDraft(draft);
+        setAgentTemplateImportReviewOpen(false);
         setAgentTemplateDrawerOpen(true);
     }
 
@@ -1573,53 +1651,45 @@ export default function AgentLibraryPage() {
         const existingTemplate = editingAgentTemplateSlug
             ? templates.find((item) => item.slug === editingAgentTemplateSlug) ?? null
             : null;
-        const nextSlug = existingTemplate?.slug ?? (form.slug.trim() || createUniqueSlug(form.name || "Untitled agent template", templates.map((item) => item.slug)));
-        const payload: Omit<AgentTemplate, "id"> = {
-            slug: nextSlug,
-            name: form.name.trim() || existingTemplate?.name || "Untitled agent template",
-            role: form.role,
-            description: form.description.trim(),
-            system_prompt: form.system_prompt.trim(),
-            parent_template_slug: form.parent_template_slug.trim() || null,
-            mission_markdown: existingTemplate?.mission_markdown ?? form.description.trim(),
-            rules_markdown: existingTemplate?.rules_markdown ?? "",
-            output_contract_markdown: existingTemplate?.output_contract_markdown ?? "",
-            capabilities: parseCsv(form.capabilities),
-            allowed_tools: parseCsv(form.allowed_tools),
-            skills: form.skills,
-            tags: parseCsv(form.tags),
-            model_policy: {
-                ...(existingTemplate?.model_policy ?? {}),
-                model: form.model || null,
-                fallback_model: form.fallback_model || null,
-                escalation_path: form.escalation_path || null,
-                permissions: form.permission,
-            },
-            budget: {
-                ...(existingTemplate?.budget ?? {}),
-                token_budget: Number(form.token_budget || 0),
-                time_budget_seconds: Number(form.time_budget_seconds || 0),
-                retry_budget: Number(form.retry_budget || 0),
-            },
-            memory_policy: { scope: form.memory_scope },
-            output_schema: { format: form.output_format },
-            metadata: {
-                ...(existingTemplate?.metadata ?? {}),
-                task_filters: parseLooseList(form.task_filters),
-            },
-        };
+        const payload = buildAgentTemplatePayloadFromForm(
+            form,
+            existingTemplate,
+            templates.map((item) => item.slug),
+        );
 
         if (existingTemplate) {
             updateAgentTemplateMutation.mutate({ slug: existingTemplate.slug, payload });
         } else {
             createAgentTemplateMutation.mutate(payload);
         }
+        setAgentTemplateImportBanner(null);
         setAgentTemplateDrawerOpen(false);
     }
 
     function openSkillTemplateDrawer(skill?: SkillPack) {
         setEditingSkillSlug(skill?.slug ?? null);
         setSkillForm(buildSkillForm(skill));
+        setSkillTemplateImportBanner(null);
+        setSkillTemplateDrawerOpen(true);
+    }
+
+    async function importSkillTemplateMarkdown(file: File) {
+        const markdown = await file.text();
+        const draft = parseSkillTemplateMarkdown({
+            markdown,
+            fileName: file.name,
+            toolCatalog: stringOptions.tools,
+        });
+        setSkillTemplateImportDraft(draft);
+        setSkillTemplateImportReviewOpen(true);
+    }
+
+    function continueImportedSkillTemplateDraft(draft: SkillTemplateImportDraft) {
+        setEditingSkillSlug(null);
+        setSkillForm(buildSkillForm(draftToSkillTemplateFormState(draft)));
+        setSkillTemplateImportBanner(createSkillImportedSourceSummary(draft));
+        setSkillTemplateImportDraft(draft);
+        setSkillTemplateImportReviewOpen(false);
         setSkillTemplateDrawerOpen(true);
     }
 
@@ -1651,6 +1721,7 @@ export default function AgentLibraryPage() {
         } else {
             createSkillMutation.mutate(payload);
         }
+        setSkillTemplateImportBanner(null);
         setSkillTemplateDrawerOpen(false);
     }
 
@@ -1964,6 +2035,8 @@ export default function AgentLibraryPage() {
         setEdges(initialGraph.edges);
         setSelectedNodeId(null);
         setSelectedEdgeId(null);
+        setSavedLayout(null);
+        persistTeamLayoutSnapshot(null);
         setGraphDirty(false);
         showToast({ message: "Team layout reset to agent-derived defaults.", severity: "success" });
         fitCanvas();
@@ -1977,9 +2050,10 @@ export default function AgentLibraryPage() {
             persistence: "local-only",
         };
         setSavedLayout(snapshot);
-        setGraphDirty(true);
-        // TODO: persist layout once backend team graph storage exists.
-        showToast({ message: "Team layout saved locally. Backend persistence is TODO.", severity: "success" });
+        persistTeamLayoutSnapshot(snapshot);
+        setGraphDirty(false);
+        // TODO: persist layout to backend once runtime team graph storage exists.
+        showToast({ message: "Team layout saved locally and will restore after reload.", severity: "success" });
     }
 
     function removeSelectedEdge() {
@@ -2081,7 +2155,26 @@ export default function AgentLibraryPage() {
                     <ExpandableSection
                         title="Agent templates"
                         description="Template contracts for manager, specialist, and reviewer agents. Drop skill templates onto any card to attach reusable skills."
-                        action={<Button variant="contained" startIcon={<AddIcon />} onClick={() => openAgentTemplateDrawer()}>Add</Button>}
+                        action={(
+                            <Stack direction="row" spacing={1}>
+                                <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+                                    Import .md
+                                    <input
+                                        hidden
+                                        type="file"
+                                        accept=".md,.markdown,text/markdown"
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            event.target.value = "";
+                                            if (file) {
+                                                void importAgentTemplateMarkdown(file);
+                                            }
+                                        }}
+                                    />
+                                </Button>
+                                <Button variant="contained" startIcon={<AddIcon />} onClick={() => openAgentTemplateDrawer()}>Add</Button>
+                            </Stack>
+                        )}
                     >
                         {templates.length === 0 ? (
                             <EmptyState
@@ -2264,7 +2357,26 @@ export default function AgentLibraryPage() {
                     <ExpandableSection
                         title="Skill templates"
                         description="Reusable capability packs. Drag any skill card onto an agent template to attach it."
-                        action={<Button variant="contained" startIcon={<AddIcon />} onClick={() => openSkillTemplateDrawer()}>Add</Button>}
+                        action={(
+                            <Stack direction="row" spacing={1}>
+                                <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+                                    Import .md
+                                    <input
+                                        hidden
+                                        type="file"
+                                        accept=".md,.markdown,text/markdown"
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            event.target.value = "";
+                                            if (file) {
+                                                void importSkillTemplateMarkdown(file);
+                                            }
+                                        }}
+                                    />
+                                </Button>
+                                <Button variant="contained" startIcon={<AddIcon />} onClick={() => openSkillTemplateDrawer()}>Add</Button>
+                            </Stack>
+                        )}
                         defaultExpanded={false}
                     >
                         {skills.length === 0 ? (
@@ -2572,6 +2684,24 @@ export default function AgentLibraryPage() {
                 </Drawer>
             ) : null}
 
+            <AgentTemplateImportReviewDrawer
+                key={agentTemplateImportDraft ? `${agentTemplateImportDraft.source_filename ?? "import"}-${agentTemplateImportDraft.raw_markdown}` : "import-empty"}
+                open={agentTemplateImportReviewOpen}
+                draft={agentTemplateImportDraft}
+                toolCatalog={stringOptions.tools}
+                onClose={() => setAgentTemplateImportReviewOpen(false)}
+                onContinue={continueImportedAgentTemplateDraft}
+            />
+
+            <SkillTemplateImportReviewDrawer
+                key={skillTemplateImportDraft ? `${skillTemplateImportDraft.source_filename ?? "skill-import"}-${skillTemplateImportDraft.raw_markdown}` : "skill-import-empty"}
+                open={skillTemplateImportReviewOpen}
+                draft={skillTemplateImportDraft}
+                toolCatalog={stringOptions.tools}
+                onClose={() => setSkillTemplateImportReviewOpen(false)}
+                onContinue={continueImportedSkillTemplateDraft}
+            />
+
             <Drawer
                 anchor="right"
                 open={agentTemplateDrawerOpen}
@@ -2592,6 +2722,11 @@ export default function AgentLibraryPage() {
                         </Stack>
                     </Stack>
                     <Stack spacing={2}>
+                        {agentTemplateImportBanner ? (
+                            <Alert severity={agentTemplateImportBanner.warningCount > 0 ? "warning" : "success"}>
+                                {agentTemplateImportBanner.bannerText}
+                            </Alert>
+                        ) : null}
                         <Alert severity="info">
                             Start with mission and scope. Then define what work this agent should receive, which tools it may use, and how strict its runtime policy should be.
                         </Alert>
@@ -2606,7 +2741,7 @@ export default function AgentLibraryPage() {
                                             {form.name.trim() || "Untitled agent template"}
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 72 + "ch" }}>
-                                            {form.description.trim() || "Define the mission first. A strong template starts with clear ownership, then narrows into routing, tooling, and runtime policy."}
+                                            {form.description.trim() || form.mission_markdown.trim() || "Define the mission first. A strong template starts with clear ownership, then narrows into routing, tooling, and runtime policy."}
                                         </Typography>
                                     </Box>
                                     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ alignItems: "flex-start", justifyContent: { md: "flex-end" } }}>
@@ -2669,13 +2804,22 @@ export default function AgentLibraryPage() {
                                 </TextField>
                             </Stack>
                             <TextField
+                                label="Short description"
+                                placeholder="Backend implementation template for API, data, and integration work."
+                                multiline
+                                minRows={2}
+                                helperText="Compact summary shown in libraries and builder cards."
+                                value={form.description}
+                                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                            />
+                            <TextField
                                 label="Mission and scope"
                                 placeholder="Own backend implementation for API and data tasks. Deliver tested changes, note tradeoffs, and escalate cross-service risks early."
                                 multiline
-                                minRows={3}
-                                helperText="Describe what this agent is responsible for, what good work looks like, and where its scope ends."
-                                value={form.description}
-                                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                                minRows={4}
+                                helperText="Long-form mission contract imported from Markdown when available."
+                                value={form.mission_markdown}
+                                onChange={(event) => setForm((current) => ({ ...current, mission_markdown: event.target.value }))}
                             />
                             <TextField
                                 label="Operating instructions"
@@ -2759,12 +2903,21 @@ export default function AgentLibraryPage() {
                                 <TextField label="Time budget (s)" helperText="Maximum runtime before the system should fail or escalate." value={form.time_budget_seconds} onChange={(event) => setForm((current) => ({ ...current, time_budget_seconds: event.target.value }))} fullWidth />
                                 <TextField label="Retry budget" helperText="How many automatic retries are allowed before escalation." value={form.retry_budget} onChange={(event) => setForm((current) => ({ ...current, retry_budget: event.target.value }))} fullWidth />
                             </Stack>
+                            <TextField
+                                label="Rules markdown"
+                                placeholder="Non-negotiable guardrails, review gates, and operating constraints."
+                                helperText="Keep durable rules here so imported guardrails are not lost."
+                                value={form.rules_markdown}
+                                onChange={(event) => setForm((current) => ({ ...current, rules_markdown: event.target.value }))}
+                                multiline
+                                minRows={4}
+                            />
                         </AgentEditorSection>
                         <AgentEditorSection step="Step 4" title="Contract preview" description="Final check of what this template tells the system about ownership, runtime behavior, and expected output." defaultExpanded={false}>
                             <Stack spacing={1.25}>
                                 <TextField
                                     label="Mission summary"
-                                    value={form.description.trim() || "No mission defined yet."}
+                                    value={form.mission_markdown.trim() || form.description.trim() || "No mission defined yet."}
                                     multiline
                                     minRows={3}
                                     fullWidth
@@ -2785,6 +2938,14 @@ export default function AgentLibraryPage() {
                                     value={`${form.output_format || "json"} • permission ${form.permission} • memory ${form.memory_scope}`}
                                     fullWidth
                                     InputProps={{ readOnly: true }}
+                                />
+                                <TextField
+                                    label="Output contract markdown"
+                                    value={form.output_contract_markdown.trim() || "No explicit output contract yet."}
+                                    multiline
+                                    minRows={3}
+                                    fullWidth
+                                    onChange={(event) => setForm((current) => ({ ...current, output_contract_markdown: event.target.value }))}
                                 />
                             </Stack>
                         </AgentEditorSection>
@@ -3019,6 +3180,11 @@ export default function AgentLibraryPage() {
                             <Button variant="contained" onClick={saveSkillTemplate}>Save</Button>
                         </Stack>
                     </Stack>
+                    {skillTemplateImportBanner ? (
+                        <Alert severity="success">
+                            {skillTemplateImportBanner.bannerText}
+                        </Alert>
+                    ) : null}
                     <Alert severity="info">
                         Good skills are narrow and reusable. They should add a recognizable behavior pattern to many agents, not duplicate the full identity of one agent.
                     </Alert>
@@ -3081,16 +3247,16 @@ export default function AgentLibraryPage() {
                                 fullWidth
                             />
                         </Stack>
-                        <TextField
-                            label="What this skill adds"
-                            placeholder="Adds a disciplined PR review loop: inspect changed files, identify concrete risks, demand evidence, and separate findings from summaries."
-                            multiline
-                            minRows={3}
-                            value={skillForm.description}
-                            onChange={(event) => setSkillForm((current) => ({ ...current, description: event.target.value }))}
-                            helperText="Describe the reusable behavior or operating pattern this skill injects."
-                        />
-                    </AgentEditorSection>
+                            <TextField
+                                label="What this skill adds"
+                                placeholder="Adds a disciplined PR review loop: inspect changed files, identify concrete risks, demand evidence, and separate findings from summaries."
+                                multiline
+                                minRows={3}
+                                value={skillForm.description}
+                                onChange={(event) => setSkillForm((current) => ({ ...current, description: event.target.value }))}
+                                helperText="Describe the reusable behavior or operating pattern this skill injects. Imported Markdown should land here as the short human summary."
+                            />
+                        </AgentEditorSection>
                     <AgentEditorSection step="Step 2" title="Skill surface" description="Define the capability signals, tools, and metadata that make this skill attachable and discoverable.">
                         <StringListField
                             label="Capabilities added"
@@ -3122,7 +3288,7 @@ export default function AgentLibraryPage() {
                             minRows={8}
                             value={skillForm.rules_markdown}
                             onChange={(event) => setSkillForm((current) => ({ ...current, rules_markdown: event.target.value }))}
-                            helperText="Write reusable rules, not full agent identity. Think behavior module, not complete persona."
+                            helperText="Write reusable rules, not full agent identity. Imported Markdown instructions should be trimmed into durable, attachable behavior here."
                         />
                         <TextField
                             label="Preview"

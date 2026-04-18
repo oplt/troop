@@ -1,8 +1,10 @@
-import { Box, Paper, Stack, Typography, type SxProps, type Theme } from "@mui/material";
+import { Box, IconButton, Paper, Stack, Tooltip, Typography, type SxProps, type Theme } from "@mui/material";
+import { InfoOutlined } from "@mui/icons-material";
 
 type SectionCardProps = {
     title?: React.ReactNode;
     description?: React.ReactNode;
+    info?: React.ReactNode;
     action?: React.ReactNode;
     children: React.ReactNode;
     sx?: SxProps<Theme>;
@@ -12,11 +14,13 @@ type SectionCardProps = {
 export function SectionCard({
     title,
     description,
+    info,
     action,
     children,
     sx,
     contentSx,
 }: SectionCardProps) {
+    const tooltipContent = info ?? description;
     return (
         <Paper
             sx={[
@@ -27,24 +31,30 @@ export function SectionCard({
                 ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
             ]}
         >
-            {(title || description || action) && (
+            {(title || action || tooltipContent) && (
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
                     justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", sm: "flex-start" }}
+                    alignItems={{ xs: "flex-start", sm: "center" }}
                     spacing={2}
                     sx={{ mb: 2.5 }}
                 >
-                    <Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
                         {title && (
-                            <Typography variant="h5" sx={{ mb: description ? 0.5 : 0 }}>
-                                {title}
-                            </Typography>
-                        )}
-                        {description && (
-                            <Typography variant="body2" color="text.secondary">
-                                {description}
-                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                                <Typography variant="h5">{title}</Typography>
+                                {tooltipContent && (
+                                    <Tooltip title={tooltipContent} arrow placement="top">
+                                        <IconButton
+                                            size="small"
+                                            aria-label="Section details"
+                                            sx={{ color: "text.secondary", p: 0.25 }}
+                                        >
+                                            <InfoOutlined sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                            </Stack>
                         )}
                     </Box>
                     {action}

@@ -38,6 +38,7 @@ import { listGithubConnections, listProviders } from "../api/orchestration";
 import { EmptyState } from "../components/ui/EmptyState";
 import { GithubSyncPanel } from "./GithubSyncPage";
 import { ProviderSettingsPanel } from "./OrchestrationSettingsPage";
+import { PlatformPanel } from "./PlatformPage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -61,7 +62,7 @@ type ConfigGroupId =
     | "storage"
     | "custom";
 
-type SettingsTabValue = ConfigGroupId | "database" | "ai" | "github";
+type SettingsTabValue = ConfigGroupId | "database" | "ai" | "github" | "platform";
 
 type ConfigGroupDefinition = {
     id: ConfigGroupId;
@@ -351,7 +352,7 @@ function AdminSettingsContent({
     });
 
     const activeConfigGroup =
-        activeTab === "database" || activeTab === "ai" || activeTab === "github"
+        activeTab === "database" || activeTab === "ai" || activeTab === "github" || activeTab === "platform"
             ? null
             : configGroups.find((group) => group.id === activeTab) ?? configGroups[0] ?? null;
     const restartSensitiveCount = configData.items.filter((item) => item.requires_restart).length;
@@ -503,6 +504,10 @@ function AdminSettingsContent({
                         value="github"
                         label={`GitHub sync (${githubConnections.length})`}
                     />
+                    <Tab
+                        value="platform"
+                        label="Platform"
+                    />
                 </Tabs>
 
                 <Box sx={{ flex: 1, py: 1.5, pr: 1.5, minWidth: 0 }}>
@@ -510,6 +515,8 @@ function AdminSettingsContent({
                 <ProviderSettingsPanel />
             ) : activeTab === "github" ? (
                 <GithubSyncPanel />
+            ) : activeTab === "platform" ? (
+                <PlatformPanel />
             ) : activeConfigGroup ? (
                 <SectionCard
                     title={activeConfigGroup.label}
@@ -771,6 +778,7 @@ export default function AdminSettingsPage() {
         requestedTab === "database" ||
         requestedTab === "ai" ||
         requestedTab === "github" ||
+        requestedTab === "platform" ||
         configGroups.some((group) => group.id === requestedTab)
             ? (requestedTab as SettingsTabValue)
             : configGroups[0]?.id ?? "database";

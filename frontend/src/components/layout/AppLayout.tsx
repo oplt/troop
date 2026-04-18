@@ -30,17 +30,14 @@ import {
     DarkMode as DarkModeIcon,
     Extension as PlatformIcon,
     FolderOpen as ProjectsIcon,
-    Forum as BrainstormsIcon,
     Hub as AgentProjectsIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
     AccountTree as HierarchyIcon,
     AttachMoney as CostAnalyticsIcon,
-    MultilineChart as ExecutionSignalsIcon,
     SmartToy as AiStudioIcon,
     ViewModule as PortfolioNavIcon,
-    Notifications as NotificationsIcon,
     Person as ProfileIcon,
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
@@ -48,7 +45,6 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
-import { getNotifications } from "../../api/notifications";
 import { getPendingApprovalsCount } from "../../api/orchestration";
 import { getProfile } from "../../api/profile";
 import { getMe } from "../../api/users";
@@ -200,11 +196,6 @@ export function AppLayout() {
         queryKey: ["me"],
         queryFn: getMe,
     });
-    const { data: notifications } = useQuery({
-        queryKey: ["notifications"],
-        queryFn: getNotifications,
-        refetchInterval: 60_000,
-    });
     const { data: pendingApprovals } = useQuery({
         queryKey: ["orchestration", "approvals", "pending-count"],
         queryFn: getPendingApprovalsCount,
@@ -216,10 +207,10 @@ export function AppLayout() {
         staleTime: 5 * 60_000,
     });
 
-    const unreadCount = notifications?.filter((notification) => !notification.is_read).length ?? 0;
     const pendingCount = pendingApprovals?.count ?? 0;
     const appName = platformMetadata?.app_name ?? "Your App";
     const coreDomainPlural = platformMetadata?.core_domain_plural ?? "Projects";
+    const showWorkspaceProjectsNav = coreDomainPlural !== "Projects";
     const hasUserPlatformModule =
         platformMetadata?.module_catalog.some((item) => item.user_visible && item.enabled) ?? false;
     const hasAiModule =
@@ -231,9 +222,11 @@ export function AppLayout() {
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
 
-            { label: coreDomainPlural, icon: <ProjectsIcon />, path: "/projects", group: "workspace" },
+            ...(showWorkspaceProjectsNav
+                ? [{ label: coreDomainPlural, icon: <ProjectsIcon />, path: "/projects", group: "workspace" as const }]
+                : []),
             ...(hasUserPlatformModule
-                ? [{ label: "Platform", icon: <PlatformIcon />, path: "/platform", group: "workspace" as const }]
+                ? [{ label: "Platform", icon: <PlatformIcon />, path: "/admin/settings?tab=platform", group: "workspace" as const }]
                 : []),
             ...(hasAiModule
                 ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
@@ -241,7 +234,6 @@ export function AppLayout() {
             { label: "Hierarchy", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
-            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
             {
                 label: "Activity",
                 icon: <ActivityIcon />,
@@ -254,21 +246,13 @@ export function AppLayout() {
                         : undefined,
             },
             { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
-            { label: "Run signals", icon: <ExecutionSignalsIcon />, path: "/analytics/execution", group: "workspace" },
             { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
-            {
-                label: "Notifications",
-                icon: <NotificationsIcon />,
-                path: "/notifications",
-                group: "workspace",
-                badge: unreadCount || undefined,
-            },
             { label: "Profile", icon: <ProfileIcon />, path: "/profile", group: "workspace" },
             { label: "Users", icon: <AdminIcon />, path: "/admin/users", adminOnly: true, group: "admin" },
             { label: "Platform Admin", icon: <PlatformIcon />, path: "/admin/platform", adminOnly: true, group: "admin" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
-        [coreDomainPlural, hasAiModule, hasUserPlatformModule, unreadCount, pendingCount]
+        [coreDomainPlural, hasAiModule, hasUserPlatformModule, pendingCount, showWorkspaceProjectsNav]
     );
 
     const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);

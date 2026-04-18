@@ -17,6 +17,7 @@ import {
     Divider,
     Drawer,
     IconButton,
+    ListSubheader,
     MenuItem,
     Paper,
     Stack,
@@ -34,6 +35,7 @@ import {
     CloudUpload as UploadIcon,
     ContentCopy as DuplicateIcon,
     DeleteOutline as DeleteIcon,
+    DragIndicator as DragIndicatorIcon,
     ExpandMore as ExpandMoreIcon,
     FactCheck as ReviewerIcon,
     Hub as GraphIcon,
@@ -63,25 +65,33 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+    createAgent,
     createAgentTemplate,
     createSkillPack,
     createTeamTemplate,
     deleteAgentTemplate,
     deleteSkillPack,
     deleteTeamTemplate,
+    addProjectAgent,
     listAgents,
     listAgentTemplates,
     listOrchestrationProjects,
+    listProjectAgents,
     listRuns,
     listSkillCatalog,
     listTeamTemplates,
+    updateAgent,
     updateAgentTemplate,
+    updateOrchestrationProject,
+    updateProjectAgent,
     updateSkillPack,
     updateTeamTemplate,
 } from "../api/orchestration";
 import type {
     Agent,
     AgentTemplate,
+    OrchestrationProject,
+    ProjectAgentMembership,
     SkillPack,
     TeamTemplate,
 } from "../api/orchestration";
@@ -183,11 +193,24 @@ type TeamLayoutSnapshot = {
     savedAt: string;
     nodes: TeamGraphNode[];
     edges: TeamGraphEdge[];
-    persistence: "local-only";
+    persistence: "local-only" | "project";
 };
 
 const TEAM_GRAPH_STORAGE_KEY = "troop:hierarchy-builder:team-graph-layout:v1";
+const TEAM_GRAPH_PROJECT_STORAGE_KEY = "troop:hierarchy-builder:selected-project:v1";
 const TEAM_GRAPH_AUTOSAVE_DELAY_MS = 700;
+const RUNTIME_ALLOWED_TOOLS = new Set([
+    "github_comment",
+    "github_label_issue",
+    "github_create_pr",
+    "web_fetch",
+    "web_search",
+    "code_execute",
+    "fs_read",
+    "fs_write",
+    "db_query",
+    "repo_search",
+]);
 
 type StringListFieldProps = {
     label: string;
@@ -381,7 +404,7 @@ function buildNodeDataFromTemplate(template: AgentTemplate): TeamGraphNodeData {
         slug: template.slug,
         role: (template.role === "manager" || template.role === "reviewer" ? template.role : "specialist"),
         description: template.description ?? "",
-        linkedTemplateSlug: template.parent_template_slug ?? "",
+        linkedTemplateSlug: template.slug,
         linkedAgentId: "",
         capabilities: template.capabilities,
         allowedTools: template.allowed_tools,
@@ -987,6 +1010,64 @@ function readSavedTeamLayoutSnapshot(): TeamLayoutSnapshot | null {
     }
 }
 
+function readSelectedHierarchyProjectId(): string {
+    if (typeof window === "undefined") {
+        return "";
+    }
+    return window.localStorage.getItem(TEAM_GRAPH_PROJECT_STORAGE_KEY) ?? "";
+}
+
+function persistSelectedHierarchyProjectId(projectId: string) {
+    if (typeof window === "undefined") {
+        return;
+    }
+    if (!projectId) {
+        window.localStorage.removeItem(TEAM_GRAPH_PROJECT_STORAGE_KEY);
+        return;
+    }
+    window.localStorage.setItem(TEAM_GRAPH_PROJECT_STORAGE_KEY, projectId);
+}
+
+function readProjectTeamLayoutSnapshot(project: OrchestrationProject | null | undefined): TeamLayoutSnapshot | null {
+    const execution = ((project?.settings?.execution as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+    const rawLayout = execution.team_graph_layout as Record<string, unknown> | undefined;
+    if (!rawLayout) {
+        return null;
+    }
+    const nodes = rawLayout.nodes;
+    const edges = rawLayout.edges;
+    const savedAt = rawLayout.savedAt;
+    if (!Array.isArray(nodes) || !Array.isArray(edges) || typeof savedAt !== "string") {
+        return null;
+    }
+    return {
+        savedAt,
+        nodes: nodes as TeamGraphNode[],
+        edges: edges as TeamGraphEdge[],
+        persistence: "project",
+    };
+}
+
+function parsePositiveInteger(value: string, fallback: number): number {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function findManagerRootNode(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): TeamGraphNode | null {
+    const managers = nodes.filter((node) => node.data.role === "manager");
+    if (managers.length === 0) {
+        return null;
+    }
+    const delegatedTargets = new Set(
+        edges.filter((edge) => edge.data?.semantic === "delegates_to").map((edge) => edge.target),
+    );
+    return managers.find((node) => !delegatedTargets.has(node.id)) ?? managers[0] ?? null;
+}
+
+function sanitizeRuntimeTools(tools: string[]): string[] {
+    return uniqueStrings(tools).filter((tool) => RUNTIME_ALLOWED_TOOLS.has(tool));
+}
+
 function persistTeamLayoutSnapshot(snapshot: TeamLayoutSnapshot | null) {
     if (typeof window === "undefined") {
         return;
@@ -1354,6 +1435,7 @@ export default function AgentLibraryPage() {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
     const [savedLayout, setSavedLayout] = useState<TeamLayoutSnapshot | null>(() => readSavedTeamLayoutSnapshot());
+    const [selectedHierarchyProjectId, setSelectedHierarchyProjectId] = useState<string>(() => readSelectedHierarchyProjectId());
     const [showValidationPanel, setShowValidationPanel] = useState(false);
     const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<TeamGraphNode, TeamGraphEdge> | null>(null);
     const [graphDirty, setGraphDirty] = useState(false);
@@ -1410,14 +1492,34 @@ export default function AgentLibraryPage() {
         queryKey: ["orchestration", "projects"],
         queryFn: listOrchestrationProjects,
     });
+    const effectiveHierarchyProjectId = selectedHierarchyProjectId && orchestrationProjects.some((project) => project.id === selectedHierarchyProjectId)
+        ? selectedHierarchyProjectId
+        : (orchestrationProjects[0]?.id ?? "");
+    const selectedHierarchyProject = useMemo(
+        () => orchestrationProjects.find((project) => project.id === effectiveHierarchyProjectId) ?? null,
+        [effectiveHierarchyProjectId, orchestrationProjects],
+    );
+    const projectSavedLayout = useMemo(
+        () => readProjectTeamLayoutSnapshot(selectedHierarchyProject),
+        [selectedHierarchyProject],
+    );
+    const { data: hierarchyAgents = [] } = useQuery({
+        queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"],
+        queryFn: () => listAgents(effectiveHierarchyProjectId || undefined),
+    });
 
     useLiveSnapshotStream("/orchestration/hierarchy/stream", {
         onSnapshot: () => {
             void queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
             void queryClient.invalidateQueries({ queryKey: ["orchestration", "runs"] });
             void queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
         },
     });
+
+    useEffect(() => {
+        persistSelectedHierarchyProjectId(selectedHierarchyProjectId);
+    }, [selectedHierarchyProjectId]);
 
     const activeTab = manualTab ?? routeTab;
     const agentRoleGuidance = AGENT_ROLE_GUIDANCE[form.role as keyof typeof AGENT_ROLE_GUIDANCE] ?? AGENT_ROLE_GUIDANCE.specialist;
@@ -1463,16 +1565,17 @@ export default function AgentLibraryPage() {
         return map;
     }, [runs]);
 
-    const initialGraph = useMemo(() => buildInitialTeamGraph(agents, agentLiveStatus), [agents, agentLiveStatus]);
+    const initialGraph = useMemo(() => buildInitialTeamGraph(hierarchyAgents, agentLiveStatus), [agentLiveStatus, hierarchyAgents]);
     const [nodes, setNodes, onNodesChange] = useNodesState<TeamGraphNode>(initialGraph.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState<TeamGraphEdge>(initialGraph.edges);
     const initialGraphStateSignature = useMemo(
         () => graphSignature(initialGraph.nodes, initialGraph.edges),
         [initialGraph],
     );
+    const effectiveSavedLayout = projectSavedLayout ?? savedLayout;
     const savedLayoutSignature = useMemo(
-        () => savedLayout ? graphSignature(savedLayout.nodes, savedLayout.edges) : null,
-        [savedLayout],
+        () => effectiveSavedLayout ? graphSignature(effectiveSavedLayout.nodes, effectiveSavedLayout.edges) : null,
+        [effectiveSavedLayout],
     );
     const currentGraphStateSignature = useMemo(
         () => graphSignature(nodes, edges),
@@ -1480,21 +1583,21 @@ export default function AgentLibraryPage() {
     );
 
     useEffect(() => {
-        if (savedLayout && !graphDirty && savedLayoutSignature && currentGraphStateSignature !== savedLayoutSignature) {
-            setNodes(savedLayout.nodes);
-            setEdges(savedLayout.edges);
+        if (effectiveSavedLayout && !graphDirty && savedLayoutSignature && currentGraphStateSignature !== savedLayoutSignature) {
+            setNodes(effectiveSavedLayout.nodes);
+            setEdges(effectiveSavedLayout.edges);
             return;
         }
-        if (!savedLayout && !graphDirty && currentGraphStateSignature !== initialGraphStateSignature) {
+        if (!effectiveSavedLayout && !graphDirty && currentGraphStateSignature !== initialGraphStateSignature) {
             setNodes(initialGraph.nodes);
             setEdges(initialGraph.edges);
         }
     }, [
         currentGraphStateSignature,
+        effectiveSavedLayout,
         graphDirty,
         initialGraph,
         initialGraphStateSignature,
-        savedLayout,
         savedLayoutSignature,
         setEdges,
         setNodes,
@@ -1544,11 +1647,11 @@ export default function AgentLibraryPage() {
     const selectedEdge = useMemo(() => edges.find((edge) => edge.id === selectedEdgeId) ?? null, [edges, selectedEdgeId]);
 
     const stringOptions = useMemo(() => ({
-        capabilities: Array.from(new Set([...templates.flatMap((item) => item.capabilities), ...skills.flatMap((item) => item.capabilities), ...agents.flatMap((item) => item.capabilities)])).sort(),
-        tools: Array.from(new Set([...templates.flatMap((item) => item.allowed_tools), ...skills.flatMap((item) => item.allowed_tools), ...agents.flatMap((item) => item.allowed_tools)])).sort(),
-        tags: Array.from(new Set([...templates.flatMap((item) => item.tags), ...skills.flatMap((item) => item.tags), ...agents.flatMap((item) => item.tags)])).sort(),
+        capabilities: Array.from(new Set([...templates.flatMap((item) => item.capabilities), ...skills.flatMap((item) => item.capabilities), ...agents.flatMap((item) => item.capabilities), ...hierarchyAgents.flatMap((item) => item.capabilities)])).sort(),
+        tools: Array.from(new Set([...templates.flatMap((item) => item.allowed_tools), ...skills.flatMap((item) => item.allowed_tools), ...agents.flatMap((item) => item.allowed_tools), ...hierarchyAgents.flatMap((item) => item.allowed_tools)])).sort(),
+        tags: Array.from(new Set([...templates.flatMap((item) => item.tags), ...skills.flatMap((item) => item.tags), ...agents.flatMap((item) => item.tags), ...hierarchyAgents.flatMap((item) => item.tags)])).sort(),
         projects: orchestrationProjects.map((project) => project.name),
-    }), [agents, orchestrationProjects, skills, templates]);
+    }), [agents, hierarchyAgents, orchestrationProjects, skills, templates]);
 
     const createAgentTemplateMutation = useMutation({
         mutationFn: createAgentTemplate,
@@ -1617,6 +1720,253 @@ export default function AgentLibraryPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-templates"] });
             showToast({ message: "Team template removed.", severity: "success" });
+        },
+    });
+    const saveTeamGraphMutation = useMutation({
+        mutationFn: async () => {
+            if (!effectiveHierarchyProjectId || !selectedHierarchyProject) {
+                throw new Error("Select a project before saving this team graph.");
+            }
+            const managerRoot = findManagerRootNode(nodes, edges);
+            if (!managerRoot) {
+                throw new Error("Team graph needs one manager before it can be saved.");
+            }
+
+            const memberships = await listProjectAgents(effectiveHierarchyProjectId);
+            const membershipByAgentId = new Map<string, ProjectAgentMembership>(
+                memberships.map((membership) => [membership.agent_id, membership]),
+            );
+            const existingGraphAgents = new Map(hierarchyAgents.map((agent) => [agent.id, agent]));
+            const reservedSlugs = new Set([...agents, ...hierarchyAgents].map((agent) => agent.slug));
+            const nodeToAgentId = new Map<string, string>();
+            const savedAgentById = new Map<string, Agent>();
+            const sortedNodes = [...nodes].sort((left, right) => {
+                if (left.data.role === "manager" && right.data.role !== "manager") return -1;
+                if (left.data.role !== "manager" && right.data.role === "manager") return 1;
+                return left.data.name.localeCompare(right.data.name);
+            });
+            const templateSlugSet = new Set(templates.map((template) => template.slug));
+
+            for (const node of sortedNodes) {
+                const existingAgent = node.data.linkedAgentId
+                    ? existingGraphAgents.get(node.data.linkedAgentId) ?? agents.find((agent) => agent.id === node.data.linkedAgentId) ?? null
+                    : null;
+                const resolvedTemplateSlug = node.data.linkedTemplateSlug && templateSlugSet.has(node.data.linkedTemplateSlug)
+                    ? node.data.linkedTemplateSlug
+                    : null;
+                const modelPolicy = {
+                    ...(existingAgent?.model_policy ?? {}),
+                    escalation_path: node.data.escalationPath || null,
+                    permissions: node.data.permission || "read-only",
+                };
+                const memoryPolicy = {
+                    ...(existingAgent?.memory_policy ?? {}),
+                    scope: node.data.memoryScope || "project-only",
+                };
+                const outputSchema = {
+                    ...(existingAgent?.output_schema ?? {}),
+                    format: node.data.outputFormat || "json",
+                };
+                const budget = {
+                    ...(existingAgent?.budget ?? {}),
+                    token_budget: parsePositiveInteger(node.data.tokenBudget, 8000),
+                    time_budget_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, 300),
+                    retry_budget: parsePositiveInteger(node.data.retryBudget, 1),
+                };
+                const metadata = {
+                    ...(existingAgent?.metadata ?? {}),
+                    task_filters: node.data.taskFilters,
+                    hierarchy_builder: {
+                        node_id: node.id,
+                        project_id: effectiveHierarchyProjectId,
+                        saved_at: new Date().toISOString(),
+                        desired_model: node.data.model || null,
+                        desired_fallback_model: node.data.fallbackModel || null,
+                    },
+                };
+
+                let savedAgent: Agent;
+                if (existingAgent) {
+                    savedAgent = await updateAgent(existingAgent.id, {
+                        name: node.data.name.trim() || existingAgent.name,
+                        slug: node.data.slug.trim() || existingAgent.slug,
+                        description: node.data.description.trim(),
+                        role: node.data.role,
+                        parent_template_slug: resolvedTemplateSlug || existingAgent.parent_template_slug || null,
+                        capabilities: node.data.capabilities,
+                        allowed_tools: sanitizeRuntimeTools(node.data.allowedTools),
+                        tags: node.data.tags,
+                        model_policy: modelPolicy,
+                        memory_policy: memoryPolicy,
+                        output_schema: outputSchema,
+                        budget,
+                        timeout_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, existingAgent.timeout_seconds || 300),
+                        retry_limit: parsePositiveInteger(node.data.retryBudget, existingAgent.retry_limit || 1),
+                        task_filters: node.data.taskFilters,
+                        metadata,
+                    });
+                } else {
+                    const preferredSlug = node.data.slug.trim() || slugify(node.data.name) || "agent";
+                    const nextSlug = reservedSlugs.has(preferredSlug)
+                        ? createUniqueSlug(preferredSlug, Array.from(reservedSlugs))
+                        : preferredSlug;
+                    reservedSlugs.add(nextSlug);
+                    savedAgent = await createAgent({
+                        project_id: effectiveHierarchyProjectId,
+                        parent_template_slug: resolvedTemplateSlug,
+                        name: node.data.name.trim() || "Untitled agent",
+                        slug: nextSlug,
+                        description: node.data.description.trim(),
+                        role: node.data.role,
+                        capabilities: node.data.capabilities,
+                        allowed_tools: sanitizeRuntimeTools(node.data.allowedTools),
+                        tags: node.data.tags,
+                        model_policy: modelPolicy,
+                        memory_policy: memoryPolicy,
+                        output_schema: outputSchema,
+                        budget,
+                        timeout_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, 300),
+                        retry_limit: parsePositiveInteger(node.data.retryBudget, 1),
+                        task_filters: node.data.taskFilters,
+                        metadata,
+                    });
+                }
+
+                nodeToAgentId.set(node.id, savedAgent.id);
+                savedAgentById.set(savedAgent.id, savedAgent);
+
+                const existingMembership = membershipByAgentId.get(savedAgent.id);
+                const shouldBeDefaultManager = node.id === managerRoot.id;
+                if (existingMembership) {
+                    if (existingMembership.role !== node.data.role || existingMembership.is_default_manager !== shouldBeDefaultManager) {
+                        const updatedMembership = await updateProjectAgent(effectiveHierarchyProjectId, existingMembership.id, {
+                            role: node.data.role,
+                            is_default_manager: shouldBeDefaultManager,
+                        });
+                        membershipByAgentId.set(savedAgent.id, updatedMembership);
+                    }
+                } else {
+                    const membership = await addProjectAgent(effectiveHierarchyProjectId, {
+                        agent_id: savedAgent.id,
+                        role: node.data.role,
+                        is_default_manager: shouldBeDefaultManager,
+                    });
+                    membershipByAgentId.set(savedAgent.id, membership);
+                }
+            }
+
+            for (const node of sortedNodes) {
+                const agentId = nodeToAgentId.get(node.id);
+                if (!agentId) {
+                    continue;
+                }
+                const currentAgent = savedAgentById.get(agentId);
+                if (!currentAgent) {
+                    continue;
+                }
+                const incomingHierarchyEdges = edges.filter(
+                    (edge) =>
+                        edge.target === node.id &&
+                        (edge.data?.semantic === "delegates_to" || edge.data?.semantic === "escalates_to"),
+                );
+                const reviewerEdges = edges.filter(
+                    (edge) => edge.target === node.id && edge.data?.semantic === "reviews",
+                );
+                const parentAgentId = incomingHierarchyEdges.length > 0 ? nodeToAgentId.get(incomingHierarchyEdges[0].source) ?? null : null;
+                const reviewerAgentId = reviewerEdges.length > 0 ? nodeToAgentId.get(reviewerEdges[0].source) ?? null : null;
+                const escalationTarget = nodes.find(
+                    (candidate) =>
+                        candidate.id === node.data.escalationPath ||
+                        candidate.data.slug === node.data.escalationPath ||
+                        candidate.data.name === node.data.escalationPath,
+                );
+                const escalationSlug = escalationTarget?.data.slug || node.data.escalationPath || null;
+                const updatedAgent = await updateAgent(agentId, {
+                    parent_agent_id: node.data.role === "manager" ? null : parentAgentId,
+                    reviewer_agent_id: node.data.role === "reviewer" ? null : reviewerAgentId,
+                    model_policy: {
+                        ...(currentAgent.model_policy ?? {}),
+                        escalation_path: escalationSlug,
+                        permissions: node.data.permission || "read-only",
+                    },
+                });
+                savedAgentById.set(agentId, updatedAgent);
+            }
+
+            const reviewerAgentIds = sortedNodes
+                .filter((node) => node.data.role === "reviewer")
+                .map((node) => nodeToAgentId.get(node.id))
+                .filter((item): item is string => Boolean(item));
+            const managerAgentId = nodeToAgentId.get(managerRoot.id) ?? null;
+            const updatedNodes = nodes.map((node) => {
+                const resolvedAgentId = nodeToAgentId.get(node.id);
+                const savedAgent = resolvedAgentId ? savedAgentById.get(resolvedAgentId) ?? null : null;
+                return {
+                    ...node,
+                    id: savedAgent?.id ?? node.id,
+                    data: {
+                        ...node.data,
+                        linkedAgentId: savedAgent?.id ?? node.data.linkedAgentId,
+                        slug: savedAgent?.slug ?? node.data.slug,
+                        subtitle: buildNodeSubtitle({
+                            linkedAgentId: savedAgent?.id ?? node.data.linkedAgentId,
+                            linkedTemplateSlug: node.data.linkedTemplateSlug,
+                            slug: savedAgent?.slug ?? node.data.slug,
+                        }),
+                        status: savedAgent ? "inactive" : node.data.status,
+                    },
+                } as TeamGraphNode;
+            });
+            const remappedEdges = edges.map((edge) =>
+                createSemanticEdge(
+                    nodeToAgentId.get(edge.source) ?? edge.source,
+                    nodeToAgentId.get(edge.target) ?? edge.target,
+                    edge.data?.semantic ?? "delegates_to",
+                ),
+            );
+            const snapshot: TeamLayoutSnapshot = {
+                savedAt: new Date().toISOString(),
+                nodes: updatedNodes,
+                edges: remappedEdges,
+                persistence: "project",
+            };
+            const currentExecution = ((selectedHierarchyProject.settings?.execution as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+            await updateOrchestrationProject(effectiveHierarchyProjectId, {
+                settings: {
+                    execution: {
+                        ...currentExecution,
+                        manager_agent_id: managerAgentId,
+                        reviewer_agent_ids: reviewerAgentIds,
+                        team_graph_agent_ids: Array.from(nodeToAgentId.values()),
+                        team_graph_layout: {
+                            savedAt: snapshot.savedAt,
+                            nodes: snapshot.nodes,
+                            edges: snapshot.edges,
+                        },
+                    },
+                },
+            });
+
+            return snapshot;
+        },
+        onSuccess: async (snapshot) => {
+            setNodes(snapshot.nodes);
+            setEdges(snapshot.edges);
+            setSavedLayout(snapshot);
+            persistTeamLayoutSnapshot(snapshot);
+            setGraphDirty(false);
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "issues"] });
+            showToast({ message: "Team graph saved to project. Agents and manager routing are now persistent.", severity: "success" });
+        },
+        onError: (error) => {
+            let message = error instanceof Error ? error.message : "Couldn't save project team graph.";
+            if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+                message = error.message;
+            }
+            showToast({ message, severity: "error" });
         },
     });
 
@@ -1886,20 +2236,72 @@ export default function AgentLibraryPage() {
         fitCanvas();
     }
 
+    function computeDefaultNodePosition(role: TeamGraphRole, currentNodes: TeamGraphNode[]): { x: number; y: number } {
+        const MANAGER_GAP_X = 640;
+        const MANAGER_Y = 80;
+        const SPECIALIST_Y = 300;
+        const REVIEWER_Y = 520;
+        if (role === "manager") {
+            const existingManagers = currentNodes.filter((node) => node.data.role === "manager").length;
+            return { x: 600 + existingManagers * MANAGER_GAP_X, y: MANAGER_Y };
+        }
+        return { x: 600, y: role === "reviewer" ? REVIEWER_Y : SPECIALIST_Y };
+    }
+
+    function reflowChildRows(
+        currentNodes: TeamGraphNode[],
+        options?: { anchorManagerId?: string; childIds?: Set<string> },
+    ): TeamGraphNode[] {
+        const CHILD_GAP_X = 280;
+        const SPECIALIST_OFFSET_Y = 220;
+        const REVIEWER_OFFSET_Y = 440;
+        const anchorId = options?.anchorManagerId;
+        const manager = anchorId
+            ? currentNodes.find((node) => node.id === anchorId && node.data.role === "manager")
+            : currentNodes.find((node) => node.data.role === "manager");
+        if (!manager) {
+            return currentNodes;
+        }
+        const inScope = (node: TeamGraphNode) =>
+            !options?.childIds || options.childIds.has(node.id);
+        const specialists = currentNodes.filter((node) => node.data.role === "specialist" && inScope(node));
+        const reviewers = currentNodes.filter((node) => node.data.role === "reviewer" && inScope(node));
+        const centerX = manager.position.x;
+        const managerY = manager.position.y;
+        const positions = new Map<string, { x: number; y: number }>();
+        const placeRow = (items: TeamGraphNode[], rowY: number) => {
+            if (items.length === 0) return;
+            const totalWidth = (items.length - 1) * CHILD_GAP_X;
+            const startX = centerX - totalWidth / 2;
+            items.forEach((item, idx) => {
+                positions.set(item.id, { x: startX + idx * CHILD_GAP_X, y: rowY });
+            });
+        };
+        placeRow(specialists, managerY + SPECIALIST_OFFSET_Y);
+        placeRow(reviewers, managerY + REVIEWER_OFFSET_Y);
+        return currentNodes.map((node) => {
+            const pos = positions.get(node.id);
+            return pos ? { ...node, position: pos } : node;
+        });
+    }
+
     function addAgentNode(agentId: string) {
-        const agent = agents.find((item) => item.id === agentId);
+        const agent = hierarchyAgents.find((item) => item.id === agentId);
         if (!agent) {
             return;
         }
         const role = agent.role === "manager" || agent.role === "reviewer" ? agent.role : "specialist";
-        const count = nodes.filter((node) => node.data.role === role).length + 1;
         const nextNode: TeamGraphNode = {
             id: createUniqueNodeId(`${agent.id}-team-node`, nodes.map((node) => node.id)),
             type: role,
-            position: { x: 120 + count * 40, y: role === "manager" ? 80 : role === "reviewer" ? 520 : 300 },
+            position: computeDefaultNodePosition(role, nodes),
             data: buildNodeDataFromAgent(agent, agentLiveStatus),
         };
-        setNodes((current) => autoLayoutGraph([...current, nextNode]));
+        const manager = role !== "manager" ? nodes.find((node) => node.data.role === "manager") ?? null : null;
+        setNodes((current) => reflowChildRows([...current, nextNode]));
+        if (manager) {
+            setEdges((current) => [...current, createSemanticEdge(manager.id, nextNode.id, role === "reviewer" ? "reviews" : "delegates_to")]);
+        }
         setGraphDirty(true);
         setSelectedNodeId(nextNode.id);
         setSelectedEdgeId(null);
@@ -1907,6 +2309,83 @@ export default function AgentLibraryPage() {
         setAgentToAddId("");
         openTeamNodeDrawer(nextNode.id, nextNode.data);
         showToast({ message: `${agent.name} added to team graph.`, severity: "success" });
+        fitCanvas();
+    }
+
+    function addAgentTemplateNode(templateSlug: string) {
+        const template = templates.find((item) => item.slug === templateSlug);
+        if (!template) {
+            return;
+        }
+        const role = template.role === "manager" || template.role === "reviewer" ? template.role : "specialist";
+        const nextNode: TeamGraphNode = {
+            id: createUniqueNodeId(`template-${template.slug}`, nodes.map((node) => node.id)),
+            type: role,
+            position: computeDefaultNodePosition(role, nodes),
+            data: buildNodeDataFromTemplate(template),
+        };
+        const manager = role !== "manager" ? nodes.find((node) => node.data.role === "manager") ?? null : null;
+        setNodes((current) => reflowChildRows([...current, nextNode]));
+        if (manager) {
+            setEdges((current) => [...current, createSemanticEdge(manager.id, nextNode.id, role === "reviewer" ? "reviews" : "delegates_to")]);
+        }
+        setGraphDirty(true);
+        setSelectedNodeId(nextNode.id);
+        setSelectedEdgeId(null);
+        setAddAgentDialogOpen(false);
+        setAgentToAddId("");
+        showToast({ message: `${template.name} added to team graph.`, severity: "success" });
+        fitCanvas();
+    }
+
+    function insertTeamTemplateInHierarchy(teamTemplate: TeamTemplate) {
+        const selected = teamTemplate.agent_template_slugs
+            .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+            .filter((item): item is AgentTemplate => Boolean(item));
+        if (selected.length === 0) {
+            showToast({ message: "Team template has no agent templates attached.", severity: "warning" });
+            return;
+        }
+        const existingIds = new Set(nodes.map((node) => node.id));
+        const resolveRole = (template: AgentTemplate): TeamGraphRole =>
+            template.role === "manager" || template.role === "reviewer" ? template.role : "specialist";
+        const newNodes: TeamGraphNode[] = selected.map((template) => {
+            const role = resolveRole(template);
+            const nextId = createUniqueNodeId(`${teamTemplate.slug}-${template.slug}`, Array.from(existingIds));
+            existingIds.add(nextId);
+            return {
+                id: nextId,
+                type: role,
+                position: { x: 0, y: 0 },
+                data: buildNodeDataFromTemplate(template),
+            } as TeamGraphNode;
+        });
+        const templateManager = newNodes.find((node) => node.data.role === "manager");
+        const existingManager = !templateManager ? nodes.find((node) => node.data.role === "manager") ?? null : null;
+        const managerNode = templateManager ?? existingManager;
+        if (templateManager) {
+            templateManager.position = computeDefaultNodePosition("manager", nodes);
+        }
+        const combined = [...nodes, ...newNodes];
+        const newChildIds = new Set(newNodes.filter((node) => node.id !== templateManager?.id).map((node) => node.id));
+        const reflowed = templateManager
+            ? reflowChildRows(combined, { anchorManagerId: templateManager.id, childIds: newChildIds })
+            : reflowChildRows(combined);
+        const newEdges: TeamGraphEdge[] = [];
+        if (managerNode) {
+            for (const child of newNodes) {
+                if (child.id === managerNode.id) continue;
+                const semantic = child.data.role === "reviewer" ? "reviews" : "delegates_to";
+                newEdges.push(createSemanticEdge(managerNode.id, child.id, semantic));
+            }
+        }
+        setNodes(reflowed);
+        if (newEdges.length > 0) {
+            setEdges((current) => [...current, ...newEdges]);
+        }
+        setGraphDirty(true);
+        setManualTab("hierarchy");
+        showToast({ message: `Team "${teamTemplate.name}" inserted into graph.`, severity: "success" });
         fitCanvas();
     }
 
@@ -1951,7 +2430,7 @@ export default function AgentLibraryPage() {
     }
 
     function hydrateTeamNodeDraftFromAgent(agentId: string) {
-        const agent = agents.find((item) => item.id === agentId);
+        const agent = hierarchyAgents.find((item) => item.id === agentId);
         if (!agent) {
             return;
         }
@@ -2043,17 +2522,7 @@ export default function AgentLibraryPage() {
     }
 
     function saveLayout() {
-        const snapshot: TeamLayoutSnapshot = {
-            savedAt: new Date().toISOString(),
-            nodes,
-            edges,
-            persistence: "local-only",
-        };
-        setSavedLayout(snapshot);
-        persistTeamLayoutSnapshot(snapshot);
-        setGraphDirty(false);
-        // TODO: persist layout to backend once runtime team graph storage exists.
-        showToast({ message: "Team layout saved locally and will restore after reload.", severity: "success" });
+        saveTeamGraphMutation.mutate();
     }
 
     function removeSelectedEdge() {
@@ -2340,6 +2809,15 @@ export default function AgentLibraryPage() {
                                                 )}
                                             </Stack>
                                             <Stack direction="row" spacing={1}>
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    startIcon={<GraphIcon />}
+                                                    onClick={() => insertTeamTemplateInHierarchy(teamTemplate)}
+                                                    disabled={teamTemplate.agent_template_slugs.length === 0}
+                                                >
+                                                    Use
+                                                </Button>
                                                 <Button size="small" variant="outlined" onClick={() => openTeamTemplateDrawer(teamTemplate)}>
                                                     Edit
                                                 </Button>
@@ -2448,11 +2926,11 @@ export default function AgentLibraryPage() {
                                     variant="contained"
                                     startIcon={<AddIcon />}
                                     onClick={() => {
-                                        if (agents.length === 0) {
+                                        if (hierarchyAgents.length === 0 && templates.length === 0) {
                                             createDraftNode();
                                             return;
                                         }
-                                        setAgentToAddId(agents[0]?.id ?? "");
+                                        setAgentToAddId(hierarchyAgents[0] ? `agent:${hierarchyAgents[0].id}` : templates[0] ? `template:${templates[0].slug}` : "");
                                         setAddAgentDialogOpen(true);
                                     }}
                                 >
@@ -2464,7 +2942,7 @@ export default function AgentLibraryPage() {
                                 <Button size="small" variant="outlined" startIcon={<ValidateIcon />} onClick={validateTeamGraph}>
                                     Validate team
                                 </Button>
-                                <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={saveLayout}>
+                                <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={saveLayout} disabled={saveTeamGraphMutation.isPending}>
                                     Save layout
                                 </Button>
                                 <Button size="small" variant="text" startIcon={<ResetIcon />} onClick={resetLayout}>
@@ -2472,6 +2950,18 @@ export default function AgentLibraryPage() {
                                 </Button>
                             </Stack>
                             <Stack direction="row" spacing={1} alignItems="center">
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Project"
+                                    value={effectiveHierarchyProjectId}
+                                    onChange={(event) => setSelectedHierarchyProjectId(event.target.value)}
+                                    sx={{ minWidth: 220 }}
+                                >
+                                    {orchestrationProjects.map((project) => (
+                                        <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>
+                                    ))}
+                                </TextField>
                                 <TextField
                                     select
                                     size="small"
@@ -2511,39 +3001,80 @@ export default function AgentLibraryPage() {
 
                         <SectionCard title="Team graph" description="React Flow orchestration editor with semantic edges, fit view, and client-side validation.">
                             {nodes.length === 0 ? (
-                                <EmptyState
-                                    icon={<GraphIcon />}
-                                    title="No team graph yet"
-                                    description="No agents were available to seed the graph. Add a manager manually or switch to the library to create agents first."
-                                    action={
-                                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                                            <Button
-                                                variant="contained"
-                                                onClick={() => {
-                                                    if (agents.length === 0) {
-                                                        createDraftNode();
-                                                        return;
-                                                    }
-                                                    setAgentToAddId(agents[0]?.id ?? "");
-                                                    setAddAgentDialogOpen(true);
-                                                }}
-                                            >
-                                                Add agent
-                                            </Button>
-                                            <Button variant="outlined" onClick={() => setManualTab("library")}>
-                                                Open library
-                                            </Button>
-                                        </Stack>
-                                    }
-                                />
+                                <Box
+                                    onDragOver={(event) => {
+                                        if (draggingItem?.type === "agent-template") {
+                                            event.preventDefault();
+                                            event.dataTransfer.dropEffect = "copy";
+                                        }
+                                    }}
+                                    onDrop={(event) => {
+                                        if (draggingItem?.type !== "agent-template") return;
+                                        event.preventDefault();
+                                        addAgentTemplateNode(draggingItem.slug);
+                                        setDraggingItem(null);
+                                    }}
+                                    sx={{
+                                        borderRadius: 4,
+                                        border: "2px dashed",
+                                        borderColor: draggingItem?.type === "agent-template" ? "primary.main" : "divider",
+                                        bgcolor: draggingItem?.type === "agent-template" ? "action.hover" : "transparent",
+                                        p: 2,
+                                        transition: "border-color 120ms ease, background-color 120ms ease",
+                                    }}
+                                >
+                                    <EmptyState
+                                        icon={<GraphIcon />}
+                                        title="No team graph yet"
+                                        description="Drop an agent template from the Agent library here, or add one manually."
+                                        action={
+                                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                                <Button
+                                                    variant="contained"
+                                                    onClick={() => {
+                                                        if (hierarchyAgents.length === 0 && templates.length === 0) {
+                                                            createDraftNode();
+                                                            return;
+                                                        }
+                                                        setAgentToAddId(hierarchyAgents[0] ? `agent:${hierarchyAgents[0].id}` : templates[0] ? `template:${templates[0].slug}` : "");
+                                                        setAddAgentDialogOpen(true);
+                                                    }}
+                                                >
+                                                    Add agent
+                                                </Button>
+                                                <Button variant="outlined" onClick={() => setManualTab("library")}>
+                                                    Open library
+                                                </Button>
+                                            </Stack>
+                                        }
+                                    />
+                                </Box>
                             ) : (
                                 <Box
+                                    onDragOver={(event) => {
+                                        if (draggingItem?.type === "agent-template") {
+                                            event.preventDefault();
+                                            event.dataTransfer.dropEffect = "copy";
+                                        }
+                                    }}
+                                    onDrop={(event) => {
+                                        if (draggingItem?.type !== "agent-template" || !flowInstance) {
+                                            return;
+                                        }
+                                        event.preventDefault();
+                                        const position = flowInstance.screenToFlowPosition({
+                                            x: event.clientX,
+                                            y: event.clientY,
+                                        });
+                                        addAgentTemplateNode(draggingItem.slug, position);
+                                        setDraggingItem(null);
+                                    }}
                                     sx={{
                                         height: { xs: 560, xl: 720 },
                                         borderRadius: 4,
                                         overflow: "hidden",
                                         border: "1px solid",
-                                        borderColor: "divider",
+                                        borderColor: draggingItem?.type === "agent-template" ? "primary.main" : "divider",
                                         bgcolor: alpha("#f8fafc", 0.85),
                                     }}
                                 >
@@ -2669,6 +3200,48 @@ export default function AgentLibraryPage() {
                                     {inspectorContent}
                                 </ExpandableSection>
                             ) : null}
+                            <ExpandableSection
+                                title="Agent library"
+                                description="Drag any agent template onto the canvas to add it as a draft node."
+                                defaultExpanded={false}
+                            >
+                                {templates.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No agent templates in library yet.
+                                    </Typography>
+                                ) : (
+                                    <Stack spacing={0.75} sx={{ maxHeight: 320, overflowY: "auto", pr: 0.5 }}>
+                                        {templates.map((template) => (
+                                            <Paper
+                                                key={template.slug}
+                                                draggable
+                                                onDragStart={() => setDraggingItem({ type: "agent-template", slug: template.slug })}
+                                                onDragEnd={() => {
+                                                    setDraggingItem(null);
+                                                    setActiveDropTarget(null);
+                                                }}
+                                                variant="outlined"
+                                                sx={{
+                                                    px: 1.25,
+                                                    py: 0.75,
+                                                    borderRadius: 2,
+                                                    cursor: "grab",
+                                                    "&:active": { cursor: "grabbing" },
+                                                    "&:hover": { borderColor: "primary.main" },
+                                                }}
+                                            >
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    <DragIndicatorIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                                                    <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                                                        {template.name}
+                                                    </Typography>
+                                                    <Chip size="small" label={template.role} variant="outlined" />
+                                                </Stack>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                )}
+                            </ExpandableSection>
                         </Stack>
 
 
@@ -3030,7 +3603,7 @@ export default function AgentLibraryPage() {
                                     fullWidth
                                 >
                                     <MenuItem value="">None</MenuItem>
-                                    {agents.map((agent) => (
+                                    {hierarchyAgents.map((agent) => (
                                         <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
                                     ))}
                                 </TextField>
@@ -3528,19 +4101,35 @@ export default function AgentLibraryPage() {
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <Alert severity="info">
-                            Add saved agent or create local draft agent directly in team graph.
+                            Pick saved agent, template from library, or create local draft.
                         </Alert>
                         <TextField
                             select
-                            label="Agent"
+                            label="Agent or template"
                             value={agentToAddId}
                             onChange={(event) => setAgentToAddId(event.target.value)}
                             fullWidth
-                            helperText="Adds a saved agent contract into the current team graph."
+                            helperText="Saved agents bind to a live contract. Templates insert as draft nodes."
                         >
-                            {agents.map((agent) => (
-                                <MenuItem key={agent.id} value={agent.id}>
+                            {hierarchyAgents.length === 0 && templates.length === 0 ? (
+                                <MenuItem value="" disabled>
+                                    No agents or templates available.
+                                </MenuItem>
+                            ) : null}
+                            {hierarchyAgents.length > 0 ? (
+                                <ListSubheader>Saved agents</ListSubheader>
+                            ) : null}
+                            {hierarchyAgents.map((agent) => (
+                                <MenuItem key={`agent:${agent.id}`} value={`agent:${agent.id}`}>
                                     {agent.name} • {agent.role} • {agent.slug}
+                                </MenuItem>
+                            ))}
+                            {templates.length > 0 ? (
+                                <ListSubheader>Library templates</ListSubheader>
+                            ) : null}
+                            {templates.map((template) => (
+                                <MenuItem key={`template:${template.slug}`} value={`template:${template.slug}`}>
+                                    {template.name} • {template.role} • {template.slug}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -3556,7 +4145,13 @@ export default function AgentLibraryPage() {
                     <Button onClick={() => setAddAgentDialogOpen(false)}>Cancel</Button>
                     <Button
                         variant="contained"
-                        onClick={() => addAgentNode(agentToAddId)}
+                        onClick={() => {
+                            if (agentToAddId.startsWith("template:")) {
+                                addAgentTemplateNode(agentToAddId.slice("template:".length));
+                            } else if (agentToAddId.startsWith("agent:")) {
+                                addAgentNode(agentToAddId.slice("agent:".length));
+                            }
+                        }}
                         disabled={!agentToAddId}
                     >
                         Add agent

@@ -1,0 +1,40 @@
+Project/task orchestration gap review
+
+Already largely present:
+- project milestones
+- repo links + indexing
+- knowledge base + search
+- decision log
+- task dependency model / DAG view
+- acceptance criteria field
+- task artifacts
+- backend task status transition map
+
+Remaining gaps to close:
+
+- [ ] Make `Agent Projects` the single canonical project workspace.
+  Remove or fully deprecate duplicate `Workspace Projects` entry/flow so project and task work do not split across two models.
+
+- [ ] Add an editable project workspace overview for goals.
+  `goals_markdown` exists and is displayed, but the normal project page still needs a first-class edit flow for project goals and a stronger top-level workspace summary tying goals, milestones, repos, knowledge, and decisions together.
+
+- [ ] Make owner agent + reviewer agent first-class on task create/edit.
+  Task owner assignment exists after creation, but task creation flow still does not treat owner and reviewer as primary fields. Add both directly in the main task form, persist defaults from the project team graph, and show them prominently on task cards/details.
+
+- [ ] Make dependencies first-class in the normal task flow, not only the DAG drawer.
+  Dependency editing exists, but it is buried in the graph side panel. Add dependency selection and blocked-by visibility to the main task create/edit UX and task detail surface.
+
+- [ ] Turn acceptance criteria into an approval gate, not only a text field.
+  Acceptance criteria is stored, but approval/completion should consistently require a visible checker result and clear pass/fail evidence before moving to `approved` / `completed`.
+
+- [ ] Add first-class external links on tasks and projects.
+  Artifacts exist, and GitHub issue links exist, but generic external references are still missing as a separate model/UI. Add structured links for specs, docs, Figma, PRs, commits, incidents, and other URLs without forcing them into artifacts.
+
+- [ ] Tighten the task state machine UX around allowed transitions only.
+  Backend transition rules exist, but UI should only offer valid next states, explain why a transition is blocked, and stop exposing loose/manual status changes that bypass the intended flow.
+
+- [ ] Align the default lifecycle with the strict orchestration flow.
+  Current model still includes `backlog` / `failed`. If the target lifecycle is strictly `queued -> planned -> in_progress -> blocked -> needs_review -> approved -> completed -> synced_to_github -> archived`, normalize creation/import/replay UX around that path and decide whether `backlog` remains a pre-queue holding state or gets removed from the main board.
+
+- [ ] Add better task evidence packaging before GitHub sync/archive.
+  Artifacts exist, but the task flow still needs a clearer final evidence bundle: accepted artifacts, external links, reviewer decision, and sync summary before moving to `synced_to_github` or `archived`.

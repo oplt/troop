@@ -792,6 +792,33 @@ class GithubHelperTests(unittest.TestCase):
         finally:
             settings.GITHUB_APP_WEBHOOK_SECRET = previous
 
+    def test_github_auth_headers_use_token_prefix_for_access_tokens(self) -> None:
+        service = object.__new__(OrchestrationService)
+        connection = SimpleNamespace(encrypted_token="encrypted", metadata_json={"connection_mode": "token"})
+
+        with patch("backend.modules.orchestration.service.decrypt_secret", return_value="ghp_test"):
+            headers = asyncio.run(service._github_auth_headers(connection))
+
+        self.assertEqual(headers["Authorization"], "token ghp_test")
+        self.assertEqual(headers["Accept"], "application/vnd.github+json")
+
+    def test_fetch_github_issues_translates_unauthorized_into_actionable_error(self) -> None:
+        service = object.__new__(OrchestrationService)
+        repository = SimpleNamespace(full_name="oplt/troop")
+        connection = SimpleNamespace()
+
+        async def fake_request(*args, **kwargs):
+            return SimpleNamespace(status_code=401, text="Bad credentials")
+
+        service._github_request = fake_request
+
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(service._fetch_github_issues(connection, repository, [1]))
+
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("Reconnect GitHub", str(ctx.exception.detail))
+        self.assertIn("Bad credentials", str(ctx.exception.detail))
+
 
 class ProviderHelperTests(unittest.TestCase):
     def test_estimate_cost_prefers_model_capability_matrix(self) -> None:

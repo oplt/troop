@@ -216,6 +216,17 @@ async def create_github_connection(
     return _github_connection(await service.create_github_connection(current_user, payload.model_dump()))
 
 
+@router.delete("/github/connections/{connection_id}", status_code=204)
+async def delete_github_connection(
+    connection_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    await service.delete_github_connection(current_user, connection_id)
+    return Response(status_code=204)
+
+
 @router.post("/github/connections/{connection_id}/sync-repos", response_model=list[GithubRepositoryResponse])
 async def sync_github_repositories(
     connection_id: str,
@@ -254,6 +265,16 @@ async def list_github_issue_links(
 ):
     service = OrchestrationService(db)
     return [_github_issue_link(item) for item in await service.list_github_issue_links(current_user, project_id)]
+
+
+@router.post("/github/issues/{issue_link_id}/refresh", response_model=GithubIssueLinkResponse)
+async def refresh_github_issue_link(
+    issue_link_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    return _github_issue_link(await service.refresh_github_issue_link(current_user, issue_link_id))
 
 
 @router.get("/github/sync-events", response_model=list[GithubSyncEventResponse])

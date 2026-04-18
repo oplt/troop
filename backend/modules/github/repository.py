@@ -68,6 +68,10 @@ class GithubRepositoryMixin:
         )
         return result.scalar_one_or_none()
 
+    async def delete_github_connection(self, item: GithubConnection) -> None:
+        await self.db.delete(item)
+        await self.db.flush()
+
     async def get_github_connection_by_installation(
         self, owner_id: str, installation_id: int
     ) -> GithubConnection | None:

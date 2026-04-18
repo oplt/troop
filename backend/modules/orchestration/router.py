@@ -48,6 +48,7 @@ from backend.modules.orchestration.schemas import (
     ExecutionSnapshotMeta,
     GateConfigResponse,
     GateConfigUpdate,
+    GithubSyncEventResponse,
     KnowledgeSearchResultResponse,
     MemorySettingsPatch,
     MemorySettingsResponse,
@@ -126,6 +127,7 @@ from backend.modules.orchestration.schemas import (
 from backend.modules.orchestration.models import ApprovalRequest
 from backend.modules.orchestration.service import OrchestrationService
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
+from backend.modules.team.schemas import ProjectAgentMembershipResponse, ProjectAgentMembershipCreate, ProjectAgentMembershipUpdate
 
 router = APIRouter()
 public_router = APIRouter()
@@ -251,6 +253,17 @@ def _project_repo(item) -> ProjectRepositoryLinkResponse:
         default_branch=item.default_branch,
         repository_url=item.repository_url,
         metadata=item.metadata_json,
+    )
+
+
+def _project_agent_membership(item) -> ProjectAgentMembershipResponse:
+    return ProjectAgentMembershipResponse(
+        id=item.id,
+        project_id=item.project_id,
+        agent_id=item.agent_id,
+        role=item.role,
+        is_default_manager=item.is_default_manager,
+        created_at=item.created_at,
     )
 
 
@@ -604,6 +617,19 @@ def _project_decision(item) -> ProjectDecisionResponse:
         decision=item.decision,
         rationale=item.rationale,
         author_label=item.author_label,
+        created_at=item.created_at,
+    )
+
+
+def _github_sync_event(item) -> GithubSyncEventResponse:
+    return GithubSyncEventResponse(
+        id=item.id,
+        repository_id=item.repository_id,
+        issue_link_id=item.issue_link_id,
+        action=item.action,
+        status=item.status,
+        detail=item.detail,
+        payload=item.payload_json,
         created_at=item.created_at,
     )
 
@@ -1043,6 +1069,39 @@ async def update_project(
     current_user: User = Depends(get_current_user),
 ):
     return _project(await OrchestrationService(db).update_project(current_user, project_id, payload.model_dump(exclude_unset=True)))
+
+
+@router.get("/projects/{project_id}/agents", response_model=list[ProjectAgentMembershipResponse])
+async def list_project_agents(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    items = await OrchestrationService(db).list_project_agents(current_user, project_id)
+    return [_project_agent_membership(item) for item in items]
+
+
+@router.post("/projects/{project_id}/agents", response_model=ProjectAgentMembershipResponse, status_code=201)
+async def add_project_agent(
+    project_id: str,
+    payload: ProjectAgentMembershipCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).add_project_agent(current_user, project_id, payload.model_dump(exclude_unset=True))
+    return _project_agent_membership(item)
+
+
+@router.patch("/projects/{project_id}/agents/{membership_id}", response_model=ProjectAgentMembershipResponse)
+async def update_project_agent(
+    project_id: str,
+    membership_id: str,
+    payload: ProjectAgentMembershipUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).update_project_agent(current_user, project_id, membership_id, payload.model_dump(exclude_unset=True))
+    return _project_agent_membership(item)
 
 
 @router.get("/projects/{project_id}/gate-config", response_model=GateConfigResponse)

@@ -12,7 +12,6 @@ const ProjectsPage = lazy(() => import("../pages/ProjectsPage"));
 const ProjectDetailPage = lazy(() => import("../pages/ProjectDetailPage"));
 const PlatformPage = lazy(() => import("../pages/PlatformPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
-const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
 const AdminUsersPage = lazy(() => import("../pages/AdminUsersPage"));
@@ -20,6 +19,7 @@ const AdminPlatformPage = lazy(() => import("../pages/AdminPlatformPage"));
 const AdminSettingsPage = lazy(() => import("../pages/AdminSettingsPage"));
 const AiStudioPage = lazy(() => import("../pages/AiStudioPage"));
 const HierarchyPage = lazy(() => import("../pages/HierarchyPage"));
+const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProjectsPage"));
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
 const BrainstormsPage = lazy(() => import("../pages/BrainstormsPage"));
 const BrainstormDetailPage = lazy(() => import("../pages/BrainstormDetailPage"));
@@ -30,7 +30,6 @@ const BenchmarkPage = lazy(() => import("../pages/BenchmarkPage"));
 const SemanticMemoryPage = lazy(() => import("../pages/SemanticMemoryPage"));
 const ModelSettingsPage = lazy(() => import("../pages/ModelSettingsPage"));
 const OrchestrationPortfolioPage = lazy(() => import("../pages/OrchestrationPortfolioPage"));
-const ExecutionInsightsPage = lazy(() => import("../pages/ExecutionInsightsPage"));
 
 function PageLoader() {
     return (
@@ -86,7 +85,7 @@ export function AppRouter() {
                     <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
-                    <Route path="/agent-projects" element={<Navigate to="/projects?tab=agents" replace />} />
+                    <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
@@ -94,12 +93,12 @@ export function AppRouter() {
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />
                     <Route path="/activity" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />
-                    <Route path="/analytics/execution" element={<SuspensePage><ExecutionInsightsPage /></SuspensePage>} />
+                    <Route path="/analytics/execution" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/agent-projects/:projectId/benchmark" element={<SuspensePage><BenchmarkPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
                     <Route path="/runs/:runId" element={<SuspensePage><RunInspectorPage /></SuspensePage>} />
                     <Route path="/profile" element={<SuspensePage><ProfilePage /></SuspensePage>} />
-                    <Route path="/notifications" element={<SuspensePage><NotificationsPage /></SuspensePage>} />
+                    <Route path="/notifications" element={<Navigate to="/dashboard" replace />} />
                     <Route
                         path="/admin/users"
                         element={

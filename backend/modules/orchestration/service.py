@@ -22,7 +22,7 @@ from typing import Any, Sequence
 import httpx
 import jwt
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes as orm_attributes
 
@@ -243,6 +243,7 @@ class OrchestrationService:
 
     async def list_agents(self, user: User, project_id: str | None = None) -> list[AgentProfile]:
         await self._ensure_catalog_seeded()
+        await self._purge_placeholder_test_agents(user.id)
         return await self.repo.list_agents(user.id, project_id)
 
     async def create_agent(self, user: User, payload: dict[str, Any]) -> AgentProfile:
@@ -1014,10 +1015,10 @@ class OrchestrationService:
                 detail=f"Dependency tasks not found in this project: {', '.join(missing[:5])}",
             )
 
-        adjacency: dict[str, list[str]] = {
-            item.id: [str(dep_id) for dep_id in (item.dependency_ids or []) if str(dep_id).strip()]
-            for item in tasks
-        }
+        dependencies = await self.repo.list_task_dependencies(project_id)
+        adjacency: dict[str, list[str]] = {item.id: [] for item in tasks}
+        for dep in dependencies:
+            adjacency.setdefault(dep.task_id, []).append(str(dep.depends_on_task_id))
         adjacency[task_id] = normalized
         for dep_id in normalized:
             if self._task_dependency_path_exists(adjacency, dep_id, task_id):
@@ -5470,6 +5471,13 @@ class OrchestrationService:
     async def list_github_connections(self, user: User):
         return await self.repo.list_github_connections(user.id)
 
+    async def delete_github_connection(self, user: User, connection_id: str) -> None:
+        connection = await self.repo.get_github_connection(user.id, connection_id)
+        if not connection:
+            raise HTTPException(status_code=404, detail="GitHub connection not found")
+        await self.repo.delete_github_connection(connection)
+        await self.db.commit()
+
     async def sync_github_repositories(self, user: User, connection_id: str):
         connection = await self.repo.get_github_connection(user.id, connection_id)
         if not connection:
@@ -5506,16 +5514,19 @@ class OrchestrationService:
         connection = await self.repo.get_github_connection(user.id, repository.connection_id)
         if not connection:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
+        project_manager = await self._project_default_manager(project.id, project=project)
         repo_pool = self._repo_pool_config(project, repository=repository)
         default_worker = str(
             payload.get("auto_assign_agent_id")
             or repo_pool.get("default_assignee_agent_id")
+            or (project_manager.id if project_manager else "")
             or ""
         ).strip() or None
         default_reviewer = str(repo_pool.get("default_reviewer_agent_id") or "").strip() or None
         issues = await self._fetch_github_issues(connection, repository, payload.get("issue_numbers", []))
         results = []
         for issue in issues:
+            issue_labels = [item["name"] for item in issue.get("labels", [])]
             link = await self.repo.get_issue_link_by_repo_and_number(repository.id, issue["number"])
             if link is None:
                 link = await self.repo.create_issue_link(
@@ -5524,13 +5535,34 @@ class OrchestrationService:
                     title=issue["title"],
                     body=issue.get("body"),
                     state=issue["state"],
-                    labels_json=[item["name"] for item in issue.get("labels", [])],
+                    labels_json=issue_labels,
                     assignee_login=(issue.get("assignee") or {}).get("login"),
                     issue_url=issue.get("html_url"),
                     last_synced_at=datetime.now(UTC),
-                    metadata_json=issue,
+                    metadata_json={
+                        **issue,
+                        "project_id": project.id,
+                        "imported_at": datetime.now(UTC).isoformat(),
+                    },
                 )
-            if link.task_id is None:
+            else:
+                link.title = issue["title"]
+                link.body = issue.get("body")
+                link.state = issue["state"]
+                link.labels_json = issue_labels
+                link.assignee_login = (issue.get("assignee") or {}).get("login")
+                link.issue_url = issue.get("html_url")
+                link.last_synced_at = datetime.now(UTC)
+                link.metadata_json = {
+                    **(link.metadata_json or {}),
+                    **issue,
+                    "project_id": project.id,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                    "imported_at": (link.metadata_json or {}).get("imported_at") or datetime.now(UTC).isoformat(),
+                }
+
+            task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
+            if task is None:
                 task = await self.repo.create_task(
                     project_id=project.id,
                     created_by_user_id=user.id,
@@ -5544,17 +5576,43 @@ class OrchestrationService:
                     status="backlog",
                     acceptance_criteria=None,
                     due_date=None,
-                    labels_json=[item["name"] for item in issue.get("labels", [])],
+                    labels_json=issue_labels,
                     result_payload_json={},
                     metadata_json={
                         "github_issue_number": issue["number"],
                         "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
+                        "imported_from": "github",
                     },
                     position=await self.repo.get_next_task_position(project.id),
                 )
                 link.task_id = task.id
                 task.github_issue_link_id = link.id
-                results.append(task)
+            else:
+                if task.project_id != project.id:
+                    task.project_id = project.id
+                    task.position = await self.repo.get_next_task_position(project.id)
+                task.title = issue["title"][:255]
+                task.description = issue.get("body")
+                task.source = "github"
+                task.task_type = "github_issue"
+                task.labels_json = issue_labels
+                task.github_issue_link_id = link.id
+                task.metadata_json = {
+                    **(task.metadata_json or {}),
+                    "github_issue_number": issue["number"],
+                    "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
+                    "imported_from": "github",
+                }
+                if default_worker and not task.assigned_agent_id:
+                    task.assigned_agent_id = default_worker
+                if default_reviewer and not task.reviewer_agent_id:
+                    task.reviewer_agent_id = default_reviewer
+            link.metadata_json = {
+                **(link.metadata_json or {}),
+                "task_id": task.id,
+                "assigned_agent_id": task.assigned_agent_id,
+            }
+            results.append(task)
             await self.repo.create_sync_event(
                 repository_id=repository.id,
                 issue_link_id=link.id,
@@ -5599,6 +5657,34 @@ class OrchestrationService:
         link.metadata_json = {**(link.metadata_json or {}), "last_poll": issue}
         link.last_synced_at = datetime.now(UTC)
         link.last_error = None
+
+    async def refresh_github_issue_link(self, user: User, issue_link_id: str) -> GithubIssueLink:
+        link = await self.repo.get_issue_link(user.id, issue_link_id)
+        if link is None:
+            raise HTTPException(status_code=404, detail="GitHub issue link not found")
+        await self.refresh_github_issue_link_from_api(link)
+        task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
+        if task is not None:
+            task.title = link.title
+            task.description = link.body
+            task.labels_json = list(link.labels_json or [])
+            task.metadata_json = {
+                **(task.metadata_json or {}),
+                "github_issue_state": link.state,
+                "github_issue_url": link.issue_url,
+                "github_issue_updated_at": datetime.now(UTC).isoformat(),
+            }
+        await self.repo.create_sync_event(
+            repository_id=link.repository_id,
+            issue_link_id=link.id,
+            action="issues.manual_refresh",
+            status="completed" if not link.last_error else "failed",
+            detail=f"Issue #{link.issue_number} refreshed from GitHub.",
+            payload_json={"issue_number": link.issue_number, "task_id": link.task_id},
+        )
+        await self.db.commit()
+        await self.db.refresh(link)
+        return link
 
     async def poll_stale_github_issue_links(self) -> int:
         """Background poll for issue state when webhooks are unavailable."""
@@ -5803,11 +5889,11 @@ class OrchestrationService:
                             reason="re-plan triggered by rejected approval",
                         )
         await self.audit_repo.log(
-            actor_user_id=user.id,
-            action_type=f"orchestration.approval.{status}",
-            entity_type="approval_request",
-            entity_id=approval.id,
-            metadata_json={
+            user_id=user.id,
+            action=f"orchestration.approval.{status}",
+            resource_type="approval_request",
+            resource_id=approval.id,
+            metadata={
                 "approval_type": approval.approval_type,
                 "project_id": approval.project_id,
                 "task_id": approval.task_id,
@@ -6067,8 +6153,36 @@ class OrchestrationService:
 
     async def list_agent_templates(self) -> list[dict]:
         await self._ensure_catalog_seeded()
+        await self._purge_placeholder_test_agent_templates()
         templates = await self.repo.list_agent_templates()
         return [self._template_model_to_payload(item) for item in templates]
+
+    async def _purge_placeholder_test_agents(self, owner_id: str) -> None:
+        result = await self.db.execute(
+            select(AgentProfile).where(
+                AgentProfile.owner_id == owner_id,
+                or_(AgentProfile.slug == "test", AgentProfile.name == "test"),
+            )
+        )
+        stale_agents = list(result.scalars().all())
+        if not stale_agents:
+            return
+        for agent in stale_agents:
+            await self.db.delete(agent)
+        await self.db.commit()
+
+    async def _purge_placeholder_test_agent_templates(self) -> None:
+        result = await self.db.execute(
+            select(AgentTemplateCatalog).where(
+                or_(AgentTemplateCatalog.slug == "test", AgentTemplateCatalog.name == "test"),
+            )
+        )
+        stale_templates = list(result.scalars().all())
+        if not stale_templates:
+            return
+        for template in stale_templates:
+            await self.db.delete(template)
+        await self.db.commit()
 
     async def create_agent_template(self, payload: dict) -> dict:
         data = {
@@ -10060,7 +10174,7 @@ class OrchestrationService:
             else decrypt_secret(connection.encrypted_token)
         )
         return {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
@@ -10114,6 +10228,16 @@ class OrchestrationService:
                     f"/repos/{repository.full_name}/issues/{issue_number}",
                 )
                 if response.status_code >= 400:
+                    if response.status_code in {401, 403}:
+                        detail = response.text[:300] or "GitHub denied access to this issue."
+                        raise HTTPException(
+                            status_code=422,
+                            detail=(
+                                f"GitHub access failed for issue #{issue_number}. "
+                                f"Reconnect GitHub or verify the app/token can read {repository.full_name}. "
+                                f"GitHub said: {detail}"
+                            ),
+                        )
                     raise HTTPException(status_code=502, detail=f"Failed to fetch issue #{issue_number}")
                 issues.append(response.json())
             return issues
@@ -10124,6 +10248,16 @@ class OrchestrationService:
             params={"state": "open", "per_page": 100},
         )
         if response.status_code >= 400:
+            if response.status_code in {401, 403}:
+                detail = response.text[:300] or "GitHub denied access to this repository."
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"GitHub access failed for {repository.full_name}. "
+                        f"Reconnect GitHub or verify the app/token can read this repository. "
+                        f"GitHub said: {detail}"
+                    ),
+                )
             raise HTTPException(status_code=502, detail="Failed to fetch GitHub issues")
         return [item for item in response.json() if "pull_request" not in item]
 

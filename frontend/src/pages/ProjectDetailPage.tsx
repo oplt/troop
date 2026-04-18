@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -38,6 +38,7 @@ import {
     type ProjectTaskStatus,
     updateProjectTask,
 } from "../api/projects";
+import { getOrchestrationProject } from "../api/orchestration";
 import { listUserDirectory } from "../api/users";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -249,10 +250,19 @@ export default function ProjectDetailPage() {
         queryFn: () => getProject(projectId),
         enabled: Boolean(projectId),
     });
+    const {
+        data: orchestrationProject,
+        isSuccess: orchestrationProjectFound,
+    } = useQuery({
+        queryKey: ["orchestration", "project-fallback", projectId],
+        queryFn: () => getOrchestrationProject(projectId),
+        enabled: Boolean(projectId) && !!projectError,
+        retry: false,
+    });
     const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
         queryKey: ["project", projectId, "tasks"],
         queryFn: () => listProjectTasks(projectId),
-        enabled: Boolean(projectId),
+        enabled: Boolean(projectId) && !projectError,
     });
     const { data: users } = useQuery({
         queryKey: ["users", "directory"],
@@ -267,6 +277,13 @@ export default function ProjectDetailPage() {
     const overdueTasks = orderedTasks.filter(
         (task) => task.status !== "done" && task.due_date && new Date(`${task.due_date}T23:59:59`) < new Date()
     ).length;
+
+    useEffect(() => {
+        if (!projectId || !projectError || !orchestrationProjectFound || !orchestrationProject) {
+            return;
+        }
+        navigate(`/agent-projects/${projectId}`, { replace: true });
+    }, [navigate, orchestrationProject, orchestrationProjectFound, projectError, projectId]);
 
     const createTaskMutation = useMutation({
         mutationFn: () =>

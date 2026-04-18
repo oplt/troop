@@ -4,6 +4,7 @@ import {
     Box,
     Button,
     Chip,
+    IconButton,
     MenuItem,
     Paper,
     Stack,
@@ -13,6 +14,7 @@ import {
 import { useMemo, useState } from "react";
 import {
     createGithubConnection,
+    deleteGithubConnection,
     getGithubAppInstallUrl,
     importGithubIssues,
     listAgents,
@@ -21,15 +23,61 @@ import {
     listGithubRepositories,
     listGithubSyncEvents,
     listOrchestrationProjects,
-    replayGithubSyncEvent,
+    refreshGithubIssueLink,
     syncGithubRepositories,
     updateOrchestrationTask,
 } from "../api/orchestration";
+import { Close as CloseIcon } from "@mui/icons-material";
 import { useSnackbar } from "../app/snackbarContext";
+import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
+
+type LinkedIssueAssignmentFieldProps = {
+    projectId: string;
+    assignedAgentId: string;
+    onAssign: (agentId: string) => void;
+    disabled?: boolean;
+};
+
+function LinkedIssueAssignmentField({
+    projectId,
+    assignedAgentId,
+    onAssign,
+    disabled = false,
+}: LinkedIssueAssignmentFieldProps) {
+    const { data: projectAgents = [] } = useQuery({
+        queryKey: ["orchestration", "agents", projectId],
+        queryFn: () => listAgents(projectId),
+        enabled: Boolean(projectId),
+    });
+    const visibleAgents = useMemo(
+        () =>
+            projectAgents.filter(
+                (agent) => agent.slug.toLowerCase() !== "test" && agent.name.trim().toLowerCase() !== "test",
+            ),
+        [projectAgents],
+    );
+
+    return (
+        <TextField
+            select
+            size="small"
+            label="Assigned agent"
+            value={assignedAgentId}
+            onChange={(event) => onAssign(event.target.value)}
+            disabled={disabled}
+            sx={{ minWidth: 220 }}
+        >
+            <MenuItem value="">Unassigned</MenuItem>
+            {visibleAgents.map((agent) => (
+                <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+            ))}
+        </TextField>
+    );
+}
 
 export function GithubSyncPanel() {
     const queryClient = useQueryClient();
@@ -37,10 +85,8 @@ export function GithubSyncPanel() {
     const [connectionForm, setConnectionForm] = useState({ name: "", api_url: "https://api.github.com", token: "" });
     const [importForm, setImportForm] = useState({ project_id: "", repository_id: "", issue_numbers: "" });
     const [filters, setFilters] = useState({ project_id: "", repository_id: "", event_status: "", event_type: "", issue_status: "" });
-    const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
     const { data: projects = [] } = useQuery({ queryKey: ["orchestration", "projects"], queryFn: listOrchestrationProjects });
-    const { data: agents = [] } = useQuery({ queryKey: ["orchestration", "agents"], queryFn: () => listAgents() });
     const { data: connections = [] } = useQuery({ queryKey: ["orchestration", "github", "connections"], queryFn: listGithubConnections });
     const { data: repositories = [] } = useQuery({ queryKey: ["orchestration", "github", "repositories"], queryFn: listGithubRepositories });
     const { data: issueLinks = [] } = useQuery({
@@ -84,12 +130,25 @@ export function GithubSyncPanel() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "repositories"] });
         },
     });
+    const deleteConnectionMutation = useMutation({
+        mutationFn: deleteGithubConnection,
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github"] });
+            showToast({ message: "GitHub legacy token removed.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: error instanceof Error ? error.message : "Couldn't delete GitHub connection.", severity: "error" });
+        },
+    });
 
     const importMutation = useMutation({
         mutationFn: importGithubIssues,
-        onSuccess: async () => {
+        onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "github"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", variables.project_id] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", variables.project_id, "tasks"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", variables.project_id, "issues"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", variables.project_id, "sync-events"] });
             showToast({ message: "Issues imported into internal tasks.", severity: "success" });
         },
     });
@@ -101,18 +160,24 @@ export function GithubSyncPanel() {
             showToast({ message: "Issue assignment mirrored to internal task.", severity: "success" });
         },
     });
-    const replayMutation = useMutation({
-        mutationFn: ({ syncEventId, force }: { syncEventId: string; force?: boolean }) =>
-            replayGithubSyncEvent(syncEventId, { force }),
-        onSuccess: async () => {
+    const refreshIssueMutation = useMutation({
+        mutationFn: refreshGithubIssueLink,
+        onSuccess: async (_, issueLinkId) => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "issues"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
-            showToast({ message: "Webhook replay queued.", severity: "success" });
+            const refreshed = issueLinks.find((item) => item.id === issueLinkId);
+            const projectId = refreshed?.metadata?.project_id;
+            if (typeof projectId === "string" && projectId) {
+                await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId] });
+                await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+                await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "issues"] });
+            }
+            showToast({ message: "Linked issue refreshed from GitHub.", severity: "success" });
         },
         onError: (error) => {
-            showToast({ message: error instanceof Error ? error.message : "Replay failed.", severity: "error" });
+            showToast({ message: error instanceof Error ? error.message : "Couldn't refresh linked issue.", severity: "error" });
         },
     });
-
     const repositoryById = useMemo(
         () => new Map(repositories.map((repository) => [repository.id, repository])),
         [repositories],
@@ -142,6 +207,15 @@ export function GithubSyncPanel() {
     const retryQueue = filteredSyncEvents.filter((event) => event.status === "queued" || event.status === "pending");
     const branchViolations = filteredSyncEvents.filter((event) => event.action.includes("branch") || String(event.detail || "").toLowerCase().includes("branch"));
     const prSyncEvents = filteredSyncEvents.filter((event) => event.action.includes("pull_request") || event.action.includes("create_pr"));
+    const issueHistoryRows = useMemo(
+        () =>
+            [...filteredIssueLinks].sort((left, right) => {
+                const rightUpdated = new Date(right.updated_at || right.last_synced_at || right.created_at).getTime();
+                const leftUpdated = new Date(left.updated_at || left.last_synced_at || left.created_at).getTime();
+                return rightUpdated - leftUpdated;
+            }),
+        [filteredIssueLinks],
+    );
 
     return (
         <Stack spacing={2}>
@@ -184,9 +258,22 @@ export function GithubSyncPanel() {
                     {connectionMutation.isError && <Alert severity="error">{connectionMutation.error instanceof Error ? connectionMutation.error.message : "Couldn't save GitHub connection. Verify token and retry."}</Alert>}
                     {connections.map((connection) => (
                         <Paper key={connection.id} sx={{ p: 1.5, borderRadius: 3 }}>
-                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
-                                <Chip label={connection.connection_mode === "github_app" ? "GitHub App" : "Legacy token"} size="small" color="secondary" variant="outlined" />
-                                {connection.organization_login && <Chip label={connection.organization_login} size="small" variant="outlined" />}
+                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                                    <Chip label={connection.connection_mode === "github_app" ? "GitHub App" : "Legacy token"} size="small" color="secondary" variant="outlined" />
+                                    {connection.organization_login && <Chip label={connection.organization_login} size="small" variant="outlined" />}
+                                </Stack>
+                                {connection.connection_mode !== "github_app" ? (
+                                    <IconButton
+                                        size="small"
+                                        color="error"
+                                        aria-label={`Delete ${connection.name}`}
+                                        onClick={() => deleteConnectionMutation.mutate(connection.id)}
+                                        disabled={deleteConnectionMutation.isPending}
+                                    >
+                                        <CloseIcon fontSize="small" />
+                                    </IconButton>
+                                ) : null}
                             </Stack>
                             <Typography variant="subtitle2">{connection.name}</Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -221,7 +308,11 @@ export function GithubSyncPanel() {
             </SectionCard>
 
             <Stack spacing={2}>
-                <SectionCard title="Repositories" description="Connected repos, last sync state, and install coverage.">
+                <CollapsibleSectionCard
+                    title="Repositories"
+                    description="Connected repos, last sync state, and install coverage."
+                    count={repositories.length}
+                >
                     <Stack spacing={1.25}>
                         {repositories.map((repository) => (
                             <Paper key={repository.id} sx={{ p: 1.5, borderRadius: 3 }}>
@@ -236,8 +327,12 @@ export function GithubSyncPanel() {
                             </Paper>
                         ))}
                     </Stack>
-                </SectionCard>
-                <SectionCard title="Linked issues" description="Current internal mapping between GitHub issues and orchestration tasks.">
+                </CollapsibleSectionCard>
+                <CollapsibleSectionCard
+                    title="Linked issues"
+                    description="Current internal mapping between GitHub issues and orchestration tasks."
+                    count={filteredIssueLinks.length}
+                >
                     <Stack spacing={1.25}>
                         {filteredIssueLinks.map((item) => (
                             <Paper key={item.id} sx={{ p: 1.5, borderRadius: 3 }}>
@@ -245,31 +340,41 @@ export function GithubSyncPanel() {
                                 <Typography variant="caption" color="text.secondary">
                                     {repositoryById.get(item.repository_id)?.full_name || item.repository_id} • {item.state} • sync {item.sync_status} • task {item.task_id || "pending"}
                                 </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                    Imported {new Date(String(item.metadata?.imported_at || item.created_at)).toLocaleString()} • Updated {new Date(item.updated_at || item.last_synced_at || item.created_at).toLocaleString()}
+                                </Typography>
                                 {item.last_error ? <Alert severity="error" sx={{ mt: 1 }}>{item.last_error}</Alert> : null}
-                                {item.task_id && typeof item.metadata?.project_id === "string" && (
-                                    <TextField
-                                        select
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 1 }}>
+                                    {item.task_id && typeof item.metadata?.project_id === "string" ? (
+                                        <LinkedIssueAssignmentField
+                                            projectId={String(item.metadata.project_id)}
+                                            assignedAgentId={String(item.metadata?.assigned_agent_id ?? "")}
+                                            onAssign={(agentId) => assignMutation.mutate({
+                                                projectId: String(item.metadata?.project_id),
+                                                taskId: item.task_id!,
+                                                agentId,
+                                            })}
+                                            disabled={assignMutation.isPending}
+                                        />
+                                    ) : null}
+                                    <Button
                                         size="small"
-                                        label="Assigned agent"
-                                        value={String(item.metadata?.assigned_agent_id ?? "")}
-                                        onChange={(event) => assignMutation.mutate({
-                                            projectId: String(item.metadata.project_id),
-                                            taskId: item.task_id!,
-                                            agentId: event.target.value,
-                                        })}
-                                        sx={{ mt: 1, minWidth: 220 }}
+                                        variant="outlined"
+                                        onClick={() => refreshIssueMutation.mutate(item.id)}
+                                        disabled={refreshIssueMutation.isPending}
                                     >
-                                        <MenuItem value="">Unassigned</MenuItem>
-                                        {agents.map((agent) => (
-                                            <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
-                                        ))}
-                                    </TextField>
-                                )}
+                                        Update
+                                    </Button>
+                                </Stack>
                             </Paper>
                         ))}
                     </Stack>
-                </SectionCard>
-                <SectionCard title="Sync history" description="Unified GitHub Sync Console: queue, failures, PR activity, branch issues, and event stream.">
+                </CollapsibleSectionCard>
+                <CollapsibleSectionCard
+                    title="Sync history"
+                    description="One row per linked issue, showing when it was imported and when it was last updated."
+                    count={issueHistoryRows.length}
+                >
                     <Stack spacing={1.25}>
                         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                             <Chip size="small" color="error" label={`Failures ${syncFailures.length}`} />
@@ -292,67 +397,26 @@ export function GithubSyncPanel() {
                                 {event.action} • {event.detail || "Branch policy signal detected."}
                             </Alert>
                         ))}
-                        {filteredSyncEvents.map((event) => (
-                            <Paper key={event.id} sx={{ p: 1.25, borderRadius: 3 }}>
-                                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
-                                    <Box>
-                                        <Typography variant="body2">
-                                            {event.action} • {event.status} • {repositoryById.get(event.repository_id || "")?.full_name || event.repository_id || "global"}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {event.detail || "No detail available."}
-                                        </Typography>
-                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-                                            {typeof (event.payload._webhook_meta as { delivery_id?: string } | undefined)?.delivery_id === "string" ? (
-                                                <Chip size="small" variant="outlined" label={`delivery ${(event.payload._webhook_meta as { delivery_id?: string }).delivery_id}`} />
-                                            ) : null}
-                                            <Chip
-                                                size="small"
-                                                color={(event.payload._webhook_meta as { signature_validated?: boolean } | undefined)?.signature_validated ? "success" : "default"}
-                                                variant="outlined"
-                                                label={(event.payload._webhook_meta as { signature_validated?: boolean } | undefined)?.signature_validated ? "signature ok" : "signature unknown"}
-                                            />
-                                            <Chip
-                                                size="small"
-                                                variant="outlined"
-                                                label={`replays ${Array.isArray((event.payload._webhook_meta as { replay_history?: unknown[] } | undefined)?.replay_history) ? ((event.payload._webhook_meta as { replay_history?: unknown[] }).replay_history?.length ?? 0) : 0}`}
-                                            />
-                                        </Stack>
-                                    </Box>
-                                    <Stack direction="row" spacing={1}>
-                                        <Button size="small" onClick={() => setExpandedEventId((current) => current === event.id ? null : event.id)}>
-                                            {expandedEventId === event.id ? "Hide payload" : "Inspect payload"}
-                                        </Button>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            onClick={() => replayMutation.mutate({ syncEventId: event.id, force: event.status === "completed" })}
-                                            disabled={replayMutation.isPending}
-                                        >
-                                            Replay
-                                        </Button>
+                        {issueHistoryRows.map((item) => (
+                            <Paper key={item.id} sx={{ p: 1.25, borderRadius: 3 }}>
+                                <Stack spacing={0.75}>
+                                    <Typography variant="body2">
+                                        #{item.issue_number} • {item.title} • {repositoryById.get(item.repository_id)?.full_name || item.repository_id}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Imported {new Date(String(item.metadata?.imported_at || item.created_at)).toLocaleString()} • Updated {new Date(item.updated_at || item.last_synced_at || item.created_at).toLocaleString()}
+                                    </Typography>
+                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                        <Chip size="small" variant="outlined" label={item.state} />
+                                        <Chip size="small" variant="outlined" label={`sync ${item.sync_status}`} />
+                                        <Chip size="small" variant="outlined" label={item.task_id ? `task ${item.task_id.slice(0, 8)}` : "task pending"} />
                                     </Stack>
+                                    {item.last_error ? <Alert severity="error">{item.last_error}</Alert> : null}
                                 </Stack>
-                                {expandedEventId === event.id ? (
-                                    <Paper
-                                        variant="outlined"
-                                        sx={{
-                                            mt: 1,
-                                            p: 1.25,
-                                            borderRadius: 2,
-                                            fontFamily: "IBM Plex Mono, monospace",
-                                            fontSize: "0.75rem",
-                                            whiteSpace: "pre-wrap",
-                                            overflowX: "auto",
-                                        }}
-                                    >
-                                        {JSON.stringify(event.payload, null, 2)}
-                                    </Paper>
-                                ) : null}
                             </Paper>
                         ))}
                     </Stack>
-                </SectionCard>
+                </CollapsibleSectionCard>
             </Stack>
         </Box>
         </Stack>

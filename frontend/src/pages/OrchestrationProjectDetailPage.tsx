@@ -33,6 +33,7 @@ import {
     CheckCircle as PassIcon,
     Cancel as FailIcon,
     CallSplit as DecomposeIcon,
+    Close as CloseIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
     OpenInNew as OpenInNewIcon,
@@ -77,6 +78,7 @@ import {
     listTaskArtifacts,
     startBrainstorm,
     startTaskRun,
+    deleteOrchestrationTask,
     updateOrchestrationTask,
     updateOrchestrationProject,
     updateAgent,
@@ -582,6 +584,21 @@ function KanbanBoard({
             showToast({ message: extractApiErrorMessage(error, "Couldn't save acceptance checker. Try again."), severity: "error" });
         },
     });
+    const deleteTaskMutation = useMutation({
+        mutationFn: (taskId: string) => deleteOrchestrationTask(projectId, taskId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+            showToast({ message: "Task deleted.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't delete task. Try again."), severity: "error" });
+        },
+    });
+
+    function handleDeleteTask(taskId: string, title: string) {
+        if (!window.confirm(`Delete task "${title}"? This cannot be undone.`)) return;
+        deleteTaskMutation.mutate(taskId);
+    }
     const { data: timeline = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "tasks", expandedTask, "timeline"],
         queryFn: () => (expandedTask ? getTaskTimeline(projectId, expandedTask) : Promise.resolve([])),
@@ -680,6 +697,7 @@ function KanbanBoard({
                                     onDragStart={(e) => handleDragStart(e, task.id)}
                                     onDragEnd={() => setDragging(null)}
                                     sx={(theme) => ({
+                                        position: "relative",
                                         p: 1.5,
                                         borderRadius: 3,
                                         cursor: "grab",
@@ -688,7 +706,26 @@ function KanbanBoard({
                                         "&:hover": { borderColor: theme.palette.primary.main },
                                     })}
                                 >
-                                    <Typography variant="subtitle2" sx={{ wordBreak: "break-word" }}>{task.title}</Typography>
+                                    <IconButton
+                                        size="small"
+                                        aria-label={`Delete ${task.title}`}
+                                        onMouseDown={(event) => event.stopPropagation()}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleDeleteTask(task.id, task.title);
+                                        }}
+                                        disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
+                                        sx={{
+                                            position: "absolute",
+                                            top: 4,
+                                            right: 4,
+                                            color: "text.secondary",
+                                            "&:hover": { color: "error.main" },
+                                        }}
+                                    >
+                                        <CloseIcon fontSize="small" />
+                                    </IconButton>
+                                    <Typography variant="subtitle2" sx={{ wordBreak: "break-word", pr: 3 }}>{task.title}</Typography>
                                     <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                                         <Chip label={task.priority} size="small" variant="outlined" />
                                         {agent && (
@@ -1215,8 +1252,9 @@ export default function OrchestrationProjectDetailPage() {
         enabled: Boolean(projectId),
     });
     const { data: allAgents = [] } = useQuery({
-        queryKey: ["orchestration", "agents"],
-        queryFn: () => listAgents(),
+        queryKey: ["orchestration", "agents", projectId],
+        queryFn: () => listAgents(projectId),
+        enabled: Boolean(projectId),
     });
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
@@ -1938,11 +1976,11 @@ export default function OrchestrationProjectDetailPage() {
                         <Button
                             variant="outlined"
                             size="small"
-                            onClick={() => navigate(`/projects/${projectId}/memory`)}
+                            onClick={() => navigate(`/agent-projects/${projectId}/memory`)}
                         >
                             Memory
                         </Button>
-                        <Button variant="outlined" size="small" onClick={() => navigate(`/projects/${projectId}/benchmark`)}>
+                        <Button variant="outlined" size="small" onClick={() => navigate(`/agent-projects/${projectId}/benchmark`)}>
                             Benchmarks
                         </Button>
                     </Stack>

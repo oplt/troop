@@ -153,13 +153,41 @@ export default function OrchestrationProjectsPage() {
                 }}
             >
                 <SectionCard title="Create project" description="Use a stable slug so provider overrides, repo mappings, and agent scopes remain consistent.">
-                    <Stack component="form" spacing={2} onSubmit={handleSubmit((values) => mutation.mutate(values))}>
-                        <TextField label="Name" {...register("name")} />
-                        <TextField label="Slug" {...register("slug")} />
+                    <Stack
+                        component="form"
+                        spacing={2}
+                        onSubmit={handleSubmit((values) => {
+                            const name = values.name.trim();
+                            const rawSlug = values.slug.trim();
+                            const slug = (rawSlug || name)
+                                .toLowerCase()
+                                .replace(/[^a-z0-9-]+/g, "-")
+                                .replace(/^-+|-+$/g, "")
+                                .slice(0, 255);
+                            mutation.mutate({
+                                name,
+                                slug,
+                                description: values.description?.trim() || null,
+                                goals_markdown: values.goals_markdown ?? "",
+                            });
+                        })}
+                    >
+                        <TextField
+                            label="Name"
+                            required
+                            inputProps={{ minLength: 2, maxLength: 255 }}
+                            {...register("name", { required: true, minLength: 2 })}
+                        />
+                        <TextField
+                            label="Slug"
+                            helperText="Lowercase letters, numbers, dashes. Leave blank to derive from name."
+                            inputProps={{ maxLength: 255, pattern: "[a-z0-9][a-z0-9\\-]*" }}
+                            {...register("slug", { pattern: /^[a-z0-9][a-z0-9\-]*$/ })}
+                        />
                         <TextField label="Description" {...register("description")} multiline minRows={3} />
                         <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
                         {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}</Alert>}
-                        <Button type="submit" variant="contained">Create project</Button>
+                        <Button type="submit" variant="contained" disabled={mutation.isPending}>Create project</Button>
                     </Stack>
                     <Divider sx={{ my: 2 }} />
                     <Stack spacing={1.5}>

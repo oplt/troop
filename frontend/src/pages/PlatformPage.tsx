@@ -35,15 +35,15 @@ import {
     updateWebhook,
 } from "../api/platform";
 import { useSnackbar } from "../app/snackbarContext";
+import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
-import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 
-export default function PlatformPage() {
+export function PlatformPanel() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const { data: metadata, isLoading: metadataLoading } = usePlatformMetadata();
@@ -154,30 +154,14 @@ export default function PlatformPage() {
     });
 
     if (metadataLoading) {
-        return (
-            <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
-                <Skeleton variant="rounded" width="90%" height={320} sx={{ borderRadius: 6 }} />
-            </Box>
-        );
+        return <Skeleton variant="rounded" width="100%" height={320} sx={{ borderRadius: 6 }} />;
     }
 
     const visibleUserModules =
         metadata?.module_catalog.filter((item) => item.user_visible && item.enabled) ?? [];
 
     return (
-        <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Platform services"
-                title="Platform"
-                description="Use the optional modules enabled by your current pack, including billing, developer access, event delivery, and feature access."
-                meta={
-                    <>
-                        <Chip label={`Pack: ${metadata?.module_pack ?? "n/a"}`} variant="outlined" />
-                        <Chip label={`${visibleUserModules.length} user modules`} variant="outlined" />
-                    </>
-                }
-            />
-
+        <Stack spacing={2}>
             <Box
                 sx={{
                     display: "grid",
@@ -229,7 +213,11 @@ export default function PlatformPage() {
             )}
 
             {billingEnabled && (
-                <SectionCard title="Billing" description="Review plans and switch when your usage changes.">
+                <CollapsibleSectionCard
+                    title="Billing"
+                    description="Review plans and switch when your usage changes."
+                    count={plans?.length}
+                >
                     {subscriptionLoading || plansLoading ? (
                         <Box
                             sx={{
@@ -312,11 +300,15 @@ export default function PlatformPage() {
                             </Box>
                         </Stack>
                     )}
-                </SectionCard>
+                </CollapsibleSectionCard>
             )}
 
             {apiKeysEnabled && (
-                <SectionCard title="API keys" description="Create and revoke developer credentials with cleaner visibility.">
+                <CollapsibleSectionCard
+                    title="API keys"
+                    description="Create and revoke developer credentials with cleaner visibility."
+                    count={apiKeys?.length}
+                >
                     <Stack spacing={2}>
                         {revealedKey && (
                             <Alert severity="success">
@@ -399,12 +391,21 @@ export default function PlatformPage() {
                             />
                         )}
                     </Stack>
-                </SectionCard>
+                </CollapsibleSectionCard>
             )}
 
             {webhooksEnabled && (
-                <SectionCard title="Webhooks" description="Configure delivery endpoints for outbound platform events.">
+                <CollapsibleSectionCard
+                    title="Webhooks"
+                    description="Configure delivery endpoints for outbound platform events."
+                    count={webhooks?.length}
+                >
                     <Stack spacing={2}>
+                        {revealedWebhookSecret && (
+                            <Alert severity="success">
+                                New webhook signing secret: <strong>{revealedWebhookSecret}</strong>
+                            </Alert>
+                        )}
                         {lastWebhookResult && <Alert severity="info">{lastWebhookResult}</Alert>}
                         <Box
                             sx={{
@@ -565,11 +566,15 @@ export default function PlatformPage() {
                             )}
                         </Box>
                     </Stack>
-                </SectionCard>
+                </CollapsibleSectionCard>
             )}
 
             {flagsEnabled && (
-                <SectionCard title="Feature flags" description="These flags are active for your account based on current platform configuration.">
+                <CollapsibleSectionCard
+                    title="Feature flags"
+                    description="These flags are active for your account based on current platform configuration."
+                    count={featureFlags?.length}
+                >
                     {featureFlagsLoading ? (
                         <Box
                             sx={{
@@ -627,16 +632,32 @@ export default function PlatformPage() {
                             icon={<FlagIcon />}
                             title="No feature flags configured"
                             description="Feature flags appear here as the platform rolls them out. Nothing to toggle yet."
-                                />
-                            )}
-
-                            {revealedWebhookSecret && (
-                                <Alert severity="success">
-                                    New webhook signing secret: <strong>{revealedWebhookSecret}</strong>
-                                </Alert>
-                            )}
-                        </SectionCard>
+                        />
                     )}
+                </CollapsibleSectionCard>
+            )}
+        </Stack>
+    );
+}
+
+export default function PlatformPage() {
+    const { data: metadata } = usePlatformMetadata();
+    const visibleUserModules =
+        metadata?.module_catalog.filter((item) => item.user_visible && item.enabled) ?? [];
+    return (
+        <PageShell maxWidth="xl">
+            <PageHeader
+                eyebrow="Platform services"
+                title="Platform"
+                description="Use the optional modules enabled by your current pack, including billing, developer access, event delivery, and feature access."
+                meta={
+                    <>
+                        <Chip label={`Pack: ${metadata?.module_pack ?? "n/a"}`} variant="outlined" />
+                        <Chip label={`${visibleUserModules.length} user modules`} variant="outlined" />
+                    </>
+                }
+            />
+            <PlatformPanel />
         </PageShell>
     );
 }

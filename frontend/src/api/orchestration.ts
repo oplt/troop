@@ -676,6 +676,10 @@ export async function updateOrchestrationTask(projectId: string, taskId: string,
     return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+export async function deleteOrchestrationTask(projectId: string, taskId: string): Promise<void> {
+    await apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}`, { method: "DELETE" });
+}
+
 export async function startTaskRun(projectId: string, taskId: string, payload: Record<string, unknown>): Promise<TaskRun> {
     return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/runs`, { method: "POST", body: JSON.stringify(payload) });
 }
@@ -1380,6 +1384,10 @@ export async function createGithubConnection(payload: Record<string, unknown>): 
     return apiFetch("/orchestration/github/connections", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function deleteGithubConnection(connectionId: string): Promise<void> {
+    return apiFetch(`/orchestration/github/connections/${connectionId}`, { method: "DELETE" });
+}
+
 export async function syncGithubRepositories(connectionId: string): Promise<GithubRepository[]> {
     return apiFetch(`/orchestration/github/connections/${connectionId}/sync-repos`, { method: "POST" });
 }
@@ -1395,6 +1403,10 @@ export async function importGithubIssues(payload: Record<string, unknown>): Prom
 export async function listGithubIssueLinks(projectId?: string): Promise<GithubIssueLink[]> {
     const suffix = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
     return apiFetch(`/orchestration/github/issues${suffix}`);
+}
+
+export async function refreshGithubIssueLink(issueLinkId: string): Promise<GithubIssueLink> {
+    return apiFetch(`/orchestration/github/issues/${issueLinkId}/refresh`, { method: "POST" });
 }
 
 export async function listGithubSyncEvents(projectId?: string): Promise<GithubSyncEvent[]> {

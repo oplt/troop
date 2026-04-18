@@ -289,7 +289,7 @@ export default function ProjectDetailPage() {
             showToast({ message: "Task created.", severity: "success" });
         },
         onError: (error) => {
-            setTaskError(error instanceof Error ? error.message : "Failed to create task.");
+            setTaskError(error instanceof Error ? error.message : "Couldn't create task. Check fields and try again.");
         },
     });
 
@@ -313,7 +313,7 @@ export default function ProjectDetailPage() {
             showToast({ message: "Task updated.", severity: "success" });
         },
         onError: (error) => {
-            setTaskError(error instanceof Error ? error.message : "Failed to update task.");
+            setTaskError(error instanceof Error ? error.message : "Couldn't save changes. Try again.");
         },
     });
 
@@ -329,7 +329,7 @@ export default function ProjectDetailPage() {
             showToast({ message: "Task deleted.", severity: "success" });
         },
         onError: (error) => {
-            setTaskError(error instanceof Error ? error.message : "Failed to delete task.");
+            setTaskError(error instanceof Error ? error.message : "Couldn't delete task. Try again.");
         },
     });
 
@@ -342,7 +342,7 @@ export default function ProjectDetailPage() {
         },
         onError: () => {
             void queryClient.invalidateQueries({ queryKey: ["project", projectId, "tasks"] });
-            showToast({ message: "Failed to reorder tasks.", severity: "error" });
+            showToast({ message: "Couldn't save new task order. Refresh and retry.", severity: "error" });
         },
     });
 
@@ -528,7 +528,7 @@ export default function ProjectDetailPage() {
                         ? projectError.message
                         : tasksError instanceof Error
                             ? tasksError.message
-                            : "Failed to load project workspace."}
+                            : "Couldn't load project. Refresh to retry."}
                 </Alert>
             )}
 

@@ -542,7 +542,7 @@ function AdminSettingsContent({
                             <Alert severity="error">
                                 {configMutation.error instanceof Error
                                     ? configMutation.error.message
-                                    : "Failed to save config."}
+                                    : "Couldn't save config. Try again."}
                             </Alert>
                         )}
 
@@ -607,7 +607,7 @@ function AdminSettingsContent({
                                 <Alert severity="error">
                                     {createDatabaseMutation.error instanceof Error
                                         ? createDatabaseMutation.error.message
-                                        : "Failed to create database setting."}
+                                        : "Couldn't save setting. Try again."}
                                 </Alert>
                             )}
                             <TextField
@@ -784,10 +784,10 @@ export default function AdminSettingsPage() {
             configData={configData}
             databaseSettings={databaseSettings}
             configErrorMessage={
-                configError instanceof Error ? configError.message : "Failed to load config values."
+                configError instanceof Error ? configError.message : "Couldn't load config. Refresh to retry."
             }
             databaseErrorMessage={
-                databaseError instanceof Error ? databaseError.message : "Failed to load database settings."
+                databaseError instanceof Error ? databaseError.message : "Couldn't load settings. Refresh to retry."
             }
             hasConfigError={Boolean(configError)}
             hasDatabaseError={Boolean(databaseError)}

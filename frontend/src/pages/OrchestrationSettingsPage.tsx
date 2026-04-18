@@ -232,7 +232,7 @@ export function ProviderSettingsPanel() {
                         </Button>
                         {createMutation.isError && (
                             <Alert severity="error">
-                                {createMutation.error instanceof Error ? createMutation.error.message : "Failed to save provider."}
+                                {createMutation.error instanceof Error ? createMutation.error.message : "Couldn't save provider. Check credentials and retry."}
                             </Alert>
                         )}
                     </Stack>

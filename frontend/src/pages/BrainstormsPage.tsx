@@ -201,7 +201,7 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                     </Stack>
                     {createMutation.isError && (
                         <Alert severity="error">
-                            {createMutation.error instanceof Error ? createMutation.error.message : "Failed to create brainstorm."}
+                            {createMutation.error instanceof Error ? createMutation.error.message : "Couldn't start brainstorm. Try again."}
                         </Alert>
                     )}
                 </Stack>

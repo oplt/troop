@@ -40,7 +40,7 @@ export default function VerifyEmailPage() {
             await resendVerification({ email });
             setResendDone(true);
         } catch (error) {
-            setResendError(error instanceof Error ? error.message : "Failed to resend verification email.");
+            setResendError(error instanceof Error ? error.message : "Couldn't send verification email. Try again in a moment.");
         } finally {
             setResending(false);
         }

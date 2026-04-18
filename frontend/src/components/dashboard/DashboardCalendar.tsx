@@ -420,7 +420,7 @@ export function DashboardCalendar({
         },
         onError: (mutationError) => {
             setFormError(
-                mutationError instanceof Error ? mutationError.message : "Failed to save calendar item."
+                mutationError instanceof Error ? mutationError.message : "Couldn't save calendar item. Try again."
             );
         },
     });
@@ -1177,7 +1177,7 @@ export function DashboardCalendar({
             >
                 {error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
-                        {error instanceof Error ? error.message : "Failed to load calendar items."}
+                        {error instanceof Error ? error.message : "Couldn't load calendar. Refresh to retry."}
                     </Alert>
                 )}
 

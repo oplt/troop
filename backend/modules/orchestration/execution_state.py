@@ -86,6 +86,20 @@ def extract_execution_metadata_views(task_metadata: dict[str, Any] | None) -> di
     }
 
 
+def extract_execution_memory_details(task_metadata: dict[str, Any] | None) -> dict[str, Any]:
+    meta = dict(task_metadata or {})
+    em = meta.get("execution_memory")
+    if not isinstance(em, dict):
+        return {}
+    return {
+        "last_run_id": em.get("last_run_id"),
+        "last_completed_at": em.get("last_completed_at"),
+        "previous_summary_excerpt": em.get("previous_summary_excerpt") or "",
+        "latest_summary_excerpt": em.get("latest_summary_excerpt") or "",
+        "since_last_run_unified_diff": em.get("since_last_run_unified_diff") or "",
+    }
+
+
 def checkpoint_excerpt(
     checkpoint_json: dict[str, Any] | None, *, max_str: int = 500
 ) -> dict[str, Any]:

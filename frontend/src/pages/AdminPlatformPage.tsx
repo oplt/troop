@@ -353,7 +353,7 @@ function AdminPlatformContent({
                         <Alert severity="error">
                             {saveConfigMutation.error instanceof Error
                                 ? saveConfigMutation.error.message
-                                : "Failed to save platform config."}
+                                : "Couldn't save platform config. Try again."}
                         </Alert>
                     )}
                     <TextField

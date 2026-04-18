@@ -132,7 +132,7 @@ export default function CostAnalyticsPage() {
                     {isLoading ? (
                         <Stack spacing={1}>{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={20} />)}</Stack>
                     ) : data?.by_project.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">No data yet.</Typography>
+                        <Typography variant="body2" color="text.secondary">No project costs recorded yet. Costs appear here after the first agent run.</Typography>
                     ) : (
                         <Stack spacing={1.25}>
                             {data?.by_project.map((row) => (

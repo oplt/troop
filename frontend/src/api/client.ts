@@ -1,8 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
+export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
 
 let refreshPromise: Promise<boolean> | null = null;
 
-function readCookie(name: string): string | null {
+export function readCookie(name: string): string | null {
     const match = document.cookie.match(
         new RegExp(`(?:^|; )${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}=([^;]*)`)
     );

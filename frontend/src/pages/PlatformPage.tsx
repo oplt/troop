@@ -97,7 +97,7 @@ export default function PlatformPage() {
         },
         onError: (error) => {
             showToast({
-                message: error instanceof Error ? error.message : "Failed to update subscription.",
+                message: error instanceof Error ? error.message : "Couldn't update subscription. Try again.",
                 severity: "error",
             });
         },
@@ -395,7 +395,7 @@ export default function PlatformPage() {
                             <EmptyState
                                 icon={<KeyIcon />}
                                 title="No API keys yet"
-                                description="Create a key when you are ready to integrate external systems or automation."
+                                description="Create a key to call the Troop API from external systems or automation scripts."
                             />
                         )}
                     </Stack>
@@ -626,7 +626,7 @@ export default function PlatformPage() {
                         <EmptyState
                             icon={<FlagIcon />}
                             title="No feature flags configured"
-                            description="Flags will appear here when the platform exposes rollout-based capabilities."
+                            description="Feature flags appear here as the platform rolls them out. Nothing to toggle yet."
                                 />
                             )}
 

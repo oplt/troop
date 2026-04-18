@@ -1,8 +1,9 @@
 import asyncio
+import json
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +58,9 @@ from backend.modules.orchestration.schemas import (
     OverviewResponse,
     PendingApprovalSummary,
     PendingGithubSyncSummary,
+    PortfolioControlPlaneResponse,
+    PortfolioExecutionPolicyResponse,
+    PortfolioExecutionPolicyUpdate,
     PortfolioProjectSummary,
     ProceduralPlaybookCreate,
     ProceduralPlaybookResponse,
@@ -114,6 +118,7 @@ from backend.modules.orchestration.schemas import (
     TeamTemplateCreate,
     TeamTemplateResponse,
     TeamTemplateUpdate,
+    WorkflowSignalRequest,
     WorkflowTemplateResponse,
     WorkingMemoryPatch,
     WorkingMemoryResponse,
@@ -353,11 +358,16 @@ def _task_execution_snapshot(raw: dict[str, Any]) -> TaskExecutionSnapshotRespon
         pending_approvals=[PendingApprovalSummary(**x) for x in raw["pending_approvals"]],
         pending_github_sync=[PendingGithubSyncSummary(**x) for x in raw["pending_github_sync"]],
         metadata_views=raw["metadata_views"],
+        routing_explainability=raw.get("routing_explainability") or {},
+        acceptance_summary=raw.get("acceptance_summary") or {},
+        execution_memory=raw.get("execution_memory") or {},
+        changed_artifacts=raw.get("changed_artifacts") or [],
         last_run_id=raw["last_run_id"],
         focal_run_id=raw["focal_run_id"],
         checkpoint_excerpt=raw["checkpoint_excerpt"],
         recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
         trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
+        durable_workflow=raw.get("durable_workflow") or {},
     )
 
 
@@ -369,9 +379,13 @@ def _run_execution_snapshot(raw: dict[str, Any]) -> RunExecutionSnapshotResponse
         task_id=raw["task_id"],
         pending_approvals=[PendingApprovalSummary(**x) for x in raw["pending_approvals"]],
         pending_github_sync=[PendingGithubSyncSummary(**x) for x in raw["pending_github_sync"]],
+        routing_explainability=raw.get("routing_explainability") or {},
+        execution_memory=raw.get("execution_memory") or {},
+        changed_artifacts=raw.get("changed_artifacts") or [],
         checkpoint_excerpt=raw["checkpoint_excerpt"],
         recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
         trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
+        durable_workflow=raw.get("durable_workflow") or {},
         resumable=bool(raw.get("resumable", False)),
     )
 
@@ -636,6 +650,73 @@ async def orchestration_portfolio(
 ):
     rows = await OrchestrationService(db).summarize_portfolio(current_user)
     return [PortfolioProjectSummary(**row) for row in rows]
+
+
+@router.get("/portfolio/control-plane", response_model=PortfolioControlPlaneResponse)
+async def orchestration_portfolio_control_plane(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    payload = await OrchestrationService(db).portfolio_control_plane(current_user)
+    return PortfolioControlPlaneResponse(**payload)
+
+
+@router.get("/portfolio/execution-policy", response_model=PortfolioExecutionPolicyResponse)
+async def orchestration_portfolio_execution_policy(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    payload = await OrchestrationService(db).get_portfolio_execution_policy(current_user)
+    return PortfolioExecutionPolicyResponse(**payload)
+
+
+@router.put("/portfolio/execution-policy", response_model=PortfolioExecutionPolicyResponse)
+async def update_orchestration_portfolio_execution_policy(
+    payload: PortfolioExecutionPolicyUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = await OrchestrationService(db).update_portfolio_execution_policy(
+        current_user,
+        payload.model_dump(exclude_none=True),
+    )
+    return PortfolioExecutionPolicyResponse(**data)
+
+
+async def _live_snapshot_stream(snapshot_factory):
+    last_signature: str | None = None
+
+    async def event_stream():
+        nonlocal last_signature
+        for tick in range(900):
+            snapshot = await snapshot_factory()
+            payload = json.dumps(snapshot, default=str, sort_keys=True)
+            if payload != last_signature:
+                last_signature = payload
+                yield f"event: snapshot\ndata: {payload}\n\n"
+            elif tick % 10 == 0:
+                yield "event: heartbeat\ndata: {}\n\n"
+            await asyncio.sleep(2)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.get("/portfolio/stream")
+async def orchestration_portfolio_stream(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    return await _live_snapshot_stream(lambda: service.portfolio_live_snapshot(current_user))
+
+
+@router.get("/hierarchy/stream")
+async def hierarchy_stream(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    return await _live_snapshot_stream(lambda: service.hierarchy_live_snapshot(current_user))
 
 
 @router.post("/agents/validate-markdown", response_model=AgentMarkdownValidationResponse)
@@ -1381,6 +1462,21 @@ async def list_project_repositories(
     return [_project_repo(item) for item in await OrchestrationService(db).list_project_repositories(current_user, project_id)]
 
 
+@router.patch("/projects/{project_id}/repositories/{repository_link_id}", response_model=ProjectRepositoryLinkResponse)
+async def update_project_repository(
+    project_id: str,
+    repository_link_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _project_repo(
+        await OrchestrationService(db).update_project_repository(
+            current_user, project_id, repository_link_id, payload
+        )
+    )
+
+
 @router.get("/projects/{project_id}/memory-ingest-jobs", response_model=list[MemoryIngestJobResponse])
 async def list_project_memory_ingest_jobs(
     project_id: str,
@@ -1392,6 +1488,15 @@ async def list_project_memory_ingest_jobs(
         current_user, project_id, limit=limit
     )
     return [MemoryIngestJobResponse(**item) for item in rows]
+
+
+@router.get("/projects/{project_id}/repositories/index-status")
+async def project_repository_index_status(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).project_repository_index_status(current_user, project_id)
 
 
 @router.post("/projects/{project_id}/repositories", response_model=ProjectRepositoryLinkResponse, status_code=201)
@@ -1968,6 +2073,30 @@ async def resume_run(
     return _run(await OrchestrationService(db).resume_run(current_user, run_id))
 
 
+@router.get("/runs/{run_id}/durable-workflow")
+async def get_run_durable_workflow(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).get_run_durable_workflow(current_user, run_id)
+
+
+@router.post("/runs/{run_id}/signals")
+async def send_run_workflow_signal(
+    run_id: str,
+    payload: WorkflowSignalRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).signal_run_workflow(
+        current_user,
+        run_id,
+        payload.signal_name,
+        payload.payload,
+    )
+
+
 @router.post("/runs/{run_id}/retry", response_model=TaskRunResponse)
 async def retry_run(
     run_id: str,
@@ -1992,6 +2121,31 @@ async def replay_run(
             model_name=payload.model_name,
         )
     )
+
+
+@router.get("/github/sync-events/stream")
+async def github_sync_events_stream(
+    project_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    return await _live_snapshot_stream(lambda: service.github_live_snapshot(current_user, project_id))
+
+
+@router.post("/github/sync-events/{sync_event_id}/replay")
+async def replay_github_sync_event(
+    sync_event_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).replay_github_sync_event(
+        current_user,
+        sync_event_id,
+        force=bool(payload.get("force")),
+    )
+    return _github_sync_event(item)
 
 
 @router.get("/analytics/cost", response_model=CostAggregationResponse)
@@ -2467,9 +2621,20 @@ async def delete_project_memory(
 async def index_repository(
     project_id: str,
     repository_link_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     return await OrchestrationService(db).index_project_repository(
-        current_user, project_id, repository_link_id
+        current_user, project_id, repository_link_id, payload
     )
+
+
+@router.get("/projects/{project_id}/stream")
+async def project_stream(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    return await _live_snapshot_stream(lambda: service.project_live_snapshot(current_user, project_id))

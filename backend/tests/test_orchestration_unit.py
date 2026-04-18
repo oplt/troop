@@ -2,6 +2,7 @@ import unittest
 import hmac
 import hashlib
 import asyncio
+from unittest.mock import patch
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,7 +10,14 @@ from types import SimpleNamespace
 
 from fastapi import HTTPException
 
-from backend.modules.orchestration.execution_workflow import ensure_workflow_state, mark_step
+from backend.modules.orchestration.execution_workflow import (
+    consume_signal_queue,
+    enqueue_signal,
+    ensure_workflow_state,
+    mark_step,
+    update_query_snapshot,
+    workflow_state,
+)
 from backend.modules.orchestration.markdown import parse_agent_markdown
 from backend.modules.orchestration.providers import ProviderExecutionResult
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
@@ -297,6 +305,226 @@ class RoutingTests(unittest.TestCase):
         service = object.__new__(OrchestrationService)
         self.assertTrue(service._matches_policy_rule(["triage", "bug"], "contains", "triage"))
         self.assertFalse(service._matches_policy_rule(["bug"], "contains", "triage"))
+
+    def test_routing_explainability_prefers_explicit_meta_fields(self) -> None:
+        service = object.__new__(OrchestrationService)
+        explainability = service._routing_explainability_from_payload(
+            {
+                "orchestration_meta": {
+                    "agent_selection_reason": "Matched api_design capability.",
+                    "model_selection_reason": "Project pinned cheaper model.",
+                    "routing_inputs": {"priority": "high"},
+                    "routing_policy_snapshot": {"routing_mode": "cost_aware"},
+                    "worker_agent_id_source": "auto",
+                    "model_source": "project_execution",
+                }
+            }
+        )
+        self.assertEqual(explainability["agent_selection_reason"], "Matched api_design capability.")
+        self.assertEqual(explainability["model_selection_reason"], "Project pinned cheaper model.")
+        self.assertEqual(explainability["routing_inputs"], {"priority": "high"})
+        self.assertEqual(explainability["routing_policy_snapshot"], {"routing_mode": "cost_aware"})
+        self.assertEqual(explainability["agent_source"], "auto")
+        self.assertEqual(explainability["model_source"], "project_execution")
+
+
+class ReplayFlowTests(unittest.TestCase):
+    def test_replay_run_carries_prior_transcript_and_parent_metadata(self) -> None:
+        service = object.__new__(OrchestrationService)
+        created: dict[str, object] = {}
+        old_run = SimpleNamespace(
+            id="run-1",
+            project_id="project-1",
+            task_id="task-1",
+            orchestrator_agent_id="mgr-1",
+            worker_agent_id="worker-1",
+            reviewer_agent_id="rev-1",
+            provider_config_id=None,
+            brainstorm_id=None,
+            run_mode="single_agent",
+            status="completed",
+            model_name="gpt-5",
+            attempt_number=1,
+            retry_count=0,
+            checkpoint_json={},
+            input_payload_json={"orchestration_meta": {"worker_agent_id_source": "auto"}},
+        )
+        project = SimpleNamespace(id="project-1", owner_id="user-1")
+        task = SimpleNamespace(id="task-1", status="planned", updated_at=None)
+
+        async def create_run(**kwargs):
+            created.update(kwargs)
+            return SimpleNamespace(
+                id="run-2",
+                task_id=kwargs["task_id"],
+                run_mode=kwargs["run_mode"],
+                checkpoint_json=kwargs["checkpoint_json"],
+                input_payload_json=kwargs["input_payload_json"],
+            )
+
+        async def db_get(model, item_id: str):
+            if item_id == "project-1":
+                return project
+            if item_id == "task-1":
+                return task
+            return None
+
+        service.get_run = lambda user, run_id: asyncio.sleep(0, result=old_run)
+        service._enforce_orchestration_run_rate_limit = lambda user_id: asyncio.sleep(0)
+        service._enforce_agent_token_budget = lambda **kwargs: asyncio.sleep(0)
+        service._enforce_agent_cost_budget = lambda **kwargs: asyncio.sleep(0)
+        service._transition_task_status = lambda *args, **kwargs: asyncio.sleep(0)
+        service._emit_run_event = lambda *args, **kwargs: asyncio.sleep(0)
+        service._workflow_steps_for_run = lambda run: [{"id": "queued"}, {"id": "running"}]
+        service.repo = SimpleNamespace(
+            list_run_events=lambda run_id: asyncio.sleep(
+                0,
+                result=[
+                    SimpleNamespace(event_type="log", message="step one"),
+                    SimpleNamespace(event_type="tool", message="step two"),
+                ],
+            ),
+            create_run=create_run,
+        )
+        service.db = SimpleNamespace(
+            get=db_get,
+            commit=lambda: asyncio.sleep(0),
+            refresh=lambda item: asyncio.sleep(0),
+        )
+
+        with patch("backend.modules.orchestration.durable_execution.submit_orchestration_run") as submit_mock:
+            result = asyncio.run(
+                service.replay_run(
+                    SimpleNamespace(id="user-1"),
+                    "run-1",
+                    from_event_index=2,
+                )
+            )
+
+        self.assertEqual(result.id, "run-2")
+        replay = created["input_payload_json"]["orchestration_replay"]
+        self.assertEqual(replay["parent_run_id"], "run-1")
+        self.assertEqual(replay["from_event_index"], 2)
+        self.assertIn("[log] step one", replay["prior_transcript"])
+        self.assertEqual(
+            created["input_payload_json"]["orchestration_meta"]["replayed_from_run_id"],
+            "run-1",
+        )
+        submit_mock.assert_called_once_with("run-2")
+
+
+class PortfolioPolicyTests(unittest.TestCase):
+    def test_update_portfolio_execution_policy_updates_inheriting_projects_only(self) -> None:
+        service = object.__new__(OrchestrationService)
+        added: list[object] = []
+        inheriting_project = SimpleNamespace(
+            settings_json={
+                "execution": {"routing_mode": "capability_based", "approval_policy": "manager_review", "cost_cap_usd": 250.0},
+                "github": {"repo_indexing_cadence": "daily"},
+                "portfolio_policy_overrides": {},
+            }
+        )
+        override_project = SimpleNamespace(
+            settings_json={
+                "execution": {"routing_mode": "throughput", "approval_policy": "manager_review", "cost_cap_usd": 400.0},
+                "github": {"repo_indexing_cadence": "weekly"},
+                "portfolio_policy_overrides": {"routing_mode": True, "cost_cap_usd": True, "repo_indexing_cadence": True},
+            }
+        )
+
+        class _Result:
+            def scalar_one_or_none(self):
+                return None
+
+        service.db = SimpleNamespace(
+            execute=lambda stmt: asyncio.sleep(0, result=_Result()),
+            add=lambda item: added.append(item),
+            commit=lambda: asyncio.sleep(0),
+        )
+        service.repo = SimpleNamespace(
+            list_projects=lambda owner_id: asyncio.sleep(0, result=[inheriting_project, override_project])
+        )
+
+        policy = asyncio.run(
+            service.update_portfolio_execution_policy(
+                SimpleNamespace(id="user-1"),
+                {
+                    "routing_mode": "cost_aware",
+                    "approval_policy": "auto_if_green",
+                    "repo_indexing_cadence": "hourly",
+                    "cost_cap_usd": 125,
+                },
+            )
+        )
+
+        self.assertEqual(policy["routing_mode"], "cost_aware")
+        self.assertEqual(len(added), 1)
+        self.assertEqual(inheriting_project.settings_json["execution"]["routing_mode"], "cost_aware")
+        self.assertEqual(inheriting_project.settings_json["execution"]["approval_policy"], "auto_if_green")
+        self.assertEqual(inheriting_project.settings_json["execution"]["cost_cap_usd"], 125.0)
+        self.assertEqual(inheriting_project.settings_json["github"]["repo_indexing_cadence"], "hourly")
+        self.assertEqual(override_project.settings_json["execution"]["routing_mode"], "throughput")
+        self.assertEqual(override_project.settings_json["execution"]["cost_cap_usd"], 400.0)
+        self.assertEqual(override_project.settings_json["github"]["repo_indexing_cadence"], "weekly")
+
+    def test_portfolio_control_plane_reports_operator_dashboard_and_policy_visibility(self) -> None:
+        service = object.__new__(OrchestrationService)
+        now = datetime.now(UTC)
+        project = SimpleNamespace(
+            id="project-1",
+            name="Alpha",
+            slug="alpha",
+            settings_json={
+                "execution": {"routing_mode": "throughput", "approval_policy": "manager_review", "cost_cap_usd": 250.0},
+                "github": {"repo_indexing_cadence": "daily"},
+                "portfolio_policy_overrides": {"routing_mode": True},
+            },
+        )
+        service.repo = SimpleNamespace(
+            list_projects=lambda owner_id: asyncio.sleep(0, result=[project]),
+            list_approvals=lambda owner_id: asyncio.sleep(0, result=[]),
+            list_project_memberships=lambda project_id: asyncio.sleep(0, result=[SimpleNamespace(agent_id="mgr-1", is_default_manager=True, role="manager")]),
+            list_tasks=lambda project_id: asyncio.sleep(0, result=[SimpleNamespace(id="task-1", title="Blocked task", status="blocked", priority="high", updated_at=now)]),
+            list_runs=lambda owner_id, project_id: asyncio.sleep(0, result=[
+                SimpleNamespace(id="run-1", status="queued", created_at=now - timedelta(minutes=70), started_at=None, estimated_cost_micros=2000000, token_total=100, task_id="task-1"),
+                SimpleNamespace(id="run-2", status="in_progress", created_at=now - timedelta(minutes=80), started_at=now - timedelta(minutes=80), estimated_cost_micros=3000000, token_total=150, task_id="task-1"),
+            ]),
+            list_project_repositories=lambda project_id: asyncio.sleep(0, result=[SimpleNamespace(id="repo-1")]),
+            list_sync_events=lambda owner_id, project_id: asyncio.sleep(0, result=[
+                SimpleNamespace(id="sync-1", status="pending", created_at=now - timedelta(minutes=30), action="issue_comment", payload_json={"_webhook_meta": {"replay_history": [{"at": "x"}]}}),
+                SimpleNamespace(id="sync-2", status="failed", created_at=now - timedelta(minutes=10), action="replay_webhook", payload_json={"_webhook_meta": {"replay_history": [{"at": "x"}]}}),
+            ]),
+            list_memory_ingest_jobs_for_project=lambda owner_id, project_id, limit=80: asyncio.sleep(0, result=[
+                SimpleNamespace(status="running"),
+                SimpleNamespace(status="failed"),
+            ]),
+            list_providers=lambda owner_id: asyncio.sleep(0, result=[
+                SimpleNamespace(is_healthy=True),
+                SimpleNamespace(is_healthy=False),
+            ]),
+        )
+        service.db = SimpleNamespace(
+            get=lambda model, item_id: asyncio.sleep(0, result=SimpleNamespace(id="mgr-1", name="Manager", slug="manager")),
+        )
+        service.get_portfolio_execution_policy = lambda user: asyncio.sleep(
+            0,
+            result={
+                "routing_mode": "capability_based",
+                "approval_policy": "manager_review",
+                "repo_indexing_cadence": "daily",
+                "cost_cap_usd": 250.0,
+            },
+        )
+
+        payload = asyncio.run(service.portfolio_control_plane(SimpleNamespace(id="user-1")))
+        project_row = payload["projects"][0]
+
+        self.assertEqual(payload["execution_policy"]["routing_mode"], "capability_based")
+        self.assertEqual(payload["operator_dashboard"]["queue_health"]["queued_runs"], 1)
+        self.assertEqual(payload["operator_dashboard"]["stuck_runs"]["count"], 1)
+        self.assertEqual(project_row["execution_policy"]["override_count"], 1)
+        routing_item = next(item for item in project_row["execution_policy"]["items"] if item["key"] == "routing_mode")
+        self.assertEqual(routing_item["source"], "project_override")
 
 
 class SubtaskPlanningTests(unittest.TestCase):
@@ -1071,6 +1299,18 @@ class ExecutionStateHelpersTests(unittest.TestCase):
 
 
 class DurableWorkflowTests(unittest.TestCase):
+    def test_workflow_state_assigns_workflow_id_and_handle(self) -> None:
+        checkpoint = ensure_workflow_state(
+            {},
+            run_mode="single_agent",
+            steps=[{"id": "build_prompt", "title": "Build prompt", "actor": "system"}],
+            run_id="run-123",
+        )
+        state = workflow_state(checkpoint)
+        self.assertEqual(state["workflow_id"], "wf_run-123")
+        self.assertEqual(state["execution_handle"]["run_id"], "run-123")
+        self.assertEqual(state["migration"]["strategy"], "checkpoint-first coexistence")
+
     def test_workflow_state_tracks_started_and_failed_steps(self) -> None:
         checkpoint = ensure_workflow_state(
             {},
@@ -1115,6 +1355,29 @@ class DurableWorkflowTests(unittest.TestCase):
         trace = service._workflow_trace_payload(run)
         self.assertEqual(len(trace), 2)
         self.assertEqual(trace[0]["status"], "completed")
+
+    def test_signal_queue_and_query_snapshot_round_trip(self) -> None:
+        checkpoint = ensure_workflow_state(
+            {},
+            run_mode="single_agent",
+            steps=[{"id": "build_prompt", "title": "Build prompt", "actor": "system"}],
+            run_id="run-1",
+        )
+        checkpoint = enqueue_signal(
+            checkpoint,
+            signal_name="add_note",
+            payload={"note": "watch provider latency"},
+            requested_by_user_id="user-1",
+        )
+        state = workflow_state(checkpoint)
+        self.assertEqual(len(state["signal_queue"]), 1)
+        checkpoint, consumed = consume_signal_queue(checkpoint)
+        self.assertEqual(len(consumed), 1)
+        checkpoint = update_query_snapshot(checkpoint, data={"latest_status": "in_progress"})
+        state = workflow_state(checkpoint)
+        self.assertEqual(len(state["signal_queue"]), 0)
+        self.assertEqual(len(state["signal_history"]), 1)
+        self.assertEqual(state["query_snapshot"]["latest_status"], "in_progress")
 
 
 if __name__ == "__main__":

@@ -114,7 +114,7 @@ export default function ProjectsPage() {
                                 <Alert severity="error">
                                     {mutation.error instanceof Error
                                         ? mutation.error.message
-                                        : `Failed to create ${coreDomainSingular.toLowerCase()}.`}
+                                        : `Couldn't create ${coreDomainSingular.toLowerCase()}. Try again.`}
                                 </Alert>
                             )}
                             <Button
@@ -135,7 +135,7 @@ export default function ProjectsPage() {
                 >
                     {error && (
                         <Alert severity="error" sx={{ mb: 2 }}>
-                            {error instanceof Error ? error.message : `Failed to load ${coreDomainPlural.toLowerCase()}.`}
+                            {error instanceof Error ? error.message : `Couldn't load ${coreDomainPlural.toLowerCase()}. Refresh to retry.`}
                         </Alert>
                     )}
 

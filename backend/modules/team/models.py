@@ -112,6 +112,7 @@ class TeamTemplateCatalog(Base):
     autonomy: Mapped[str] = mapped_column(String(64), default="medium")
     visibility: Mapped[str] = mapped_column(String(64), default="private")
     agent_template_slugs_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    canvas_layout_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

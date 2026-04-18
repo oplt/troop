@@ -10,7 +10,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     createGithubConnection,
     getGithubAppInstallUrl,
@@ -21,6 +21,7 @@ import {
     listGithubRepositories,
     listGithubSyncEvents,
     listOrchestrationProjects,
+    replayGithubSyncEvent,
     syncGithubRepositories,
     updateOrchestrationTask,
 } from "../api/orchestration";
@@ -28,12 +29,15 @@ import { useSnackbar } from "../app/snackbarContext";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 
 export function GithubSyncPanel() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const [connectionForm, setConnectionForm] = useState({ name: "", api_url: "https://api.github.com", token: "" });
     const [importForm, setImportForm] = useState({ project_id: "", repository_id: "", issue_numbers: "" });
+    const [filters, setFilters] = useState({ project_id: "", repository_id: "", event_status: "", event_type: "", issue_status: "" });
+    const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
     const { data: projects = [] } = useQuery({ queryKey: ["orchestration", "projects"], queryFn: listOrchestrationProjects });
     const { data: agents = [] } = useQuery({ queryKey: ["orchestration", "agents"], queryFn: () => listAgents() });
@@ -42,12 +46,17 @@ export function GithubSyncPanel() {
     const { data: issueLinks = [] } = useQuery({
         queryKey: ["orchestration", "github", "issues"],
         queryFn: () => listGithubIssueLinks(),
-        refetchInterval: 5000,
     });
     const { data: syncEvents = [] } = useQuery({
         queryKey: ["orchestration", "github", "events"],
         queryFn: () => listGithubSyncEvents(),
-        refetchInterval: 5000,
+    });
+
+    useLiveSnapshotStream("/orchestration/github/sync-events/stream", {
+        onSnapshot: () => {
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "issues"] });
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
+        },
     });
 
     const installAppMutation = useMutation({
@@ -56,7 +65,7 @@ export function GithubSyncPanel() {
             window.location.href = data.install_url;
         },
         onError: (error) => {
-            showToast({ message: error instanceof Error ? error.message : "Failed to start GitHub App installation.", severity: "error" });
+            showToast({ message: error instanceof Error ? error.message : "Couldn't start GitHub App install. Check GitHub connectivity and retry.", severity: "error" });
         },
     });
 
@@ -92,9 +101,72 @@ export function GithubSyncPanel() {
             showToast({ message: "Issue assignment mirrored to internal task.", severity: "success" });
         },
     });
+    const replayMutation = useMutation({
+        mutationFn: ({ syncEventId, force }: { syncEventId: string; force?: boolean }) =>
+            replayGithubSyncEvent(syncEventId, { force }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
+            showToast({ message: "Webhook replay queued.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: error instanceof Error ? error.message : "Replay failed.", severity: "error" });
+        },
+    });
+
+    const repositoryById = useMemo(
+        () => new Map(repositories.map((repository) => [repository.id, repository])),
+        [repositories],
+    );
+    const filteredIssueLinks = useMemo(
+        () =>
+            issueLinks.filter((item) => {
+                if (filters.project_id && String(item.metadata?.project_id || "") !== filters.project_id) return false;
+                if (filters.repository_id && item.repository_id !== filters.repository_id) return false;
+                if (filters.issue_status && item.sync_status !== filters.issue_status) return false;
+                return true;
+            }),
+        [filters.issue_status, filters.project_id, filters.repository_id, issueLinks],
+    );
+    const filteredSyncEvents = useMemo(
+        () =>
+            syncEvents.filter((event) => {
+                if (filters.project_id && String(event.payload?.project_id || "") !== filters.project_id) return false;
+                if (filters.repository_id && event.repository_id !== filters.repository_id) return false;
+                if (filters.event_status && event.status !== filters.event_status) return false;
+                if (filters.event_type && !event.action.includes(filters.event_type)) return false;
+                return true;
+            }),
+        [filters.event_status, filters.event_type, filters.project_id, filters.repository_id, syncEvents],
+    );
+    const syncFailures = filteredSyncEvents.filter((event) => event.status === "failed" || event.status === "error");
+    const retryQueue = filteredSyncEvents.filter((event) => event.status === "queued" || event.status === "pending");
+    const branchViolations = filteredSyncEvents.filter((event) => event.action.includes("branch") || String(event.detail || "").toLowerCase().includes("branch"));
+    const prSyncEvents = filteredSyncEvents.filter((event) => event.action.includes("pull_request") || event.action.includes("create_pr"));
 
     return (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "360px 360px minmax(0, 1fr)" } }}>
+        <Stack spacing={2}>
+            <SectionCard title="Console filters" description="Narrow the sync console by project, repository, event type, or status.">
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                    <TextField select label="Project" value={filters.project_id} onChange={(event) => setFilters((current) => ({ ...current, project_id: event.target.value }))} fullWidth>
+                        <MenuItem value="">All projects</MenuItem>
+                        {projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Repository" value={filters.repository_id} onChange={(event) => setFilters((current) => ({ ...current, repository_id: event.target.value }))} fullWidth>
+                        <MenuItem value="">All repositories</MenuItem>
+                        {repositories.map((repository) => <MenuItem key={repository.id} value={repository.id}>{repository.full_name}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Event status" value={filters.event_status} onChange={(event) => setFilters((current) => ({ ...current, event_status: event.target.value }))} fullWidth>
+                        <MenuItem value="">All statuses</MenuItem>
+                        {["queued", "pending", "completed", "failed"].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Event type" value={filters.event_type} onChange={(event) => setFilters((current) => ({ ...current, event_type: event.target.value }))} fullWidth>
+                        <MenuItem value="">All events</MenuItem>
+                        {["issues", "issue_comment", "pull_request", "pull_request_review", "projects_v2_item", "branch"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                    </TextField>
+                </Stack>
+            </SectionCard>
+
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "360px 360px minmax(0, 1fr)" } }}>
             <SectionCard title="Connection" description="GitHub App installations are the primary setup path. Legacy token mode remains available only as a fallback.">
                 <Stack spacing={2}>
                     <Button variant="contained" onClick={() => installAppMutation.mutate()} disabled={installAppMutation.isPending}>
@@ -109,7 +181,7 @@ export function GithubSyncPanel() {
                     <Button variant="outlined" onClick={() => connectionMutation.mutate(connectionForm)} disabled={!connectionForm.name || !connectionForm.token}>
                         Save legacy token connection
                     </Button>
-                    {connectionMutation.isError && <Alert severity="error">{connectionMutation.error instanceof Error ? connectionMutation.error.message : "Failed to save connection."}</Alert>}
+                    {connectionMutation.isError && <Alert severity="error">{connectionMutation.error instanceof Error ? connectionMutation.error.message : "Couldn't save GitHub connection. Verify token and retry."}</Alert>}
                     {connections.map((connection) => (
                         <Paper key={connection.id} sx={{ p: 1.5, borderRadius: 3 }}>
                             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
@@ -149,12 +221,31 @@ export function GithubSyncPanel() {
             </SectionCard>
 
             <Stack spacing={2}>
+                <SectionCard title="Repositories" description="Connected repos, last sync state, and install coverage.">
+                    <Stack spacing={1.25}>
+                        {repositories.map((repository) => (
+                            <Paper key={repository.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                                    <Chip size="small" variant="outlined" label={repository.full_name} />
+                                    {repository.project_id ? <Chip size="small" color="secondary" variant="outlined" label={`project ${repository.project_id.slice(0, 8)}`} /> : null}
+                                    <Chip size="small" color={repository.is_active ? "success" : "default"} label={repository.is_active ? "active" : "inactive"} />
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                    {repository.default_branch || "no default branch"} {repository.last_synced_at ? `• synced ${new Date(repository.last_synced_at).toLocaleString()}` : "• never synced"}
+                                </Typography>
+                            </Paper>
+                        ))}
+                    </Stack>
+                </SectionCard>
                 <SectionCard title="Linked issues" description="Current internal mapping between GitHub issues and orchestration tasks.">
                     <Stack spacing={1.25}>
-                        {issueLinks.map((item) => (
+                        {filteredIssueLinks.map((item) => (
                             <Paper key={item.id} sx={{ p: 1.5, borderRadius: 3 }}>
                                 <Typography variant="subtitle2">#{item.issue_number} {item.title}</Typography>
-                                <Typography variant="caption" color="text.secondary">{item.state} • task {item.task_id || "pending"}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {repositoryById.get(item.repository_id)?.full_name || item.repository_id} • {item.state} • sync {item.sync_status} • task {item.task_id || "pending"}
+                                </Typography>
+                                {item.last_error ? <Alert severity="error" sx={{ mt: 1 }}>{item.last_error}</Alert> : null}
                                 {item.task_id && typeof item.metadata?.project_id === "string" && (
                                     <TextField
                                         select
@@ -178,18 +269,93 @@ export function GithubSyncPanel() {
                         ))}
                     </Stack>
                 </SectionCard>
-                <SectionCard title="Sync history" description="Auditable history for imports and outbound actions.">
+                <SectionCard title="Sync history" description="Unified GitHub Sync Console: queue, failures, PR activity, branch issues, and event stream.">
                     <Stack spacing={1.25}>
-                        {syncEvents.map((event) => (
-                            <Box key={event.id}>
-                                <Typography variant="body2">{event.action} • {event.status}</Typography>
-                                <Typography variant="caption" color="text.secondary">{event.detail || "No detail available."}</Typography>
-                            </Box>
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            <Chip size="small" color="error" label={`Failures ${syncFailures.length}`} />
+                            <Chip size="small" color="warning" label={`Retry queue ${retryQueue.length}`} />
+                            <Chip size="small" color="info" label={`PR sync ${prSyncEvents.length}`} />
+                            <Chip size="small" variant="outlined" label={`Branch violations ${branchViolations.length}`} />
+                        </Stack>
+                        {syncFailures.slice(0, 5).map((event) => (
+                            <Alert key={event.id} severity="error">
+                                {event.action} • {event.detail || "No detail available."}
+                            </Alert>
+                        ))}
+                        {retryQueue.slice(0, 5).map((event) => (
+                            <Alert key={event.id} severity="warning">
+                                {event.action} waiting in queue.
+                            </Alert>
+                        ))}
+                        {branchViolations.slice(0, 5).map((event) => (
+                            <Alert key={event.id} severity="info">
+                                {event.action} • {event.detail || "Branch policy signal detected."}
+                            </Alert>
+                        ))}
+                        {filteredSyncEvents.map((event) => (
+                            <Paper key={event.id} sx={{ p: 1.25, borderRadius: 3 }}>
+                                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
+                                    <Box>
+                                        <Typography variant="body2">
+                                            {event.action} • {event.status} • {repositoryById.get(event.repository_id || "")?.full_name || event.repository_id || "global"}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {event.detail || "No detail available."}
+                                        </Typography>
+                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                                            {typeof (event.payload._webhook_meta as { delivery_id?: string } | undefined)?.delivery_id === "string" ? (
+                                                <Chip size="small" variant="outlined" label={`delivery ${(event.payload._webhook_meta as { delivery_id?: string }).delivery_id}`} />
+                                            ) : null}
+                                            <Chip
+                                                size="small"
+                                                color={(event.payload._webhook_meta as { signature_validated?: boolean } | undefined)?.signature_validated ? "success" : "default"}
+                                                variant="outlined"
+                                                label={(event.payload._webhook_meta as { signature_validated?: boolean } | undefined)?.signature_validated ? "signature ok" : "signature unknown"}
+                                            />
+                                            <Chip
+                                                size="small"
+                                                variant="outlined"
+                                                label={`replays ${Array.isArray((event.payload._webhook_meta as { replay_history?: unknown[] } | undefined)?.replay_history) ? ((event.payload._webhook_meta as { replay_history?: unknown[] }).replay_history?.length ?? 0) : 0}`}
+                                            />
+                                        </Stack>
+                                    </Box>
+                                    <Stack direction="row" spacing={1}>
+                                        <Button size="small" onClick={() => setExpandedEventId((current) => current === event.id ? null : event.id)}>
+                                            {expandedEventId === event.id ? "Hide payload" : "Inspect payload"}
+                                        </Button>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            onClick={() => replayMutation.mutate({ syncEventId: event.id, force: event.status === "completed" })}
+                                            disabled={replayMutation.isPending}
+                                        >
+                                            Replay
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+                                {expandedEventId === event.id ? (
+                                    <Paper
+                                        variant="outlined"
+                                        sx={{
+                                            mt: 1,
+                                            p: 1.25,
+                                            borderRadius: 2,
+                                            fontFamily: "IBM Plex Mono, monospace",
+                                            fontSize: "0.75rem",
+                                            whiteSpace: "pre-wrap",
+                                            overflowX: "auto",
+                                        }}
+                                    >
+                                        {JSON.stringify(event.payload, null, 2)}
+                                    </Paper>
+                                ) : null}
+                            </Paper>
                         ))}
                     </Stack>
                 </SectionCard>
             </Stack>
         </Box>
+        </Stack>
     );
 }
 

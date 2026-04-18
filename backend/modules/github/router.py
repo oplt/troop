@@ -287,6 +287,7 @@ async def request_github_comment(
 async def github_webhook(
     request: Request,
     x_github_event: str = Header(default=""),
+    x_github_delivery: str | None = Header(default=None),
     x_hub_signature_256: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -297,7 +298,12 @@ async def github_webhook(
     if not service.validate_github_webhook_signature(body, x_hub_signature_256):
         return Response(status_code=401)
     payload = json.loads(body.decode("utf-8") or "{}")
-    sync_event_id = await service.record_github_webhook_event(x_github_event, payload)
+    sync_event_id = await service.record_github_webhook_event(
+        x_github_event,
+        payload,
+        delivery_id=x_github_delivery,
+        signature_validated=True,
+    )
     from backend.workers.orchestration import queue_github_webhook_event
 
     queue_github_webhook_event(sync_event_id)

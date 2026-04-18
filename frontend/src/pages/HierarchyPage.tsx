@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import {
@@ -14,6 +14,7 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    Divider,
     Drawer,
     IconButton,
     MenuItem,
@@ -88,12 +89,31 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 import { formatDateTime } from "../utils/formatters";
 
 const MEMORY_SCOPE_OPTIONS = ["none", "project-only", "long-term"] as const;
 const OUTPUT_FORMAT_OPTIONS = ["checklist", "json", "patch_proposal", "issue_reply", "adr"] as const;
 const PERMISSION_OPTIONS = ["read-only", "comment-only", "code-write", "merge-blocked"] as const;
 const ROLE_OPTIONS = ["manager", "specialist", "reviewer"] as const;
+
+const AGENT_ROLE_GUIDANCE: Record<(typeof ROLE_OPTIONS)[number], { summary: string; promptHint: string; filtersHint: string }> = {
+    manager: {
+        summary: "Owns planning, delegation, escalation, and final delivery quality.",
+        promptHint: "Define how this manager decomposes work, routes tasks, asks for review, and decides when to escalate.",
+        filtersHint: "Use routing rules for work this manager should own first: architecture, triage, roadmap, escalation.",
+    },
+    specialist: {
+        summary: "Executes a scoped domain of work with clear tools, boundaries, and outputs.",
+        promptHint: "Describe how this specialist approaches tasks, what depth it should go to, and when it must hand off.",
+        filtersHint: "Use routing rules for domain ownership: frontend, backend, incidents, docs, tests, security.",
+    },
+    reviewer: {
+        summary: "Audits work before handoff, catches regressions, and enforces approval standards.",
+        promptHint: "Define review criteria, evidence required, failure conditions, and what counts as approval.",
+        filtersHint: "Use routing rules for review-style work: QA, compliance, acceptance checks, release review.",
+    },
+};
 
 const EMPTY_FORM = {
     name: "",
@@ -196,6 +216,7 @@ type TeamTemplateFormState = {
     autonomy: string;
     visibility: string;
     agent_template_slugs: string[];
+    canvas_layout: Record<string, unknown>;
 };
 
 function parseCsv(value: string): string[] {
@@ -232,6 +253,18 @@ function createUniqueSlug(value: string, existingSlugs: string[]) {
     return `${base}-${index}`;
 }
 
+function createUniqueNodeId(value: string, existingIds: string[]) {
+    const base = slugify(value) || "team-node";
+    if (!existingIds.includes(base)) {
+        return base;
+    }
+    let index = 2;
+    while (existingIds.includes(`${base}-${index}`)) {
+        index += 1;
+    }
+    return `${base}-${index}`;
+}
+
 function stringifyCommaList(items: readonly string[]): string {
     return items
         .map((item) => item.trim())
@@ -257,13 +290,6 @@ function getRoleColor(role: TeamGraphRole) {
     if (role === "manager") return "primary";
     if (role === "reviewer") return "warning";
     return "info";
-}
-
-function getStatusChipColor(status: TeamGraphNodeStatus) {
-    if (status === "running" || status === "active") return "success";
-    if (status === "blocked") return "warning";
-    if (status === "queued") return "secondary";
-    return "default";
 }
 
 function StringListField({
@@ -373,7 +399,121 @@ function buildTeamTemplateForm(template?: TeamTemplate): TeamTemplateFormState {
         autonomy: template?.autonomy ?? "custom",
         visibility: template?.visibility ?? "private",
         agent_template_slugs: template?.agent_template_slugs ?? [],
+        canvas_layout: template?.canvas_layout ?? {},
     };
+}
+
+function uniqueStrings(items: string[]): string[] {
+    return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+function buildNodeDataFromTemplate(template: AgentTemplate): TeamGraphNodeData {
+    return {
+        name: template.name,
+        slug: template.slug,
+        role: (template.role === "manager" || template.role === "reviewer" ? template.role : "specialist"),
+        description: template.description ?? "",
+        linkedTemplateSlug: template.parent_template_slug ?? "",
+        linkedAgentId: "",
+        capabilities: template.capabilities,
+        allowedTools: template.allowed_tools,
+        tags: template.tags,
+        projectAssignments: [],
+        taskFilters: Array.isArray(template.metadata?.task_filters)
+            ? template.metadata.task_filters.filter((item): item is string => typeof item === "string")
+            : [],
+        model: String((template.model_policy?.model as string | undefined) || ""),
+        fallbackModel: String((template.model_policy?.fallback_model as string | undefined) || ""),
+        escalationPath: String((template.model_policy?.escalation_path as string | undefined) || ""),
+        permission: String((template.model_policy?.permissions as string | undefined) || "read-only"),
+        memoryScope: String((template.memory_policy?.scope as string | undefined) || "project-only"),
+        outputFormat: String((template.output_schema?.format as string | undefined) || "json"),
+        tokenBudget: String((template.budget?.token_budget as number | undefined) || 8000),
+        timeBudgetSeconds: String((template.budget?.time_budget_seconds as number | undefined) || 300),
+        retryBudget: String((template.budget?.retry_budget as number | undefined) || 1),
+        status: "draft",
+        subtitle: template.parent_template_slug ? `template ${template.parent_template_slug}` : template.slug,
+    };
+}
+
+function buildTeamTemplateCanvasGraph(selectedTemplates: AgentTemplate[]): { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] } {
+    const nodes = autoLayoutGraph(
+        selectedTemplates.map((template, index) => ({
+            id: `team-template-${template.slug}`,
+            type: template.role === "manager" || template.role === "reviewer" ? template.role : "specialist",
+            position: { x: 120 + index * 80, y: 120 },
+            data: buildNodeDataFromTemplate(template),
+        })),
+    );
+    const rootManager = nodes.find((node) => node.data.role === "manager") ?? null;
+    const edges = rootManager
+        ? nodes
+            .filter((node) => node.id !== rootManager.id)
+            .map((node) => createSemanticEdge(rootManager.id, node.id, node.data.role === "reviewer" ? "reviews" : "delegates_to"))
+        : [];
+    return { nodes, edges };
+}
+
+function extractTeamTemplateCanvasLayout(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): Record<string, unknown> {
+    return {
+        nodes: nodes.map((node) => ({
+            slug: node.data.slug,
+            x: node.position.x,
+            y: node.position.y,
+            role: node.data.role,
+        })),
+        edges: edges.map((edge) => ({
+            source_slug: edge.source.replace("team-template-", ""),
+            target_slug: edge.target.replace("team-template-", ""),
+            semantic: edge.data?.semantic ?? "delegates_to",
+        })),
+    };
+}
+
+function applyTeamTemplateCanvasLayout(
+    graph: { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] },
+    canvasLayout: Record<string, unknown> | null | undefined,
+): { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] } {
+    const layoutNodes = Array.isArray(canvasLayout?.nodes) ? canvasLayout.nodes : [];
+    const positionBySlug = new Map<string, { x: number; y: number }>();
+
+    for (const item of layoutNodes) {
+        if (!item || typeof item !== "object") continue;
+        const slug = String((item as { slug?: unknown }).slug || "").trim();
+        const x = Number((item as { x?: unknown }).x);
+        const y = Number((item as { y?: unknown }).y);
+        if (!slug || Number.isNaN(x) || Number.isNaN(y)) continue;
+        positionBySlug.set(slug, { x, y });
+    }
+
+    const nodes = graph.nodes.map((node) => {
+        const saved = positionBySlug.get(node.data.slug);
+        if (!saved) return node;
+        return {
+            ...node,
+            position: saved,
+        };
+    });
+
+    const layoutEdges = Array.isArray(canvasLayout?.edges) ? canvasLayout.edges : [];
+    if (layoutEdges.length === 0) {
+        return { nodes, edges: graph.edges };
+    }
+
+    const bySlug = new Map(nodes.map((node) => [node.data.slug, node]));
+    const edges: TeamGraphEdge[] = [];
+    for (const item of layoutEdges) {
+        if (!item || typeof item !== "object") continue;
+        const sourceSlug = String((item as { source_slug?: unknown }).source_slug || "").trim();
+        const targetSlug = String((item as { target_slug?: unknown }).target_slug || "").trim();
+        const semantic = String((item as { semantic?: unknown }).semantic || "delegates_to") as TeamGraphEdgeSemantic;
+        const source = bySlug.get(sourceSlug);
+        const target = bySlug.get(targetSlug);
+        if (!source || !target) continue;
+        edges.push(createSemanticEdge(source.id, target.id, semantic));
+    }
+
+    return { nodes, edges: edges.length > 0 ? edges : graph.edges };
 }
 
 function buildNodeDataFromAgent(
@@ -418,6 +558,37 @@ function buildNodeDataFromAgent(
 }
 
 function autoLayoutGraph(nodes: TeamGraphNode[]): TeamGraphNode[] {
+    const centerX = 360;
+    const managerY = 80;
+    const childRowY = 320;
+    const gapX = 280;
+    const managers = nodes.filter((node) => node.data.role === "manager");
+    const nonManagers = nodes.filter((node) => node.data.role !== "manager");
+
+    if (managers.length === 1 && nonManagers.length === 3) {
+        const childStartX = centerX - gapX;
+        return nodes.map((node) => {
+            if (node.data.role === "manager") {
+                return {
+                    ...node,
+                    position: {
+                        x: centerX,
+                        y: managerY,
+                    },
+                };
+            }
+
+            const childIndex = nonManagers.findIndex((item) => item.id === node.id);
+            return {
+                ...node,
+                position: {
+                    x: childStartX + Math.max(0, childIndex) * gapX,
+                    y: childRowY,
+                },
+            };
+        });
+    }
+
     const grouped: Record<TeamGraphRole, TeamGraphNode[]> = {
         manager: [],
         specialist: [],
@@ -427,24 +598,242 @@ function autoLayoutGraph(nodes: TeamGraphNode[]): TeamGraphNode[] {
         grouped[node.data.role].push(node);
     });
     const rowY: Record<TeamGraphRole, number> = {
-        manager: 80,
+        manager: managerY,
         specialist: 300,
         reviewer: 520,
     };
-    const gapX = 280;
-    const startX = 80;
 
     return nodes.map((node) => {
         const siblings = grouped[node.data.role];
         const index = siblings.findIndex((item) => item.id === node.id);
+        const rowStartX = centerX - ((Math.max(siblings.length, 1) - 1) * gapX) / 2;
         return {
             ...node,
             position: {
-                x: startX + Math.max(0, index) * gapX,
+                x: rowStartX + Math.max(0, index) * gapX,
                 y: rowY[node.data.role],
             },
         };
     });
+}
+
+function createDefaultNodeData(
+    role: TeamGraphRole,
+    name: string,
+    slug: string,
+    description: string,
+    capabilities: string[],
+    model: string,
+): TeamGraphNodeData {
+    return {
+        name,
+        slug,
+        role,
+        description,
+        linkedTemplateSlug: "",
+        linkedAgentId: "",
+        capabilities,
+        allowedTools: [],
+        tags: [],
+        projectAssignments: [],
+        taskFilters: [],
+        model,
+        fallbackModel: "",
+        escalationPath: "",
+        permission: "read-only",
+        memoryScope: "project-only",
+        outputFormat: "json",
+        tokenBudget: "8000",
+        timeBudgetSeconds: "300",
+        retryBudget: "1",
+        status: "draft",
+        subtitle: slug,
+    };
+}
+
+function buildDefaultTeamGraph(): { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] } {
+    const managerId = "default-manager";
+    const children: {
+        id: string;
+        role: TeamGraphRole;
+        name: string;
+        slug: string;
+        description: string;
+        capabilities: string[];
+        model: string;
+    }[] = [
+        {
+            id: "default-planner",
+            role: "specialist",
+            name: "Planner",
+            slug: "planner",
+            description: "Breaks goals into ordered subtasks with clear acceptance criteria.",
+            capabilities: ["planning", "decomposition"],
+            model: "claude-sonnet-4-6",
+        },
+        {
+            id: "default-builder",
+            role: "specialist",
+            name: "Builder",
+            slug: "builder",
+            description: "Implements subtasks end-to-end, writes code and tests.",
+            capabilities: ["code-write", "refactor"],
+            model: "claude-opus-4-7",
+        },
+        {
+            id: "default-reviewer",
+            role: "reviewer",
+            name: "Reviewer",
+            slug: "reviewer",
+            description: "Audits output for correctness and policy compliance.",
+            capabilities: ["qa", "review"],
+            model: "claude-haiku-4-5-20251001",
+        },
+    ];
+
+    const managerNode: TeamGraphNode = {
+        id: managerId,
+        type: "manager",
+        position: { x: 0, y: 0 },
+        data: createDefaultNodeData(
+            "manager",
+            "Lead Manager",
+            "lead-manager",
+            "Coordinates the team, routes tasks, and owns final delivery.",
+            ["orchestration", "delegation"],
+            "claude-opus-4-7",
+        ),
+    };
+    const childNodes: TeamGraphNode[] = children.map((child) => ({
+        id: child.id,
+        type: child.role,
+        position: { x: 0, y: 0 },
+        data: createDefaultNodeData(child.role, child.name, child.slug, child.description, child.capabilities, child.model),
+    }));
+    const nodes = autoLayoutGraph([managerNode, ...childNodes]);
+    const edges: TeamGraphEdge[] = children.map((child) =>
+        createSemanticEdge(managerId, child.id, child.role === "reviewer" ? "reviews" : "delegates_to"),
+    );
+    return { nodes, edges };
+}
+
+const DEFAULT_TEAM_GRAPH = buildDefaultTeamGraph();
+
+function cloneNodeData(data: TeamGraphNodeData): TeamGraphNodeData {
+    return {
+        ...data,
+        capabilities: [...data.capabilities],
+        allowedTools: [...data.allowedTools],
+        tags: [...data.tags],
+        projectAssignments: [...data.projectAssignments],
+        taskFilters: [...data.taskFilters],
+    };
+}
+
+function buildNodeSubtitle(data: Pick<TeamGraphNodeData, "linkedTemplateSlug" | "linkedAgentId" | "slug">) {
+    if (data.linkedTemplateSlug) {
+        return `template ${data.linkedTemplateSlug}`;
+    }
+    if (data.linkedAgentId) {
+        return data.slug;
+    }
+    return "local draft";
+}
+
+function ensureMinimumHierarchy(
+    graph: { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] },
+): { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] } {
+    const nodes = graph.nodes.map((node) => ({ ...node, data: cloneNodeData(node.data) }));
+    const edges = [...graph.edges];
+    const existingIds = new Set(nodes.map((node) => node.id));
+    const existingSlugs = new Set(nodes.map((node) => node.data.slug));
+    const existingNames = new Set(nodes.map((node) => node.data.name));
+    const defaultManager = DEFAULT_TEAM_GRAPH.nodes.find((node) => node.data.role === "manager")!;
+    const defaultWorkers = DEFAULT_TEAM_GRAPH.nodes.filter((node) => node.data.role !== "manager");
+
+    function nextNodeId(baseId: string) {
+        let nextId = baseId;
+        let index = 2;
+        while (existingIds.has(nextId)) {
+            nextId = `${baseId}-${index}`;
+            index += 1;
+        }
+        existingIds.add(nextId);
+        return nextId;
+    }
+
+    function nextName(baseName: string) {
+        if (!existingNames.has(baseName)) {
+            existingNames.add(baseName);
+            return baseName;
+        }
+        let index = 2;
+        let nextNameValue = `${baseName} ${index}`;
+        while (existingNames.has(nextNameValue)) {
+            index += 1;
+            nextNameValue = `${baseName} ${index}`;
+        }
+        existingNames.add(nextNameValue);
+        return nextNameValue;
+    }
+
+    function nextSlug(baseSlug: string) {
+        if (!existingSlugs.has(baseSlug)) {
+            existingSlugs.add(baseSlug);
+            return baseSlug;
+        }
+        let index = 2;
+        let nextSlugValue = `${baseSlug}-${index}`;
+        while (existingSlugs.has(nextSlugValue)) {
+            index += 1;
+            nextSlugValue = `${baseSlug}-${index}`;
+        }
+        existingSlugs.add(nextSlugValue);
+        return nextSlugValue;
+    }
+
+    let rootManager = nodes.find((node) => node.data.role === "manager") ?? null;
+    if (!rootManager) {
+        rootManager = {
+            ...defaultManager,
+            id: nextNodeId(defaultManager.id),
+            data: {
+                ...cloneNodeData(defaultManager.data),
+                name: nextName(defaultManager.data.name),
+                slug: nextSlug(defaultManager.data.slug),
+            },
+        };
+        rootManager.data.subtitle = buildNodeSubtitle(rootManager.data);
+        nodes.push(rootManager);
+    }
+
+    let subAgentCount = nodes.filter((node) => node.data.role !== "manager").length;
+    let workerIndex = 0;
+    while (subAgentCount < 3) {
+        const templateNode = defaultWorkers[workerIndex % defaultWorkers.length];
+        const nextNode: TeamGraphNode = {
+            ...templateNode,
+            id: nextNodeId(templateNode.id),
+            data: {
+                ...cloneNodeData(templateNode.data),
+                name: nextName(templateNode.data.name),
+                slug: nextSlug(templateNode.data.slug),
+            },
+        };
+        nextNode.data.subtitle = buildNodeSubtitle(nextNode.data);
+        nodes.push(nextNode);
+        edges.push(
+            createSemanticEdge(
+                rootManager.id,
+                nextNode.id,
+                nextNode.data.role === "reviewer" ? "reviews" : "delegates_to",
+            ),
+        );
+        subAgentCount += 1;
+        workerIndex += 1;
+    }
+
+    return { nodes: autoLayoutGraph(nodes), edges };
 }
 
 function buildInitialTeamGraph(
@@ -452,7 +841,7 @@ function buildInitialTeamGraph(
     liveStatus: Map<string, "running" | "blocked" | "queued" | "idle">,
 ): { nodes: TeamGraphNode[]; edges: TeamGraphEdge[] } {
     if (agents.length === 0) {
-        return { nodes: [], edges: [] };
+        return ensureMinimumHierarchy(DEFAULT_TEAM_GRAPH);
     }
 
     const nodes = autoLayoutGraph(
@@ -493,7 +882,7 @@ function buildInitialTeamGraph(
         }
     }
 
-    return { nodes, edges };
+    return ensureMinimumHierarchy({ nodes, edges });
 }
 
 function createSemanticEdge(source: string, target: string, semantic: TeamGraphEdgeSemantic): TeamGraphEdge {
@@ -588,77 +977,239 @@ function buildValidationIssues(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): 
     return issues;
 }
 
+function graphSignature(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): string {
+    return JSON.stringify({
+        nodes: nodes.map((node) => ({
+            id: node.id,
+            type: node.type,
+            position: node.position,
+            data: node.data,
+        })),
+        edges: edges.map((edge) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            data: edge.data,
+            label: edge.label,
+        })),
+    });
+}
+
 function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
     const tone = data.role === "manager" ? "#175cd3" : data.role === "reviewer" ? "#b26a00" : "#087443";
+    const statusDotColor =
+        data.status === "running" || data.status === "active"
+            ? "#12b76a"
+            : data.status === "blocked"
+                ? "#f79009"
+                : data.status === "queued"
+                    ? "#667085"
+                    : data.status === "draft"
+                        ? "#9e77ed"
+                        : "#d0d5dd";
+    const isPulsing = data.status === "running";
+    const hiddenCaps = Math.max(0, data.capabilities.length - 2);
+
     return (
         <Paper
             elevation={0}
             sx={{
-                width: 260,
-                borderRadius: 4,
+                width: 284,
+                borderRadius: 3,
                 border: "1px solid",
-                borderColor: selected ? tone : alpha("#101828", 0.12),
+                borderColor: selected ? tone : alpha("#101828", 0.1),
                 bgcolor: data.status === "inactive" ? alpha("#101828", 0.02) : "background.paper",
-                boxShadow: selected ? `0 0 0 3px ${alpha(tone, 0.12)}` : "0 12px 32px rgba(16, 24, 40, 0.08)",
+                boxShadow: selected
+                    ? `0 0 0 3px ${alpha(tone, 0.18)}, 0 14px 32px rgba(16,24,40,0.14)`
+                    : "0 10px 28px rgba(16,24,40,0.08)",
                 transition: "all 160ms ease",
-                opacity: data.status === "inactive" ? 0.8 : 1,
+                opacity: data.status === "inactive" ? 0.75 : 1,
+                overflow: "hidden",
+                position: "relative",
                 "&:hover": {
                     transform: "translateY(-2px)",
-                    boxShadow: "0 16px 36px rgba(16, 24, 40, 0.12)",
+                    boxShadow: "0 18px 38px rgba(16,24,40,0.14)",
                 },
             }}
         >
-            <Handle type="target" position={Position.Top} style={{ background: tone, width: 10, height: 10 }} />
-            <Stack spacing={1.2} sx={{ p: 1.75 }}>
-                <Stack direction="row" justifyContent="space-between" spacing={1}>
-                    <Stack direction="row" spacing={1} alignItems="center">
+            <Handle
+                type="target"
+                position={Position.Top}
+                style={{ background: tone, width: 10, height: 10, border: "2px solid white" }}
+            />
+            <Box
+                sx={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 4,
+                    bgcolor: tone,
+                    background: `linear-gradient(180deg, ${tone} 0%, ${alpha(tone, 0.55)} 100%)`,
+                }}
+            />
+            <Box
+                sx={{
+                    px: 1.75,
+                    pt: 1.5,
+                    pb: 1.1,
+                    background: `linear-gradient(135deg, ${alpha(tone, 0.14)} 0%, ${alpha(tone, 0)} 70%)`,
+                }}
+            >
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
                         <Box
                             sx={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: 2.5,
+                                width: 38,
+                                height: 38,
+                                borderRadius: 2,
                                 display: "grid",
                                 placeItems: "center",
-                                bgcolor: alpha(tone, 0.1),
+                                bgcolor: alpha(tone, 0.15),
                                 color: tone,
+                                boxShadow: `inset 0 0 0 1px ${alpha(tone, 0.22)}`,
                             }}
                         >
                             {getRoleIcon(data.role)}
                         </Box>
                         <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle2" noWrap>
-                                {data.name}
+                            <Typography variant="subtitle2" fontWeight={700} noWrap>
+                                {data.name || "Untitled agent"}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontFamily: "IBM Plex Mono, monospace", display: "block" }}
+                                noWrap
+                            >
                                 {data.subtitle || data.slug || data.role}
                             </Typography>
                         </Box>
                     </Stack>
-                    <Chip
-                        size="small"
-                        label={data.status.replaceAll("_", " ")}
-                        color={getStatusChipColor(data.status)}
-                        variant="outlined"
-                    />
+                    <Stack direction="row" alignItems="center" spacing={0.6}>
+                        <Box
+                            sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                bgcolor: statusDotColor,
+                                boxShadow: isPulsing ? `0 0 0 3px ${alpha(statusDotColor, 0.25)}` : "none",
+                                animation: isPulsing ? "troop-pulse 1.4s ease-in-out infinite" : "none",
+                                "@keyframes troop-pulse": {
+                                    "0%, 100%": { opacity: 1 },
+                                    "50%": { opacity: 0.5 },
+                                },
+                            }}
+                        />
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                textTransform: "uppercase",
+                                letterSpacing: 0.6,
+                                fontWeight: 600,
+                                color: "text.secondary",
+                            }}
+                        >
+                            {data.status}
+                        </Typography>
+                    </Stack>
                 </Stack>
+            </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+            <Stack spacing={1} sx={{ px: 1.75, pb: 1.5, pt: 1.25 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minHeight: 36, lineHeight: 1.45 }}>
                     {data.description || "No contract description yet."}
                 </Typography>
 
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                {data.model ? (
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Typography
+                            variant="caption"
+                            sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.5 }}
+                        >
+                            model
+                        </Typography>
+                        <Typography
+                            variant="caption"
+                            sx={{ fontFamily: "IBM Plex Mono, monospace", color: "text.primary" }}
+                            noWrap
+                        >
+                            {data.model}
+                        </Typography>
+                    </Stack>
+                ) : null}
+
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    <Chip
+                        size="small"
+                        label={data.role}
+                        sx={{
+                            height: 22,
+                            bgcolor: alpha(tone, 0.12),
+                            color: tone,
+                            fontWeight: 700,
+                            textTransform: "capitalize",
+                            border: `1px solid ${alpha(tone, 0.25)}`,
+                        }}
+                    />
                     {data.capabilities.slice(0, 2).map((item) => (
-                        <Chip key={`${data.slug}-${item}`} size="small" label={item} variant="outlined" />
+                        <Chip
+                            key={`${data.slug}-${item}`}
+                            size="small"
+                            label={item}
+                            variant="outlined"
+                            sx={{ height: 22 }}
+                        />
                     ))}
-                    {data.allowedTools.length > 0 ? (
-                        <Chip size="small" label={`${data.allowedTools.length} tools`} color="secondary" variant="outlined" />
-                    ) : null}
-                    {data.projectAssignments.length > 0 ? (
-                        <Chip size="small" label={`${data.projectAssignments.length} projects`} color="default" variant="outlined" />
+                    {hiddenCaps > 0 ? (
+                        <Chip size="small" label={`+${hiddenCaps}`} variant="outlined" sx={{ height: 22 }} />
                     ) : null}
                 </Stack>
+
+                {(data.allowedTools.length > 0 ||
+                    data.projectAssignments.length > 0 ||
+                    data.tags.length > 0) && (
+                    <>
+                        <Divider flexItem sx={{ borderStyle: "dashed", opacity: 0.6 }} />
+                        <Stack
+                            direction="row"
+                            spacing={1.5}
+                            sx={{ color: "text.secondary", fontSize: 11 }}
+                            divider={<Box sx={{ width: "1px", bgcolor: alpha("#101828", 0.1) }} />}
+                        >
+                            {data.allowedTools.length > 0 ? (
+                                <Typography variant="caption">
+                                    <Box component="strong" sx={{ color: "text.primary" }}>
+                                        {data.allowedTools.length}
+                                    </Box>{" "}
+                                    tools
+                                </Typography>
+                            ) : null}
+                            {data.projectAssignments.length > 0 ? (
+                                <Typography variant="caption">
+                                    <Box component="strong" sx={{ color: "text.primary" }}>
+                                        {data.projectAssignments.length}
+                                    </Box>{" "}
+                                    projects
+                                </Typography>
+                            ) : null}
+                            {data.tags.length > 0 ? (
+                                <Typography variant="caption">
+                                    <Box component="strong" sx={{ color: "text.primary" }}>
+                                        {data.tags.length}
+                                    </Box>{" "}
+                                    tags
+                                </Typography>
+                            ) : null}
+                        </Stack>
+                    </>
+                )}
             </Stack>
-            <Handle type="source" position={Position.Bottom} style={{ background: tone, width: 10, height: 10 }} />
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                style={{ background: tone, width: 10, height: 10, border: "2px solid white" }}
+            />
         </Paper>
     );
 }
@@ -671,11 +1222,13 @@ const nodeTypes = {
 
 
 function AgentEditorSection({
+    step,
     title,
     description,
     children,
     defaultExpanded = true,
 }: {
+    step?: string;
     title: string;
     description: string;
     children: React.ReactNode;
@@ -685,6 +1238,11 @@ function AgentEditorSection({
         <Accordion defaultExpanded={defaultExpanded} disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, overflow: "hidden", "&:before": { display: "none" } }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Stack spacing={0.25}>
+                    {step ? (
+                        <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: 1, color: "text.secondary", fontWeight: 700 }}>
+                            {step}
+                        </Typography>
+                    ) : null}
                     <Typography variant="subtitle2">{title}</Typography>
                     <Typography variant="body2" color="text.secondary">
                         {description}
@@ -768,6 +1326,9 @@ export default function AgentLibraryPage() {
     const [editingTeamTemplateId, setEditingTeamTemplateId] = useState<string | null>(null);
     const [skillForm, setSkillForm] = useState<SkillTemplateFormState>(buildSkillForm());
     const [teamTemplateForm, setTeamTemplateForm] = useState<TeamTemplateFormState>(buildTeamTemplateForm());
+    const [teamTemplateCanvasNodes, setTeamTemplateCanvasNodes, onTeamTemplateCanvasNodesChange] = useNodesState<TeamGraphNode>([]);
+    const [teamTemplateCanvasEdges, setTeamTemplateCanvasEdges] = useEdgesState<TeamGraphEdge>([]);
+    const [selectedTeamTemplateCanvasNodeId, setSelectedTeamTemplateCanvasNodeId] = useState<string | null>(null);
     const [draggingItem, setDraggingItem] = useState<{ type: "skill" | "agent-template"; slug: string } | null>(null);
     const [activeDropTarget, setActiveDropTarget] = useState<{ kind: "agent-template" | "team-template"; id: string } | null>(null);
     const [edgeSemanticDraft, setEdgeSemanticDraft] = useState<TeamGraphEdgeSemantic>("delegates_to");
@@ -779,6 +1340,9 @@ export default function AgentLibraryPage() {
     const [graphDirty, setGraphDirty] = useState(false);
     const [inspectorWidth, setInspectorWidth] = useState(360);
     const [isResizingInspector, setIsResizingInspector] = useState(false);
+    const [teamNodeDrawerOpen, setTeamNodeDrawerOpen] = useState(false);
+    const [editingTeamNodeId, setEditingTeamNodeId] = useState<string | null>(null);
+    const [teamNodeDraft, setTeamNodeDraft] = useState<TeamGraphNodeData | null>(null);
 
     useEffect(() => {
         if (!isResizingInspector || !isWideHierarchyLayout) {
@@ -810,7 +1374,6 @@ export default function AgentLibraryPage() {
     const { data: runs = [] } = useQuery({
         queryKey: ["orchestration", "runs"],
         queryFn: () => listRuns(),
-        refetchInterval: 5000,
     });
     const { data: templates = [] } = useQuery({
         queryKey: ["orchestration", "agent-templates"],
@@ -829,7 +1392,36 @@ export default function AgentLibraryPage() {
         queryFn: listOrchestrationProjects,
     });
 
+    useLiveSnapshotStream("/orchestration/hierarchy/stream", {
+        onSnapshot: () => {
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "runs"] });
+            void queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+        },
+    });
+
     const activeTab = manualTab ?? routeTab;
+    const agentRoleGuidance = AGENT_ROLE_GUIDANCE[form.role as keyof typeof AGENT_ROLE_GUIDANCE] ?? AGENT_ROLE_GUIDANCE.specialist;
+    const selectedTeamAgentTemplates = useMemo(
+        () => teamTemplateForm.agent_template_slugs
+            .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+            .filter((item): item is AgentTemplate => Boolean(item)),
+        [teamTemplateForm.agent_template_slugs, templates],
+    );
+    const selectedTeamTemplateCanvasNode = useMemo(
+        () => teamTemplateCanvasNodes.find((node) => node.id === selectedTeamTemplateCanvasNodeId) ?? null,
+        [selectedTeamTemplateCanvasNodeId, teamTemplateCanvasNodes],
+    );
+    const derivedTeamTemplateSummary = useMemo(() => {
+        const roles = uniqueStrings(selectedTeamAgentTemplates.map((item) => item.role));
+        const tools = uniqueStrings(selectedTeamAgentTemplates.flatMap((item) => item.allowed_tools));
+        const skillsUsed = uniqueStrings(selectedTeamAgentTemplates.flatMap((item) => item.skills));
+        return {
+            roles,
+            tools,
+            skillsUsed,
+        };
+    }, [selectedTeamAgentTemplates]);
 
     const agentLiveStatus = useMemo(() => {
         const map = new Map<string, "running" | "blocked" | "queued" | "idle">();
@@ -855,13 +1447,40 @@ export default function AgentLibraryPage() {
     const initialGraph = useMemo(() => buildInitialTeamGraph(agents, agentLiveStatus), [agents, agentLiveStatus]);
     const [nodes, setNodes, onNodesChange] = useNodesState<TeamGraphNode>(initialGraph.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState<TeamGraphEdge>(initialGraph.edges);
+    const initialGraphStateSignature = useMemo(
+        () => graphSignature(initialGraph.nodes, initialGraph.edges),
+        [initialGraph],
+    );
+    const currentGraphStateSignature = useMemo(
+        () => graphSignature(nodes, edges),
+        [edges, nodes],
+    );
 
     useEffect(() => {
-        if (!graphDirty) {
+        if (!graphDirty && currentGraphStateSignature !== initialGraphStateSignature) {
             setNodes(initialGraph.nodes);
             setEdges(initialGraph.edges);
         }
-    }, [graphDirty, initialGraph, setEdges, setNodes]);
+    }, [currentGraphStateSignature, graphDirty, initialGraph, initialGraphStateSignature, setEdges, setNodes]);
+
+    const handleFlowNodesChange = useCallback<typeof onNodesChange>((changes) => {
+        onNodesChange(changes);
+        setGraphDirty(true);
+    }, [onNodesChange]);
+
+    const handleFlowEdgesChange = useCallback<typeof onEdgesChange>((changes) => {
+        onEdgesChange(changes);
+        setGraphDirty(true);
+    }, [onEdgesChange]);
+
+    const handleFlowConnect = useCallback((connection: Connection) => {
+        if (!connection.source || !connection.target) return;
+
+        setEdges((current) =>
+            addEdge(createSemanticEdge(connection.source, connection.target, edgeSemanticDraft), current),
+        );
+        setGraphDirty(true);
+    }, [edgeSemanticDraft, setEdges]);
 
     const validationIssues = useMemo(() => buildValidationIssues(nodes, edges), [nodes, edges]);
     const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
@@ -1036,26 +1655,75 @@ export default function AgentLibraryPage() {
     }
 
     function openTeamTemplateDrawer(template?: TeamTemplate) {
+        const draft = buildTeamTemplateForm(template);
+        const draftTemplates = draft.agent_template_slugs
+            .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+            .filter((item): item is AgentTemplate => Boolean(item));
+        const graph = applyTeamTemplateCanvasLayout(
+            buildTeamTemplateCanvasGraph(draftTemplates),
+            draft.canvas_layout,
+        );
         setEditingTeamTemplateId(template?.id ?? null);
-        setTeamTemplateForm(buildTeamTemplateForm(template));
+        setTeamTemplateForm(draft);
+        setTeamTemplateCanvasNodes(graph.nodes);
+        setTeamTemplateCanvasEdges(graph.edges);
+        setSelectedTeamTemplateCanvasNodeId(graph.nodes[0]?.id ?? null);
         setTeamTemplateDrawerOpen(true);
+    }
+
+    function attachAgentTemplateToTeamTemplateDraft(templateSlug: string) {
+        const nextSlugs = uniqueStrings([...teamTemplateForm.agent_template_slugs, templateSlug]);
+        const graph = buildTeamTemplateCanvasGraph(
+            nextSlugs
+                .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+                .filter((item): item is AgentTemplate => Boolean(item)),
+        );
+        setTeamTemplateForm((current) => ({
+            ...current,
+            agent_template_slugs: nextSlugs,
+        }));
+        setTeamTemplateCanvasNodes(graph.nodes);
+        setTeamTemplateCanvasEdges(graph.edges);
+        setSelectedTeamTemplateCanvasNodeId((current) => current ?? graph.nodes[0]?.id ?? null);
+    }
+
+    function removeAgentTemplateFromTeamTemplateDraft(templateSlug: string) {
+        const nextSlugs = teamTemplateForm.agent_template_slugs.filter((item) => item !== templateSlug);
+        const graph = buildTeamTemplateCanvasGraph(
+            nextSlugs
+                .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+                .filter((item): item is AgentTemplate => Boolean(item)),
+        );
+        setTeamTemplateForm((current) => ({
+            ...current,
+            agent_template_slugs: nextSlugs,
+        }));
+        setTeamTemplateCanvasNodes(graph.nodes);
+        setTeamTemplateCanvasEdges(graph.edges);
+        setSelectedTeamTemplateCanvasNodeId(graph.nodes[0]?.id ?? null);
     }
 
     function saveTeamTemplate() {
         const existingTemplate = editingTeamTemplateId
             ? teamTemplates.find((item) => item.id === editingTeamTemplateId) ?? null
             : null;
+        const selectedTemplates = teamTemplateForm.agent_template_slugs
+            .map((slug) => templates.find((item) => item.slug === slug) ?? null)
+            .filter((item): item is AgentTemplate => Boolean(item));
+        const derivedRoles = uniqueStrings(selectedTemplates.map((item) => item.role));
+        const derivedTools = uniqueStrings(selectedTemplates.flatMap((item) => item.allowed_tools));
         const nextSlug = existingTemplate?.slug ?? (teamTemplateForm.slug.trim() || createUniqueSlug(teamTemplateForm.name || "Untitled team template", teamTemplates.map((item) => item.slug)));
         const payload: Omit<TeamTemplate, "id"> = {
             slug: nextSlug,
             name: teamTemplateForm.name.trim() || existingTemplate?.name || "Untitled team template",
             description: teamTemplateForm.description.trim(),
             outcome: teamTemplateForm.outcome.trim(),
-            roles: teamTemplateForm.roles,
-            tools: teamTemplateForm.tools,
-            autonomy: teamTemplateForm.autonomy.trim() || "custom",
+            roles: derivedRoles,
+            tools: derivedTools,
+            autonomy: existingTemplate?.autonomy ?? "custom",
             visibility: teamTemplateForm.visibility.trim() || "private",
             agent_template_slugs: teamTemplateForm.agent_template_slugs,
+            canvas_layout: extractTeamTemplateCanvasLayout(teamTemplateCanvasNodes, teamTemplateCanvasEdges),
         };
 
         if (existingTemplate) {
@@ -1116,6 +1784,37 @@ export default function AgentLibraryPage() {
         });
     }
 
+    function createDraftNode(role: TeamGraphRole = "specialist") {
+        const count = nodes.filter((node) => node.data.role === role).length + 1;
+        const nextNode: TeamGraphNode = {
+            id: createUniqueNodeId(`draft-${role}`, nodes.map((node) => node.id)),
+            type: role,
+            position: { x: 120 + count * 40, y: role === "manager" ? 80 : role === "reviewer" ? 520 : 300 },
+            data: {
+                ...createDefaultNodeData(
+                    role,
+                    role === "manager" ? "Manager" : role === "reviewer" ? "Reviewer" : "Specialist",
+                    createUniqueSlug(`${role}-${count}`, nodes.map((node) => node.data.slug)),
+                    role === "manager"
+                        ? "Routes work, resolves escalation, and owns delivery."
+                        : role === "reviewer"
+                            ? "Reviews outputs before handoff."
+                            : "Executes scoped tasks inside the team.",
+                    role === "manager" ? ["orchestration", "delegation"] : role === "reviewer" ? ["qa", "review"] : ["execution"],
+                    "",
+                ),
+                subtitle: "local draft",
+            },
+        };
+        setNodes((current) => autoLayoutGraph([...current, nextNode]));
+        setGraphDirty(true);
+        setSelectedNodeId(nextNode.id);
+        setSelectedEdgeId(null);
+        openTeamNodeDrawer(nextNode.id, nextNode.data);
+        showToast({ message: "Draft agent added to team graph.", severity: "success" });
+        fitCanvas();
+    }
+
     function addAgentNode(agentId: string) {
         const agent = agents.find((item) => item.id === agentId);
         if (!agent) {
@@ -1124,17 +1823,18 @@ export default function AgentLibraryPage() {
         const role = agent.role === "manager" || agent.role === "reviewer" ? agent.role : "specialist";
         const count = nodes.filter((node) => node.data.role === role).length + 1;
         const nextNode: TeamGraphNode = {
-            id: `${agent.id}-team-node-${Date.now()}`,
+            id: createUniqueNodeId(`${agent.id}-team-node`, nodes.map((node) => node.id)),
             type: role,
             position: { x: 120 + count * 40, y: role === "manager" ? 80 : role === "reviewer" ? 520 : 300 },
             data: buildNodeDataFromAgent(agent, agentLiveStatus),
         };
-        setNodes((current) => [...current, nextNode]);
+        setNodes((current) => autoLayoutGraph([...current, nextNode]));
         setGraphDirty(true);
         setSelectedNodeId(nextNode.id);
         setSelectedEdgeId(null);
         setAddAgentDialogOpen(false);
         setAgentToAddId("");
+        openTeamNodeDrawer(nextNode.id, nextNode.data);
         showToast({ message: `${agent.name} added to team graph.`, severity: "success" });
         fitCanvas();
     }
@@ -1146,7 +1846,15 @@ export default function AgentLibraryPage() {
                     ? {
                         ...node,
                         type: patch.role ?? node.type,
-                        data: { ...node.data, ...patch, subtitle: patch.linkedTemplateSlug ? `template ${patch.linkedTemplateSlug}` : node.data.subtitle },
+                        data: {
+                            ...node.data,
+                            ...patch,
+                            subtitle: buildNodeSubtitle({
+                                linkedTemplateSlug: patch.linkedTemplateSlug ?? node.data.linkedTemplateSlug,
+                                linkedAgentId: patch.linkedAgentId ?? node.data.linkedAgentId,
+                                slug: patch.slug ?? node.data.slug,
+                            }),
+                        },
                     }
                     : node,
             ),
@@ -1154,11 +1862,67 @@ export default function AgentLibraryPage() {
         setGraphDirty(true);
     }
 
+    function openTeamNodeDrawer(nodeId: string, initialData?: TeamGraphNodeData) {
+        const node = nodes.find((item) => item.id === nodeId);
+        const nextData = initialData ?? node?.data;
+        if (!nextData) {
+            return;
+        }
+        setEditingTeamNodeId(nodeId);
+        setTeamNodeDraft(cloneNodeData(nextData));
+        setTeamNodeDrawerOpen(true);
+    }
+
+    function closeTeamNodeDrawer() {
+        setTeamNodeDrawerOpen(false);
+        setEditingTeamNodeId(null);
+        setTeamNodeDraft(null);
+    }
+
+    function hydrateTeamNodeDraftFromAgent(agentId: string) {
+        const agent = agents.find((item) => item.id === agentId);
+        if (!agent) {
+            return;
+        }
+        const hydrated = buildNodeDataFromAgent(agent, agentLiveStatus);
+        setTeamNodeDraft((current) => {
+            if (!current) {
+                return hydrated;
+            }
+            return {
+                ...hydrated,
+                linkedTemplateSlug: current.linkedTemplateSlug || hydrated.linkedTemplateSlug,
+                linkedAgentId: agentId,
+                projectAssignments: current.projectAssignments.length > 0 ? current.projectAssignments : hydrated.projectAssignments,
+                subtitle: buildNodeSubtitle({
+                    linkedTemplateSlug: current.linkedTemplateSlug || hydrated.linkedTemplateSlug,
+                    linkedAgentId: agentId,
+                    slug: hydrated.slug,
+                }),
+            };
+        });
+    }
+
+    function saveTeamNode() {
+        if (!editingTeamNodeId || !teamNodeDraft) {
+            return;
+        }
+        updateNodeData(editingTeamNodeId, {
+            ...teamNodeDraft,
+            subtitle: buildNodeSubtitle(teamNodeDraft),
+        });
+        closeTeamNodeDrawer();
+        showToast({ message: "Team graph agent updated.", severity: "success" });
+    }
+
     function deleteNode(nodeId: string) {
         setNodes((current) => current.filter((node) => node.id !== nodeId));
         setEdges((current) => current.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
         if (selectedNodeId === nodeId) {
             setSelectedNodeId(null);
+        }
+        if (editingTeamNodeId === nodeId) {
+            closeTeamNodeDrawer();
         }
         setGraphDirty(true);
     }
@@ -1233,19 +1997,13 @@ export default function AgentLibraryPage() {
         });
     }
 
-    function hydrateSelectedNodeFromAgent(agentId: string) {
-        const agent = agents.find((item) => item.id === agentId);
-        if (!agent || !selectedNodeId) return;
-        updateNodeData(selectedNodeId, buildNodeDataFromAgent(agent, agentLiveStatus));
-    }
-
     const inspectorContent = selectedNode ? (
         <Stack spacing={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                 <Box>
                     <Typography variant="h6">{selectedNode.data.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Configure role contract, routing, runtime, and memory policy.
+                        Select node, then open builder from right drawer to edit contract and runtime.
                     </Typography>
                 </Box>
                 {isCompact ? (
@@ -1256,6 +2014,9 @@ export default function AgentLibraryPage() {
             </Stack>
 
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Button size="small" variant="contained" onClick={() => openTeamNodeDrawer(selectedNode.id)}>
+                    Edit
+                </Button>
                 <Button size="small" variant="outlined" startIcon={<DuplicateIcon />} onClick={() => duplicateNode(selectedNode.id)}>
                     Duplicate
                 </Button>
@@ -1263,189 +2024,29 @@ export default function AgentLibraryPage() {
                     Delete
                 </Button>
             </Stack>
-
-            <TextField
-                label="Name"
-                value={selectedNode.data.name}
-                onChange={(event) => updateNodeData(selectedNode.id, { name: event.target.value })}
-                fullWidth
-            />
-            <TextField
-                label="Slug"
-                value={selectedNode.data.slug}
-                onChange={(event) => updateNodeData(selectedNode.id, { slug: event.target.value })}
-                fullWidth
-            />
-            <TextField
-                select
-                label="Role"
-                value={selectedNode.data.role}
-                onChange={(event) => updateNodeData(selectedNode.id, { role: event.target.value as TeamGraphRole })}
-                fullWidth
-            >
-                {ROLE_OPTIONS.map((role) => (
-                    <MenuItem key={role} value={role}>
-                        {role}
-                    </MenuItem>
-                ))}
-            </TextField>
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                <Chip size="small" label={selectedNode.data.role} color={getRoleColor(selectedNode.data.role)} variant="outlined" />
+                <Chip size="small" label={selectedNode.data.status} variant="outlined" />
+                {selectedNode.data.linkedTemplateSlug ? <Chip size="small" label={`template ${selectedNode.data.linkedTemplateSlug}`} variant="outlined" /> : null}
+                {selectedNode.data.linkedAgentId ? <Chip size="small" label="linked saved agent" variant="outlined" /> : null}
+            </Stack>
             <TextField
                 label="Description"
+                value={selectedNode.data.description || "No contract description yet."}
                 multiline
-                minRows={3}
-                value={selectedNode.data.description}
-                onChange={(event) => updateNodeData(selectedNode.id, { description: event.target.value })}
+                minRows={4}
                 fullWidth
+                InputProps={{ readOnly: true }}
             />
             <TextField
-                select
-                label="Linked template"
-                value={selectedNode.data.linkedTemplateSlug}
-                onChange={(event) => updateNodeData(selectedNode.id, { linkedTemplateSlug: event.target.value })}
-                fullWidth
-            >
-                <MenuItem value="">None</MenuItem>
-                {templates.map((template) => (
-                    <MenuItem key={template.slug} value={template.slug}>
-                        {template.name}
-                    </MenuItem>
-                ))}
-            </TextField>
-            <TextField
-                select
-                label="Linked agent"
-                value={selectedNode.data.linkedAgentId}
-                onChange={(event) => {
-                    const linkedAgentId = event.target.value;
-                    updateNodeData(selectedNode.id, { linkedAgentId });
-                    if (linkedAgentId) {
-                        hydrateSelectedNodeFromAgent(linkedAgentId);
-                    }
-                }}
-                fullWidth
-            >
-                <MenuItem value="">None</MenuItem>
-                {agents.map((agent) => (
-                    <MenuItem key={agent.id} value={agent.id}>
-                        {agent.name}
-                    </MenuItem>
-                ))}
-            </TextField>
-            <StringListField
                 label="Capabilities"
-                value={selectedNode.data.capabilities}
-                onChange={(nextValue) => updateNodeData(selectedNode.id, { capabilities: nextValue })}
-                helperText="Capability chips describe owned work."
-                placeholder="Type capability, press Enter"
-                options={stringOptions.capabilities}
-            />
-            <StringListField
-                label="Allowed tools"
-                value={selectedNode.data.allowedTools}
-                onChange={(nextValue) => updateNodeData(selectedNode.id, { allowedTools: nextValue })}
-                helperText="Grant only the tools this node needs."
-                options={stringOptions.tools}
-            />
-            <StringListField
-                label="Tags"
-                value={selectedNode.data.tags}
-                onChange={(nextValue) => updateNodeData(selectedNode.id, { tags: nextValue })}
-                helperText="Use tags for domain or routing metadata."
-                options={stringOptions.tags}
-            />
-            <StringListField
-                label="Project assignments"
-                value={selectedNode.data.projectAssignments}
-                onChange={(nextValue) => updateNodeData(selectedNode.id, { projectAssignments: nextValue })}
-                helperText="TODO-ready local mapping until backend team layout storage exists."
-                options={stringOptions.projects}
-            />
-            <TaskFiltersField
-                value={selectedNode.data.taskFilters}
-                onChange={(nextValue) => updateNodeData(selectedNode.id, { taskFilters: nextValue })}
-                helperText="One routing condition per line."
-            />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                    label="Primary model"
-                    value={selectedNode.data.model}
-                    onChange={(event) => updateNodeData(selectedNode.id, { model: event.target.value })}
-                    fullWidth
-                />
-                <TextField
-                    label="Fallback model"
-                    value={selectedNode.data.fallbackModel}
-                    onChange={(event) => updateNodeData(selectedNode.id, { fallbackModel: event.target.value })}
-                    fullWidth
-                />
-            </Stack>
-            <TextField
-                label="Escalation path"
-                value={selectedNode.data.escalationPath}
-                onChange={(event) => updateNodeData(selectedNode.id, { escalationPath: event.target.value })}
-                helperText="Target node id, slug, or name."
+                value={selectedNode.data.capabilities.join(", ")}
                 fullWidth
+                InputProps={{ readOnly: true }}
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                    select
-                    label="Permission"
-                    value={selectedNode.data.permission}
-                    onChange={(event) => updateNodeData(selectedNode.id, { permission: event.target.value })}
-                    fullWidth
-                >
-                    {PERMISSION_OPTIONS.map((item) => (
-                        <MenuItem key={item} value={item}>
-                            {item}
-                        </MenuItem>
-                    ))}
-                </TextField>
-                <TextField
-                    select
-                    label="Memory scope"
-                    value={selectedNode.data.memoryScope}
-                    onChange={(event) => updateNodeData(selectedNode.id, { memoryScope: event.target.value })}
-                    fullWidth
-                >
-                    {MEMORY_SCOPE_OPTIONS.map((item) => (
-                        <MenuItem key={item} value={item}>
-                            {item}
-                        </MenuItem>
-                    ))}
-                </TextField>
-            </Stack>
-            <TextField
-                select
-                label="Output format"
-                value={selectedNode.data.outputFormat}
-                onChange={(event) => updateNodeData(selectedNode.id, { outputFormat: event.target.value })}
-                fullWidth
-            >
-                {OUTPUT_FORMAT_OPTIONS.map((item) => (
-                    <MenuItem key={item} value={item}>
-                        {item}
-                    </MenuItem>
-                ))}
-            </TextField>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                    label="Token budget"
-                    value={selectedNode.data.tokenBudget}
-                    onChange={(event) => updateNodeData(selectedNode.id, { tokenBudget: event.target.value })}
-                    fullWidth
-                />
-                <TextField
-                    label="Time budget (s)"
-                    value={selectedNode.data.timeBudgetSeconds}
-                    onChange={(event) => updateNodeData(selectedNode.id, { timeBudgetSeconds: event.target.value })}
-                    fullWidth
-                />
-                <TextField
-                    label="Retry budget"
-                    value={selectedNode.data.retryBudget}
-                    onChange={(event) => updateNodeData(selectedNode.id, { retryBudget: event.target.value })}
-                    fullWidth
-                />
+                <TextField label="Primary model" value={selectedNode.data.model} fullWidth InputProps={{ readOnly: true }} />
+                <TextField label="Fallback model" value={selectedNode.data.fallbackModel} fullWidth InputProps={{ readOnly: true }} />
             </Stack>
         </Stack>
     ) : (
@@ -1736,7 +2337,7 @@ export default function AgentLibraryPage() {
                                     startIcon={<AddIcon />}
                                     onClick={() => {
                                         if (agents.length === 0) {
-                                            setManualTab("library");
+                                            createDraftNode();
                                             return;
                                         }
                                         setAgentToAddId(agents[0]?.id ?? "");
@@ -1808,7 +2409,7 @@ export default function AgentLibraryPage() {
                                                 variant="contained"
                                                 onClick={() => {
                                                     if (agents.length === 0) {
-                                                        setManualTab("library");
+                                                        createDraftNode();
                                                         return;
                                                     }
                                                     setAgentToAddId(agents[0]?.id ?? "");
@@ -1839,19 +2440,9 @@ export default function AgentLibraryPage() {
                                         edges={edges}
                                         nodeTypes={nodeTypes}
                                         onInit={setFlowInstance}
-                                        onNodesChange={(changes) => {
-                                            onNodesChange(changes);
-                                            setGraphDirty(true);
-                                        }}
-                                        onEdgesChange={(changes) => {
-                                            onEdgesChange(changes);
-                                            setGraphDirty(true);
-                                        }}
-                                        onConnect={(connection: Connection) => {
-                                            if (!connection.source || !connection.target) return;
-                                            setEdges((current) => addEdge(createSemanticEdge(connection.source!, connection.target!, edgeSemanticDraft), current));
-                                            setGraphDirty(true);
-                                        }}
+                                        onNodesChange={handleFlowNodesChange}
+                                        onEdgesChange={handleFlowEdgesChange}
+                                        onConnect={handleFlowConnect}
                                         onNodeClick={(_, node) => {
                                             setSelectedNodeId(node.id);
                                             setSelectedEdgeId(null);
@@ -1871,6 +2462,9 @@ export default function AgentLibraryPage() {
                                             const deletedIds = new Set(deletedNodes.map((node) => node.id));
                                             if (selectedNodeId && deletedIds.has(selectedNodeId)) {
                                                 setSelectedNodeId(null);
+                                            }
+                                            if (editingTeamNodeId && deletedIds.has(editingTeamNodeId)) {
+                                                closeTeamNodeDrawer();
                                             }
                                             setGraphDirty(true);
                                         }}
@@ -1989,7 +2583,7 @@ export default function AgentLibraryPage() {
                         <Box>
                             <Typography variant="h6">{editingAgentTemplateSlug ? "Edit agent template" : "Add agent template"}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Update reusable contract fields. Dropped skills also appear here.
+                                Build a reusable agent contract: purpose, scope, routing surface, and runtime guardrails.
                             </Typography>
                         </Box>
                         <Stack direction="row" spacing={1}>
@@ -1998,28 +2592,102 @@ export default function AgentLibraryPage() {
                         </Stack>
                     </Stack>
                     <Stack spacing={2}>
-                        <AgentEditorSection title="Basics" description="Identity, inheritance, and prompt contract.">
+                        <Alert severity="info">
+                            Start with mission and scope. Then define what work this agent should receive, which tools it may use, and how strict its runtime policy should be.
+                        </Alert>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                            <Stack spacing={1.5}>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
+                                    <Box>
+                                        <Typography variant="overline" sx={{ letterSpacing: 1.2, color: "text.secondary" }}>
+                                            Agent builder flow
+                                        </Typography>
+                                        <Typography variant="subtitle1">
+                                            {form.name.trim() || "Untitled agent template"}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 72 + "ch" }}>
+                                            {form.description.trim() || "Define the mission first. A strong template starts with clear ownership, then narrows into routing, tooling, and runtime policy."}
+                                        </Typography>
+                                    </Box>
+                                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ alignItems: "flex-start", justifyContent: { md: "flex-end" } }}>
+                                        <Chip size="small" label="1 Identity" variant="outlined" />
+                                        <Chip size="small" label="2 Work" variant="outlined" />
+                                        <Chip size="small" label="3 Runtime" variant="outlined" />
+                                        <Chip size="small" label="4 Contract" variant="outlined" />
+                                    </Stack>
+                                </Stack>
+                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                        <Typography variant="caption" color="text.secondary">Role</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>{form.role}</Typography>
+                                    </Paper>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                        <Typography variant="caption" color="text.secondary">Routing surface</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>{parseCsv(form.capabilities).length || 0} capabilities</Typography>
+                                    </Paper>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                        <Typography variant="caption" color="text.secondary">Runtime</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>{form.model || "No primary model set"}</Typography>
+                                    </Paper>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                        <Typography variant="caption" color="text.secondary">Output</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>{form.output_format || "json"}</Typography>
+                                    </Paper>
+                                </Box>
+                            </Stack>
+                        </Paper>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                            <Stack spacing={0.75}>
+                                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+                                    <Chip size="small" label={form.role} color={getRoleColor(form.role as TeamGraphRole)} variant="outlined" />
+                                    {form.parent_template_slug ? <Chip size="small" label={`inherits ${form.parent_template_slug}`} variant="outlined" /> : null}
+                                    {form.model ? <Chip size="small" label={`primary ${form.model}`} variant="outlined" /> : null}
+                                    {form.output_format ? <Chip size="small" label={`output ${form.output_format}`} variant="outlined" /> : null}
+                                </Stack>
+                                <Typography variant="body2">{agentRoleGuidance.summary}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Strong agent templates are specific about ownership, escalation, and output quality. Weak templates only list a role and a model.
+                                </Typography>
+                            </Stack>
+                        </Paper>
+                        <AgentEditorSection step="Step 1" title="Identity & role" description="Name the agent, define its seat in the template tree, and set its broad responsibility.">
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField label="Name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
-                                <TextField label="Slug" value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))} fullWidth />
+                                <TextField label="Agent name" placeholder="Backend Builder" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} fullWidth helperText="Human-readable role name shown across orchestration views." />
+                                <TextField label="Template slug" placeholder="backend-builder" value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))} fullWidth helperText="Stable identifier used for inheritance and routing references." />
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField select label="Role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} fullWidth>
+                                <TextField select label="Role in team" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} fullWidth helperText="Choose how this agent behaves by default inside a hierarchy.">
                                     {ROLE_OPTIONS.map((role) => (
                                         <MenuItem key={role} value={role}>{role}</MenuItem>
                                     ))}
                                 </TextField>
-                                <TextField select label="Parent template" value={form.parent_template_slug} onChange={(event) => setForm((current) => ({ ...current, parent_template_slug: event.target.value }))} fullWidth>
+                                <TextField select label="Parent template" value={form.parent_template_slug} onChange={(event) => setForm((current) => ({ ...current, parent_template_slug: event.target.value }))} fullWidth helperText="Optional base template to inherit rules, capabilities, and policy from.">
                                     <MenuItem value="">None</MenuItem>
                                     {templates.filter((item) => item.slug !== editingAgentTemplateSlug).map((template) => (
                                         <MenuItem key={template.slug} value={template.slug}>{template.name}</MenuItem>
                                     ))}
                                 </TextField>
                             </Stack>
-                            <TextField label="Description" multiline minRows={3} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-                            <TextField label="System prompt" multiline minRows={5} value={form.system_prompt} onChange={(event) => setForm((current) => ({ ...current, system_prompt: event.target.value }))} />
+                            <TextField
+                                label="Mission and scope"
+                                placeholder="Own backend implementation for API and data tasks. Deliver tested changes, note tradeoffs, and escalate cross-service risks early."
+                                multiline
+                                minRows={3}
+                                helperText="Describe what this agent is responsible for, what good work looks like, and where its scope ends."
+                                value={form.description}
+                                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                            />
+                            <TextField
+                                label="Operating instructions"
+                                placeholder={agentRoleGuidance.promptHint}
+                                multiline
+                                minRows={6}
+                                helperText="Write the core decision rules this agent should follow on every run."
+                                value={form.system_prompt}
+                                onChange={(event) => setForm((current) => ({ ...current, system_prompt: event.target.value }))}
+                            />
                         </AgentEditorSection>
-                        <AgentEditorSection title="Skills & capabilities" description="Template skill packs, capabilities, tools, tags, and task filters.">
+                        <AgentEditorSection step="Step 2" title="Work surface" description="Define what work this agent is good at, what skills it carries, and which tasks should route here.">
                             <Autocomplete
                                 multiple
                                 options={skills.map((skill) => skill.slug)}
@@ -2032,64 +2700,303 @@ export default function AgentLibraryPage() {
                                         return <Chip key={key} label={skillDisplayName(option, skills)} size="small" {...tagProps} />;
                                     })
                                 }
-                                renderInput={(params) => <TextField {...params} label="Skills" helperText="Drop skill templates onto agent cards or edit here." />}
+                                renderInput={(params) => <TextField {...params} label="Attached skills" helperText="Reusable skill packs attached to this template." />}
                             />
                             <StringListField
                                 label="Capabilities"
                                 value={parseCsv(form.capabilities)}
                                 onChange={(nextValue) => setForm((current) => ({ ...current, capabilities: stringifyCommaList(nextValue) }))}
+                                helperText="Use concise verbs or domains users can route against: planning, code-review, incident-triage."
                                 options={stringOptions.capabilities}
                             />
                             <StringListField
                                 label="Allowed tools"
                                 value={parseCsv(form.allowed_tools)}
                                 onChange={(nextValue) => setForm((current) => ({ ...current, allowed_tools: stringifyCommaList(nextValue) }))}
+                                helperText="Only grant tools this agent genuinely needs."
                                 options={stringOptions.tools}
                             />
                             <StringListField
                                 label="Tags"
                                 value={parseCsv(form.tags)}
                                 onChange={(nextValue) => setForm((current) => ({ ...current, tags: stringifyCommaList(nextValue) }))}
+                                helperText="Use tags for domain or governance metadata, not core capability matching."
                                 options={stringOptions.tags}
                             />
                             <TaskFiltersField
                                 value={parseLooseList(form.task_filters)}
                                 onChange={(nextValue) => setForm((current) => ({ ...current, task_filters: nextValue.join(", ") }))}
-                                helperText="One routing rule per line."
+                                helperText={agentRoleGuidance.filtersHint}
                             />
                         </AgentEditorSection>
-                        <AgentEditorSection title="Execution" description="Model routing, permissions, memory, and output expectations.">
+                        <AgentEditorSection step="Step 3" title="Runtime policy" description="Control how this agent runs, escalates, accesses memory, and spends budget.">
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField label="Primary model" value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} fullWidth />
-                                <TextField label="Fallback model" value={form.fallback_model} onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))} fullWidth />
+                                <TextField label="Primary model" placeholder="gpt-5-codex" helperText="Default model for normal execution." value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} fullWidth />
+                                <TextField label="Fallback model" placeholder="claude-sonnet-4-6" helperText="Used when the primary model is unavailable or unsuitable." value={form.fallback_model} onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))} fullWidth />
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField label="Escalation path" value={form.escalation_path} onChange={(event) => setForm((current) => ({ ...current, escalation_path: event.target.value }))} fullWidth />
-                                <TextField select label="Permission" value={form.permission} onChange={(event) => setForm((current) => ({ ...current, permission: event.target.value }))} fullWidth>
+                                <TextField label="Escalation path" placeholder="lead-manager" helperText="Who should receive work this agent cannot safely complete?" value={form.escalation_path} onChange={(event) => setForm((current) => ({ ...current, escalation_path: event.target.value }))} fullWidth />
+                                <TextField select label="Permission level" value={form.permission} onChange={(event) => setForm((current) => ({ ...current, permission: event.target.value }))} fullWidth helperText="Keep this as low as possible for the role.">
                                     {PERMISSION_OPTIONS.map((item) => (
                                         <MenuItem key={item} value={item}>{item}</MenuItem>
                                     ))}
                                 </TextField>
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField select label="Memory scope" value={form.memory_scope} onChange={(event) => setForm((current) => ({ ...current, memory_scope: event.target.value }))} fullWidth>
+                                <TextField select label="Memory scope" value={form.memory_scope} onChange={(event) => setForm((current) => ({ ...current, memory_scope: event.target.value }))} fullWidth helperText="How much prior context this agent may retain or recall.">
                                     {MEMORY_SCOPE_OPTIONS.map((item) => (
                                         <MenuItem key={item} value={item}>{item}</MenuItem>
                                     ))}
                                 </TextField>
-                                <TextField select label="Output format" value={form.output_format} onChange={(event) => setForm((current) => ({ ...current, output_format: event.target.value }))} fullWidth>
+                                <TextField select label="Default output contract" value={form.output_format} onChange={(event) => setForm((current) => ({ ...current, output_format: event.target.value }))} fullWidth helperText="Default structure downstream systems should expect from this agent.">
                                     {OUTPUT_FORMAT_OPTIONS.map((item) => (
                                         <MenuItem key={item} value={item}>{item}</MenuItem>
                                     ))}
                                 </TextField>
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField label="Token budget" value={form.token_budget} onChange={(event) => setForm((current) => ({ ...current, token_budget: event.target.value }))} fullWidth />
-                                <TextField label="Time budget (s)" value={form.time_budget_seconds} onChange={(event) => setForm((current) => ({ ...current, time_budget_seconds: event.target.value }))} fullWidth />
-                                <TextField label="Retry budget" value={form.retry_budget} onChange={(event) => setForm((current) => ({ ...current, retry_budget: event.target.value }))} fullWidth />
+                                <TextField label="Token budget" helperText="Ceiling for prompt + completion tokens per run." value={form.token_budget} onChange={(event) => setForm((current) => ({ ...current, token_budget: event.target.value }))} fullWidth />
+                                <TextField label="Time budget (s)" helperText="Maximum runtime before the system should fail or escalate." value={form.time_budget_seconds} onChange={(event) => setForm((current) => ({ ...current, time_budget_seconds: event.target.value }))} fullWidth />
+                                <TextField label="Retry budget" helperText="How many automatic retries are allowed before escalation." value={form.retry_budget} onChange={(event) => setForm((current) => ({ ...current, retry_budget: event.target.value }))} fullWidth />
+                            </Stack>
+                        </AgentEditorSection>
+                        <AgentEditorSection step="Step 4" title="Contract preview" description="Final check of what this template tells the system about ownership, runtime behavior, and expected output." defaultExpanded={false}>
+                            <Stack spacing={1.25}>
+                                <TextField
+                                    label="Mission summary"
+                                    value={form.description.trim() || "No mission defined yet."}
+                                    multiline
+                                    minRows={3}
+                                    fullWidth
+                                    InputProps={{ readOnly: true }}
+                                />
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField label="Primary model" value={form.model || "Not set"} fullWidth InputProps={{ readOnly: true }} />
+                                    <TextField label="Escalates to" value={form.escalation_path || "Not set"} fullWidth InputProps={{ readOnly: true }} />
+                                </Stack>
+                                <TextField
+                                    label="Routing surface"
+                                    value={parseCsv(form.capabilities).join(", ") || "No capabilities defined yet."}
+                                    fullWidth
+                                    InputProps={{ readOnly: true }}
+                                />
+                                <TextField
+                                    label="Output contract"
+                                    value={`${form.output_format || "json"} • permission ${form.permission} • memory ${form.memory_scope}`}
+                                    fullWidth
+                                    InputProps={{ readOnly: true }}
+                                />
                             </Stack>
                         </AgentEditorSection>
                     </Stack>
+                </Stack>
+            </Drawer>
+
+            <Drawer
+                anchor="right"
+                open={teamNodeDrawerOpen}
+                onClose={closeTeamNodeDrawer}
+                PaperProps={{ sx: { width: { xs: "100vw", lg: 760 } } }}
+            >
+                <Stack spacing={2} sx={{ p: 3 }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5}>
+                        <Box>
+                            <Typography variant="h6">Edit team graph agent</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Builder drawer for selected graph node, same right-side workflow as library.
+                            </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1}>
+                            <Button onClick={closeTeamNodeDrawer}>Close</Button>
+                            <Button variant="contained" onClick={saveTeamNode} disabled={!teamNodeDraft}>
+                                Save
+                            </Button>
+                        </Stack>
+                    </Stack>
+                    {teamNodeDraft ? (
+                        <Stack spacing={2}>
+                            <AgentEditorSection title="Basics" description="Identity, role, and local graph linkage.">
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Name"
+                                        value={teamNodeDraft.name}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, name: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Slug"
+                                        value={teamNodeDraft.slug}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, slug: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                </Stack>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        select
+                                        label="Role"
+                                        value={teamNodeDraft.role}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, role: event.target.value as TeamGraphRole } : current)}
+                                        fullWidth
+                                    >
+                                        {ROLE_OPTIONS.map((role) => (
+                                            <MenuItem key={role} value={role}>{role}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        label="Linked template"
+                                        value={teamNodeDraft.linkedTemplateSlug}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, linkedTemplateSlug: event.target.value } : current)}
+                                        fullWidth
+                                    >
+                                        <MenuItem value="">None</MenuItem>
+                                        {templates.map((template) => (
+                                            <MenuItem key={template.slug} value={template.slug}>{template.name}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Stack>
+                                <TextField
+                                    select
+                                    label="Linked saved agent"
+                                    value={teamNodeDraft.linkedAgentId}
+                                    onChange={(event) => {
+                                        const linkedAgentId = event.target.value;
+                                        setTeamNodeDraft((current) => current ? { ...current, linkedAgentId } : current);
+                                        if (linkedAgentId) {
+                                            hydrateTeamNodeDraftFromAgent(linkedAgentId);
+                                        }
+                                    }}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {agents.map((agent) => (
+                                        <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <TextField
+                                    label="Description"
+                                    multiline
+                                    minRows={4}
+                                    value={teamNodeDraft.description}
+                                    onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, description: event.target.value } : current)}
+                                />
+                            </AgentEditorSection>
+                            <AgentEditorSection title="Skills & capabilities" description="Graph-level capability, tool, tag, and routing metadata.">
+                                <StringListField
+                                    label="Capabilities"
+                                    value={teamNodeDraft.capabilities}
+                                    onChange={(nextValue) => setTeamNodeDraft((current) => current ? { ...current, capabilities: nextValue } : current)}
+                                    helperText="Capability chips describe owned work."
+                                    placeholder="Type capability, press Enter"
+                                    options={stringOptions.capabilities}
+                                />
+                                <StringListField
+                                    label="Allowed tools"
+                                    value={teamNodeDraft.allowedTools}
+                                    onChange={(nextValue) => setTeamNodeDraft((current) => current ? { ...current, allowedTools: nextValue } : current)}
+                                    helperText="Grant only tools this node needs."
+                                    options={stringOptions.tools}
+                                />
+                                <StringListField
+                                    label="Tags"
+                                    value={teamNodeDraft.tags}
+                                    onChange={(nextValue) => setTeamNodeDraft((current) => current ? { ...current, tags: nextValue } : current)}
+                                    helperText="Use tags for domain or routing metadata."
+                                    options={stringOptions.tags}
+                                />
+                                <StringListField
+                                    label="Project assignments"
+                                    value={teamNodeDraft.projectAssignments}
+                                    onChange={(nextValue) => setTeamNodeDraft((current) => current ? { ...current, projectAssignments: nextValue } : current)}
+                                    helperText="Local mapping until backend team layout persistence exists."
+                                    options={stringOptions.projects}
+                                />
+                                <TaskFiltersField
+                                    value={teamNodeDraft.taskFilters}
+                                    onChange={(nextValue) => setTeamNodeDraft((current) => current ? { ...current, taskFilters: nextValue } : current)}
+                                    helperText="One routing rule per line."
+                                />
+                            </AgentEditorSection>
+                            <AgentEditorSection title="Execution" description="Model routing, permissions, memory, and output expectations.">
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Primary model"
+                                        value={teamNodeDraft.model}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, model: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Fallback model"
+                                        value={teamNodeDraft.fallbackModel}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, fallbackModel: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                </Stack>
+                                <TextField
+                                    label="Escalation path"
+                                    value={teamNodeDraft.escalationPath}
+                                    onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, escalationPath: event.target.value } : current)}
+                                    helperText="Target node id, slug, or name."
+                                    fullWidth
+                                />
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        select
+                                        label="Permission"
+                                        value={teamNodeDraft.permission}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, permission: event.target.value } : current)}
+                                        fullWidth
+                                    >
+                                        {PERMISSION_OPTIONS.map((item) => (
+                                            <MenuItem key={item} value={item}>{item}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        label="Memory scope"
+                                        value={teamNodeDraft.memoryScope}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, memoryScope: event.target.value } : current)}
+                                        fullWidth
+                                    >
+                                        {MEMORY_SCOPE_OPTIONS.map((item) => (
+                                            <MenuItem key={item} value={item}>{item}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Stack>
+                                <TextField
+                                    select
+                                    label="Output format"
+                                    value={teamNodeDraft.outputFormat}
+                                    onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, outputFormat: event.target.value } : current)}
+                                    fullWidth
+                                >
+                                    {OUTPUT_FORMAT_OPTIONS.map((item) => (
+                                        <MenuItem key={item} value={item}>{item}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Token budget"
+                                        value={teamNodeDraft.tokenBudget}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, tokenBudget: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Time budget (s)"
+                                        value={teamNodeDraft.timeBudgetSeconds}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, timeBudgetSeconds: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Retry budget"
+                                        value={teamNodeDraft.retryBudget}
+                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, retryBudget: event.target.value } : current)}
+                                        fullWidth
+                                    />
+                                </Stack>
+                            </AgentEditorSection>
+                        </Stack>
+                    ) : null}
                 </Stack>
             </Drawer>
 
@@ -2097,14 +3004,14 @@ export default function AgentLibraryPage() {
                 anchor="right"
                 open={skillTemplateDrawerOpen}
                 onClose={() => setSkillTemplateDrawerOpen(false)}
-                PaperProps={{ sx: { width: { xs: "100vw", sm: 520 } } }}
+                PaperProps={{ sx: { width: { xs: "100vw", sm: 640 } } }}
             >
                 <Stack spacing={2} sx={{ p: 3 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5}>
                         <Box>
                             <Typography variant="h6">{editingSkillSlug ? "Edit skill template" : "Add skill template"}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Reusable skill packs can be dropped into agent templates.
+                                Build a reusable skill pack: what it adds to an agent, which tools it assumes, and what behavioral rules it injects.
                             </Typography>
                         </Box>
                         <Stack direction="row" spacing={1}>
@@ -2112,13 +3019,122 @@ export default function AgentLibraryPage() {
                             <Button variant="contained" onClick={saveSkillTemplate}>Save</Button>
                         </Stack>
                     </Stack>
-                    <TextField label="Name" value={skillForm.name} onChange={(event) => setSkillForm((current) => ({ ...current, name: event.target.value }))} />
-                    <TextField label="Slug" value={skillForm.slug} onChange={(event) => setSkillForm((current) => ({ ...current, slug: event.target.value }))} />
-                    <TextField label="Description" multiline minRows={3} value={skillForm.description} onChange={(event) => setSkillForm((current) => ({ ...current, description: event.target.value }))} />
-                    <StringListField label="Capabilities" value={skillForm.capabilities} onChange={(nextValue) => setSkillForm((current) => ({ ...current, capabilities: nextValue }))} options={stringOptions.capabilities} />
-                    <StringListField label="Allowed tools" value={skillForm.allowed_tools} onChange={(nextValue) => setSkillForm((current) => ({ ...current, allowed_tools: nextValue }))} options={stringOptions.tools} />
-                    <StringListField label="Tags" value={skillForm.tags} onChange={(nextValue) => setSkillForm((current) => ({ ...current, tags: nextValue }))} options={stringOptions.tags} />
-                    <TextField label="Rules" multiline minRows={5} value={skillForm.rules_markdown} onChange={(event) => setSkillForm((current) => ({ ...current, rules_markdown: event.target.value }))} />
+                    <Alert severity="info">
+                        Good skills are narrow and reusable. They should add a recognizable behavior pattern to many agents, not duplicate the full identity of one agent.
+                    </Alert>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                        <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="overline" sx={{ letterSpacing: 1.2, color: "text.secondary" }}>
+                                        Skill builder flow
+                                    </Typography>
+                                    <Typography variant="subtitle1">
+                                        {skillForm.name.trim() || "Untitled skill template"}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 72 + "ch" }}>
+                                        {skillForm.description.trim() || "Define the reusable behavior this skill adds to an agent. Strong skills are composable, focused, and explicit about tools and rules."}
+                                    </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ alignItems: "flex-start", justifyContent: { md: "flex-end" } }}>
+                                    <Chip size="small" label="1 Identity" variant="outlined" />
+                                    <Chip size="small" label="2 Surface" variant="outlined" />
+                                    <Chip size="small" label="3 Rules" variant="outlined" />
+                                </Stack>
+                            </Stack>
+                            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Capabilities</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.capabilities.length} linked</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Allowed tools</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.allowed_tools.length} required</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Tags</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.tags.length} labels</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Instruction depth</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.rules_markdown.trim() ? "Defined" : "Missing"}</Typography>
+                                </Paper>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <AgentEditorSection step="Step 1" title="Identity" description="Name the skill and define the reusable behavior it adds to any agent template.">
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                            <TextField
+                                label="Skill name"
+                                placeholder="PR review discipline"
+                                value={skillForm.name}
+                                onChange={(event) => setSkillForm((current) => ({ ...current, name: event.target.value }))}
+                                helperText="Human-readable name shown when attaching this skill to agents."
+                                fullWidth
+                            />
+                            <TextField
+                                label="Skill slug"
+                                placeholder="pr-review-discipline"
+                                value={skillForm.slug}
+                                onChange={(event) => setSkillForm((current) => ({ ...current, slug: event.target.value }))}
+                                helperText="Stable identifier used across templates."
+                                fullWidth
+                            />
+                        </Stack>
+                        <TextField
+                            label="What this skill adds"
+                            placeholder="Adds a disciplined PR review loop: inspect changed files, identify concrete risks, demand evidence, and separate findings from summaries."
+                            multiline
+                            minRows={3}
+                            value={skillForm.description}
+                            onChange={(event) => setSkillForm((current) => ({ ...current, description: event.target.value }))}
+                            helperText="Describe the reusable behavior or operating pattern this skill injects."
+                        />
+                    </AgentEditorSection>
+                    <AgentEditorSection step="Step 2" title="Skill surface" description="Define the capability signals, tools, and metadata that make this skill attachable and discoverable.">
+                        <StringListField
+                            label="Capabilities added"
+                            value={skillForm.capabilities}
+                            onChange={(nextValue) => setSkillForm((current) => ({ ...current, capabilities: nextValue }))}
+                            helperText="Use concise routing-friendly labels like qa, decomposition, repo-triage, benchmark-design."
+                            options={stringOptions.capabilities}
+                        />
+                        <StringListField
+                            label="Required tools"
+                            value={skillForm.allowed_tools}
+                            onChange={(nextValue) => setSkillForm((current) => ({ ...current, allowed_tools: nextValue }))}
+                            helperText="List only the tools this skill assumes the host agent can use."
+                            options={stringOptions.tools}
+                        />
+                        <StringListField
+                            label="Tags"
+                            value={skillForm.tags}
+                            onChange={(nextValue) => setSkillForm((current) => ({ ...current, tags: nextValue }))}
+                            helperText="Optional metadata for domain, governance, or workflow grouping."
+                            options={stringOptions.tags}
+                        />
+                    </AgentEditorSection>
+                    <AgentEditorSection step="Step 3" title="Injected rules" description="Write the instructions that should merge into an agent whenever this skill is attached.">
+                        <TextField
+                            label="Skill rules"
+                            placeholder={"When reviewing code:\n- prioritize concrete bugs and regressions\n- cite affected files or functions\n- separate findings from suggestions\n- do not approve without evidence"}
+                            multiline
+                            minRows={8}
+                            value={skillForm.rules_markdown}
+                            onChange={(event) => setSkillForm((current) => ({ ...current, rules_markdown: event.target.value }))}
+                            helperText="Write reusable rules, not full agent identity. Think behavior module, not complete persona."
+                        />
+                        <TextField
+                            label="Preview"
+                            value={
+                                skillForm.rules_markdown.trim()
+                                    ? `${skillForm.capabilities.length} capabilities • ${skillForm.allowed_tools.length} tools • injects explicit behavior rules`
+                                    : "Add rules so this skill changes how an agent behaves, not just how it is labeled."
+                            }
+                            fullWidth
+                            InputProps={{ readOnly: true }}
+                        />
+                    </AgentEditorSection>
                 </Stack>
             </Drawer>
 
@@ -2126,14 +3142,14 @@ export default function AgentLibraryPage() {
                 anchor="right"
                 open={teamTemplateDrawerOpen}
                 onClose={() => setTeamTemplateDrawerOpen(false)}
-                PaperProps={{ sx: { width: { xs: "100vw", sm: 560 } } }}
+                PaperProps={{ sx: { width: { xs: "100vw", sm: 760 } } }}
             >
                 <Stack spacing={2} sx={{ p: 3 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5}>
                         <Box>
                             <Typography variant="h6">{editingTeamTemplateId ? "Edit team template" : "Add team template"}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Reusable team canvases built from agent templates.
+                                Compose reusable teams by combining agent templates. Team metadata stays minimal; roles and tools are derived from the agents you include.
                             </Typography>
                         </Box>
                         <Stack direction="row" spacing={1}>
@@ -2141,30 +3157,215 @@ export default function AgentLibraryPage() {
                             <Button variant="contained" onClick={saveTeamTemplate}>Save</Button>
                         </Stack>
                     </Stack>
-                    <TextField label="Name" value={teamTemplateForm.name} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, name: event.target.value }))} />
-                    <TextField label="Slug" value={teamTemplateForm.slug} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, slug: event.target.value }))} />
-                    <TextField label="Description" multiline minRows={3} value={teamTemplateForm.description} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, description: event.target.value }))} />
-                    <TextField label="Outcome" value={teamTemplateForm.outcome} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, outcome: event.target.value }))} />
-                    <StringListField label="Roles" value={teamTemplateForm.roles} onChange={(nextValue) => setTeamTemplateForm((current) => ({ ...current, roles: nextValue }))} options={[...ROLE_OPTIONS]} />
-                    <StringListField label="Tools" value={teamTemplateForm.tools} onChange={(nextValue) => setTeamTemplateForm((current) => ({ ...current, tools: nextValue }))} options={stringOptions.tools} />
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <TextField label="Autonomy" value={teamTemplateForm.autonomy} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, autonomy: event.target.value }))} fullWidth />
-                        <TextField label="Visibility" value={teamTemplateForm.visibility} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, visibility: event.target.value }))} fullWidth />
-                    </Stack>
+                    <Alert severity="info">
+                        Best practice: build the team from agent templates first. Use extra metadata only to explain the team’s purpose and sharing model.
+                    </Alert>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                        <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="overline" sx={{ letterSpacing: 1.2, color: "text.secondary" }}>
+                                        Team builder flow
+                                    </Typography>
+                                    <Typography variant="subtitle1">
+                                        {teamTemplateForm.name.trim() || "Untitled team template"}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 72 + "ch" }}>
+                                        {teamTemplateForm.outcome.trim() || "Define team purpose, then compose the team from agent templates. Roles, tools, and skill coverage will be derived automatically."}
+                                    </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ alignItems: "flex-start", justifyContent: { md: "flex-end" } }}>
+                                    <Chip size="small" label="1 Metadata" variant="outlined" />
+                                    <Chip size="small" label="2 Composition" variant="outlined" />
+                                    <Chip size="small" label="3 Derived summary" variant="outlined" />
+                                </Stack>
+                            </Stack>
+                            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Agents</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedTeamAgentTemplates.length} selected</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Roles</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{derivedTeamTemplateSummary.roles.length} derived</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Tools</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{derivedTeamTemplateSummary.tools.length} derived</Typography>
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Visibility</Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{teamTemplateForm.visibility || "private"}</Typography>
+                                </Paper>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <AgentEditorSection step="Step 1" title="Minimal metadata" description="Only keep metadata users actually need: name, purpose, and sharing model.">
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                            <TextField label="Team name" placeholder="Release strike team" value={teamTemplateForm.name} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, name: event.target.value }))} fullWidth helperText="Display name for this reusable team." />
+                            <TextField label="Template slug" placeholder="release-strike-team" value={teamTemplateForm.slug} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, slug: event.target.value }))} fullWidth helperText="Stable identifier for the team template." />
+                        </Stack>
+                        <TextField label="What this team is for" placeholder="Coordinates planning, implementation, and review for high-risk releases." multiline minRows={3} value={teamTemplateForm.description} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, description: event.target.value }))} helperText="Describe the team’s mission and usage context." />
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                            <TextField label="Outcome" placeholder="Ship release work with planning, implementation, and review coverage." value={teamTemplateForm.outcome} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, outcome: event.target.value }))} fullWidth helperText="Short statement of what this team should reliably deliver." />
+                            <TextField select label="Visibility" value={teamTemplateForm.visibility} onChange={(event) => setTeamTemplateForm((current) => ({ ...current, visibility: event.target.value }))} fullWidth helperText="Whether other users should reuse this team template.">
+                                <MenuItem value="private">private</MenuItem>
+                                <MenuItem value="shared">shared</MenuItem>
+                                <MenuItem value="public">public</MenuItem>
+                            </TextField>
+                        </Stack>
+                    </AgentEditorSection>
+                    <AgentEditorSection step="Step 2" title="Team composition" description="Build the team by selecting or dragging agent templates. The team should be defined by its members, not by extra knobs.">
+                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 280px" }, gap: 2 }}>
+                            <Paper
+                                variant="outlined"
+                                onDragOver={(event) => {
+                                    if (draggingItem?.type !== "agent-template") return;
+                                    event.preventDefault();
+                                }}
+                                onDrop={() => {
+                                    if (draggingItem?.type === "agent-template") {
+                                        attachAgentTemplateToTeamTemplateDraft(draggingItem.slug);
+                                    }
+                                    setDraggingItem(null);
+                                    setActiveDropTarget(null);
+                                }}
+                                sx={{
+                                    p: 1,
+                                    borderRadius: 3,
+                                    borderStyle: "dashed",
+                                    bgcolor: draggingItem?.type === "agent-template" ? "action.hover" : "background.paper",
+                                }}
+                            >
+                                {teamTemplateCanvasNodes.length === 0 ? (
+                                    <EmptyState
+                                        icon={<GraphIcon />}
+                                        title="Empty team canvas"
+                                        description="Drag agent templates here to compose the team visually."
+                                    />
+                                ) : (
+                                    <Box sx={{ height: 420, borderRadius: 2, overflow: "hidden", bgcolor: alpha("#f8fafc", 0.7) }}>
+                                        <ReactFlow
+                                            nodes={teamTemplateCanvasNodes}
+                                            edges={teamTemplateCanvasEdges}
+                                            nodeTypes={nodeTypes}
+                                            onNodesChange={onTeamTemplateCanvasNodesChange}
+                                            onNodeClick={(_, node) => setSelectedTeamTemplateCanvasNodeId(node.id)}
+                                            onPaneClick={() => setSelectedTeamTemplateCanvasNodeId(null)}
+                                            fitView
+                                            deleteKeyCode={null}
+                                            selectionOnDrag={false}
+                                            proOptions={{ hideAttribution: true }}
+                                        >
+                                            <Background color="#d0d5dd" gap={18} size={1.1} />
+                                            <Controls showInteractive={false} />
+                                        </ReactFlow>
+                                    </Box>
+                                )}
+                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1, pt: 1 }}>
+                                    Canvas is composition-first preview. Saved template persists included agent templates; exact node coordinates are not stored yet.
+                                </Typography>
+                            </Paper>
+                            <Stack spacing={1.25}>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Typography variant="subtitle2">Canvas inspector</Typography>
+                                    {selectedTeamTemplateCanvasNode ? (
+                                        <Stack spacing={1} sx={{ mt: 1 }}>
+                                            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+                                                <Typography variant="body2">{selectedTeamTemplateCanvasNode.data.name}</Typography>
+                                                <Chip size="small" label={selectedTeamTemplateCanvasNode.data.role} color={getRoleColor(selectedTeamTemplateCanvasNode.data.role)} variant="outlined" />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {selectedTeamTemplateCanvasNode.data.description || "No description provided."}
+                                            </Typography>
+                                            <Button color="error" onClick={() => removeAgentTemplateFromTeamTemplateDraft(selectedTeamTemplateCanvasNode.data.slug)}>
+                                                Remove from team
+                                            </Button>
+                                        </Stack>
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                            Select a node in the canvas to inspect or remove it.
+                                        </Typography>
+                                    )}
+                                </Paper>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Typography variant="subtitle2">Agent template library</Typography>
+                                    <Stack spacing={1} sx={{ mt: 1 }}>
+                                        {templates.length === 0 ? (
+                                            <Typography variant="body2" color="text.secondary">No agent templates available.</Typography>
+                                        ) : templates.map((template) => {
+                                            const isIncluded = teamTemplateForm.agent_template_slugs.includes(template.slug);
+                                            return (
+                                                <Paper
+                                                    key={template.slug}
+                                                    variant="outlined"
+                                                    draggable={!isIncluded}
+                                                    onDragStart={() => !isIncluded && setDraggingItem({ type: "agent-template", slug: template.slug })}
+                                                    onDragEnd={() => setDraggingItem(null)}
+                                                    sx={{ p: 1.25, borderRadius: 2, opacity: isIncluded ? 0.6 : 1 }}
+                                                >
+                                                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                        <Box>
+                                                            <Typography variant="body2">{template.name}</Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {template.role} • {template.slug}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Button
+                                                            size="small"
+                                                            variant={isIncluded ? "outlined" : "contained"}
+                                                            onClick={() => isIncluded ? removeAgentTemplateFromTeamTemplateDraft(template.slug) : attachAgentTemplateToTeamTemplateDraft(template.slug)}
+                                                        >
+                                                            {isIncluded ? "Remove" : "Add"}
+                                                        </Button>
+                                                    </Stack>
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Stack>
+                                </Paper>
+                            </Stack>
+                        </Box>
+                    </AgentEditorSection>
+                    <AgentEditorSection step="Step 3" title="Derived summary" description="These fields are inferred from the selected agent templates and saved automatically.">
+                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                            {derivedTeamTemplateSummary.roles.length > 0 ? derivedTeamTemplateSummary.roles.map((role) => (
+                                <Chip key={role} size="small" label={`role ${role}`} variant="outlined" />
+                            )) : <Chip size="small" label="No roles derived yet" variant="outlined" />}
+                        </Stack>
+                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                            {derivedTeamTemplateSummary.tools.length > 0 ? derivedTeamTemplateSummary.tools.map((tool) => (
+                                <Chip key={tool} size="small" label={`tool ${tool}`} variant="outlined" />
+                            )) : <Chip size="small" label="No tools derived yet" variant="outlined" />}
+                        </Stack>
+                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                            {derivedTeamTemplateSummary.skillsUsed.length > 0 ? derivedTeamTemplateSummary.skillsUsed.map((slug) => (
+                                <Chip key={slug} size="small" label={`skill ${skillDisplayName(slug, skills)}`} variant="outlined" />
+                            )) : <Chip size="small" label="No attached skills derived yet" variant="outlined" />}
+                        </Stack>
+                        <TextField
+                            label="Saved team contract"
+                            value={
+                                selectedTeamAgentTemplates.length > 0
+                                    ? `${selectedTeamAgentTemplates.length} agents • ${derivedTeamTemplateSummary.roles.length} roles • ${derivedTeamTemplateSummary.tools.length} tools derived`
+                                    : "Select agent templates to construct the team."
+                            }
+                            fullWidth
+                            InputProps={{ readOnly: true }}
+                        />
+                    </AgentEditorSection>
                 </Stack>
             </Drawer>
 
             <Dialog open={addAgentDialogOpen} onClose={() => setAddAgentDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Add agent to team</DialogTitle>
                 <DialogContent>
-                    {agents.length === 0 ? (
-                        <Alert severity="info" sx={{ mt: 1 }}>
-                            No saved agents available yet. Create one in the library first.
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <Alert severity="info">
+                            Add saved agent or create local draft agent directly in team graph.
                         </Alert>
-                    ) : (
                         <TextField
                             select
-                            margin="normal"
                             label="Agent"
                             value={agentToAddId}
                             onChange={(event) => setAgentToAddId(event.target.value)}
@@ -2177,14 +3378,20 @@ export default function AgentLibraryPage() {
                                 </MenuItem>
                             ))}
                         </TextField>
-                    )}
+                    </Stack>
                 </DialogContent>
                 <DialogActions>
+                    <Button onClick={() => {
+                        setAddAgentDialogOpen(false);
+                        createDraftNode();
+                    }}>
+                        New draft
+                    </Button>
                     <Button onClick={() => setAddAgentDialogOpen(false)}>Cancel</Button>
                     <Button
                         variant="contained"
                         onClick={() => addAgentNode(agentToAddId)}
-                        disabled={!agentToAddId || agents.length === 0}
+                        disabled={!agentToAddId}
                     >
                         Add agent
                     </Button>

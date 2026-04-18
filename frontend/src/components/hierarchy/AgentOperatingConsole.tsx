@@ -47,6 +47,7 @@ import {
     updateTeamMember,
 } from "../../api/orchestrationGraphql";
 import { listOrchestrationProjects } from "../../api/orchestration";
+import { useLiveSnapshotStream } from "../../hooks/useLiveSnapshotStream";
 import { formatDateTime } from "../../utils/formatters";
 import { SectionCard } from "../ui/SectionCard";
 
@@ -298,13 +299,22 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
         queryKey: ["orchestration", "control-plane", resolvedProjectId],
         queryFn: () => fetchOperatingHierarchy(resolvedProjectId as string),
         enabled: Boolean(resolvedProjectId),
-        refetchInterval: 5000,
     });
     const modelProfilesQuery = useQuery({
         queryKey: ["orchestration", "control-plane-models", resolvedProjectId],
         queryFn: () => fetchOperatingModelProfiles(resolvedProjectId as string),
         enabled: Boolean(resolvedProjectId),
     });
+
+    useLiveSnapshotStream(
+        resolvedProjectId ? `/orchestration/projects/${resolvedProjectId}/stream` : null,
+        {
+            enabled: Boolean(resolvedProjectId),
+            onSnapshot: () => {
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "control-plane", resolvedProjectId] });
+            },
+        }
+    );
 
     const snapshot = hierarchyQuery.data;
     const members = snapshot?.members ?? [];

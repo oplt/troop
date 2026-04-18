@@ -174,7 +174,7 @@ export default function NotificationsPage() {
                 <SectionCard title="Inbox" description="Messages are sorted for fast scanning and clear read state.">
                     {error && (
                         <Alert severity="error" sx={{ mb: 2 }}>
-                            {error instanceof Error ? error.message : "Failed to load notifications."}
+                            {error instanceof Error ? error.message : "Couldn't load notifications. Refresh to retry."}
                         </Alert>
                     )}
 

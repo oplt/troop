@@ -632,11 +632,16 @@ class TaskExecutionSnapshotResponse(BaseModel):
     pending_approvals: list[PendingApprovalSummary]
     pending_github_sync: list[PendingGithubSyncSummary]
     metadata_views: dict[str, Any]
+    routing_explainability: dict[str, Any] = Field(default_factory=dict)
+    acceptance_summary: dict[str, Any] = Field(default_factory=dict)
+    execution_memory: dict[str, Any] = Field(default_factory=dict)
+    changed_artifacts: list[dict[str, Any]] = Field(default_factory=list)
     last_run_id: str | None
     focal_run_id: str | None
     checkpoint_excerpt: dict[str, Any]
     recent_events_tail: list[RunEventTailItem]
     trace: list[RunTraceStep] = Field(default_factory=list)
+    durable_workflow: dict[str, Any] = Field(default_factory=dict)
 
 
 class RunExecutionSnapshotResponse(BaseModel):
@@ -646,9 +651,13 @@ class RunExecutionSnapshotResponse(BaseModel):
     task_id: str | None
     pending_approvals: list[PendingApprovalSummary]
     pending_github_sync: list[PendingGithubSyncSummary]
+    routing_explainability: dict[str, Any] = Field(default_factory=dict)
+    execution_memory: dict[str, Any] = Field(default_factory=dict)
+    changed_artifacts: list[dict[str, Any]] = Field(default_factory=list)
     checkpoint_excerpt: dict[str, Any]
     recent_events_tail: list[RunEventTailItem]
     trace: list[RunTraceStep] = Field(default_factory=list)
+    durable_workflow: dict[str, Any] = Field(default_factory=dict)
     resumable: bool = False
 
 
@@ -1016,6 +1025,64 @@ class PortfolioProjectSummary(BaseModel):
     repository_links: int
 
 
+class PortfolioProjectControlPlane(BaseModel):
+    project_id: str
+    name: str
+    slug: str
+    manager: dict[str, Any] = Field(default_factory=dict)
+    health: dict[str, Any] = Field(default_factory=dict)
+    queue_depth: dict[str, int] = Field(default_factory=dict)
+    cost_rollup: dict[str, Any] = Field(default_factory=dict)
+    blocked_work: list[dict[str, Any]] = Field(default_factory=list)
+    escalation_inbox: list[dict[str, Any]] = Field(default_factory=list)
+    latest_run: dict[str, Any] | None = None
+    execution_policy: dict[str, Any] = Field(default_factory=dict)
+
+
+class PortfolioExecutionPolicyUpdate(RequestModel):
+    routing_mode: str | None = None
+    approval_policy: str | None = None
+    repo_indexing_cadence: str | None = None
+    cost_cap_usd: float | None = Field(default=None, ge=0)
+
+
+class PortfolioExecutionPolicyResponse(BaseModel):
+    routing_mode: str
+    approval_policy: str
+    repo_indexing_cadence: str
+    cost_cap_usd: float
+
+
+class OperatorHealthCard(BaseModel):
+    key: str
+    label: str
+    status: str
+    summary: str
+    metrics: dict[str, Any] = Field(default_factory=dict)
+
+
+class OperatorDashboardResponse(BaseModel):
+    generated_at: datetime
+    queue_health: dict[str, Any] = Field(default_factory=dict)
+    webhook_lag: dict[str, Any] = Field(default_factory=dict)
+    replay_backlog: dict[str, Any] = Field(default_factory=dict)
+    stuck_runs: dict[str, Any] = Field(default_factory=dict)
+    services: list[OperatorHealthCard] = Field(default_factory=list)
+
+
+class PortfolioControlPlaneResponse(BaseModel):
+    generated_at: datetime
+    totals: dict[str, Any] = Field(default_factory=dict)
+    execution_policy: PortfolioExecutionPolicyResponse
+    operator_dashboard: OperatorDashboardResponse
+    projects: list[PortfolioProjectControlPlane] = Field(default_factory=list)
+
+
+class WorkflowSignalRequest(RequestModel):
+    signal_name: str = Field(min_length=2, max_length=64)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class ExecutionEventTypeCount(BaseModel):
     event_type: str
     count: int
@@ -1042,6 +1109,8 @@ class RuntimeInfoResponse(BaseModel):
     orchestration_provider_failover: bool
     orchestration_use_langgraph: bool = False
     orchestration_durable_queue_backend: str = "celery"
+    durable_signal_model: str = "checkpoint_signal_queue"
+    durable_query_model: str = "checkpoint_query_snapshot"
     celery_queues: dict[str, str] = Field(
         default_factory=dict,
         description="Logical plane → Redis queue name (split workers; see ADR 0006).",
@@ -1263,6 +1332,7 @@ class TeamTemplateResponse(BaseModel):
     autonomy: str
     visibility: str
     agent_template_slugs: list[str]
+    canvas_layout: dict[str, Any] = Field(default_factory=dict)
 
 
 class TeamTemplateCreate(RequestModel):
@@ -1275,6 +1345,7 @@ class TeamTemplateCreate(RequestModel):
     autonomy: str = "medium"
     visibility: str = "private"
     agent_template_slugs: list[str] = Field(default_factory=list)
+    canvas_layout: dict[str, Any] = Field(default_factory=dict)
 
 
 class TeamTemplateUpdate(RequestModel):
@@ -1286,6 +1357,7 @@ class TeamTemplateUpdate(RequestModel):
     autonomy: str | None = None
     visibility: str | None = None
     agent_template_slugs: list[str] | None = None
+    canvas_layout: dict[str, Any] | None = None
 
 
 class TaskDecomposeRequest(RequestModel):
@@ -1301,6 +1373,7 @@ class TaskDecomposeResponse(BaseModel):
 class TaskAcceptanceCheckResponse(BaseModel):
     task_id: str
     passed: bool
+    config: dict[str, Any] = Field(default_factory=dict)
     checks: list[dict[str, Any]]  # [{name, passed, detail}]
 
 

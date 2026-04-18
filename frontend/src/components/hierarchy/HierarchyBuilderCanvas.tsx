@@ -1067,6 +1067,8 @@ function HierarchyBuilderInner() {
     const [nextMemberNumber, setNextMemberNumber] = useState(4);
     const [nextTaskNumber, setNextTaskNumber] = useState(10);
 
+
+
     const selectedRecord = useMemo(
         () => records.find((record) => record.id === selectedId) ?? records[0],
         [records, selectedId],
@@ -1130,6 +1132,7 @@ function HierarchyBuilderInner() {
         setEditingId(nextId);
         setNextMemberNumber((current) => current + 1);
     }, [nextMemberNumber]);
+
     const addPermanentMember = useCallback(() => {
         handleAddTeamMember(false);
     }, [handleAddTeamMember]);
@@ -1149,7 +1152,9 @@ function HierarchyBuilderInner() {
                     record.parentId === nodeId ? { ...record, parentId: fallbackParentId } : record,
                 );
         });
-        setSelectedId(MANAGER_ID);
+
+        // Only update selectedId if the deleted node was selected
+        setSelectedId(prevId => prevId === nodeId ? MANAGER_ID : prevId);
         setEditingId((current) => (current === nodeId ? null : current));
     }, []);
 
@@ -1439,34 +1444,55 @@ function HierarchyBuilderInner() {
     }, [draft, editingId]);
 
     const layoutedFlow = useMemo(
-        () => layoutHierarchy(records, selectedId, selectNode, openEditor, removeMember, addPermanentMember, runBrainstorm, focusReviewQueue),
+        () =>
+            layoutHierarchy(
+                records,
+                selectedId,
+                selectNode,
+                openEditor,
+                removeMember,
+                addPermanentMember,
+                runBrainstorm,
+                focusReviewQueue,
+            ),
         [addPermanentMember, focusReviewQueue, openEditor, records, removeMember, runBrainstorm, selectNode, selectedId],
     );
-    const [nodes, setNodes, onNodesChange] = useNodesState<Node<HierarchyNodeData>>(layoutedFlow.nodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedFlow.edges);
+
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node<HierarchyNodeData>>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
     useEffect(() => {
         setNodes(layoutedFlow.nodes);
         setEdges(layoutedFlow.edges);
-    }, [layoutedFlow.edges, layoutedFlow.nodes, setEdges, setNodes]);
+    }, [layoutedFlow, setNodes, setEdges]);
 
+    // Fit view after layout changes, but with debounce to prevent excessive calls
     useEffect(() => {
         const timeout = window.setTimeout(() => {
-            void reactFlow.fitView({ padding: 0.18, duration: 200 });
-        }, 0);
+            if (reactFlow && nodes.length > 0) {
+                void reactFlow.fitView({ padding: 0.18, duration: 200 });
+            }
+        }, 100);
+
         return () => window.clearTimeout(timeout);
-    }, [layoutedFlow.nodes, layoutedFlow.edges, reactFlow]);
+    }, [layoutedFlow.nodes, layoutedFlow.edges, reactFlow, nodes.length]);
 
-    const handleNodeDragStop = useCallback((_: unknown, node: Node<HierarchyNodeData>) => {
-        if (node.id === MANAGER_ID) {
-            return;
-        }
+    const handleNodeDragStop = useCallback((_event: unknown, node: Node<HierarchyNodeData>) => {
+        if (node.id === MANAGER_ID) return;
 
-        const nextParent = findParentTarget(reactFlow.getNodes(), node, records);
-        if (nextParent) {
+        const nextParent = findParentTarget(
+            reactFlow.getNodes() as Node<HierarchyNodeData>[],
+            node,
+            records,
+        );
+
+        const currentParentId = records.find((record) => record.id === node.id)?.parentId ?? null;
+
+        if (nextParent && nextParent.id !== currentParentId) {
             updateParent(node.id, nextParent.id);
         }
     }, [reactFlow, records, updateParent]);
+
 
     const managerChildren = useMemo(
         () => records.filter((record) => record.parentId === MANAGER_ID && record.id !== MANAGER_ID),
@@ -1523,7 +1549,6 @@ function HierarchyBuilderInner() {
                                     nodesDraggable
                                     nodesConnectable={false}
                                     elementsSelectable
-                                    fitView
                                     minZoom={0.45}
                                     maxZoom={1.6}
                                     proOptions={{ hideAttribution: true }}

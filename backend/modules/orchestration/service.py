@@ -61,17 +61,22 @@ from backend.modules.orchestration.execution_state import (
     SNAPSHOT_SOURCES_RUN,
     SNAPSHOT_SOURCES_TASK,
     checkpoint_excerpt,
+    extract_execution_memory_details,
     extract_execution_metadata_views,
 )
 from backend.modules.orchestration.execution_workflow import (
     WORKFLOW_STATE_KEY,
+    consume_signal_queue,
     current_step,
+    durable_handle,
+    enqueue_signal,
     ensure_workflow_state,
     get_workflow_artifact,
     increment_resume_count,
     mark_step,
     set_workflow_artifact,
     summarize_trace,
+    update_query_snapshot,
     workflow_state,
 )
 from backend.modules.orchestration.memory_coordination import (
@@ -98,6 +103,7 @@ from backend.modules.orchestration.security import decrypt_secret, encrypt_secre
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
+    PortfolioExecutionPolicy,
     OrchestratorTask,
     ProjectDecision,
     ProjectMilestone,
@@ -121,6 +127,13 @@ TASK_TRANSITIONS: dict[str, set[str]] = {
     "failed": {"planned", "queued", "archived"},
     "synced_to_github": {"archived", "planned"},
     "archived": set(),
+}
+
+DEFAULT_PORTFOLIO_EXECUTION_POLICY: dict[str, Any] = {
+    "routing_mode": "capability_based",
+    "approval_policy": "manager_review",
+    "repo_indexing_cadence": "daily",
+    "cost_cap_usd": 250.0,
 }
 
 SEMANTIC_ENTRY_TYPES = frozenset(
@@ -367,7 +380,40 @@ class OrchestrationService:
     async def list_projects(self, user: User):
         return await self.repo.list_projects(user.id)
 
+    async def get_portfolio_execution_policy(self, user: User) -> dict[str, Any]:
+        stmt = select(PortfolioExecutionPolicy).where(PortfolioExecutionPolicy.owner_id == user.id)
+        record = (await self.db.execute(stmt)).scalar_one_or_none()
+        return self._normalize_portfolio_execution_policy(record.settings_json if record else None)
+
+    async def update_portfolio_execution_policy(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
+        normalized = self._normalize_portfolio_execution_policy(payload)
+        stmt = select(PortfolioExecutionPolicy).where(PortfolioExecutionPolicy.owner_id == user.id)
+        record = (await self.db.execute(stmt)).scalar_one_or_none()
+        if record is None:
+            record = PortfolioExecutionPolicy(owner_id=user.id, settings_json=normalized)
+            self.db.add(record)
+        else:
+            record.settings_json = normalized
+
+        projects = await self.repo.list_projects(user.id)
+        for project in projects:
+            project.settings_json = self._normalize_project_settings(
+                self._apply_portfolio_defaults_to_project_settings(
+                    project.settings_json or {},
+                    normalized,
+                )
+            )
+
+        await self.db.commit()
+        return normalized
+
     async def create_project(self, user: User, payload: dict[str, Any]):
+        policy_defaults = await self.get_portfolio_execution_policy(user)
+        settings = self._apply_portfolio_defaults_to_project_settings(
+            payload.get("settings", {}),
+            policy_defaults,
+            explicit_settings=payload.get("settings", {}),
+        )
         project = await self.repo.create_project(
             owner_id=user.id,
             name=payload["name"],
@@ -375,7 +421,7 @@ class OrchestrationService:
             description=payload.get("description"),
             status=payload.get("status", "active"),
             goals_markdown=payload.get("goals_markdown", ""),
-            settings_json=self._normalize_project_settings(payload.get("settings", {})),
+            settings_json=self._normalize_project_settings(settings),
             memory_scope=payload.get("memory_scope", "project"),
             knowledge_summary=payload.get("knowledge_summary"),
         )
@@ -399,7 +445,13 @@ class OrchestrationService:
         project = await self.get_project(user, project_id)
         for field, value in updates.items():
             if field == "settings":
+                defaults = await self.get_portfolio_execution_policy(user)
                 merged = self._merge_nested_project_settings(project.settings_json or {}, value or {})
+                merged = self._apply_portfolio_defaults_to_project_settings(
+                    merged,
+                    defaults,
+                    explicit_settings=value or {},
+                )
                 project.settings_json = self._normalize_project_settings(merged)
             else:
                 setattr(project, field, value)
@@ -480,6 +532,24 @@ class OrchestrationService:
         await self.get_project(user, project_id)
         return await self.repo.list_project_repositories(project_id)
 
+    async def update_project_repository(
+        self, user: User, project_id: str, repository_link_id: str, updates: dict[str, Any]
+    ):
+        project = await self.get_project(user, project_id)
+        repository_link = await self.repo.get_project_repository(project.id, repository_link_id)
+        if repository_link is None:
+            raise HTTPException(status_code=404, detail="Project repository link not found")
+        if "default_branch" in updates:
+            repository_link.default_branch = updates.get("default_branch")
+        if "metadata" in updates and isinstance(updates.get("metadata"), dict):
+            repository_link.metadata_json = {
+                **(repository_link.metadata_json or {}),
+                **(updates.get("metadata") or {}),
+            }
+        await self.db.commit()
+        await self.db.refresh(repository_link)
+        return repository_link
+
     async def list_project_memory_ingest_jobs(
         self, user: User, project_id: str, *, limit: int = 60
     ) -> list[dict[str, Any]]:
@@ -500,15 +570,135 @@ class OrchestrationService:
             for row in rows
         ]
 
+    async def project_repository_index_status(
+        self, user: User, project_id: str
+    ) -> list[dict[str, Any]]:
+        project = await self.get_project(user, project_id)
+        repositories = await self.repo.list_project_repositories(project.id)
+        jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project.id, limit=240)
+        documents = await self.repo.list_documents(project.id, None)
+
+        documents_by_repo: dict[str, list[Any]] = {}
+        for document in documents:
+            metadata = document.metadata_json or {}
+            if metadata.get("source_kind") != "repo_index":
+                continue
+            repository_link_id = str(metadata.get("repository_link_id") or "")
+            if not repository_link_id:
+                continue
+            documents_by_repo.setdefault(repository_link_id, []).append(document)
+
+        jobs_by_repo: dict[str, list[Any]] = {}
+        for job in jobs:
+            if job.job_type != "repo_index":
+                continue
+            repository_link_id = str((job.payload_json or {}).get("repository_link_id") or "")
+            if not repository_link_id:
+                continue
+            jobs_by_repo.setdefault(repository_link_id, []).append(job)
+
+        rows: list[dict[str, Any]] = []
+        for repository in repositories:
+            repo_docs = documents_by_repo.get(repository.id, [])
+            repo_jobs = jobs_by_repo.get(repository.id, [])
+            latest_job = repo_jobs[0] if repo_jobs else None
+            latest_success = next((job for job in repo_jobs if job.status == "completed"), None)
+            indexed_files = len(repo_docs)
+            chunk_count = sum(int(doc.chunk_count or 0) for doc in repo_docs)
+            latest_indexed_at = None
+            if repo_docs:
+                latest_indexed_at = max(
+                    (doc.updated_at or doc.created_at for doc in repo_docs if (doc.updated_at or doc.created_at)),
+                    default=None,
+                )
+            recent_files = [
+                {
+                    "document_id": doc.id,
+                    "path": str((doc.metadata_json or {}).get("path") or doc.filename),
+                    "branch": str((doc.metadata_json or {}).get("branch") or repository.default_branch or ""),
+                    "chunk_count": int(doc.chunk_count or 0),
+                    "status": doc.ingestion_status,
+                }
+                for doc in sorted(
+                    repo_docs,
+                    key=lambda item: item.updated_at or item.created_at,
+                    reverse=True,
+                )[:10]
+            ]
+            recent_errors = [
+                {
+                    "job_id": job.id,
+                    "error_text": job.error_text,
+                    "created_at": job.created_at,
+                    "mode": str((job.payload_json or {}).get("mode") or "full"),
+                    "path_prefixes": list((job.payload_json or {}).get("path_prefixes") or []),
+                }
+                for job in repo_jobs
+                if job.status == "failed" and job.error_text
+            ][:5]
+            index_settings = dict((repository.metadata_json or {}).get("indexing") or {})
+            rows.append(
+                {
+                    "repository_link_id": repository.id,
+                    "github_repository_id": repository.github_repository_id,
+                    "full_name": repository.full_name,
+                    "default_branch": repository.default_branch,
+                    "repository_url": repository.repository_url,
+                    "index_settings": index_settings,
+                    "indexed_files": indexed_files,
+                    "chunk_count": chunk_count,
+                    "searchable_documents": indexed_files,
+                    "last_indexed_at": latest_indexed_at,
+                    "latest_job": {
+                        "id": latest_job.id,
+                        "status": latest_job.status,
+                        "error_text": latest_job.error_text,
+                        "created_at": latest_job.created_at,
+                        "started_at": latest_job.started_at,
+                        "finished_at": latest_job.finished_at,
+                        "mode": str((latest_job.payload_json or {}).get("mode") or "full"),
+                        "path_prefixes": list((latest_job.payload_json or {}).get("path_prefixes") or []),
+                    }
+                    if latest_job
+                    else None,
+                    "last_successful_job_id": latest_success.id if latest_success else None,
+                    "pending_jobs": sum(1 for job in repo_jobs if job.status == "pending"),
+                    "running_jobs": sum(1 for job in repo_jobs if job.status == "running"),
+                    "recent_files": recent_files,
+                    "recent_errors": recent_errors,
+                }
+            )
+        return rows
+
     async def index_project_repository(
-        self, user: User, project_id: str, repository_link_id: str
+        self, user: User, project_id: str, repository_link_id: str, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
+        payload = payload or {}
         project = await self.get_project(user, project_id)
         repository_link = await self.repo.get_project_repository(project.id, repository_link_id)
         if repository_link is None:
             raise HTTPException(status_code=404, detail="Project repository link not found")
         if not repository_link.github_repository_id:
             raise HTTPException(status_code=422, detail="Project repository is not linked to GitHub")
+        path_prefixes = [
+            str(item).strip()
+            for item in list(payload.get("path_prefixes") or [])
+            if str(item).strip()
+        ][:20]
+        mode = "incremental" if str(payload.get("mode") or "full") == "incremental" else "full"
+        auto_enabled = payload.get("auto_enabled")
+        schedule_label = str(payload.get("schedule_label") or "").strip() or None
+        if auto_enabled is not None or schedule_label is not None:
+            metadata = dict(repository_link.metadata_json or {})
+            metadata["indexing"] = {
+                **dict(metadata.get("indexing") or {}),
+                **({"auto_enabled": bool(auto_enabled)} if auto_enabled is not None else {}),
+                **({"schedule_label": schedule_label} if schedule_label is not None else {}),
+                "last_requested_mode": mode,
+                "last_requested_at": datetime.now(UTC).isoformat(),
+                "path_prefixes": path_prefixes,
+            }
+            repository_link.metadata_json = metadata
         job = await self.repo.create_memory_ingest_job(
             owner_id=user.id,
             project_id=project.id,
@@ -517,6 +707,8 @@ class OrchestrationService:
                 "project_id": project.id,
                 "repository_link_id": repository_link.id,
                 "requested_by_user_id": user.id,
+                "mode": mode,
+                "path_prefixes": path_prefixes,
             },
             status="pending",
         )
@@ -533,6 +725,8 @@ class OrchestrationService:
             "project_id": project.id,
             "repository_link_id": repository_link.id,
             "status": job.status,
+            "mode": mode,
+            "path_prefixes": path_prefixes,
         }
 
     async def _run_repository_index_job(
@@ -558,6 +752,11 @@ class OrchestrationService:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
 
         branch = repository_link.default_branch or github_repository.default_branch or "main"
+        path_prefixes = [
+            str(item).strip()
+            for item in list((payload.get("path_prefixes") or []))
+            if str(item).strip()
+        ][:20]
         archive_response = await self._github_request(
             connection,
             "GET",
@@ -580,6 +779,8 @@ class OrchestrationService:
                 raw_name = str(member.name or "")
                 _, _, path = raw_name.partition("/")
                 if not path or not any(path.endswith(suffix) for suffix in allowed_suffixes):
+                    continue
+                if path_prefixes and not any(path.startswith(prefix) for prefix in path_prefixes):
                     continue
                 extracted = tf.extractfile(member)
                 if extracted is None:
@@ -611,6 +812,7 @@ class OrchestrationService:
                         "repository_full_name": github_repository.full_name,
                         "branch": branch,
                         "path": path,
+                        "index_mode": str(payload.get("mode") or "full"),
                     },
                 )
                 await self._index_project_document(document)
@@ -622,6 +824,8 @@ class OrchestrationService:
             "branch": branch,
             "indexed_files": indexed,
             "chunk_count": chunk_total,
+            "mode": str(payload.get("mode") or "full"),
+            "path_prefixes": path_prefixes,
         }
 
     async def list_tasks(self, user: User, project_id: str):
@@ -733,6 +937,28 @@ class OrchestrationService:
             await self.get_agent(user, updates["assigned_agent_id"])
         if "reviewer_agent_id" in updates and updates["reviewer_agent_id"]:
             await self.get_agent(user, updates["reviewer_agent_id"])
+
+        if "assigned_agent_id" in updates:
+            next_meta = dict(task.metadata_json or {})
+            assigned_agent_id = updates.get("assigned_agent_id")
+            if assigned_agent_id:
+                agent = await self.get_agent(user, assigned_agent_id)
+                next_meta["routing_explainability"] = {
+                    "agent_selection_reason": f"Task assigned manually to {agent.name}.",
+                    "model_selection_reason": "",
+                    "routing_inputs": {
+                        "assignment_source": "manual_update",
+                        "assigned_agent_id": assigned_agent_id,
+                    },
+                    "routing_policy_snapshot": {},
+                    "agent_source": "manual_update",
+                    "model_source": None,
+                }
+            else:
+                next_meta.pop("routing_explainability", None)
+            task.metadata_json = next_meta
+            orm_attributes.flag_modified(task, "metadata_json")
+
         for field, value in updates.items():
             if field == "labels":
                 task.labels_json = value
@@ -1275,8 +1501,25 @@ class OrchestrationService:
         task = await self.get_task(user, project_id, task_id)
         return await self._check_task_acceptance_payload(task)
 
+    def _task_acceptance_checker_config(self, task: OrchestratorTask | Any) -> dict[str, Any]:
+        meta = dict(getattr(task, "metadata_json", None) or {})
+        raw = meta.get("acceptance_checker")
+        config = raw if isinstance(raw, dict) else {}
+        required_artifact_kinds = config.get("required_artifact_kinds")
+        return {
+            "required_artifact_kinds": [
+                str(item).strip()
+                for item in (required_artifact_kinds if isinstance(required_artifact_kinds, list) else [])
+                if str(item).strip()
+            ],
+            "require_github_comment": bool(config.get("require_github_comment", False)),
+            "require_github_pr": bool(config.get("require_github_pr", False)),
+            "require_reviewer_approval": bool(config.get("require_reviewer_approval", False)),
+        }
+
     async def _check_task_acceptance_payload(self, task: OrchestratorTask) -> dict:
         checks: list[dict] = []
+        config = self._task_acceptance_checker_config(task)
 
         output_text = self._task_output_text(task)
         has_output = bool(output_text.strip())
@@ -1329,7 +1572,98 @@ class OrchestrationService:
                 "detail": "No outstanding rework checklist.",
             })
 
-        return {"task_id": task.id, "passed": all(c["passed"] for c in checks), "checks": checks}
+        list_task_artifacts = getattr(self.repo, "list_task_artifacts", None)
+        artifacts = await list_task_artifacts(task.id) if callable(list_task_artifacts) else []
+        present_artifact_kinds = sorted(
+            {
+                str(getattr(item, "kind", "") or "").strip()
+                for item in artifacts
+                if str(getattr(item, "kind", "") or "").strip()
+            }
+        )
+        if config["required_artifact_kinds"]:
+            missing = [kind for kind in config["required_artifact_kinds"] if kind not in present_artifact_kinds]
+            checks.append({
+                "name": "required_artifacts",
+                "passed": len(missing) == 0,
+                "detail": "All required artifact kinds are present." if not missing else f"Missing required artifact kinds: {', '.join(missing)}",
+                "required_artifact_kinds": config["required_artifact_kinds"],
+                "present_artifact_kinds": present_artifact_kinds,
+            })
+
+        list_sync_events_for_task = getattr(self.repo, "list_sync_events_for_task", None)
+        sync_events = await list_sync_events_for_task(task.id) if callable(list_sync_events_for_task) else []
+        if config["require_github_comment"]:
+            has_comment = any(
+                "comment" in str(getattr(event, "action", "") or "").lower()
+                and str(getattr(event, "status", "") or "").lower() in {"completed", "sent", "success", "approved"}
+                for event in sync_events
+            )
+            checks.append({
+                "name": "github_comment",
+                "passed": has_comment,
+                "detail": "GitHub comment evidence found." if has_comment else "Required GitHub comment evidence was not found.",
+            })
+
+        if config["require_github_pr"]:
+            has_pr = any(
+                (
+                    "pull_request" in str(getattr(event, "action", "") or "").lower()
+                    or "create_pr" in str(getattr(event, "action", "") or "").lower()
+                )
+                and str(getattr(event, "status", "") or "").lower() in {"completed", "sent", "success", "approved"}
+                for event in sync_events
+            )
+            checks.append({
+                "name": "github_pr",
+                "passed": has_pr,
+                "detail": "GitHub PR evidence found." if has_pr else "Required GitHub PR evidence was not found.",
+            })
+
+        if config["require_reviewer_approval"]:
+            reviewer_ok = task.status in {"approved", "completed", "synced_to_github"} or bool(getattr(task, "approved_by_user_id", None))
+            checks.append({
+                "name": "reviewer_approval",
+                "passed": reviewer_ok,
+                "detail": "Reviewer approval recorded." if reviewer_ok else "Reviewer approval is required before completion.",
+            })
+
+        return {"task_id": task.id, "passed": all(c["passed"] for c in checks), "config": config, "checks": checks}
+
+    def _routing_explainability_from_payload(self, payload: dict[str, Any] | None) -> dict[str, Any]:
+        raw = ((payload or {}).get("orchestration_meta") if isinstance(payload, dict) else None) or {}
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            "agent_selection_reason": str(raw.get("agent_selection_reason") or raw.get("worker_agent_rationale") or ""),
+            "model_selection_reason": str(raw.get("model_selection_reason") or raw.get("model_rationale") or ""),
+            "routing_inputs": raw.get("routing_inputs") if isinstance(raw.get("routing_inputs"), dict) else {},
+            "routing_policy_snapshot": raw.get("routing_policy_snapshot") if isinstance(raw.get("routing_policy_snapshot"), dict) else {},
+            "agent_source": raw.get("worker_agent_id_source"),
+            "model_source": raw.get("model_source"),
+        }
+
+    def _routing_explainability_from_task_metadata(self, task: OrchestratorTask | Any) -> dict[str, Any]:
+        meta = dict(getattr(task, "metadata_json", None) or {})
+        raw = meta.get("routing_explainability")
+        return raw if isinstance(raw, dict) else {}
+
+    async def _changed_artifacts_payload(self, task_id: str, *, run_id: str | None = None, limit: int = 6) -> list[dict[str, Any]]:
+        list_task_artifacts = getattr(self.repo, "list_task_artifacts", None)
+        if not callable(list_task_artifacts):
+            return []
+        rows = await list_task_artifacts(task_id)
+        filtered = [row for row in rows if run_id is None or getattr(row, "run_id", None) == run_id]
+        return [
+            {
+                "id": row.id,
+                "run_id": row.run_id,
+                "kind": row.kind,
+                "title": row.title,
+                "created_at": row.created_at,
+            }
+            for row in filtered[:limit]
+        ]
 
     def _task_output_text(self, task: OrchestratorTask | Any) -> str:
         payload = getattr(task, "result_payload_json", None) or {}
@@ -1557,6 +1891,7 @@ class OrchestrationService:
             run.checkpoint_json,
             run_mode=run.run_mode,
             steps=self._workflow_steps_for_run(run),
+            run_id=run.id,
         )
         return workflow_state(run.checkpoint_json)
 
@@ -1608,6 +1943,32 @@ class OrchestrationService:
     def _set_workflow_checkpoint_artifact(self, run: TaskRun, *, key: str, value: Any) -> None:
         run.checkpoint_json = set_workflow_artifact(run.checkpoint_json, key=key, value=value)
 
+    def _durable_workflow_payload(self, run: TaskRun) -> dict[str, Any]:
+        state = self._ensure_run_workflow(run)
+        migration = dict(state.get("migration") or {})
+        return {
+            "workflow_id": state.get("workflow_id"),
+            "backend": state.get("backend"),
+            "schema_version": state.get("schema_version"),
+            "status": state.get("status"),
+            "execution_handle": durable_handle(run.checkpoint_json),
+            "current_step_id": state.get("current_step_id"),
+            "last_completed_step_id": state.get("last_completed_step_id"),
+            "resume_count": int(state.get("resume_count") or 0),
+            "recovery_count": int(state.get("recovery_count") or 0),
+            "last_failure": dict(state.get("last_failure") or {}),
+            "signal_queue": list(state.get("signal_queue") or []),
+            "signal_history": list(state.get("signal_history") or [])[-20:],
+            "query_snapshot": dict(state.get("query_snapshot") or {}),
+            "migration": {
+                "strategy": str(migration.get("strategy") or "checkpoint-first coexistence"),
+                "current_schema_version": str(migration.get("current_schema_version") or state.get("schema_version") or "2.0"),
+                "source_checkpoint_versions": list(migration.get("source_checkpoint_versions") or [state.get("schema_version") or "2.0"]),
+                "external_backend_ready": bool(migration.get("external_backend_ready")),
+            },
+            "resumable": self._run_is_resumable(run),
+        }
+
     async def get_task_execution_snapshot(self, user: User, project_id: str, task_id: str) -> dict[str, Any]:
         """Compose Layer-1 execution snapshot from Postgres only (no embedding search)."""
         task = await self.get_task(user, project_id, task_id)
@@ -1633,6 +1994,12 @@ class OrchestrationService:
             "execution_truth": EXECUTION_TRUTH_DESCRIPTION,
             "sources_read": list(SNAPSHOT_SOURCES_TASK),
         }
+        acceptance_summary = await self._check_task_acceptance_payload(task)
+        execution_memory = extract_execution_memory_details(task.metadata_json)
+        changed_artifacts = await self._changed_artifacts_payload(
+            task.id,
+            run_id=latest.id if latest else None,
+        )
         return {
             "meta": meta,
             "project_id": project_id,
@@ -1675,11 +2042,16 @@ class OrchestrationService:
                 for e in pending_sync
             ],
             "metadata_views": extract_execution_metadata_views(task.metadata_json),
+            "routing_explainability": self._routing_explainability_from_task_metadata(task),
+            "acceptance_summary": acceptance_summary,
+            "execution_memory": execution_memory,
+            "changed_artifacts": changed_artifacts,
             "last_run_id": latest.id if latest else None,
             "focal_run_id": focal.id if focal else None,
             "checkpoint_excerpt": cp_excerpt,
             "recent_events_tail": events_tail,
             "trace": self._workflow_trace_payload(focal) if focal else [],
+            "durable_workflow": self._durable_workflow_payload(focal) if focal else {},
         }
 
     async def get_run_execution_snapshot(self, user: User, run_id: str) -> dict[str, Any]:
@@ -1698,6 +2070,9 @@ class OrchestrationService:
             "execution_truth": EXECUTION_TRUTH_DESCRIPTION,
             "sources_read": list(SNAPSHOT_SOURCES_RUN),
         }
+        task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
+        execution_memory = extract_execution_memory_details(getattr(task, "metadata_json", None))
+        changed_artifacts = await self._changed_artifacts_payload(run.task_id, run_id=run.id) if run.task_id else []
         return {
             "meta": meta,
             "project_id": run.project_id,
@@ -1724,11 +2099,45 @@ class OrchestrationService:
                 }
                 for e in pending_sync
             ],
+            "routing_explainability": self._routing_explainability_from_payload(run.input_payload_json),
+            "execution_memory": execution_memory,
+            "changed_artifacts": changed_artifacts,
             "checkpoint_excerpt": checkpoint_excerpt(run.checkpoint_json),
             "recent_events_tail": events_tail,
             "trace": self._workflow_trace_payload(run),
+            "durable_workflow": self._durable_workflow_payload(run),
             "resumable": self._run_is_resumable(run),
         }
+
+    async def get_run_durable_workflow(self, user: User, run_id: str) -> dict[str, Any]:
+        run = await self.get_run(user, run_id)
+        return self._durable_workflow_payload(run)
+
+    async def signal_run_workflow(
+        self,
+        user: User,
+        run_id: str,
+        signal_name: str,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        run = await self.get_run(user, run_id)
+        normalized_name = str(signal_name or "").strip().lower()
+        if normalized_name not in {"pause", "resume", "retry_step", "update_objective", "add_note"}:
+            raise HTTPException(status_code=400, detail="Unsupported workflow signal")
+        run.checkpoint_json = enqueue_signal(
+            run.checkpoint_json,
+            signal_name=normalized_name,
+            payload=payload or {},
+            requested_by_user_id=user.id,
+        )
+        await self._emit_run_event(
+            run,
+            event_type="workflow_signal_queued",
+            message=f"Workflow signal '{normalized_name}' queued.",
+            payload={"signal_name": normalized_name, "signal_payload": payload or {}},
+        )
+        await self.db.commit()
+        return self._durable_workflow_payload(run)
 
     async def get_working_memory(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
@@ -2788,6 +3197,8 @@ class OrchestrationService:
             "orchestration_provider_failover": settings.ORCHESTRATION_PROVIDER_FAILOVER,
             "orchestration_use_langgraph": settings.ORCHESTRATION_USE_LANGGRAPH,
             "orchestration_durable_queue_backend": settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND,
+            "durable_signal_model": "checkpoint_signal_queue",
+            "durable_query_model": "checkpoint_query_snapshot",
             "celery_queues": {
                 "orchestration": settings.CELERY_TASK_DEFAULT_QUEUE,
                 "email": settings.CELERY_EMAIL_QUEUE,
@@ -2799,6 +3210,319 @@ class OrchestrationService:
 
     async def summarize_portfolio(self, user: User) -> list[dict[str, Any]]:
         return await self.repo.summarize_portfolio_for_owner(user.id)
+
+    async def portfolio_control_plane(self, user: User) -> dict[str, Any]:
+        projects = await self.repo.list_projects(user.id)
+        approvals = await self.repo.list_approvals(user.id)
+        providers = await self.repo.list_providers(user.id)
+        policy_defaults = await self.get_portfolio_execution_policy(user)
+        rows: list[dict[str, Any]] = []
+        totals = {
+            "projects": len(projects),
+            "active_runs": 0,
+            "blocked_tasks": 0,
+            "pending_escalations": 0,
+            "queue_depth": 0,
+            "cost_usd_30d": 0.0,
+        }
+        cost_since = datetime.now(UTC) - timedelta(days=30)
+        all_runs: list[TaskRun] = []
+        all_sync_events = []
+        all_ingest_jobs = []
+
+        for project in projects:
+            memberships = await self.repo.list_project_memberships(project.id)
+            manager_membership = next(
+                (item for item in memberships if item.is_default_manager),
+                next((item for item in memberships if item.role == "manager"), None),
+            )
+            manager_agent = await self.db.get(AgentProfile, manager_membership.agent_id) if manager_membership else None
+            tasks = await self.repo.list_tasks(project.id)
+            runs = await self.repo.list_runs(user.id, project.id)
+            repositories = await self.repo.list_project_repositories(project.id)
+            sync_events = await self.repo.list_sync_events(user.id, project.id)
+            ingest_jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project.id, limit=80)
+            all_runs.extend(runs)
+            all_sync_events.extend(sync_events)
+            all_ingest_jobs.extend(ingest_jobs)
+            project_approvals = [item for item in approvals if item.project_id == project.id and item.status == "pending"]
+
+            blocked_tasks = [task for task in tasks if task.status == "blocked"]
+            queue_depth = {
+                "queued_runs": sum(1 for run in runs if run.status == "queued"),
+                "active_runs": sum(1 for run in runs if run.status in {"in_progress", "blocked"}),
+                "queued_tasks": sum(1 for task in tasks if task.status in {"queued", "planned"}),
+            }
+            cost_usd_30d = sum(
+                float(run.estimated_cost_micros or 0) / 1_000_000
+                for run in runs
+                if run.created_at >= cost_since
+            )
+            escalation_inbox = [
+                {
+                    "approval_id": item.id,
+                    "approval_type": item.approval_type,
+                    "task_id": item.task_id,
+                    "run_id": item.run_id,
+                    "reason": item.reason,
+                    "created_at": item.created_at,
+                }
+                for item in project_approvals
+                if item.approval_type in {"rule_escalation", "task_escalation", "sla_escalation"}
+            ][:8]
+            latest_run = runs[0] if runs else None
+            repo_failures = sum(1 for event in sync_events if event.status in {"failed", "error"})
+            ingest_failures = sum(1 for job in ingest_jobs if job.status == "failed")
+
+            health_score = 100
+            health_score -= min(len(blocked_tasks) * 10, 40)
+            health_score -= min(repo_failures * 8, 24)
+            health_score -= min(ingest_failures * 8, 16)
+            health_score -= min(len(escalation_inbox) * 6, 18)
+            health_status = "healthy" if health_score >= 80 else "watch" if health_score >= 55 else "critical"
+
+            row = {
+                "project_id": project.id,
+                "name": project.name,
+                "slug": project.slug,
+                "manager": {
+                    "agent_id": getattr(manager_agent, "id", None),
+                    "name": getattr(manager_agent, "name", None),
+                    "slug": getattr(manager_agent, "slug", None),
+                },
+                "health": {
+                    "status": health_status,
+                    "score": health_score,
+                    "repository_failures": repo_failures,
+                    "index_failures": ingest_failures,
+                    "open_blockers": len(blocked_tasks),
+                },
+                "queue_depth": queue_depth,
+                "cost_rollup": {
+                    "cost_usd_30d": round(cost_usd_30d, 4),
+                    "token_total_30d": sum(int(run.token_total or 0) for run in runs if run.created_at >= cost_since),
+                    "repository_links": len(repositories),
+                },
+                "blocked_work": [
+                    {
+                        "task_id": task.id,
+                        "title": task.title,
+                        "priority": task.priority,
+                        "updated_at": task.updated_at,
+                    }
+                    for task in blocked_tasks[:6]
+                ],
+                "escalation_inbox": escalation_inbox,
+                "latest_run": {
+                    "run_id": latest_run.id,
+                    "status": latest_run.status,
+                    "task_id": latest_run.task_id,
+                    "created_at": latest_run.created_at,
+                }
+                if latest_run
+                else None,
+                "execution_policy": self._project_execution_policy_summary(project, policy_defaults),
+            }
+            totals["active_runs"] += queue_depth["active_runs"] + queue_depth["queued_runs"]
+            totals["blocked_tasks"] += len(blocked_tasks)
+            totals["pending_escalations"] += len(escalation_inbox)
+            totals["queue_depth"] += sum(queue_depth.values())
+            totals["cost_usd_30d"] += cost_usd_30d
+            rows.append(row)
+
+        queued_runs = [run for run in all_runs if run.status == "queued"]
+        blocked_or_running_runs = [run for run in all_runs if run.status in {"in_progress", "blocked"}]
+        stuck_threshold = datetime.now(UTC) - timedelta(minutes=45)
+        stuck_runs = [
+            run
+            for run in blocked_or_running_runs
+            if (run.started_at or run.created_at) <= stuck_threshold
+        ]
+        pending_webhooks = [event for event in all_sync_events if event.status in {"queued", "pending"}]
+        replay_candidates = [
+            event for event in all_sync_events
+            if (
+                ((event.payload_json or {}).get("_webhook_meta") or {}).get("replay_history")
+                or "replay" in str(event.action or "").lower()
+            )
+        ]
+        replay_backlog = [
+            event for event in replay_candidates
+            if event.status in {"queued", "pending", "failed", "error"}
+        ]
+        oldest_pending_webhook = min((event.created_at for event in pending_webhooks), default=None)
+        webhook_lag_minutes = (
+            round((datetime.now(UTC) - oldest_pending_webhook).total_seconds() / 60, 1)
+            if oldest_pending_webhook
+            else 0.0
+        )
+        provider_unhealthy = [provider for provider in providers if not provider.is_healthy]
+        index_running = [job for job in all_ingest_jobs if job.status == "running"]
+        index_failed = [job for job in all_ingest_jobs if job.status == "failed"]
+
+        operator_dashboard = {
+            "generated_at": datetime.now(UTC),
+            "queue_health": {
+                "queued_runs": len(queued_runs),
+                "active_runs": len(blocked_or_running_runs),
+                "blocked_tasks": totals["blocked_tasks"],
+                "status": "critical" if len(queued_runs) >= 20 else "watch" if len(queued_runs) >= 8 else "healthy",
+            },
+            "webhook_lag": {
+                "pending_events": len(pending_webhooks),
+                "max_lag_minutes": webhook_lag_minutes,
+                "status": "critical" if webhook_lag_minutes >= 60 else "watch" if webhook_lag_minutes >= 15 else "healthy",
+            },
+            "replay_backlog": {
+                "events": len(replay_backlog),
+                "failed_events": sum(1 for event in replay_backlog if event.status in {"failed", "error"}),
+                "status": "critical" if len(replay_backlog) >= 8 else "watch" if len(replay_backlog) >= 3 else "healthy",
+            },
+            "stuck_runs": {
+                "count": len(stuck_runs),
+                "threshold_minutes": 45,
+                "oldest_started_at": min(((run.started_at or run.created_at) for run in stuck_runs), default=None),
+                "status": "critical" if len(stuck_runs) >= 5 else "watch" if stuck_runs else "healthy",
+            },
+            "services": [
+                {
+                    "key": "runtime_queue",
+                    "label": "Runtime queue",
+                    "status": "critical" if len(queued_runs) >= 20 else "watch" if len(queued_runs) >= 8 else "healthy",
+                    "summary": f"{len(queued_runs)} queued run(s), {len(blocked_or_running_runs)} active/blocking run(s).",
+                    "metrics": {
+                        "queued_runs": len(queued_runs),
+                        "active_runs": len(blocked_or_running_runs),
+                    },
+                },
+                {
+                    "key": "github_sync",
+                    "label": "GitHub sync",
+                    "status": "critical" if webhook_lag_minutes >= 60 else "watch" if pending_webhooks else "healthy",
+                    "summary": f"{len(pending_webhooks)} pending webhook event(s), max lag {webhook_lag_minutes} min.",
+                    "metrics": {
+                        "pending_events": len(pending_webhooks),
+                        "max_lag_minutes": webhook_lag_minutes,
+                    },
+                },
+                {
+                    "key": "repo_indexing",
+                    "label": "Repo indexing",
+                    "status": "critical" if index_failed else "watch" if index_running else "healthy",
+                    "summary": f"{len(index_running)} indexing job(s) running, {len(index_failed)} failed.",
+                    "metrics": {
+                        "running_jobs": len(index_running),
+                        "failed_jobs": len(index_failed),
+                    },
+                },
+                {
+                    "key": "durable_workflow",
+                    "label": "Durable workflow",
+                    "status": "critical" if stuck_runs else "healthy",
+                    "summary": f"{len(stuck_runs)} stuck run(s) over 45 min threshold.",
+                    "metrics": {
+                        "stuck_runs": len(stuck_runs),
+                        "threshold_minutes": 45,
+                    },
+                },
+                {
+                    "key": "model_routing",
+                    "label": "Model routing",
+                    "status": "critical" if len(provider_unhealthy) >= 2 else "watch" if provider_unhealthy else "healthy",
+                    "summary": f"{len(provider_unhealthy)} unhealthy provider(s) out of {len(providers)} configured.",
+                    "metrics": {
+                        "unhealthy_providers": len(provider_unhealthy),
+                        "providers": len(providers),
+                    },
+                },
+            ],
+        }
+
+        totals["cost_usd_30d"] = round(float(totals["cost_usd_30d"]), 4)
+        return {
+            "generated_at": datetime.now(UTC),
+            "totals": totals,
+            "execution_policy": policy_defaults,
+            "operator_dashboard": operator_dashboard,
+            "projects": rows,
+        }
+
+    async def portfolio_live_snapshot(self, user: User) -> dict[str, Any]:
+        rows = await self.summarize_portfolio(user)
+        return {
+            "projects": rows,
+            "totals": {
+                "projects": len(rows),
+                "active_runs": sum(int(row.get("active_runs") or 0) for row in rows),
+                "open_tasks": sum(int(row.get("open_tasks") or 0) for row in rows),
+                "repository_links": sum(int(row.get("repository_links") or 0) for row in rows),
+            },
+        }
+
+    async def project_live_snapshot(self, user: User, project_id: str) -> dict[str, Any]:
+        await self.get_project(user, project_id)
+        tasks = await self.repo.list_tasks(project_id)
+        runs = await self.repo.list_runs(user.id, project_id)
+        approvals = [item for item in await self.list_approvals(user) if item.project_id == project_id]
+        sync_events = await self.repo.list_sync_events(user.id, project_id)
+        ingest_jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project_id, limit=60)
+        return {
+            "project_id": project_id,
+            "task_counts": {
+                "open": sum(1 for task in tasks if task.status not in {"completed", "archived", "synced_to_github"}),
+                "blocked": sum(1 for task in tasks if task.status == "blocked"),
+                "review": sum(1 for task in tasks if task.status == "needs_review"),
+            },
+            "run_counts": {
+                "active": sum(1 for run in runs if run.status in {"queued", "in_progress", "blocked"}),
+                "failed": sum(1 for run in runs if run.status == "failed"),
+            },
+            "approval_counts": {
+                "pending": sum(1 for item in approvals if item.status == "pending"),
+            },
+            "sync_counts": {
+                "pending": sum(1 for item in sync_events if item.status in {"queued", "pending"}),
+                "failed": sum(1 for item in sync_events if item.status in {"failed", "error"}),
+            },
+            "ingest_counts": {
+                "pending": sum(1 for item in ingest_jobs if item.status == "pending"),
+                "running": sum(1 for item in ingest_jobs if item.status == "running"),
+                "failed": sum(1 for item in ingest_jobs if item.status == "failed"),
+            },
+            "latest": {
+                "task_updated_at": max((task.updated_at for task in tasks), default=None),
+                "run_created_at": max((run.created_at for run in runs), default=None),
+                "sync_created_at": max((event.created_at for event in sync_events), default=None),
+            },
+        }
+
+    async def github_live_snapshot(self, user: User, project_id: str | None = None) -> dict[str, Any]:
+        repositories = await self.repo.list_github_repositories(user.id)
+        issue_links = await self.repo.list_issue_links(user.id, project_id)
+        sync_events = await self.repo.list_sync_events(user.id, project_id)
+        return {
+            "project_id": project_id,
+            "repositories": len(repositories),
+            "linked_issues": len(issue_links),
+            "sync_events": {
+                "queued": sum(1 for item in sync_events if item.status in {"queued", "pending"}),
+                "failed": sum(1 for item in sync_events if item.status in {"failed", "error"}),
+                "completed": sum(1 for item in sync_events if item.status == "completed"),
+            },
+            "latest_event_id": sync_events[0].id if sync_events else None,
+        }
+
+    async def hierarchy_live_snapshot(self, user: User) -> dict[str, Any]:
+        agents = await self.repo.list_agents(user.id, None)
+        runs = await self.repo.list_runs(user.id, None)
+        return {
+            "agents": len(agents),
+            "runs": {
+                "active": sum(1 for run in runs if run.status in {"queued", "in_progress", "blocked"}),
+                "failed": sum(1 for run in runs if run.status == "failed"),
+            },
+            "latest_run_id": runs[0].id if runs else None,
+        }
 
     async def execution_insights(self, user: User, days: int = 7) -> dict[str, Any]:
         safe_days = max(1, min(int(days or 7), 90))
@@ -2985,6 +3709,27 @@ class OrchestrationService:
             )
 
         return {
+            "agent_selection_reason": worker_rationale,
+            "model_selection_reason": model_rationale,
+            "routing_inputs": {
+                "run_mode": run_mode,
+                "worker_agent_id": worker_agent_id,
+                "orchestrator_agent_id": orchestrator_agent_id,
+                "model_name": model_name,
+                "worker_source": worker_source,
+                "model_source": model_source,
+                "required_tools": self._extract_required_tools(task),
+                "task_priority": getattr(task, "priority", None),
+                "task_due_date": getattr(task, "due_date", None),
+            },
+            "routing_policy_snapshot": {
+                "routing_mode": execution_settings.get("routing_mode") or "capability_based",
+                "sibling_load_balance": execution_settings.get("sibling_load_balance") or "queue_depth",
+                "skip_unhealthy_worker_providers": bool(
+                    execution_settings.get("skip_unhealthy_worker_providers", True)
+                ),
+                "project_model_name": execution_settings.get("model_name"),
+            },
             "worker_agent_id_source": worker_source,
             "model_source": model_source,
             "worker_agent_rationale": worker_rationale,
@@ -3144,6 +3889,13 @@ class OrchestrationService:
         else:
             input_payload["orchestration_meta"] = selection_meta
 
+        task_meta = dict(task.metadata_json or {})
+        task_meta["routing_explainability"] = self._routing_explainability_from_payload(
+            {"orchestration_meta": input_payload.get("orchestration_meta")}
+        )
+        task.metadata_json = task_meta
+        orm_attributes.flag_modified(task, "metadata_json")
+
         run = await self.repo.create_run(
             project_id=project_id,
             task_id=task.id,
@@ -3156,6 +3908,23 @@ class OrchestrationService:
             status="queued",
             model_name=model_name,
             input_payload_json=input_payload,
+        )
+        run.checkpoint_json = ensure_workflow_state(
+            run.checkpoint_json,
+            run_mode=run.run_mode,
+            steps=self._workflow_steps_for_run(run),
+            run_id=run.id,
+        )
+        run.checkpoint_json = update_query_snapshot(
+            run.checkpoint_json,
+            data={
+                "latest_status": "queued",
+                "run_id": run.id,
+                "task_id": task.id,
+                "project_id": project_id,
+                "worker_agent_id": worker_agent_id,
+                "orchestrator_agent_id": orchestrator_agent_id,
+            },
         )
         await self._transition_task_status(task, "queued", run=run, reason="run queued")
         await self._emit_run_event(
@@ -3197,6 +3966,10 @@ class OrchestrationService:
         run.completed_at = None
         run.cancelled_at = None
         run.checkpoint_json = increment_resume_count(run.checkpoint_json)
+        run.checkpoint_json = update_query_snapshot(
+            run.checkpoint_json,
+            data={"latest_status": "queued", "resume_requested_by": user.id, "run_id": run.id},
+        )
         await self._emit_run_event(
             run,
             event_type="workflow_resumed",
@@ -3261,6 +4034,16 @@ class OrchestrationService:
             retry_count=old.retry_count,
             checkpoint_json=dict(old.checkpoint_json or {}),
             input_payload_json=base_input,
+        )
+        new_run.checkpoint_json = ensure_workflow_state(
+            new_run.checkpoint_json,
+            run_mode=new_run.run_mode,
+            steps=self._workflow_steps_for_run(new_run),
+            run_id=new_run.id,
+        )
+        new_run.checkpoint_json = update_query_snapshot(
+            new_run.checkpoint_json,
+            data={"latest_status": "queued", "replayed_from_run_id": old.id, "run_id": new_run.id},
         )
         task = await self.db.get(OrchestratorTask, new_run.task_id) if new_run.task_id else None
         if task:
@@ -4049,6 +4832,19 @@ class OrchestrationService:
             **(run.checkpoint_json or {}),
             EXECUTION_THREAD_ID_KEY: run.id,
         }
+        run.checkpoint_json, consumed_signals = consume_signal_queue(run.checkpoint_json)
+        run.checkpoint_json = update_query_snapshot(
+            run.checkpoint_json,
+            data={
+                "run_id": run.id,
+                "project_id": run.project_id,
+                "run_mode": run.run_mode,
+                "worker_agent_id": run.worker_agent_id,
+                "orchestrator_agent_id": run.orchestrator_agent_id,
+                "latest_status": "in_progress",
+                "signal_count": len(consumed_signals),
+            },
+        )
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
@@ -4077,6 +4873,13 @@ class OrchestrationService:
                 event_type="workflow_recovery",
                 message="Worker resumed execution from checkpoint after a recoverable interruption.",
                 payload={"prior_status": prior_status, "trace": self._workflow_trace_payload(run)},
+            )
+        if consumed_signals:
+            await self._emit_run_event(
+                run,
+                event_type="workflow_signal_applied",
+                message=f"Applied {len(consumed_signals)} queued workflow signal(s).",
+                payload={"signals": consumed_signals},
             )
 
         try:
@@ -4107,6 +4910,14 @@ class OrchestrationService:
                 ),
                 key="final_status",
                 value="completed",
+            )
+            run.checkpoint_json = update_query_snapshot(
+                run.checkpoint_json,
+                data={
+                    "latest_status": "completed",
+                    "completed_at": run.completed_at.isoformat(),
+                    "task_id": run.task_id,
+                },
             )
             if task and run.run_mode != "brainstorm":
                 task.result_summary = (
@@ -4174,6 +4985,10 @@ class OrchestrationService:
                 level="warning",
                 message=str(exc),
             )
+            run.checkpoint_json = update_query_snapshot(
+                run.checkpoint_json,
+                data={"latest_status": "blocked", "last_error": str(exc), "task_id": run.task_id},
+            )
             await self.db.commit()
             if task:
                 await self._apply_project_escalation_rules(project, run=run, task=task, trigger="task_blocked")
@@ -4199,6 +5014,10 @@ class OrchestrationService:
                 event_type="failed",
                 level="error",
                 message=str(exc),
+            )
+            run.checkpoint_json = update_query_snapshot(
+                run.checkpoint_json,
+                data={"latest_status": "failed", "last_error": str(exc), "task_id": run.task_id},
             )
             await self.db.commit()
             if task:
@@ -5392,6 +6211,7 @@ class OrchestrationService:
             autonomy=payload.get("autonomy", "medium"),
             visibility=payload.get("visibility", "private"),
             agent_template_slugs_json=payload.get("agent_template_slugs", []),
+            canvas_layout_json=payload.get("canvas_layout", {}),
         )
         await self.db.commit()
         await self.db.refresh(item)
@@ -5411,6 +6231,7 @@ class OrchestrationService:
             "autonomy": "autonomy",
             "visibility": "visibility",
             "agent_template_slugs": "agent_template_slugs_json",
+            "canvas_layout": "canvas_layout_json",
         }
         for key, value in payload.items():
             target = field_map.get(key)
@@ -7752,6 +8573,8 @@ class OrchestrationService:
         execution.setdefault("fallback_model", None)
         execution.setdefault("escalation_rules", [])
         execution.setdefault("routing_mode", "capability_based")
+        execution.setdefault("approval_policy", "manager_review")
+        execution.setdefault("cost_cap_usd", 250.0)
         execution.setdefault("sibling_load_balance", "queue_depth")
         execution.setdefault("skip_unhealthy_worker_providers", True)
         execution.setdefault("offline_local_only_mode", False)
@@ -7793,6 +8616,7 @@ class OrchestrationService:
         github.setdefault("sync_assignees_to_github", True)
         github.setdefault("sync_state_to_github", True)
         github.setdefault("sync_milestone_to_github", True)
+        github.setdefault("repo_indexing_cadence", "daily")
         github.setdefault("repo_agent_pools", {})
         raw["github"] = github
         hitl = dict(raw.get("hitl") or {})
@@ -7804,6 +8628,86 @@ class OrchestrationService:
         mem_in = dict(raw.get("memory") or {})
         raw["memory"] = {**mem_defaults, **mem_in}
         return raw
+
+    def _normalize_portfolio_execution_policy(self, settings: dict[str, Any] | None) -> dict[str, Any]:
+        raw = dict(DEFAULT_PORTFOLIO_EXECUTION_POLICY)
+        if settings:
+            raw.update({k: v for k, v in settings.items() if v is not None})
+        raw["routing_mode"] = str(raw.get("routing_mode") or DEFAULT_PORTFOLIO_EXECUTION_POLICY["routing_mode"])
+        raw["approval_policy"] = str(raw.get("approval_policy") or DEFAULT_PORTFOLIO_EXECUTION_POLICY["approval_policy"])
+        raw["repo_indexing_cadence"] = str(raw.get("repo_indexing_cadence") or DEFAULT_PORTFOLIO_EXECUTION_POLICY["repo_indexing_cadence"])
+        try:
+            raw["cost_cap_usd"] = round(float(raw.get("cost_cap_usd") or DEFAULT_PORTFOLIO_EXECUTION_POLICY["cost_cap_usd"]), 2)
+        except (TypeError, ValueError):
+            raw["cost_cap_usd"] = float(DEFAULT_PORTFOLIO_EXECUTION_POLICY["cost_cap_usd"])
+        return raw
+
+    def _apply_portfolio_defaults_to_project_settings(
+        self,
+        settings: dict[str, Any] | None,
+        defaults: dict[str, Any],
+        *,
+        explicit_settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        raw = dict(settings or {})
+        execution = dict(raw.get("execution") or {})
+        github = dict(raw.get("github") or {})
+        overrides = dict(raw.get("portfolio_policy_overrides") or {})
+        explicit = dict(explicit_settings or {})
+        explicit_execution = explicit.get("execution") if isinstance(explicit.get("execution"), dict) else {}
+        explicit_github = explicit.get("github") if isinstance(explicit.get("github"), dict) else {}
+
+        for key in ("routing_mode", "approval_policy", "cost_cap_usd"):
+            if key in explicit_execution:
+                overrides[key] = True
+        if "repo_indexing_cadence" in explicit_github:
+            overrides["repo_indexing_cadence"] = True
+
+        if not overrides.get("routing_mode"):
+            execution["routing_mode"] = defaults["routing_mode"]
+        if not overrides.get("approval_policy"):
+            execution["approval_policy"] = defaults["approval_policy"]
+        if not overrides.get("cost_cap_usd"):
+            execution["cost_cap_usd"] = defaults["cost_cap_usd"]
+        if not overrides.get("repo_indexing_cadence"):
+            github["repo_indexing_cadence"] = defaults["repo_indexing_cadence"]
+
+        raw["execution"] = execution
+        raw["github"] = github
+        raw["portfolio_policy_overrides"] = overrides
+        return raw
+
+    def _project_execution_policy_summary(
+        self,
+        project: OrchestratorProject,
+        defaults: dict[str, Any],
+    ) -> dict[str, Any]:
+        settings = self._normalize_project_settings(project.settings_json or {})
+        execution = dict(settings.get("execution") or {})
+        github = dict(settings.get("github") or {})
+        overrides = dict(settings.get("portfolio_policy_overrides") or {})
+
+        def item(key: str, label: str, effective: Any, default: Any) -> dict[str, Any]:
+            source = "project_override" if overrides.get(key) or effective != default else "portfolio_default"
+            return {
+                "key": key,
+                "label": label,
+                "effective": effective,
+                "default": default,
+                "source": source,
+                "overridden": source == "project_override",
+            }
+
+        items = [
+            item("routing_mode", "Routing mode", execution.get("routing_mode"), defaults["routing_mode"]),
+            item("approval_policy", "Approval policy", execution.get("approval_policy"), defaults["approval_policy"]),
+            item("repo_indexing_cadence", "Repo indexing cadence", github.get("repo_indexing_cadence"), defaults["repo_indexing_cadence"]),
+            item("cost_cap_usd", "Cost cap", execution.get("cost_cap_usd"), defaults["cost_cap_usd"]),
+        ]
+        return {
+            "items": items,
+            "override_count": sum(1 for entry in items if entry["overridden"]),
+        }
 
     def _merge_nested_project_settings(
         self, base: dict[str, Any], incoming: dict[str, Any]
@@ -9081,6 +9985,7 @@ class OrchestrationService:
             "autonomy": template.autonomy,
             "visibility": template.visibility,
             "agent_template_slugs": list(template.agent_template_slugs_json or []),
+            "canvas_layout": dict(template.canvas_layout_json or {}),
         }
 
     async def _ensure_unique_agent_slug(
@@ -9362,7 +10267,14 @@ class OrchestrationService:
         ).hexdigest()
         return hmac.compare_digest(expected, signature)
 
-    async def record_github_webhook_event(self, event_name: str, payload: dict[str, Any]) -> str:
+    async def record_github_webhook_event(
+        self,
+        event_name: str,
+        payload: dict[str, Any],
+        *,
+        delivery_id: str | None = None,
+        signature_validated: bool = True,
+    ) -> str:
         repository = payload.get("repository") or {}
         repo_model = None
         if repository.get("full_name"):
@@ -9371,6 +10283,14 @@ class OrchestrationService:
         issue_number = int(((payload.get("issue") or {}).get("number")) or ((payload.get("pull_request") or {}).get("number")) or 0)
         if repo_model and issue_number:
             issue_link = await self.repo.get_issue_link_by_repo_and_number(repo_model.id, issue_number)
+        payload = dict(payload)
+        payload["_webhook_meta"] = {
+            **dict(payload.get("_webhook_meta") or {}),
+            "delivery_id": delivery_id,
+            "signature_validated": signature_validated,
+            "received_at": datetime.now(UTC).isoformat(),
+            "replay_history": list(((payload.get("_webhook_meta") or {}).get("replay_history") or [])),
+        }
         sync_event = await self.repo.create_sync_event(
             repository_id=repo_model.id if repo_model else None,
             issue_link_id=issue_link.id if issue_link else None,
@@ -9381,6 +10301,52 @@ class OrchestrationService:
         )
         await self.db.commit()
         return sync_event.id
+
+    async def replay_github_sync_event(
+        self, user: User, sync_event_id: str, *, force: bool = False
+    ):
+        sync_event = await self.repo.get_sync_event(sync_event_id)
+        if sync_event is None:
+            raise HTTPException(status_code=404, detail="GitHub sync event not found")
+        if sync_event.repository_id:
+            repository = await self.repo.get_github_repository(user.id, sync_event.repository_id)
+            if repository is None:
+                raise HTTPException(status_code=404, detail="GitHub sync event not found")
+        if sync_event.status == "running":
+            raise HTTPException(status_code=409, detail="Sync event is already running")
+        if sync_event.status == "completed" and not force:
+            raise HTTPException(
+                status_code=409,
+                detail="Completed sync events require force replay",
+            )
+        payload = dict(sync_event.payload_json or {})
+        meta = dict(payload.get("_webhook_meta") or {})
+        history = list(meta.get("replay_history") or [])
+        history.append(
+            {
+                "queued_at": datetime.now(UTC).isoformat(),
+                "queued_by_user_id": user.id,
+                "previous_status": sync_event.status,
+                "forced": force,
+            }
+        )
+        meta["replay_history"] = history
+        meta["replay_count"] = len(history)
+        payload["_webhook_meta"] = meta
+        sync_event.payload_json = payload
+        sync_event.status = "queued"
+        sync_event.detail = (
+            f"Replay queued from {history[-1]['previous_status']}."
+            + (" Forced replay enabled." if force else "")
+        )
+        await self.db.commit()
+        try:
+            from backend.workers.orchestration import queue_github_webhook_event
+
+            queue_github_webhook_event(sync_event.id)
+        except Exception as exc:
+            logger.warning("queue github webhook replay failed: %s", exc)
+        return sync_event
 
     async def process_github_webhook_sync_event(self, sync_event_id: str) -> None:
         sync_event = await self.repo.get_sync_event(sync_event_id)

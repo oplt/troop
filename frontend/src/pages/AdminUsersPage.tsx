@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
     const users = data?.items ?? [];
     const activeCount = users.filter((user) => user.is_active).length;
     const verifiedCount = users.filter((user) => user.is_verified).length;
-    const errorMessage = error instanceof Error ? error.message : "Failed to load users.";
+    const errorMessage = error instanceof Error ? error.message : "Couldn't load users. Refresh to retry.";
 
     return (
         <PageShell maxWidth="xl">

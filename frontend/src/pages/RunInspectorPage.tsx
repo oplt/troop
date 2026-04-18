@@ -10,6 +10,7 @@ import {
     Collapse,
     Divider,
     IconButton,
+    MenuItem,
     Paper,
     Skeleton,
     Stack,
@@ -44,6 +45,7 @@ import {
     patchRunWorkingMemory,
     resumeRun,
     replayRun,
+    signalRunWorkflow,
     type RunCostSummary,
     type RunEvent,
     type RunExecutionSnapshot,
@@ -647,6 +649,8 @@ export default function RunInspectorPage() {
     const [wmObjective, setWmObjective] = useState("");
     const [wmFindings, setWmFindings] = useState("");
     const [wmQuestions, setWmQuestions] = useState("");
+    const [signalName, setSignalName] = useState("add_note");
+    const [signalPayload, setSignalPayload] = useState("{\n  \"note\": \"\"\n}");
 
     useEffect(() => {
         if (!workingMemory) return;
@@ -695,6 +699,20 @@ export default function RunInspectorPage() {
             await queryClient.invalidateQueries({
                 queryKey: ["orchestration", "run", runId, "execution-state"],
             });
+        },
+    });
+    const signalMutation = useMutation({
+        mutationFn: async () => {
+            let parsedPayload: Record<string, unknown> = {};
+            try {
+                parsedPayload = signalPayload.trim() ? JSON.parse(signalPayload) as Record<string, unknown> : {};
+            } catch {
+                throw new Error("Signal payload must be valid JSON.");
+            }
+            return signalRunWorkflow(runId!, { signal_name: signalName, payload: parsedPayload });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "execution-state"] });
         },
     });
 
@@ -939,6 +957,146 @@ export default function RunInspectorPage() {
                     </Typography>
                 )}
             </SectionCard>
+
+            {execSnapshot && (
+                <SectionCard
+                    title="Durable workflow"
+                    description="Checkpoint-first durable state: workflow id, resume handle, queued signals, query snapshot, and migration posture."
+                    sx={{ mt: 2 }}
+                >
+                    <Stack spacing={1.5}>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Chip size="small" variant="outlined" label={String(execSnapshot.durable_workflow?.workflow_id || "no workflow id")} />
+                                <Chip size="small" variant="outlined" label={String(execSnapshot.durable_workflow?.backend || "unknown backend")} />
+                                <Chip size="small" variant="outlined" label={`resume ${Number(execSnapshot.durable_workflow?.resume_count || 0)}`} />
+                                <Chip size="small" variant="outlined" label={`recovery ${Number(execSnapshot.durable_workflow?.recovery_count || 0)}`} />
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                                Current step: {String(execSnapshot.durable_workflow?.current_step_id || "n/a")} • Last completed: {String(execSnapshot.durable_workflow?.last_completed_step_id || "n/a")}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                Handle: {String((execSnapshot.durable_workflow?.execution_handle as Record<string, unknown> | undefined)?.resume_token || "n/a")}
+                            </Typography>
+                        </Paper>
+                        <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="text.secondary">Queued signals</Typography>
+                                {Array.isArray(execSnapshot.durable_workflow?.signal_queue) && execSnapshot.durable_workflow.signal_queue.length > 0 ? (
+                                    <Stack spacing={0.75} sx={{ mt: 0.75 }}>
+                                        {execSnapshot.durable_workflow.signal_queue.map((signal) => (
+                                            <Paper key={String(signal.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Typography variant="body2">{String(signal.name || signal.id)}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {String(signal.created_at || "")}
+                                                </Typography>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>No queued signals.</Typography>
+                                )}
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="text.secondary">Migration posture</Typography>
+                                <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mt: 0.75 }}>
+                                    <Typography variant="body2">
+                                        {String((execSnapshot.durable_workflow?.migration as Record<string, unknown> | undefined)?.strategy || "checkpoint-first coexistence")}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        schema {String((execSnapshot.durable_workflow?.migration as Record<string, unknown> | undefined)?.current_schema_version || "n/a")}
+                                    </Typography>
+                                </Paper>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                                    Query snapshot
+                                </Typography>
+                                <Box component="pre" sx={{ m: 0, mt: 0.5, p: 1, typography: "caption", bgcolor: (t) => alpha(t.palette.text.primary, 0.04), maxHeight: 180, overflow: "auto" }}>
+                                    {JSON.stringify(execSnapshot.durable_workflow?.query_snapshot || {}, null, 2)}
+                                </Box>
+                            </Box>
+                        </Stack>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+                            <TextField
+                                select
+                                size="small"
+                                label="Signal"
+                                value={signalName}
+                                onChange={(event) => setSignalName(event.target.value)}
+                                sx={{ minWidth: 180 }}
+                            >
+                                <MenuItem value="add_note">add_note</MenuItem>
+                                <MenuItem value="update_objective">update_objective</MenuItem>
+                                <MenuItem value="retry_step">retry_step</MenuItem>
+                                <MenuItem value="pause">pause</MenuItem>
+                                <MenuItem value="resume">resume</MenuItem>
+                            </TextField>
+                            <TextField
+                                size="small"
+                                label="Signal payload JSON"
+                                value={signalPayload}
+                                onChange={(event) => setSignalPayload(event.target.value)}
+                                multiline
+                                minRows={4}
+                                fullWidth
+                            />
+                        </Stack>
+                        <Button variant="outlined" disabled={signalMutation.isPending} onClick={() => signalMutation.mutate()}>
+                            Queue workflow signal
+                        </Button>
+                        {signalMutation.isError ? (
+                            <Alert severity="error">{signalMutation.error instanceof Error ? signalMutation.error.message : "Signal failed."}</Alert>
+                        ) : null}
+                    </Stack>
+                </SectionCard>
+            )}
+
+            {execSnapshot && (
+                <SectionCard
+                    title="Routing & Diff"
+                    description="Selection explainability, previous-run diff, and artifacts produced by this run."
+                    sx={{ mt: 2 }}
+                >
+                    <Stack spacing={1.5}>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Agent selection</Typography>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                                {String(execSnapshot.routing_explainability?.agent_selection_reason || selectionMeta.worker_agent_rationale || "No agent selection explanation stored.")}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">Model selection</Typography>
+                            <Typography variant="body2">
+                                {String(execSnapshot.routing_explainability?.model_selection_reason || selectionMeta.model_rationale || "No model selection explanation stored.")}
+                            </Typography>
+                        </Paper>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">What changed since last run</Typography>
+                            {String(execSnapshot.execution_memory?.since_last_run_unified_diff || "").trim() ? (
+                                <Box component="pre" sx={{ m: 0, mt: 1, whiteSpace: "pre-wrap", typography: "caption" }}>
+                                    {String(execSnapshot.execution_memory?.since_last_run_unified_diff || "")}
+                                </Box>
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                    No previous-run diff captured.
+                                </Typography>
+                            )}
+                        </Paper>
+                        <Stack spacing={0.75}>
+                            <Typography variant="caption" color="text.secondary">Changed artifacts</Typography>
+                            {execSnapshot.changed_artifacts.length > 0 ? (
+                                execSnapshot.changed_artifacts.map((artifact) => (
+                                    <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                        <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {String(artifact.kind || "artifact")} {artifact.created_at ? `• ${formatDateTime(String(artifact.created_at))}` : ""}
+                                        </Typography>
+                                    </Paper>
+                                ))
+                            ) : (
+                                <Typography variant="body2" color="text.secondary">No run artifacts recorded.</Typography>
+                            )}
+                        </Stack>
+                    </Stack>
+                </SectionCard>
+            )}
 
             <SectionCard
                 title="Working memory"

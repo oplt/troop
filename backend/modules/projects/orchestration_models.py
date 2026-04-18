@@ -27,6 +27,22 @@ class OrchestratorProject(Base):
     )
 
 
+class PortfolioExecutionPolicy(Base):
+    __tablename__ = "portfolio_execution_policies"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        unique=True,
+    )
+    settings_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class ProjectRepositoryLink(Base):
     __tablename__ = "project_repositories"
 

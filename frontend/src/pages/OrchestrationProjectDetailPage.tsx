@@ -53,6 +53,7 @@ import {
     deleteProjectMemoryEntry,
     decomposeTask,
     getOrchestrationProject,
+    getProjectRepositoryIndexStatus,
     listAgents,
     listApprovals,
     listBrainstorms,
@@ -64,6 +65,7 @@ import {
     listProjectDocuments,
     listProjectMemory,
     listProjectMemoryIngestJobs,
+    listProjectRepositories,
     listSemanticMemory,
     listProjectMilestones,
     getProjectMemorySettings,
@@ -82,12 +84,16 @@ import {
     updateProjectMilestone,
     uploadProjectDocument,
     getGateConfig,
+    getTaskExecutionState,
     getTaskTimeline,
     listDagReadyTasks,
     listWorkflowTemplates,
     startDagParallelReady,
     startMergeResolutionRun,
+    getMergeResolutionPreview,
+    queueProjectRepositoryIndex,
     updateGateConfig,
+    updateProjectRepository,
 } from "../api/orchestration";
 import type { GateConfig, OrchestrationTask, ProviderConfig, TaskRun } from "../api/orchestration";
 import { readOrchestrationSelectionMeta } from "../utils/orchestrationSelection";
@@ -96,6 +102,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 
 type DetailTab = "overview" | "board" | "dag" | "agents" | "brainstorms" | "decisions" | "github" | "knowledge" | "activity";
@@ -181,6 +188,13 @@ type AcceptanceCriterionItem = {
     evidence_excerpt?: string;
 };
 
+type AcceptanceCheckerConfig = {
+    required_artifact_kinds: string[];
+    require_github_comment: boolean;
+    require_github_pr: boolean;
+    require_reviewer_approval: boolean;
+};
+
 function getAcceptanceItems(check: { name: string } & Record<string, unknown>): AcceptanceCriterionItem[] {
     if (check.name !== "acceptance_criteria" || !Array.isArray(check.items)) {
         return [];
@@ -192,6 +206,19 @@ function getAcceptanceItems(check: { name: string } & Record<string, unknown>): 
         const candidate = item as Partial<AcceptanceCriterionItem>;
         return typeof candidate.item === "string" && typeof candidate.passed === "boolean";
     });
+}
+
+function readAcceptanceCheckerConfig(task: OrchestrationTask): AcceptanceCheckerConfig {
+    const raw = task.metadata?.acceptance_checker;
+    const config = typeof raw === "object" && raw !== null ? raw as Record<string, unknown> : {};
+    return {
+        required_artifact_kinds: Array.isArray(config.required_artifact_kinds)
+            ? config.required_artifact_kinds.map((item) => String(item).trim()).filter(Boolean)
+            : [],
+        require_github_comment: Boolean(config.require_github_comment),
+        require_github_pr: Boolean(config.require_github_pr),
+        require_reviewer_approval: Boolean(config.require_reviewer_approval),
+    };
 }
 
 function MilestoneTimeline({ milestones }: { milestones: Array<{ id: string; title: string; due_date: string | null; status: string }> }) {
@@ -296,6 +323,14 @@ function AcceptanceDialog({
                             label={data.passed ? "All checks passed" : "Some checks failed"}
                             color={data.passed ? "success" : "error"}
                         />
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            {Array.isArray(data.config.required_artifact_kinds) && data.config.required_artifact_kinds.length > 0 ? (
+                                <Chip size="small" variant="outlined" label={`Artifacts: ${data.config.required_artifact_kinds.join(", ")}`} />
+                            ) : null}
+                            {data.config.require_github_comment ? <Chip size="small" variant="outlined" label="Needs GitHub comment" /> : null}
+                            {data.config.require_github_pr ? <Chip size="small" variant="outlined" label="Needs GitHub PR" /> : null}
+                            {data.config.require_reviewer_approval ? <Chip size="small" variant="outlined" label="Needs reviewer approval" /> : null}
+                        </Stack>
                         {data.checks.map((check) => {
                             const acceptanceItems = getAcceptanceItems(check as { name: string } & Record<string, unknown>);
                             return (
@@ -363,7 +398,7 @@ function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; tas
             showToast({ message: "Task decomposed into subtasks.", severity: "success" });
         },
         onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Failed to decompose task."), severity: "error" });
+            showToast({ message: extractApiErrorMessage(error, "Couldn't break task into subtasks. Try again."), severity: "error" });
         },
     });
 
@@ -535,11 +570,46 @@ function KanbanBoard({
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
         },
     });
+    const acceptanceConfigMutation = useMutation({
+        mutationFn: ({ taskId, metadata }: { taskId: string; metadata: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, { metadata }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "task-exec", expandedTask] });
+            showToast({ message: "Acceptance checker updated.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't save acceptance checker. Try again."), severity: "error" });
+        },
+    });
     const { data: timeline = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "tasks", expandedTask, "timeline"],
         queryFn: () => (expandedTask ? getTaskTimeline(projectId, expandedTask) : Promise.resolve([])),
         enabled: Boolean(expandedTask),
     });
+    const { data: expandedExecSnapshot } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "task-exec", expandedTask],
+        queryFn: () => (expandedTask ? getTaskExecutionState(projectId, expandedTask) : Promise.resolve(null)),
+        enabled: Boolean(expandedTask),
+    });
+    const { data: expandedArtifacts = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "task-artifacts", expandedTask],
+        queryFn: () => (expandedTask ? listTaskArtifacts(expandedTask) : Promise.resolve([])),
+        enabled: Boolean(expandedTask),
+    });
+
+    function updateAcceptanceConfig(task: OrchestrationTask, patch: Partial<AcceptanceCheckerConfig>) {
+        acceptanceConfigMutation.mutate({
+            taskId: task.id,
+            metadata: {
+                ...task.metadata,
+                acceptance_checker: {
+                    ...readAcceptanceCheckerConfig(task),
+                    ...patch,
+                },
+            },
+        });
+    }
 
     function handleDragStart(e: React.DragEvent, taskId: string) {
         e.dataTransfer.setData("taskId", taskId);
@@ -599,6 +669,7 @@ function KanbanBoard({
                             const isExpanded = expandedTask === task.id;
                             const lastRun = lastRunByTaskId[task.id];
                             const runMeta = readOrchestrationSelectionMeta(lastRun);
+                            const acceptanceConfig = readAcceptanceCheckerConfig(task);
                             const workerTip =
                                 runMeta.worker_agent_rationale
                                 || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
@@ -781,6 +852,110 @@ function KanbanBoard({
                                                             )}
                                                         </Paper>
                                                     ))
+                                                )}
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                                Routing explainability
+                                            </Typography>
+                                            <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mb: 1.5 }}>
+                                                <Typography variant="caption" color="text.secondary">Agent selection</Typography>
+                                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                                    {String(expandedExecSnapshot?.routing_explainability?.agent_selection_reason || workerTip)}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">Model selection</Typography>
+                                                <Typography variant="body2">
+                                                    {String(expandedExecSnapshot?.routing_explainability?.model_selection_reason || runMeta.model_rationale || "No explicit model explanation captured yet.")}
+                                                </Typography>
+                                                {expandedExecSnapshot?.routing_explainability?.routing_policy_snapshot ? (
+                                                    <Box
+                                                        component="pre"
+                                                        sx={{ m: 0, mt: 1, p: 1, typography: "caption", bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04), whiteSpace: "pre-wrap" }}
+                                                    >
+                                                        {JSON.stringify(expandedExecSnapshot.routing_explainability.routing_policy_snapshot, null, 2)}
+                                                    </Box>
+                                                ) : null}
+                                            </Paper>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                                Acceptance checker
+                                            </Typography>
+                                            <Stack spacing={1} sx={{ mb: 1.5 }}>
+                                                <TextField
+                                                    key={`${task.id}-acceptance-artifacts`}
+                                                    size="small"
+                                                    label="Required artifact kinds"
+                                                    defaultValue={acceptanceConfig.required_artifact_kinds.join(", ")}
+                                                    helperText="Comma-separated kinds enforced before approve/complete."
+                                                    onBlur={(event) => updateAcceptanceConfig(task, {
+                                                        required_artifact_kinds: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
+                                                    })}
+                                                    fullWidth
+                                                />
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    <FormControlLabel
+                                                        control={<Switch checked={acceptanceConfig.require_github_comment} onChange={(_, checked) => updateAcceptanceConfig(task, { require_github_comment: checked })} />}
+                                                        label="Need GitHub comment"
+                                                    />
+                                                    <FormControlLabel
+                                                        control={<Switch checked={acceptanceConfig.require_github_pr} onChange={(_, checked) => updateAcceptanceConfig(task, { require_github_pr: checked })} />}
+                                                        label="Need GitHub PR"
+                                                    />
+                                                    <FormControlLabel
+                                                        control={<Switch checked={acceptanceConfig.require_reviewer_approval} onChange={(_, checked) => updateAcceptanceConfig(task, { require_reviewer_approval: checked })} />}
+                                                        label="Need reviewer approval"
+                                                    />
+                                                </Stack>
+                                                {expandedExecSnapshot?.acceptance_summary ? (
+                                                    <Alert severity={expandedExecSnapshot.acceptance_summary.passed ? "success" : "warning"}>
+                                                        {expandedExecSnapshot.acceptance_summary.passed ? "Acceptance gate currently passes." : "Acceptance gate currently fails."}
+                                                    </Alert>
+                                                ) : null}
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                                What changed since last run
+                                            </Typography>
+                                            <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mb: 1.5 }}>
+                                                {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "").trim() ? (
+                                                    <Box component="pre" sx={{ m: 0, whiteSpace: "pre-wrap", typography: "caption" }}>
+                                                        {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "")}
+                                                    </Box>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        No diff captured yet.
+                                                    </Typography>
+                                                )}
+                                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                                    {expandedExecSnapshot?.last_run_id ? (
+                                                        <Link href={`/runs/${expandedExecSnapshot.last_run_id}`} underline="hover">Latest run</Link>
+                                                    ) : null}
+                                                    {typeof expandedExecSnapshot?.execution_memory?.last_run_id === "string" ? (
+                                                        <Link href={`/runs/${String(expandedExecSnapshot.execution_memory.last_run_id)}`} underline="hover">Execution memory source</Link>
+                                                    ) : null}
+                                                </Stack>
+                                            </Paper>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                                Changed artifacts
+                                            </Typography>
+                                            <Stack spacing={0.75} sx={{ mb: 1.5 }}>
+                                                {(expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>> | undefined)?.length ? (
+                                                    (expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>>).map((artifact) => (
+                                                        <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                            <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {String(artifact.kind || "artifact")} • {artifact.created_at ? formatDateTime(String(artifact.created_at)) : "no timestamp"}
+                                                            </Typography>
+                                                        </Paper>
+                                                    ))
+                                                ) : expandedArtifacts.length > 0 ? (
+                                                    expandedArtifacts.slice(0, 4).map((artifact) => (
+                                                        <Paper key={artifact.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                            <Typography variant="body2">{artifact.title}</Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {artifact.kind} • {formatDateTime(artifact.created_at)}
+                                                            </Typography>
+                                                        </Paper>
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="caption" color="text.secondary">No artifacts yet.</Typography>
                                                 )}
                                             </Stack>
                                             <SubtaskPanel projectId={projectId} taskId={task.id} taskTitle={task.title} />
@@ -1025,6 +1200,9 @@ export default function OrchestrationProjectDetailPage() {
         episodic_retention_days: string;
         deep_recall_mode: boolean;
     }>(null);
+    const [mergeTaskId, setMergeTaskId] = useState<string | null>(null);
+    const [mergeNotes, setMergeNotes] = useState("");
+    const [repoIndexDrafts, setRepoIndexDrafts] = useState<Record<string, { scheduleLabel: string; pathPrefixes: string; autoEnabled: boolean }>>({});
 
     const { data: project } = useQuery({
         queryKey: ["orchestration", "project", projectId],
@@ -1073,6 +1251,16 @@ export default function OrchestrationProjectDetailPage() {
         queryFn: () => listProjectDocuments(projectId),
         enabled: Boolean(projectId),
     });
+    const { data: projectRepositories = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "repositories"],
+        queryFn: () => listProjectRepositories(projectId),
+        enabled: Boolean(projectId),
+    });
+    const { data: repositoryIndexStatus = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "repository-index-status"],
+        queryFn: () => getProjectRepositoryIndexStatus(projectId),
+        enabled: Boolean(projectId),
+    });
     const { data: knowledgeResults = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "knowledge", knowledgeQuery, includeDecisionRecall],
         queryFn: () => searchProjectKnowledge(projectId, knowledgeQuery, undefined, { includeDecisions: includeDecisionRecall }),
@@ -1092,7 +1280,6 @@ export default function OrchestrationProjectDetailPage() {
         queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"],
         queryFn: () => listProjectMemoryIngestJobs(projectId, 80),
         enabled: Boolean(projectId),
-        refetchInterval: 5000,
     });
     const { data: memoryEntries = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "memory"],
@@ -1138,6 +1325,28 @@ export default function OrchestrationProjectDetailPage() {
         queryFn: () => listDagReadyTasks(projectId),
         enabled: Boolean(projectId) && tab === "dag",
     });
+    const { data: mergePreview } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "merge-preview", mergeTaskId],
+        queryFn: () => getMergeResolutionPreview(projectId, mergeTaskId as string),
+        enabled: Boolean(projectId) && Boolean(mergeTaskId),
+    });
+
+    useLiveSnapshotStream(
+        projectId ? `/orchestration/projects/${projectId}/stream` : null,
+        {
+            enabled: Boolean(projectId),
+            onSnapshot: () => {
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "dag-ready"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "sync-events"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "repository-index-status"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
+            },
+        }
+    );
 
     const projectAgentMap = useMemo(() => new Set(projectAgents.map((item) => item.agent_id)), [projectAgents]);
     const projectAgentProfiles = useMemo(
@@ -1396,13 +1605,59 @@ export default function OrchestrationProjectDetailPage() {
         },
     });
     const mergeResolutionMutation = useMutation({
-        mutationFn: (parentTaskId: string) =>
-            startMergeResolutionRun(projectId, parentTaskId, { notes: "Merge branches from project DAG." }),
+        mutationFn: ({ parentTaskId, notes }: { parentTaskId: string; notes: string }) =>
+            startMergeResolutionRun(projectId, parentTaskId, {
+                notes,
+                input_payload: {
+                    merge_resolution: {
+                        checklist_confirmed: true,
+                        notes,
+                    },
+                },
+            }),
         onSuccess: async (run) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
             showToast({ message: "Merge resolution run queued.", severity: "success" });
+            setMergeTaskId(null);
+            setMergeNotes("");
             navigate(`/runs/${run.id}`);
+        },
+    });
+    const queueRepositoryIndexMutation = useMutation({
+        mutationFn: ({ repositoryLinkId, mode, pathPrefixes, scheduleLabel, autoEnabled }: {
+            repositoryLinkId: string;
+            mode: "full" | "incremental";
+            pathPrefixes: string[];
+            scheduleLabel?: string | null;
+            autoEnabled?: boolean | null;
+        }) =>
+            queueProjectRepositoryIndex(projectId, repositoryLinkId, {
+                mode,
+                path_prefixes: pathPrefixes,
+                schedule_label: scheduleLabel,
+                auto_enabled: autoEnabled,
+            }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "repository-index-status"] });
+            showToast({ message: "Repository indexing queued.", severity: "success" });
+        },
+    });
+    const updateRepositoryMutation = useMutation({
+        mutationFn: ({ repositoryLinkId, defaultBranch, metadata }: {
+            repositoryLinkId: string;
+            defaultBranch?: string | null;
+            metadata?: Record<string, unknown>;
+        }) =>
+            updateProjectRepository(projectId, repositoryLinkId, {
+                default_branch: defaultBranch,
+                metadata,
+            }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "repositories"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "repository-index-status"] });
+            showToast({ message: "Repository index settings saved.", severity: "success" });
         },
     });
     const updateMembershipMutation = useMutation({
@@ -1460,7 +1715,7 @@ export default function OrchestrationProjectDetailPage() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
         },
         onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Failed to create brainstorm."), severity: "error" });
+            showToast({ message: extractApiErrorMessage(error, "Couldn't start brainstorm. Try again."), severity: "error" });
         },
     });
     const milestoneMutation = useMutation({
@@ -1492,7 +1747,7 @@ export default function OrchestrationProjectDetailPage() {
             showToast({ message: "Task graph updated.", severity: "success" });
         },
         onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Failed to update task graph."), severity: "error" });
+            showToast({ message: extractApiErrorMessage(error, "Couldn't save task graph. Refresh and retry."), severity: "error" });
         },
     });
     const decisionMutation = useMutation({
@@ -1952,7 +2207,7 @@ export default function OrchestrationProjectDetailPage() {
                             >
                                 Create task
                             </Button>
-                            {createTaskMutation.isError && <Alert severity="error">Failed to create task.</Alert>}
+                            {createTaskMutation.isError && <Alert severity="error">Couldn't create task. Check fields and try again.</Alert>}
                         </Stack>
                     </SectionCard>
                     <Box>
@@ -2999,6 +3254,163 @@ export default function OrchestrationProjectDetailPage() {
                                 </Stack>
                             )}
                         </SectionCard>
+                        <SectionCard title="Connected repositories" description="Repo-level indexing, schedule controls, file coverage, and failure reporting for searchable project knowledge.">
+                            <Stack spacing={1.5}>
+                                {repositoryIndexStatus.length === 0 && projectRepositories.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No connected repositories yet. Link a GitHub repository on the GitHub tab to index code knowledge here.
+                                    </Typography>
+                                ) : (
+                                    (repositoryIndexStatus.length > 0 ? repositoryIndexStatus : projectRepositories.map((repository) => ({
+                                        repository_link_id: repository.id,
+                                        github_repository_id: repository.github_repository_id,
+                                        full_name: repository.full_name,
+                                        default_branch: repository.default_branch,
+                                        repository_url: repository.repository_url,
+                                        index_settings: (repository.metadata.indexing as Record<string, unknown> | undefined) ?? {},
+                                        indexed_files: 0,
+                                        chunk_count: 0,
+                                        searchable_documents: 0,
+                                        last_indexed_at: null,
+                                        latest_job: null,
+                                        last_successful_job_id: null,
+                                        pending_jobs: 0,
+                                        running_jobs: 0,
+                                        recent_files: [],
+                                        recent_errors: [],
+                                    }))).map((repository) => {
+                                        const draft = repoIndexDrafts[repository.repository_link_id] ?? {
+                                            scheduleLabel: String((repository.index_settings as Record<string, unknown>).schedule_label ?? ""),
+                                            pathPrefixes: Array.isArray((repository.index_settings as Record<string, unknown>).path_prefixes)
+                                                ? ((repository.index_settings as Record<string, unknown>).path_prefixes as string[]).join(", ")
+                                                : "",
+                                            autoEnabled: Boolean((repository.index_settings as Record<string, unknown>).auto_enabled),
+                                        };
+                                        return (
+                                            <Paper key={repository.repository_link_id} sx={{ p: 2, borderRadius: 4 }}>
+                                                <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" spacing={2}>
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                            <Typography variant="subtitle2">{repository.full_name}</Typography>
+                                                            <Chip size="small" variant="outlined" label={repository.default_branch || "no branch"} />
+                                                            <Chip size="small" color="info" variant="outlined" label={`${repository.indexed_files} files`} />
+                                                            <Chip size="small" color="success" variant="outlined" label={`${repository.chunk_count} chunks`} />
+                                                            {repository.latest_job ? (
+                                                                <Chip size="small" color={repository.latest_job.status === "failed" ? "error" : repository.latest_job.status === "running" ? "info" : repository.latest_job.status === "pending" ? "warning" : "success"} label={`latest ${repository.latest_job.status}`} />
+                                                            ) : null}
+                                                        </Stack>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                                                            {repository.last_indexed_at ? `Last indexed ${formatDateTime(repository.last_indexed_at)}` : "Not indexed yet"}
+                                                            {repository.repository_url ? ` • ${repository.repository_url}` : ""}
+                                                        </Typography>
+                                                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ mt: 1.25 }}>
+                                                            <TextField
+                                                                size="small"
+                                                                label="Schedule label"
+                                                                value={draft.scheduleLabel}
+                                                                onChange={(event) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, scheduleLabel: event.target.value },
+                                                                }))}
+                                                                sx={{ minWidth: 180 }}
+                                                                helperText="Example: every 6h / daily / before review"
+                                                            />
+                                                            <TextField
+                                                                size="small"
+                                                                label="Incremental paths"
+                                                                value={draft.pathPrefixes}
+                                                                onChange={(event) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, pathPrefixes: event.target.value },
+                                                                }))}
+                                                                fullWidth
+                                                                helperText="Comma-separated path prefixes for focused reindex."
+                                                            />
+                                                        </Stack>
+                                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                                            <Switch
+                                                                checked={draft.autoEnabled}
+                                                                onChange={(_, checked) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, autoEnabled: checked },
+                                                                }))}
+                                                            />
+                                                            <Typography variant="body2">Auto queue scheduled index for this repo</Typography>
+                                                        </Stack>
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                onClick={() => queueRepositoryIndexMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    mode: "full",
+                                                                    pathPrefixes: [],
+                                                                    scheduleLabel: draft.scheduleLabel || null,
+                                                                    autoEnabled: draft.autoEnabled,
+                                                                })}
+                                                            >
+                                                                Full index
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => queueRepositoryIndexMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    mode: "incremental",
+                                                                    pathPrefixes: draft.pathPrefixes.split(",").map((item) => item.trim()).filter(Boolean),
+                                                                    scheduleLabel: draft.scheduleLabel || null,
+                                                                    autoEnabled: draft.autoEnabled,
+                                                                })}
+                                                            >
+                                                                Incremental reindex
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                onClick={() => updateRepositoryMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    metadata: {
+                                                                        indexing: {
+                                                                            schedule_label: draft.scheduleLabel || null,
+                                                                            path_prefixes: draft.pathPrefixes.split(",").map((item) => item.trim()).filter(Boolean),
+                                                                            auto_enabled: draft.autoEnabled,
+                                                                        },
+                                                                    },
+                                                                })}
+                                                            >
+                                                                Save schedule
+                                                            </Button>
+                                                        </Stack>
+                                                    </Box>
+                                                    <Stack spacing={1} sx={{ width: { xs: "100%", lg: 320 } }}>
+                                                        <Typography variant="caption" color="text.secondary">Recent indexed files</Typography>
+                                                        {repository.recent_files.length > 0 ? repository.recent_files.slice(0, 5).map((file) => (
+                                                            <Paper key={file.document_id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                                <Typography variant="body2">{file.path}</Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {file.branch} • {file.chunk_count} chunks • {file.status}
+                                                                </Typography>
+                                                            </Paper>
+                                                        )) : (
+                                                            <Typography variant="body2" color="text.secondary">No indexed files yet.</Typography>
+                                                        )}
+                                                        {repository.recent_errors.length > 0 ? (
+                                                            <>
+                                                                <Typography variant="caption" color="error">Recent failures</Typography>
+                                                                {repository.recent_errors.map((error) => (
+                                                                    <Alert key={error.job_id} severity="error">
+                                                                        {error.error_text || "Unknown indexing failure"}
+                                                                    </Alert>
+                                                                ))}
+                                                            </>
+                                                        ) : null}
+                                                    </Stack>
+                                                </Stack>
+                                            </Paper>
+                                        );
+                                    })
+                                )}
+                            </Stack>
+                        </SectionCard>
                     </Stack>
                     <SectionCard title="Memory expiration rules" description="Control retention + approval gate for long-term memory writes.">
                         <Stack spacing={1.25}>
@@ -3320,7 +3732,8 @@ export default function OrchestrationProjectDetailPage() {
                                             showToast({ message: "Need at least two completed subtasks to merge.", severity: "warning" });
                                             return;
                                         }
-                                        mergeResolutionMutation.mutate(dagTask.id);
+                                        setMergeTaskId(dagTask.id);
+                                        setMergeNotes(`Synthesize the best branch outputs for "${dagTask.title}". Resolve conflicts, preserve accepted evidence, and promote one final artifact set.`);
                                         setDagDrawerTaskId(null);
                                     }}
                                 >
@@ -3336,6 +3749,77 @@ export default function OrchestrationProjectDetailPage() {
                     </Stack>
                 )}
             </Drawer>
+
+            <Dialog open={Boolean(mergeTaskId)} onClose={() => setMergeTaskId(null)} fullWidth maxWidth="md">
+                <DialogTitle>Merge branch outputs</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            Review completed branch outputs, flag conflicts, then queue one synthesis run on the parent task.
+                        </Typography>
+                        {mergePreview ? (
+                            <>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                    <Typography variant="subtitle2">{String((mergePreview.parent as { title?: string } | undefined)?.title || "Parent task")}</Typography>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                        <Chip size="small" variant="outlined" label={`${Number(mergePreview.completed_branch_count || 0)} completed branches`} />
+                                        <Chip size="small" variant="outlined" label={`${Number(mergePreview.distinct_agents_on_completed || 0)} contributing agents`} />
+                                        <Chip
+                                            size="small"
+                                            color={mergePreview.needs_merge_agent ? "warning" : "success"}
+                                            label={mergePreview.needs_merge_agent ? "conflict review needed" : "low conflict"}
+                                        />
+                                    </Stack>
+                                </Paper>
+                                <Stack spacing={1}>
+                                    {Array.isArray(mergePreview.branches) ? mergePreview.branches.map((branch) => {
+                                        const branchRow = branch as { id: string; title?: string; status?: string; assigned_agent_id?: string | null; result_summary?: string | null };
+                                        return (
+                                            <Paper key={branchRow.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+                                                    <Typography variant="subtitle2">{branchRow.title || "Branch task"}</Typography>
+                                                    <Chip size="small" variant="outlined" label={branchRow.status || "unknown"} />
+                                                    {branchRow.assigned_agent_id ? <Chip size="small" variant="outlined" label={branchRow.assigned_agent_id.slice(0, 8)} /> : null}
+                                                </Stack>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                                    {branchRow.result_summary || "No summary captured yet."}
+                                                </Typography>
+                                            </Paper>
+                                        );
+                                    }) : null}
+                                </Stack>
+                            </>
+                        ) : (
+                            <LinearProgress />
+                        )}
+                        <Alert severity="info">
+                            Checklist: compare branch evidence, reconcile conflicts, preserve accepted artifacts, and name the promoted final output in notes.
+                        </Alert>
+                        <TextField
+                            label="Synthesis notes"
+                            multiline
+                            minRows={5}
+                            value={mergeNotes}
+                            onChange={(event) => setMergeNotes(event.target.value)}
+                            helperText="These notes become merge context for the synthesis run."
+                            fullWidth
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setMergeTaskId(null)}>Cancel</Button>
+                    <Button
+                        variant="contained"
+                        disabled={!mergeTaskId || mergeResolutionMutation.isPending}
+                        onClick={() => {
+                            if (!mergeTaskId) return;
+                            mergeResolutionMutation.mutate({ parentTaskId: mergeTaskId, notes: mergeNotes.trim() || "Merge branches from project DAG." });
+                        }}
+                    >
+                        Queue merge resolution run
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* ── Acceptance Dialog ── */}
             {acceptanceTaskId && (

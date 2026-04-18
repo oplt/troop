@@ -227,6 +227,24 @@ export type RunTraceStep = {
     metadata: Record<string, unknown>;
 };
 
+export type DurableWorkflowState = {
+    workflow_id: string | null;
+    backend: string | null;
+    schema_version: string | null;
+    status: string | null;
+    execution_handle: Record<string, unknown>;
+    current_step_id: string | null;
+    last_completed_step_id: string | null;
+    resume_count: number;
+    recovery_count: number;
+    last_failure: Record<string, unknown>;
+    signal_queue: Array<Record<string, unknown>>;
+    signal_history: Array<Record<string, unknown>>;
+    query_snapshot: Record<string, unknown>;
+    migration: Record<string, unknown>;
+    resumable: boolean;
+};
+
 export type TaskExecutionSnapshot = {
     meta: ExecutionSnapshotMeta;
     project_id: string;
@@ -238,11 +256,16 @@ export type TaskExecutionSnapshot = {
     pending_approvals: PendingApprovalSummary[];
     pending_github_sync: PendingGithubSyncSummary[];
     metadata_views: Record<string, unknown>;
+    routing_explainability: Record<string, unknown>;
+    acceptance_summary: Record<string, unknown>;
+    execution_memory: Record<string, unknown>;
+    changed_artifacts: Array<Record<string, unknown>>;
     last_run_id: string | null;
     focal_run_id: string | null;
     checkpoint_excerpt: Record<string, unknown>;
     recent_events_tail: RunEventTailItem[];
     trace: RunTraceStep[];
+    durable_workflow: DurableWorkflowState;
 };
 
 export type RunExecutionSnapshot = {
@@ -252,9 +275,13 @@ export type RunExecutionSnapshot = {
     task_id: string | null;
     pending_approvals: PendingApprovalSummary[];
     pending_github_sync: PendingGithubSyncSummary[];
+    routing_explainability: Record<string, unknown>;
+    execution_memory: Record<string, unknown>;
+    changed_artifacts: Array<Record<string, unknown>>;
     checkpoint_excerpt: Record<string, unknown>;
     recent_events_tail: RunEventTailItem[];
     trace: RunTraceStep[];
+    durable_workflow: DurableWorkflowState;
     resumable: boolean;
 };
 
@@ -428,6 +455,58 @@ export type GithubSyncEvent = {
     created_at: string;
 };
 
+export type ProjectRepositoryLink = {
+    id: string;
+    github_repository_id: string | null;
+    provider: string;
+    owner_name: string;
+    repo_name: string;
+    full_name: string;
+    default_branch: string | null;
+    repository_url: string | null;
+    metadata: Record<string, unknown>;
+};
+
+export type ProjectRepositoryIndexStatus = {
+    repository_link_id: string;
+    github_repository_id: string | null;
+    full_name: string;
+    default_branch: string | null;
+    repository_url: string | null;
+    index_settings: Record<string, unknown>;
+    indexed_files: number;
+    chunk_count: number;
+    searchable_documents: number;
+    last_indexed_at: string | null;
+    latest_job: {
+        id: string;
+        status: string;
+        error_text: string | null;
+        created_at: string;
+        started_at: string | null;
+        finished_at: string | null;
+        mode: string;
+        path_prefixes: string[];
+    } | null;
+    last_successful_job_id: string | null;
+    pending_jobs: number;
+    running_jobs: number;
+    recent_files: Array<{
+        document_id: string;
+        path: string;
+        branch: string;
+        chunk_count: number;
+        status: string;
+    }>;
+    recent_errors: Array<{
+        job_id: string;
+        error_text: string | null;
+        created_at: string;
+        mode: string;
+        path_prefixes: string[];
+    }>;
+};
+
 export type Approval = {
     id: string;
     project_id: string | null;
@@ -507,6 +586,7 @@ export type TeamTemplate = {
     autonomy: string;
     visibility: string;
     agent_template_slugs: string[];
+    canvas_layout: Record<string, unknown>;
 };
 
 export type OrchestrationOverview = {
@@ -975,6 +1055,52 @@ export type PortfolioProjectSummary = {
     repository_links: number;
 };
 
+export type PortfolioProjectControlPlane = {
+    project_id: string;
+    name: string;
+    slug: string;
+    manager: Record<string, unknown>;
+    health: Record<string, unknown>;
+    queue_depth: Record<string, number>;
+    cost_rollup: Record<string, unknown>;
+    blocked_work: Array<Record<string, unknown>>;
+    escalation_inbox: Array<Record<string, unknown>>;
+    latest_run: Record<string, unknown> | null;
+    execution_policy: Record<string, unknown>;
+};
+
+export type PortfolioExecutionPolicy = {
+    routing_mode: string;
+    approval_policy: string;
+    repo_indexing_cadence: string;
+    cost_cap_usd: number;
+};
+
+export type OperatorHealthCard = {
+    key: string;
+    label: string;
+    status: string;
+    summary: string;
+    metrics: Record<string, unknown>;
+};
+
+export type OperatorDashboard = {
+    generated_at: string;
+    queue_health: Record<string, unknown>;
+    webhook_lag: Record<string, unknown>;
+    replay_backlog: Record<string, unknown>;
+    stuck_runs: Record<string, unknown>;
+    services: OperatorHealthCard[];
+};
+
+export type PortfolioControlPlane = {
+    generated_at: string;
+    totals: Record<string, unknown>;
+    execution_policy: PortfolioExecutionPolicy;
+    operator_dashboard: OperatorDashboard;
+    projects: PortfolioProjectControlPlane[];
+};
+
 export type ExecutionInsights = {
     since: string;
     days: number;
@@ -1008,6 +1134,8 @@ export type RuntimeInfo = {
     orchestration_provider_failover: boolean;
     orchestration_use_langgraph: boolean;
     orchestration_durable_queue_backend: string;
+    durable_signal_model: string;
+    durable_query_model: string;
     /** Logical service plane → broker queue name */
     celery_queues: Record<string, string>;
 };
@@ -1027,6 +1155,23 @@ export async function getOrchestrationPortfolio(): Promise<PortfolioProjectSumma
     return apiFetch("/orchestration/portfolio");
 }
 
+export async function getOrchestrationPortfolioControlPlane(): Promise<PortfolioControlPlane> {
+    return apiFetch("/orchestration/portfolio/control-plane");
+}
+
+export async function getPortfolioExecutionPolicy(): Promise<PortfolioExecutionPolicy> {
+    return apiFetch("/orchestration/portfolio/execution-policy");
+}
+
+export async function updatePortfolioExecutionPolicy(
+    payload: Partial<PortfolioExecutionPolicy>
+): Promise<PortfolioExecutionPolicy> {
+    return apiFetch("/orchestration/portfolio/execution-policy", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+}
+
 export async function getExecutionInsights(days: number = 7): Promise<ExecutionInsights> {
     return apiFetch(`/orchestration/analytics/execution-insights?days=${days}`);
 }
@@ -1041,6 +1186,20 @@ export async function listWorkflowTemplates(): Promise<WorkflowTemplate[]> {
 
 export async function getOrchestrationRuntimeInfo(): Promise<RuntimeInfo> {
     return apiFetch("/orchestration/runtime-info");
+}
+
+export async function getRunDurableWorkflow(runId: string): Promise<DurableWorkflowState> {
+    return apiFetch(`/orchestration/runs/${runId}/durable-workflow`);
+}
+
+export async function signalRunWorkflow(
+    runId: string,
+    payload: { signal_name: string; payload?: Record<string, unknown> }
+): Promise<DurableWorkflowState> {
+    return apiFetch(`/orchestration/runs/${runId}/signals`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
 }
 
 export async function getBrainstormDiscourseInsights(brainstormId: string): Promise<BrainstormDiscourseInsights> {
@@ -1243,6 +1402,16 @@ export async function listGithubSyncEvents(projectId?: string): Promise<GithubSy
     return apiFetch(`/orchestration/github/sync-events${suffix}`);
 }
 
+export async function replayGithubSyncEvent(
+    syncEventId: string,
+    payload?: { force?: boolean }
+): Promise<GithubSyncEvent> {
+    return apiFetch(`/orchestration/github/sync-events/${syncEventId}/replay`, {
+        method: "POST",
+        body: JSON.stringify(payload ?? {}),
+    });
+}
+
 export async function requestGithubComment(issueLinkId: string, payload: { body: string; close_issue: boolean }): Promise<Approval> {
     return apiFetch(`/orchestration/github/issues/${issueLinkId}/comment`, { method: "POST", body: JSON.stringify(payload) });
 }
@@ -1302,6 +1471,41 @@ export async function deleteProjectMemoryEntry(projectId: string, memoryId: stri
 
 export async function indexProjectRepository(projectId: string, repositoryLinkId: string): Promise<Record<string, unknown>> {
     return apiFetch(`/orchestration/projects/${projectId}/repositories/${repositoryLinkId}/index`, { method: "POST" });
+}
+
+export async function queueProjectRepositoryIndex(
+    projectId: string,
+    repositoryLinkId: string,
+    payload?: {
+        mode?: "full" | "incremental";
+        path_prefixes?: string[];
+        schedule_label?: string | null;
+        auto_enabled?: boolean | null;
+    }
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/projects/${projectId}/repositories/${repositoryLinkId}/index`, {
+        method: "POST",
+        body: JSON.stringify(payload ?? {}),
+    });
+}
+
+export async function listProjectRepositories(projectId: string): Promise<ProjectRepositoryLink[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/repositories`);
+}
+
+export async function updateProjectRepository(
+    projectId: string,
+    repositoryLinkId: string,
+    payload: { default_branch?: string | null; metadata?: Record<string, unknown> }
+): Promise<ProjectRepositoryLink> {
+    return apiFetch(`/orchestration/projects/${projectId}/repositories/${repositoryLinkId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function getProjectRepositoryIndexStatus(projectId: string): Promise<ProjectRepositoryIndexStatus[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/repositories/index-status`);
 }
 
 export type MemoryIngestJob = {
@@ -1601,7 +1805,8 @@ export async function listSubtasks(projectId: string, taskId: string): Promise<O
 export type AcceptanceCheckResult = {
     task_id: string;
     passed: boolean;
-    checks: Array<{ name: string; passed: boolean; detail: string }>;
+    config: Record<string, unknown>;
+    checks: Array<{ name: string; passed: boolean; detail: string } & Record<string, unknown>>;
 };
 
 export async function checkTaskAcceptance(projectId: string, taskId: string): Promise<AcceptanceCheckResult> {

@@ -9,6 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 WORKFLOW_STATE_KEY = "durable_workflow_v1"
 
@@ -45,20 +46,42 @@ def ensure_workflow_state(
     *,
     run_mode: str,
     steps: list[dict[str, Any]],
+    run_id: str | None = None,
 ) -> dict[str, Any]:
     checkpoint = dict(checkpoint_json or {})
     state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
-    state.setdefault("schema_version", "1.0")
+    state.setdefault("schema_version", "2.0")
     state.setdefault("backend", "celery_checkpointed")
     state.setdefault("run_mode", run_mode)
     state.setdefault("status", "pending")
     state.setdefault("created_at", utcnow_iso())
     state.setdefault("updated_at", state["created_at"])
+    state.setdefault("workflow_id", str(state.get("workflow_id") or f"wf_{run_id or uuid4().hex}"))
+    state.setdefault(
+        "execution_handle",
+        {
+            "run_id": run_id,
+            "thread_id": run_id,
+            "resume_token": str(state.get("workflow_id") or f"wf_{run_id or uuid4().hex}"),
+        },
+    )
     state.setdefault("resume_count", 0)
     state.setdefault("recovery_count", 0)
     state.setdefault("current_step_id", None)
     state.setdefault("last_completed_step_id", None)
     state.setdefault("last_failure", None)
+    state.setdefault("signal_queue", [])
+    state.setdefault("signal_history", [])
+    state.setdefault("query_snapshot", {})
+    state.setdefault(
+        "migration",
+        {
+            "strategy": "checkpoint-first coexistence",
+            "current_schema_version": "2.0",
+            "source_checkpoint_versions": ["1.0", "2.0"],
+            "external_backend_ready": False,
+        },
+    )
     state.setdefault("artifacts", {})
     state["steps"] = normalize_workflow_steps(
         list(state.get("steps") or []) or deepcopy(steps)
@@ -67,6 +90,11 @@ def ensure_workflow_state(
         state["steps"] = normalize_workflow_steps(steps)
     checkpoint[WORKFLOW_STATE_KEY] = state
     return checkpoint
+
+
+def durable_handle(checkpoint_json: dict[str, Any] | None) -> dict[str, Any]:
+    state = workflow_state(checkpoint_json)
+    return dict(state.get("execution_handle") or {})
 
 
 def workflow_state(checkpoint_json: dict[str, Any] | None) -> dict[str, Any]:
@@ -147,6 +175,9 @@ def increment_resume_count(checkpoint_json: dict[str, Any] | None) -> dict[str, 
     checkpoint = dict(checkpoint_json or {})
     state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
     state["resume_count"] = int(state.get("resume_count") or 0) + 1
+    handle = dict(state.get("execution_handle") or {})
+    handle["last_resume_at"] = utcnow_iso()
+    state["execution_handle"] = handle
     state["updated_at"] = utcnow_iso()
     checkpoint[WORKFLOW_STATE_KEY] = state
     return checkpoint
@@ -170,6 +201,68 @@ def set_workflow_artifact(
 
 def get_workflow_artifact(checkpoint_json: dict[str, Any] | None, key: str, default: Any = None) -> Any:
     return workflow_state(checkpoint_json).get("artifacts", {}).get(key, default)
+
+
+def enqueue_signal(
+    checkpoint_json: dict[str, Any] | None,
+    *,
+    signal_name: str,
+    payload: dict[str, Any] | None = None,
+    requested_by_user_id: str | None = None,
+) -> dict[str, Any]:
+    checkpoint = dict(checkpoint_json or {})
+    state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
+    signal = {
+        "id": f"sig_{uuid4().hex}",
+        "name": signal_name,
+        "payload": dict(payload or {}),
+        "requested_by_user_id": requested_by_user_id,
+        "status": "queued",
+        "created_at": utcnow_iso(),
+    }
+    queue = list(state.get("signal_queue") or [])
+    queue.append(signal)
+    state["signal_queue"] = queue
+    state["updated_at"] = utcnow_iso()
+    checkpoint[WORKFLOW_STATE_KEY] = state
+    return checkpoint
+
+
+def consume_signal_queue(checkpoint_json: dict[str, Any] | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    checkpoint = dict(checkpoint_json or {})
+    state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
+    queued = list(state.get("signal_queue") or [])
+    if not queued:
+        return checkpoint, []
+    history = list(state.get("signal_history") or [])
+    now = utcnow_iso()
+    consumed = []
+    for item in queued:
+        updated = {**dict(item), "status": "applied", "applied_at": now}
+        consumed.append(updated)
+        history.append(updated)
+    state["signal_queue"] = []
+    state["signal_history"] = history[-50:]
+    state["updated_at"] = now
+    checkpoint[WORKFLOW_STATE_KEY] = state
+    return checkpoint, consumed
+
+
+def update_query_snapshot(
+    checkpoint_json: dict[str, Any] | None,
+    *,
+    data: dict[str, Any],
+) -> dict[str, Any]:
+    checkpoint = dict(checkpoint_json or {})
+    state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
+    state["query_snapshot"] = {
+        **dict(state.get("query_snapshot") or {}),
+        **data,
+        "updated_at": utcnow_iso(),
+    }
+    state["updated_at"] = utcnow_iso()
+    checkpoint[WORKFLOW_STATE_KEY] = state
+    return checkpoint
 
 
 def summarize_trace(checkpoint_json: dict[str, Any] | None) -> list[dict[str, Any]]:

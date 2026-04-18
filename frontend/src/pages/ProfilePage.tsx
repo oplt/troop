@@ -86,7 +86,7 @@ function MfaQrCode({ provisioningUri }: { provisioningUri: string }) {
             })
             .catch(() => {
                 if (isActive) {
-                    setQrError("Failed to generate QR code.");
+                    setQrError("Couldn't generate QR code. Refresh to retry.");
                 }
             });
 
@@ -210,7 +210,7 @@ export default function ProfilePage() {
         },
         onError: (error) => {
             showToast({
-                message: error instanceof Error ? error.message : "Failed to upload avatar.",
+                message: error instanceof Error ? error.message : "Couldn't upload avatar. Check file format and try again.",
                 severity: "error",
             });
         },
@@ -223,7 +223,7 @@ export default function ProfilePage() {
         },
         onError: (error) => {
             showToast({
-                message: error instanceof Error ? error.message : "Failed to remove avatar.",
+                message: error instanceof Error ? error.message : "Couldn't remove avatar. Try again.",
                 severity: "error",
             });
         },
@@ -385,7 +385,7 @@ export default function ProfilePage() {
                                 <Alert severity="error">
                                     {accountMutation.error instanceof Error
                                         ? accountMutation.error.message
-                                        : "Failed to update account info."}
+                                        : "Couldn't save account info. Try again."}
                                 </Alert>
                             )}
                             <Button type="submit" variant="contained" disabled={accountMutation.isPending}>
@@ -449,7 +449,7 @@ export default function ProfilePage() {
                                                     <Alert severity="error">
                                                         {verifyMfaMutation.error instanceof Error
                                                             ? verifyMfaMutation.error.message
-                                                            : "Failed to verify MFA."}
+                                                            : "Couldn't verify MFA code. Double-check the 6 digits and retry."}
                                                     </Alert>
                                                 )}
                                                 <Button type="submit" variant="contained" disabled={verifyMfaMutation.isPending}>
@@ -477,7 +477,7 @@ export default function ProfilePage() {
                                         <Alert severity="error">
                                             {disableMfaMutation.error instanceof Error
                                                 ? disableMfaMutation.error.message
-                                                : "Failed to disable MFA."}
+                                                : "Couldn't disable MFA. Try again."}
                                         </Alert>
                                     )}
                                     <Button type="submit" variant="outlined" color="error" disabled={disableMfaMutation.isPending}>
@@ -538,7 +538,7 @@ export default function ProfilePage() {
                                 <Alert severity="error">
                                     {profileMutation.error instanceof Error
                                         ? profileMutation.error.message
-                                        : "Failed to update public profile."}
+                                        : "Couldn't save profile changes. Try again."}
                                 </Alert>
                             )}
                             <Button type="submit" variant="contained" disabled={profileMutation.isPending}>
@@ -605,7 +605,7 @@ export default function ProfilePage() {
                             <EmptyState
                                 icon={<DevicesIcon />}
                                 title="No active sessions"
-                                description="Your signed-in sessions will appear here when they are available."
+                                description="Other devices signed into your account will appear here. Revoke any session you don't recognize."
                             />
                         )}
                     </SectionCard>
@@ -650,7 +650,7 @@ export default function ProfilePage() {
                                     <Alert severity="error">
                                         {passwordMutation.error instanceof Error
                                             ? passwordMutation.error.message
-                                            : "Failed to update password."}
+                                            : "Couldn't update password. Check current password and retry."}
                                     </Alert>
                                 )}
                                 <Button type="submit" variant="contained" disabled={passwordMutation.isPending}>

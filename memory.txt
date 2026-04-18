@@ -390,9 +390,5 @@ But the best architecture for your app is a **hybrid hierarchical memory system*
 
 That is the design I would trust in a real multi-agent project platform.
 
-I can turn this into a concrete schema next: Postgres tables, vector collections, and namespace conventions.
 
-[1]: https://github.com/MemPalace/mempalace "GitHub - MemPalace/mempalace: The highest-scoring AI memory system ever benchmarked. And it's free. · GitHub"
-[2]: https://docs.temporal.io/workflow-execution "Temporal Workflow Execution overview | Temporal Platform Documentation"
-[3]: https://docs.langchain.com/oss/python/langgraph/memory "Memory overview - Docs by LangChain"
-[4]: https://docs.langchain.com/oss/python/langchain/long-term-memory "Long-term memory - Docs by LangChain"
+https://github.com/MemPalace/mempalace "GitHub - MemPalace/mempalace: The highest-scoring AI memory system ever benchmarked. And it's free. · GitHub"

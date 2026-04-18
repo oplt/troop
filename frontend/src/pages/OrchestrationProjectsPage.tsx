@@ -158,7 +158,7 @@ export default function OrchestrationProjectsPage() {
                         <TextField label="Slug" {...register("slug")} />
                         <TextField label="Description" {...register("description")} multiline minRows={3} />
                         <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
-                        {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Failed to create project."}</Alert>}
+                        {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}</Alert>}
                         <Button type="submit" variant="contained">Create project</Button>
                     </Stack>
                     <Divider sx={{ my: 2 }} />

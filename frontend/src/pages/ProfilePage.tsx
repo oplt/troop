@@ -10,10 +10,12 @@ import {
     Button,
     Chip,
     CircularProgress,
+    FormControlLabel,
     Link,
     Paper,
     Skeleton,
     Stack,
+    Switch,
     TextField,
     Typography,
 } from "@mui/material";
@@ -28,6 +30,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import QRCode from "qrcode";
 import { disableMfa, enableMfa, verifyMfa } from "../api/auth";
+import { getPreferences, updatePreferences } from "../api/notifications";
 import { changePassword, getMe, getSessions, revokeSession, updateMe } from "../api/users";
 import { deleteAvatar, getProfile, updateProfile, uploadAvatar } from "../api/profile";
 import { useSnackbar } from "../app/snackbarContext";
@@ -66,6 +69,50 @@ type AccountValues = z.infer<typeof accountSchema>;
 type ProfileValues = z.infer<typeof profileSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 type MfaCodeValues = z.infer<typeof mfaCodeSchema>;
+
+function PreferenceItem({
+    label,
+    description,
+    checked,
+    disabled,
+    onChange,
+}: {
+    label: string;
+    description: string;
+    checked: boolean;
+    disabled: boolean;
+    onChange: (nextValue: boolean) => void;
+}) {
+    return (
+        <Box
+            sx={(theme) => ({
+                p: 2,
+                borderRadius: 4,
+                border: `1px solid ${theme.palette.divider}`,
+                backgroundColor: theme.palette.background.paper,
+            })}
+        >
+            <FormControlLabel
+                sx={{ alignItems: "flex-start", m: 0, width: "100%" }}
+                control={
+                    <Switch
+                        checked={checked}
+                        onChange={(event) => onChange(event.target.checked)}
+                        disabled={disabled}
+                    />
+                }
+                label={
+                    <Box sx={{ ml: 1 }}>
+                        <Typography variant="subtitle2">{label}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {description}
+                        </Typography>
+                    </Box>
+                }
+            />
+        </Box>
+    );
+}
 
 function MfaQrCode({ provisioningUri }: { provisioningUri: string }) {
     const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -138,6 +185,10 @@ export default function ProfilePage() {
     const { data: sessions, isLoading: sessionsLoading } = useQuery({
         queryKey: ["sessions"],
         queryFn: getSessions,
+    });
+    const { data: notificationPrefs } = useQuery({
+        queryKey: ["notification-preferences"],
+        queryFn: getPreferences,
     });
 
     const accountForm = useForm<AccountValues>({
@@ -227,6 +278,10 @@ export default function ProfilePage() {
                 severity: "error",
             });
         },
+    });
+    const notificationPrefsMutation = useMutation({
+        mutationFn: updatePreferences,
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
     });
 
     function handleAvatarFileChange(file: File | null) {
@@ -371,28 +426,69 @@ export default function ProfilePage() {
                 </SectionCard>
 
                 <SectionCard title="Account info" description="Update how your name appears across the product.">
-                    <Box component="form" onSubmit={accountForm.handleSubmit((values) => accountMutation.mutate(values))}>
-                        <Stack spacing={2}>
-                            <TextField
-                                label="Full name"
-                                {...accountForm.register("full_name")}
-                                error={!!accountForm.formState.errors.full_name}
-                                helperText={accountForm.formState.errors.full_name?.message}
-                                fullWidth
-                            />
-                            {accountMutation.isSuccess && <Alert severity="success">Account details updated.</Alert>}
-                            {accountMutation.isError && (
-                                <Alert severity="error">
-                                    {accountMutation.error instanceof Error
-                                        ? accountMutation.error.message
-                                        : "Couldn't save account info. Try again."}
+                    <Stack spacing={3}>
+                        <Box component="form" onSubmit={accountForm.handleSubmit((values) => accountMutation.mutate(values))}>
+                            <Stack spacing={2}>
+                                <TextField
+                                    label="Full name"
+                                    {...accountForm.register("full_name")}
+                                    error={!!accountForm.formState.errors.full_name}
+                                    helperText={accountForm.formState.errors.full_name?.message}
+                                    fullWidth
+                                />
+                                {accountMutation.isSuccess && <Alert severity="success">Account details updated.</Alert>}
+                                {accountMutation.isError && (
+                                    <Alert severity="error">
+                                        {accountMutation.error instanceof Error
+                                            ? accountMutation.error.message
+                                            : "Couldn't save account info. Try again."}
+                                    </Alert>
+                                )}
+                                <Button type="submit" variant="contained" disabled={accountMutation.isPending}>
+                                    {accountMutation.isPending ? "Saving..." : "Save changes"}
+                                </Button>
+                            </Stack>
+                        </Box>
+
+                        <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                                Notification settings
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                Choose how this workspace reaches you. Same controls as the notifications page.
+                            </Typography>
+                            <Stack spacing={1.5}>
+                                <PreferenceItem
+                                    label="Email notifications"
+                                    description="Receive operational updates and account messages in your inbox."
+                                    checked={notificationPrefs?.email_enabled ?? true}
+                                    disabled={notificationPrefsMutation.isPending}
+                                    onChange={(nextValue) => notificationPrefsMutation.mutate({ email_enabled: nextValue })}
+                                />
+                                <PreferenceItem
+                                    label="Push notifications"
+                                    description="Surface urgent activity directly inside the app experience."
+                                    checked={notificationPrefs?.push_enabled ?? true}
+                                    disabled={notificationPrefsMutation.isPending}
+                                    onChange={(nextValue) => notificationPrefsMutation.mutate({ push_enabled: nextValue })}
+                                />
+                                <PreferenceItem
+                                    label="Marketing emails"
+                                    description="Get launch announcements, feature roundups, and educational updates."
+                                    checked={notificationPrefs?.marketing_enabled ?? false}
+                                    disabled={notificationPrefsMutation.isPending}
+                                    onChange={(nextValue) => notificationPrefsMutation.mutate({ marketing_enabled: nextValue })}
+                                />
+                            </Stack>
+                            {notificationPrefsMutation.isError && (
+                                <Alert severity="error" sx={{ mt: 2 }}>
+                                    {notificationPrefsMutation.error instanceof Error
+                                        ? notificationPrefsMutation.error.message
+                                        : "Couldn't update notification preferences. Try again."}
                                 </Alert>
                             )}
-                            <Button type="submit" variant="contained" disabled={accountMutation.isPending}>
-                                {accountMutation.isPending ? "Saving..." : "Save changes"}
-                            </Button>
-                        </Stack>
-                    </Box>
+                        </Box>
+                    </Stack>
                 </SectionCard>
 
                 <SectionCard

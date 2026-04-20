@@ -54,6 +54,13 @@ import {
     type WorkingMemory,
 } from "../api/orchestration";
 import { readOrchestrationSelectionMeta } from "../utils/orchestrationSelection";
+import {
+    CheckpointFriendlySummary,
+    CollapsibleRawJson,
+    EventPayloadFriendly,
+    RunOutputFriendly,
+    ShallowKeyValueList,
+} from "../components/runInspector/RunInspectorDataViews";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -204,14 +211,9 @@ function RunEventRow({
 
                     <Collapse in={!isCollapsible || open}>
                         {hasPayload && (
-                            <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                component="pre"
-                                sx={{ mt: 0.5, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflow: "auto" }}
-                            >
-                                {JSON.stringify(event.payload, null, 2)}
-                            </Typography>
+                            <Box sx={{ mt: 0.75 }}>
+                                <EventPayloadFriendly payload={event.payload as Record<string, unknown>} />
+                            </Box>
                         )}
                     </Collapse>
                 </Box>
@@ -245,9 +247,9 @@ function ToolCallPair({ call, response }: { call: RunEvent; response: RunEvent |
             <Typography variant="body2">{call.message}</Typography>
             <Collapse in={open}>
                 {call.payload && Object.keys(call.payload).length > 0 && (
-                    <Typography variant="caption" component="pre" sx={{ display: "block", mt: 1, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-                        {JSON.stringify(call.payload, null, 2)}
-                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                        <EventPayloadFriendly payload={call.payload as Record<string, unknown>} />
+                    </Box>
                 )}
                 {response && (
                     <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
@@ -257,9 +259,9 @@ function ToolCallPair({ call, response }: { call: RunEvent; response: RunEvent |
                         </Stack>
                         <Typography variant="body2">{response.message}</Typography>
                         {response.payload && Object.keys(response.payload).length > 0 && (
-                            <Typography variant="caption" component="pre" sx={{ display: "block", mt: 0.75, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-                                {JSON.stringify(response.payload, null, 2)}
-                            </Typography>
+                            <Box sx={{ mt: 0.75 }}>
+                                <EventPayloadFriendly payload={response.payload as Record<string, unknown>} />
+                            </Box>
                         )}
                     </Box>
                 )}
@@ -393,18 +395,13 @@ function ConversationBubble({
                 {hasPayload && (
                     <Box
                         sx={(theme) => ({
-                            p: 1,
+                            p: 1.25,
                             borderRadius: 1.5,
                             bgcolor: alpha(theme.palette.background.default, 0.7),
-                            fontFamily: "monospace",
-                            fontSize: "0.75rem",
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-all",
-                            maxHeight: 250,
-                            overflow: "auto",
+                            border: `1px solid ${theme.palette.divider}`,
                         })}
                     >
-                        {JSON.stringify(event.payload, null, 2)}
+                        <EventPayloadFriendly payload={event.payload as Record<string, unknown>} />
                     </Box>
                 )}
             </Collapse>
@@ -485,11 +482,9 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
                     </Box>
                 )}
                 {run.checkpoint_json && Object.keys(run.checkpoint_json).length > 0 && (
-                    <Box>
+                    <Box sx={{ minWidth: 0, maxWidth: "100%" }}>
                         <Typography variant="caption" color="text.secondary">Checkpoint</Typography>
-                        <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
-                            {JSON.stringify(run.checkpoint_json)}
-                        </Typography>
+                        <CheckpointFriendlySummary checkpoint={run.checkpoint_json as Record<string, unknown>} />
                     </Box>
                 )}
             </Stack>
@@ -922,18 +917,18 @@ export default function RunInspectorPage() {
                             </Stack>
                         )}
                         {Object.keys(execSnapshot.checkpoint_excerpt).length > 0 && (
-                            <Box
-                                component="pre"
-                                sx={{
-                                    m: 0,
-                                    p: 1,
-                                    typography: "caption",
-                                    bgcolor: (t) => alpha(t.palette.text.primary, 0.04),
-                                    overflow: "auto",
-                                    maxHeight: 220,
-                                }}
-                            >
-                                {JSON.stringify(execSnapshot.checkpoint_excerpt, null, 2)}
+                            <Box sx={{ mt: 1 }}>
+                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                    Checkpoint excerpt
+                                </Typography>
+                                <ShallowKeyValueList
+                                    data={execSnapshot.checkpoint_excerpt as Record<string, unknown>}
+                                />
+                                <CollapsibleRawJson
+                                    value={execSnapshot.checkpoint_excerpt}
+                                    summary="Raw checkpoint excerpt"
+                                    maxHeight={240}
+                                />
                             </Box>
                         )}
                         {execSnapshot.recent_events_tail.length > 0 && (
@@ -999,11 +994,18 @@ export default function RunInspectorPage() {
                                         schema {String((execSnapshot.durable_workflow?.migration as Record<string, unknown> | undefined)?.current_schema_version || "n/a")}
                                     </Typography>
                                 </Paper>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                                <Typography variant="subtitle2" color="text.secondary" sx={{ display: "block", mt: 1 }}>
                                     Query snapshot
                                 </Typography>
-                                <Box component="pre" sx={{ m: 0, mt: 0.5, p: 1, typography: "caption", bgcolor: (t) => alpha(t.palette.text.primary, 0.04), maxHeight: 180, overflow: "auto" }}>
-                                    {JSON.stringify(execSnapshot.durable_workflow?.query_snapshot || {}, null, 2)}
+                                <Box sx={{ mt: 0.75 }}>
+                                    <ShallowKeyValueList
+                                        data={(execSnapshot.durable_workflow?.query_snapshot || {}) as Record<string, unknown>}
+                                    />
+                                    <CollapsibleRawJson
+                                        value={execSnapshot.durable_workflow?.query_snapshot || {}}
+                                        summary="Raw query snapshot"
+                                        maxHeight={200}
+                                    />
                                 </Box>
                             </Box>
                         </Stack>
@@ -1311,31 +1313,20 @@ export default function RunInspectorPage() {
             <Divider />
 
             {run.output_payload && Object.keys(run.output_payload).length > 0 && (
-                <SectionCard title="Output" description="Final payload produced by the run.">
+                <SectionCard
+                    title="Output"
+                    description="Plan, tool results, structured JSON, and final text. Raw JSON stays behind “View raw JSON” for debugging."
+                >
                     <Paper
                         sx={(theme) => ({
                             p: 2,
                             borderRadius: 2,
-                            backgroundColor: alpha(theme.palette.background.default, 0.6),
-                            overflow: "auto",
+                            backgroundColor: alpha(theme.palette.background.default, 0.45),
+                            border: `1px solid ${theme.palette.divider}`,
                         })}
                     >
-                        <Typography
-                            variant="caption"
-                            component="pre"
-                            sx={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}
-                        >
-                            {JSON.stringify(run.output_payload, null, 2)}
-                        </Typography>
+                        <RunOutputFriendly output={run.output_payload as Record<string, unknown>} />
                     </Paper>
-                </SectionCard>
-            )}
-
-            {run.output_payload && Boolean((run.output_payload as Record<string, unknown>)["final_output"]) && (
-                <SectionCard title="Agent output" description="Human-readable final output from the agent.">
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                        {String((run.output_payload as Record<string, unknown>)["final_output"] ?? "")}
-                    </Typography>
                 </SectionCard>
             )}
         </PageShell>

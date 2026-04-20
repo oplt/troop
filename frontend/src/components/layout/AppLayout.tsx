@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     AppBar,
     Avatar,
@@ -11,6 +11,7 @@ import {
     Divider,
     Drawer,
     IconButton,
+    Link,
     List,
     ListItemButton,
     ListItemIcon,
@@ -54,6 +55,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
 import { getInitials } from "../../utils/formatters";
 import { CommandPalette } from "./CommandPalette";
+import GroupsIcon from '@mui/icons-material/Groups';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
@@ -229,26 +232,31 @@ export function AppLayout() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
-    const { logout, isAdmin } = useAuth();
+    const { logout, isAdmin, isAuthenticated, isReady } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("md"));
     const { data: platformMetadata } = usePlatformMetadata();
 
+    const authReady = isReady && isAuthenticated;
     const { data: currentUser } = useQuery({
         queryKey: ["me"],
         queryFn: getMe,
+        enabled: authReady,
     });
     const { data: pendingApprovals } = useQuery({
         queryKey: ["orchestration", "approvals", "pending-count"],
         queryFn: getPendingApprovalsCount,
         refetchInterval: 30_000,
+        enabled: authReady,
+        retry: false,
     });
     const { data: profile } = useQuery({
         queryKey: ["profile"],
         queryFn: getProfile,
         staleTime: 5 * 60_000,
+        enabled: authReady,
     });
 
     const pendingCount = pendingApprovals?.count ?? 0;
@@ -263,7 +271,7 @@ export function AppLayout() {
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
             { label: "Companies", icon: <CompaniesIcon />, path: "/companies", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
-            { label: "Team", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
             {
                 label: "Activity",
@@ -277,7 +285,7 @@ export function AppLayout() {
                         : undefined,
             },
             ...(hasAiModule
-                ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
+                ? [{ label: "AI Studio", icon: <AutoAwesomeIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
             { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
             { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
@@ -547,16 +555,35 @@ export function AppLayout() {
                                     "& .MuiBreadcrumbs-li": { minWidth: 0 },
                                 }}
                             >
-                                {breadcrumbs.map((crumb, index) => (
-                                    <Typography
-                                        key={crumb.path}
-                                        variant={index === breadcrumbs.length - 1 ? "h6" : "body2"}
-                                        color={index === breadcrumbs.length - 1 ? "text.primary" : "text.secondary"}
-                                        noWrap
-                                    >
-                                        {crumb.label}
-                                    </Typography>
-                                ))}
+                                {breadcrumbs.map((crumb, index) => {
+                                    const isLast = index === breadcrumbs.length - 1;
+                                    const crumbSx = {
+                                        minWidth: 0,
+                                        maxWidth: "100%",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    } as const;
+                                    return (
+                                        <Link
+                                            key={`${index}-${crumb.path}`}
+                                            component={RouterLink}
+                                            to={crumb.path}
+                                            underline="hover"
+                                            color="inherit"
+                                            aria-current={isLast ? "page" : undefined}
+                                            onClick={() => setDrawerOpen(false)}
+                                            sx={{
+                                                ...crumbSx,
+                                                typography: isLast ? "subtitle1" : "body2",
+                                                fontWeight: isLast ? 600 : 400,
+                                                color: isLast ? "text.primary" : "text.secondary",
+                                            }}
+                                        >
+                                            {crumb.label}
+                                        </Link>
+                                    );
+                                })}
                             </Breadcrumbs>
                         </Stack>
                     </Box>

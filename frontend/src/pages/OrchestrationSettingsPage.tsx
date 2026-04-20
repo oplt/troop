@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -19,6 +19,7 @@ import {
     listProviderModels,
     listProviders,
     testProvider,
+    updateProvider,
     type ProviderConfig,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
@@ -41,6 +42,51 @@ const HEALTH_COLORS: Record<string, "success" | "warning" | "error" | "default">
     unhealthy: "error",
     never: "default",
 };
+
+function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }) {
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [draft, setDraft] = useState(String(provider.timeout_seconds));
+    useEffect(() => {
+        setDraft(String(provider.timeout_seconds));
+    }, [provider.id, provider.timeout_seconds]);
+    const saveMutation = useMutation({
+        mutationFn: (next: number) => updateProvider(provider.id, { timeout_seconds: next }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            showToast({ message: "Request timeout updated.", severity: "success" });
+        },
+        onError: () => {
+            showToast({ message: "Could not update timeout.", severity: "error" });
+        },
+    });
+    const parsed = parseInt(draft, 10);
+    const clamped = Number.isFinite(parsed) ? Math.min(3600, Math.max(5, parsed)) : null;
+    const unchanged = clamped !== null && clamped === provider.timeout_seconds;
+    return (
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "flex-start" }}>
+            <TextField
+                size="small"
+                type="number"
+                label="HTTP request timeout (s)"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                inputProps={{ min: 5, max: 3600 }}
+                sx={{ maxWidth: 220 }}
+                helperText="Each LLM call to this provider (5–3600s). Raise for slow CPU / Ollama."
+            />
+            <Button
+                size="small"
+                variant="outlined"
+                sx={{ mt: { sm: 0.5 } }}
+                disabled={saveMutation.isPending || clamped === null || unchanged}
+                onClick={() => clamped !== null && saveMutation.mutate(clamped)}
+            >
+                Save timeout
+            </Button>
+        </Stack>
+    );
+}
 
 function providerModels(provider: ProviderConfig) {
     const discovered = Array.isArray(provider.metadata?.discovered_models)
@@ -70,6 +116,7 @@ export function ProviderSettingsPanel() {
         api_key: "",
         default_model: "gpt-4.1-mini",
         fallback_model: "",
+        timeout_seconds: 600,
     });
     const [compareForm, setCompareForm] = useState({
         provider_a_id: "",
@@ -161,6 +208,7 @@ export function ProviderSettingsPanel() {
                 api_key: "",
                 default_model: "gpt-4.1-mini",
                 fallback_model: "",
+                timeout_seconds: 600,
             });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
@@ -262,6 +310,20 @@ export function ProviderSettingsPanel() {
                             onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))}
                             helperText="Optional. Leave blank for none."
                         />
+                        <TextField
+                            type="number"
+                            label="HTTP request timeout (seconds)"
+                            value={form.timeout_seconds}
+                            onChange={(event) => {
+                                const next = Number(event.target.value);
+                                setForm((current) => ({
+                                    ...current,
+                                    timeout_seconds: Number.isFinite(next) ? next : current.timeout_seconds,
+                                }));
+                            }}
+                            inputProps={{ min: 5, max: 3600 }}
+                            helperText="Per LLM request to this provider (backend default was 120s). Use 600–1800+ for slow CPU / Ollama."
+                        />
 
                         <Button
                             variant="contained"
@@ -269,6 +331,7 @@ export function ProviderSettingsPanel() {
                                 createMutation.mutate({
                                     ...form,
                                     fallback_model: form.fallback_model || null,
+                                    timeout_seconds: Math.min(3600, Math.max(5, Math.floor(form.timeout_seconds) || 600)),
                                 })
                             }
                         >
@@ -341,6 +404,7 @@ export function ProviderSettingsPanel() {
                                             {provider.api_key_hint || "No key stored"}
                                             {provider.metadata?.last_healthcheck_error ? ` • ${String(provider.metadata.last_healthcheck_error)}` : ""}
                                         </Typography>
+                                        <ProviderRequestTimeoutEditor provider={provider} />
                                     </Stack>
                                 </Paper>
                             );

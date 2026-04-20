@@ -6,18 +6,15 @@ import {
     Button,
     Chip,
     Divider,
-    FormControlLabel,
     MenuItem,
     Paper,
     Skeleton,
     Stack,
-    Switch,
     TextField,
     Typography,
 } from "@mui/material";
 import {
     ArrowForward as ArrowForwardIcon,
-    Campaign as CampaignIcon,
     DoneAll as DoneAllIcon,
     FolderOpen as ProjectsIcon,
     MailOutline as MailOutlineIcon,
@@ -36,13 +33,7 @@ import {
     getOrchestrationOverview,
     listOrchestrationProjects,
 } from "../api/orchestration";
-import {
-    getNotifications,
-    getPreferences,
-    markAllRead,
-    markRead,
-    updatePreferences,
-} from "../api/notifications";
+import { getNotifications, markAllRead, markRead } from "../api/notifications";
 import { getMe } from "../api/users";
 import { DashboardCalendar } from "../components/dashboard/DashboardCalendar";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -52,50 +43,6 @@ import { StatCard } from "../components/ui/StatCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
 import { formatDateTime, getFirstName, humanizeKey } from "../utils/formatters";
-
-function PreferenceItem({
-    label,
-    description,
-    checked,
-    disabled,
-    onChange,
-}: {
-    label: string;
-    description: string;
-    checked: boolean;
-    disabled: boolean;
-    onChange: (nextValue: boolean) => void;
-}) {
-    return (
-        <Box
-            sx={(theme) => ({
-                p: 2,
-                borderRadius: 4,
-                border: `1px solid ${theme.palette.divider}`,
-                backgroundColor: theme.palette.background.paper,
-            })}
-        >
-            <FormControlLabel
-                sx={{ alignItems: "flex-start", m: 0, width: "100%" }}
-                control={
-                    <Switch
-                        checked={checked}
-                        onChange={(event) => onChange(event.target.checked)}
-                        disabled={disabled}
-                    />
-                }
-                label={
-                    <Box sx={{ ml: 1 }}>
-                        <Typography variant="subtitle2">{label}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {description}
-                        </Typography>
-                    </Box>
-                }
-            />
-        </Box>
-    );
-}
 
 export default function DashboardPage() {
     const navigate = useNavigate();
@@ -112,10 +59,6 @@ export default function DashboardPage() {
     const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
         queryKey: ["notifications"],
         queryFn: getNotifications,
-    });
-    const { data: prefs } = useQuery({
-        queryKey: ["notification-preferences"],
-        queryFn: getPreferences,
     });
     const { data: orchestrationOverview, isLoading: orchestrationLoading } = useQuery({
         queryKey: ["orchestration", "overview"],
@@ -136,22 +79,12 @@ export default function DashboardPage() {
         mutationFn: markAllRead,
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
-    const prefsMutation = useMutation({
-        mutationFn: updatePreferences,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
-    });
 
     const canonicalProjectLabel = "Agent Projects";
     const canonicalProjectLower = canonicalProjectLabel.toLowerCase();
     const firstName = getFirstName(user?.full_name) || "there";
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
     const totalNotifications = notifications?.length ?? 0;
-    const enabledChannels = [
-        prefs?.email_enabled,
-        prefs?.push_enabled,
-        prefs?.marketing_enabled,
-    ].filter(Boolean).length;
-    const recentNotifications = notifications?.slice(0, 5) ?? [];
     const eventRows = useMemo(() => executionInsights?.by_event_type ?? [], [executionInsights]);
     const toolFailures = useMemo(
         () => executionInsights?.tool_failures_by_tool ?? [],
@@ -313,7 +246,6 @@ export default function DashboardPage() {
                             variant="outlined"
                         />
                         <Chip icon={<MailOutlineIcon />} label={`${totalNotifications} total`} variant="outlined" />
-                        <Chip icon={<CampaignIcon />} label={`${enabledChannels}/3 channels`} color="success" variant="outlined" />
                     </Stack>
                     {notificationsError && (
                         <Alert severity="error" sx={{ mb: 2 }}>
@@ -598,35 +530,6 @@ export default function DashboardPage() {
                     )}
                 </CollapsibleSectionCard>
 
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 4" } }}
-                    title="Notification settings"
-                    info="Choose how this workspace reaches you."
-                >
-                    <Stack spacing={1.5}>
-                        <PreferenceItem
-                            label="Email notifications"
-                            description="Account and activity updates by email."
-                            checked={prefs?.email_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ email_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Push notifications"
-                            description="Show urgent alerts inside the app."
-                            checked={prefs?.push_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ push_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Marketing emails"
-                            description="Product news and tips."
-                            checked={prefs?.marketing_enabled ?? false}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ marketing_enabled: nextValue })}
-                        />
-                    </Stack>
-                </CollapsibleSectionCard>
             </Box>
         </PageShell>
     );

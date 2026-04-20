@@ -157,6 +157,8 @@ export type TaskRun = {
     started_at: string | null;
     completed_at: string | null;
     cancelled_at: string | null;
+    /** Present on POST .../runs when the server attaches startup notices (e.g. missing provider). */
+    startup_warnings?: string[];
 };
 
 export type RunEvent = {
@@ -272,6 +274,47 @@ export type TaskExecutionSnapshot = {
     blocker_queue: Array<Record<string, unknown>>;
     review_state: Record<string, unknown>;
     github_action_state: Record<string, unknown>;
+};
+
+export type ProjectLiveSnapshot = {
+    project_id: string;
+    agent_counts: {
+        total: number;
+    };
+    resource_counts: {
+        repositories: number;
+        documents: number;
+        decisions: number;
+        memory_entries: number;
+    };
+    task_counts: {
+        total: number;
+        open: number;
+        blocked: number;
+        review: number;
+    };
+    run_counts: {
+        total: number;
+        active: number;
+        failed: number;
+    };
+    approval_counts: {
+        pending: number;
+    };
+    sync_counts: {
+        pending: number;
+        failed: number;
+    };
+    ingest_counts: {
+        pending: number;
+        running: number;
+        failed: number;
+    };
+    latest: {
+        task_updated_at: string | null;
+        run_created_at: string | null;
+        sync_created_at: string | null;
+    };
 };
 
 export type RunExecutionSnapshot = {
@@ -687,6 +730,10 @@ export async function createOrchestrationProject(payload: Record<string, unknown
 
 export async function getOrchestrationProject(projectId: string): Promise<OrchestrationProject> {
     return apiFetch(`/orchestration/projects/${projectId}`);
+}
+
+export async function getProjectLiveSnapshot(projectId: string): Promise<ProjectLiveSnapshot> {
+    return apiFetch(`/orchestration/projects/${projectId}/live-snapshot`);
 }
 
 export async function updateOrchestrationProject(projectId: string, payload: Record<string, unknown>): Promise<OrchestrationProject> {
@@ -1307,7 +1354,6 @@ export type WorkflowTemplate = {
 };
 
 export type RuntimeInfo = {
-    orchestration_offline_mode: boolean;
     orchestration_provider_failover: boolean;
     orchestration_use_langgraph: boolean;
     orchestration_durable_queue_backend: string;

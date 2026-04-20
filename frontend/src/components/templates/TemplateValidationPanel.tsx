@@ -24,7 +24,11 @@ export function TemplateValidationPanel({
                 <Typography variant="subtitle2">Validation + save</Typography>
                 {createAgentError && <Alert severity="error">{createAgentError}</Alert>}
                 {validationError && <Alert severity="error">{validationError}</Alert>}
-                {validationWarnings.length > 0 && <Alert severity="warning">{validationWarnings.join(" ")}</Alert>}
+                {validationWarnings.map((text, index) => (
+                    <Alert key={`validation-warning-${index}`} severity="warning">
+                        {text}
+                    </Alert>
+                ))}
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                     <Button variant="contained" onClick={onCreateAgent} disabled={isCreatingAgent}>
                         Save agent

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -76,8 +76,10 @@ import {
     addProjectAgent,
     listAgents,
     listAgentTemplates,
+    listModelCapabilities,
     listOrchestrationProjects,
     listProjectAgents,
+    listProviders,
     listRuns,
     listSkillCatalog,
     listTeamTemplates,
@@ -92,8 +94,10 @@ import {
 import type {
     Agent,
     AgentTemplate,
+    ModelCapability,
     OrchestrationProject,
     ProjectAgentMembership,
+    ProviderConfig,
     SkillPack,
     TeamProfile,
     TeamTemplate,
@@ -976,7 +980,11 @@ function createSemanticEdge(source: string, target: string, semantic: TeamGraphE
     };
 }
 
-function buildValidationIssues(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): TeamGraphValidationIssue[] {
+function buildValidationIssues(
+    nodes: TeamGraphNode[],
+    edges: TeamGraphEdge[],
+    workspaceHasProviders = true,
+): TeamGraphValidationIssue[] {
     const issues: TeamGraphValidationIssue[] = [];
     const incomingByNode = new Map<string, TeamGraphEdge[]>();
 
@@ -1035,6 +1043,16 @@ function buildValidationIssues(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): 
                     message: `${node.data.name} has an escalation target that does not exist in this team graph.`,
                 });
             }
+        }
+
+        const templateSlug = String(node.data.linkedTemplateSlug || "").trim();
+        if (templateSlug && !workspaceHasProviders) {
+            issues.push({
+                id: `template-no-provider-${node.id}`,
+                severity: "warning",
+                nodeId: node.id,
+                message: `${node.data.name} uses agent template "${templateSlug}" but no LLM providers are configured in your workspace.`,
+            });
         }
     });
 
@@ -1585,6 +1603,85 @@ export default function AgentLibraryPage() {
         queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"],
         queryFn: () => listAgents(effectiveHierarchyProjectId || undefined),
     });
+    const { data: providerConfigs = [] } = useQuery<ProviderConfig[]>({
+        queryKey: ["orchestration", "providers"],
+        queryFn: () => listProviders(),
+    });
+    const { data: modelCapabilities = [] } = useQuery<ModelCapability[]>({
+        queryKey: ["orchestration", "provider-model-capabilities"],
+        queryFn: listModelCapabilities,
+    });
+    const savedProviderModelGroups = useMemo(() => {
+        const perProvider = new Map<string, { label: string; models: string[] }>();
+        for (const provider of providerConfigs) {
+            const bucket =
+                perProvider.get(provider.id) ?? {
+                    label: `${provider.name} (${provider.provider_type})`,
+                    models: [],
+                };
+            if (provider.default_model && !bucket.models.includes(provider.default_model)) {
+                bucket.models.push(provider.default_model);
+            }
+            if (provider.fallback_model && !bucket.models.includes(provider.fallback_model)) {
+                bucket.models.push(provider.fallback_model);
+            }
+            perProvider.set(provider.id, bucket);
+        }
+        for (const capability of modelCapabilities) {
+            if (!capability.provider_id) continue;
+            const bucket = perProvider.get(capability.provider_id);
+            if (!bucket) continue;
+            if (!bucket.models.includes(capability.model_slug)) {
+                bucket.models.push(capability.model_slug);
+            }
+        }
+        return [...perProvider.values()].filter((bucket) => bucket.models.length > 0);
+    }, [providerConfigs, modelCapabilities]);
+    const savedProviderModelsFlat = useMemo(
+        () => new Set(savedProviderModelGroups.flatMap((bucket) => bucket.models)),
+        [savedProviderModelGroups],
+    );
+    const renderSavedProviderModelMenuItems = useCallback(
+        (currentValue: string, mode: "primary" | "fallback") => {
+            const items: ReactElement[] = [];
+            if (mode === "fallback") {
+                items.push(
+                    <MenuItem key="__provider-models-none" value="">
+                        None
+                    </MenuItem>,
+                );
+            } else {
+                items.push(
+                    <MenuItem key="__provider-model-unset" value="">
+                        Not set (use project or agent default)
+                    </MenuItem>,
+                );
+            }
+            for (const bucket of savedProviderModelGroups) {
+                items.push(
+                    <ListSubheader key={`__provider-header-${bucket.label}`} disableSticky>
+                        {bucket.label}
+                    </ListSubheader>,
+                );
+                for (const model of bucket.models) {
+                    items.push(
+                        <MenuItem key={`${bucket.label}:${model}`} value={model}>
+                            {model}
+                        </MenuItem>,
+                    );
+                }
+            }
+            if (currentValue && !savedProviderModelsFlat.has(currentValue)) {
+                items.push(
+                    <MenuItem key={`__provider-custom-${currentValue}`} value={currentValue}>
+                        {currentValue} (custom)
+                    </MenuItem>,
+                );
+            }
+            return items;
+        },
+        [savedProviderModelGroups, savedProviderModelsFlat],
+    );
 
     useLiveSnapshotStream("/orchestration/hierarchy/stream", {
         onSnapshot: () => {
@@ -1720,7 +1817,11 @@ export default function AgentLibraryPage() {
         setGraphDirty(true);
     }, [edgeSemanticDraft, setEdges]);
 
-    const validationIssues = useMemo(() => buildValidationIssues(nodes, edges), [nodes, edges]);
+    const workspaceHasProviders = providerConfigs.length > 0;
+    const validationIssues = useMemo(
+        () => buildValidationIssues(nodes, edges, workspaceHasProviders),
+        [nodes, edges, workspaceHasProviders],
+    );
     const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
     const selectedEdge = useMemo(() => edges.find((edge) => edge.id === selectedEdgeId) ?? null, [edges, selectedEdgeId]);
 
@@ -2686,8 +2787,20 @@ export default function AgentLibraryPage() {
                 InputProps={{ readOnly: true }}
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField label="Primary model" value={selectedNode.data.model} fullWidth InputProps={{ readOnly: true }} />
-                <TextField label="Fallback model" value={selectedNode.data.fallbackModel} fullWidth InputProps={{ readOnly: true }} />
+                <TextField
+                    label="Primary model"
+                    value={selectedNode.data.model || "—"}
+                    fullWidth
+                    InputProps={{ readOnly: true }}
+                    helperText="Read-only here. Edit opens the drawer with models from Admin → Settings → Providers."
+                />
+                <TextField
+                    label="Fallback model"
+                    value={selectedNode.data.fallbackModel || "—"}
+                    fullWidth
+                    InputProps={{ readOnly: true }}
+                    helperText="Optional; same picker in Edit."
+                />
             </Stack>
         </Stack>
     ) : (
@@ -3616,8 +3729,30 @@ export default function AgentLibraryPage() {
                         </AgentEditorSection>
                         <AgentEditorSection step="Step 3" title="Runtime policy" description="Control how this agent runs, escalates, accesses memory, and spends budget.">
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField label="Primary model" placeholder="gpt-5-codex" helperText="Default model for normal execution." value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} fullWidth />
-                                <TextField label="Fallback model" placeholder="claude-sonnet-4-6" helperText="Used when the primary model is unavailable or unsuitable." value={form.fallback_model} onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))} fullWidth />
+                                <TextField
+                                    select
+                                    label="Primary model"
+                                    value={form.model}
+                                    onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))}
+                                    fullWidth
+                                    helperText={
+                                        savedProviderModelGroups.length === 0
+                                            ? "No saved providers. Add one under Admin → Settings → Providers."
+                                            : "Models from your saved providers and discovered model list."
+                                    }
+                                >
+                                    {renderSavedProviderModelMenuItems(form.model, "primary")}
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Fallback model"
+                                    value={form.fallback_model}
+                                    onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))}
+                                    fullWidth
+                                    helperText="Optional. Used when the primary model is unavailable or unsuitable."
+                                >
+                                    {renderSavedProviderModelMenuItems(form.fallback_model, "fallback")}
+                                </TextField>
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                 <TextField label="Escalation path" placeholder="lead-manager" helperText="Who should receive work this agent cannot safely complete?" value={form.escalation_path} onChange={(event) => setForm((current) => ({ ...current, escalation_path: event.target.value }))} fullWidth />
@@ -3822,17 +3957,35 @@ export default function AgentLibraryPage() {
                             <AgentEditorSection title="Execution" description="Model routing, permissions, memory, and output expectations.">
                                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                     <TextField
+                                        select
                                         label="Primary model"
                                         value={teamNodeDraft.model}
-                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, model: event.target.value } : current)}
+                                        onChange={(event) =>
+                                            setTeamNodeDraft((current) => (current ? { ...current, model: event.target.value } : current))
+                                        }
                                         fullWidth
-                                    />
+                                        helperText={
+                                            savedProviderModelGroups.length === 0
+                                                ? "No saved providers. Add one under Admin → Settings → Providers."
+                                                : "Models from saved providers."
+                                        }
+                                    >
+                                        {renderSavedProviderModelMenuItems(teamNodeDraft.model, "primary")}
+                                    </TextField>
                                     <TextField
+                                        select
                                         label="Fallback model"
                                         value={teamNodeDraft.fallbackModel}
-                                        onChange={(event) => setTeamNodeDraft((current) => current ? { ...current, fallbackModel: event.target.value } : current)}
+                                        onChange={(event) =>
+                                            setTeamNodeDraft((current) =>
+                                                current ? { ...current, fallbackModel: event.target.value } : current,
+                                            )
+                                        }
                                         fullWidth
-                                    />
+                                        helperText="Optional secondary model slug."
+                                    >
+                                        {renderSavedProviderModelMenuItems(teamNodeDraft.fallbackModel, "fallback")}
+                                    </TextField>
                                 </Stack>
                                 <TextField
                                     label="Escalation path"

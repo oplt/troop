@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
+    Avatar,
     Box,
     Button,
+    Checkbox,
     Chip,
     CircularProgress,
     Collapse,
@@ -31,13 +33,17 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import {
     AccountTree as DagIcon,
+    AutoAwesome as GeneratedIcon,
+    Check as CheckSimpleIcon,
     CheckCircle as PassIcon,
     Cancel as FailIcon,
     CallSplit as DecomposeIcon,
     Close as CloseIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
-    OpenInNew as OpenInNewIcon,
+    GitHub as GitHubIcon,
+    MoreVert as MoreIcon,
+    PanTool as ManualIcon,
     PlayArrow as RunIcon,
     Upload as UploadIcon,
 } from "@mui/icons-material";
@@ -57,6 +63,7 @@ import {
     deleteProjectMemoryEntry,
     decomposeTask,
     getOrchestrationProject,
+    getProjectLiveSnapshot,
     getProjectRepositoryIndexStatus,
     listAgents,
     listAgentTemplates,
@@ -113,6 +120,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { useDebounce } from "../hooks/useDebounce";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 
@@ -211,6 +219,10 @@ function createClientId(prefix: string) {
 }
 
 function extractApiErrorMessage(error: unknown, fallback: string): string {
+    // apiFetch throws Error with a human-readable message (including 409 detail + failed checks).
+    if (error instanceof Error && error.message.trim()) {
+        return error.message.trim();
+    }
     if (typeof error === "object" && error && "detail" in error) {
         const detail = (error as { detail?: unknown }).detail;
         if (typeof detail === "string" && detail.trim()) return detail;
@@ -220,6 +232,19 @@ function extractApiErrorMessage(error: unknown, fallback: string): string {
         }
     }
     return fallback;
+}
+
+function toastQueuedRunWithOptionalWarnings(
+    showToast: (opts: { message: string; severity: "success" | "error" | "warning" | "info" }) => void,
+    run: TaskRun,
+    successLine: string,
+) {
+    const w = run.startup_warnings ?? [];
+    if (w.length) {
+        showToast({ message: `${successLine} ${w.join(" ")}`, severity: "warning" });
+    } else {
+        showToast({ message: successLine, severity: "success" });
+    }
 }
 
 function readExternalLinks(raw: unknown): ExternalLinkRecord[] {
@@ -1009,6 +1034,23 @@ function KanbanBoard({
     const [taskLinkDrafts, setTaskLinkDrafts] = useState<Record<string, ExternalLinkRecord[]>>({});
     const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, EvidenceBundleDraft>>({});
     const [nextStatusByTask, setNextStatusByTask] = useState<Record<string, string>>({});
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+    const [dropHoverColumn, setDropHoverColumn] = useState<string | null>(null);
+
+    const clearKanbanDragState = useCallback(() => {
+        setDraggingTaskId(null);
+        setDropHoverColumn(null);
+    }, []);
+
+    const handleKanbanColumnDragOverCapture = useCallback(
+        (event: DragEvent<HTMLDivElement>, columnStatus: string) => {
+            if (!draggingTaskId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDropHoverColumn(columnStatus);
+        },
+        [draggingTaskId],
+    );
 
     const taskUpdateMutation = useMutation({
         mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
@@ -1021,6 +1063,58 @@ function KanbanBoard({
             showToast({ message: extractApiErrorMessage(error, "Task update failed."), severity: "error" });
         },
     });
+
+    const handleKanbanColumnDrop = useCallback(
+        (event: DragEvent<HTMLDivElement>, columnStatus: string) => {
+            event.preventDefault();
+            const raw = event.dataTransfer.getData("application/json") || "";
+            let parsed: { taskId?: string };
+            try {
+                parsed = JSON.parse(raw || "{}") as { taskId?: string };
+            } catch {
+                clearKanbanDragState();
+                return;
+            }
+            const taskId = parsed.taskId;
+            if (!taskId) {
+                clearKanbanDragState();
+                return;
+            }
+            const task = tasks.find((t) => t.id === taskId);
+            if (!task) {
+                clearKanbanDragState();
+                return;
+            }
+            if (task.status === columnStatus) {
+                clearKanbanDragState();
+                return;
+            }
+            if (!TASK_TRANSITION_MAP[task.status]?.includes(columnStatus)) {
+                showToast({ message: "That column is not valid for this task.", severity: "warning" });
+                clearKanbanDragState();
+                return;
+            }
+            if (columnStatus === "in_progress") {
+                const incomplete = tasks.filter(
+                    (c) => (task.dependency_ids ?? []).includes(c.id)
+                        && !["approved", "completed", "synced_to_github", "archived"].includes(c.status),
+                );
+                if (incomplete.length) {
+                    showToast({ message: "Finish dependency tasks before moving to In Progress.", severity: "warning" });
+                    clearKanbanDragState();
+                    return;
+                }
+            }
+            if (taskUpdateMutation.isPending && taskUpdateMutation.variables?.taskId === taskId) {
+                clearKanbanDragState();
+                return;
+            }
+            taskUpdateMutation.mutate({ taskId, payload: { status: columnStatus } });
+            clearKanbanDragState();
+        },
+        [tasks, taskUpdateMutation, showToast, clearKanbanDragState],
+    );
+
     const acceptanceConfigMutation = useMutation({
         mutationFn: ({ taskId, metadata }: { taskId: string; metadata: Record<string, unknown> }) =>
             updateOrchestrationTask(projectId, taskId, { metadata }),
@@ -1104,24 +1198,35 @@ function KanbanBoard({
                     </Stack>
                 </Paper>
             ) : null}
-            <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1, minHeight: 400 }}>
+            <Box sx={{ display: "flex", gap: 0.75, overflowX: "auto", pb: 1, minHeight: 400 }}>
             {MAIN_KANBAN_COLUMNS.map((col) => (
                 <Box
                     key={col.status}
+                    onDragOverCapture={(event) => handleKanbanColumnDragOverCapture(event, col.status)}
+                    onDrop={(event) => handleKanbanColumnDrop(event, col.status)}
                     sx={(theme) => ({
-                        minWidth: 260,
-                        flex: "0 0 260px",
-                        borderRadius: 3,
-                        p: 1.5,
+                        minWidth: 150,
+                        flex: "1 1 0",
+                        borderRadius: 2,
+                        p: 0.75,
                         backgroundColor: alpha(theme.palette.background.paper, 0.6),
-                        border: `1px solid ${theme.palette.divider}`,
+                        border: `1px solid ${
+                            dropHoverColumn === col.status && draggingTaskId
+                                ? theme.palette.primary.main
+                                : theme.palette.divider
+                        }`,
+                        boxShadow:
+                            dropHoverColumn === col.status && draggingTaskId
+                                ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.28)}`
+                                : "none",
+                        transition: theme.transitions.create(["border-color", "box-shadow"], { duration: 120 }),
                     })}
                 >
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-                        <Chip label={col.label} color={col.color} size="small" />
-                        <Typography variant="caption" color="text.secondary">{tasksByStatus[col.status]?.length ?? 0}</Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.75 }}>
+                        <Chip label={col.label} color={col.color} size="small" sx={{ height: 20, fontSize: "0.7rem", "& .MuiChip-label": { px: 0.75 } }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>{tasksByStatus[col.status]?.length ?? 0}</Typography>
                     </Stack>
-                    <Stack spacing={1}>
+                    <Stack spacing={0.75}>
                         {(tasksByStatus[col.status] ?? []).map((task) => {
                             const agent = allAgents.find((a) => a.id === task.assigned_agent_id);
                             const isExpanded = expandedTask === task.id;
@@ -1157,16 +1262,44 @@ function KanbanBoard({
                             const workerTip =
                                 runMeta.worker_agent_rationale
                                 || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
+                            const isDraggingCard = draggingTaskId === task.id;
+                            const isStatusUpdatePending = taskUpdateMutation.isPending && taskUpdateMutation.variables?.taskId === task.id;
                             return (
                                 <Paper
                                     key={task.id}
-                                    sx={(theme) => ({
-                                        position: "relative",
-                                        p: 1.5,
-                                        borderRadius: 3,
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        "&:hover": { borderColor: theme.palette.primary.main },
-                                    })}
+                                    draggable={!isStatusUpdatePending}
+                                    onDragStart={(event) => {
+                                        setDraggingTaskId(task.id);
+                                        const payload = JSON.stringify({ taskId: task.id, fromStatus: task.status });
+                                        event.dataTransfer.setData("application/json", payload);
+                                        event.dataTransfer.setData("text/plain", task.id);
+                                        event.dataTransfer.effectAllowed = "move";
+                                    }}
+                                    onDragEnd={clearKanbanDragState}
+                                    sx={(theme) => {
+                                        const priorityAccent = task.priority === "urgent"
+                                            ? theme.palette.error.main
+                                            : task.priority === "high"
+                                                ? theme.palette.warning.main
+                                                : task.priority === "low"
+                                                    ? theme.palette.divider
+                                                    : theme.palette.info.main;
+                                        return {
+                                            position: "relative",
+                                            p: 0.75,
+                                            pl: 1,
+                                            minHeight: 170,
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            borderRadius: 2,
+                                            border: `1px solid ${theme.palette.divider}`,
+                                            borderLeft: `3px solid ${priorityAccent}`,
+                                            "&:hover": { borderColor: theme.palette.primary.main, borderLeftColor: priorityAccent },
+                                            cursor: isStatusUpdatePending ? "default" : "grab",
+                                            opacity: isDraggingCard ? 0.88 : 1,
+                                            ...(isDraggingCard ? { boxShadow: theme.shadows[6] } : {}),
+                                        };
+                                    }}
                                 >
                                     <IconButton
                                         size="small"
@@ -1176,73 +1309,177 @@ function KanbanBoard({
                                             event.stopPropagation();
                                             handleDeleteTask(task.id, task.title);
                                         }}
-                                            disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
-                                            sx={{
-                                                position: "absolute",
-                                            top: 4,
-                                            right: 4,
+                                        disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
+                                        sx={{
+                                            position: "absolute",
+                                            top: 2,
+                                            right: 2,
+                                            p: 0.25,
                                             color: "text.secondary",
                                             "&:hover": { color: "error.main" },
                                         }}
                                     >
-                                        <CloseIcon fontSize="small" />
+                                        <CloseIcon sx={{ fontSize: 14 }} />
                                     </IconButton>
-                                    <Typography variant="subtitle2" sx={{ wordBreak: "break-word", pr: 3 }}>{task.title}</Typography>
-                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-                                        <Chip label={task.priority} size="small" variant="outlined" />
-                                        {agent && (
-                                            <Tooltip title={workerTip}>
-                                                <Chip label={`Owner · ${agent.name}`} size="small" color="secondary" variant="outlined" />
-                                            </Tooltip>
-                                        )}
-                                        {task.reviewer_agent_id ? (
-                                            <Chip label={`Reviewer · ${getAgentLabel(task.reviewer_agent_id, allAgents)}`} size="small" variant="outlined" />
-                                        ) : null}
-                                        {Boolean((task.result_payload.github_pr as Record<string, unknown> | undefined)?.number) && (
-                                            <Chip
-                                                label={`PR #${String((task.result_payload.github_pr as Record<string, unknown>).number)} · ${String(((task.result_payload.github_pr as Record<string, unknown>).state as string | undefined) || "open")}`}
+                                    <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                            wordBreak: "break-word",
+                                            pr: 2.5,
+                                            fontSize: "0.78rem",
+                                            lineHeight: 1.25,
+                                            mb: 0.5,
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 3,
+                                            WebkitBoxOrient: "vertical",
+                                            overflow: "hidden",
+                                        }}
+                                    >
+                                        {task.title}
+                                    </Typography>
+                                    {(() => {
+                                        const priorityLetter = task.priority === "urgent" ? "U" : task.priority === "high" ? "H" : task.priority === "low" ? "L" : "N";
+                                        const priorityChipColor: "default" | "error" | "warning" | "info" = task.priority === "urgent" ? "error" : task.priority === "high" ? "warning" : task.priority === "low" ? "default" : "info";
+                                        const sourceRaw = (task.source || "manual").toLowerCase();
+                                        const sourceKind = sourceRaw === "github" || sourceRaw === "github_issue"
+                                            ? "github"
+                                            : sourceRaw === "manual"
+                                                ? "manual"
+                                                : "generated";
+                                        const SourceIcon = sourceKind === "github" ? GitHubIcon : sourceKind === "generated" ? GeneratedIcon : ManualIcon;
+                                        const runStatusRaw = lastRun?.status ?? "";
+                                        let runLabel = "idle";
+                                        let runDotColor = "text.disabled";
+                                        if (["running", "pending", "queued", "in_progress"].includes(runStatusRaw)) { runLabel = "running"; runDotColor = "info.main"; }
+                                        else if (["awaiting_approval", "needs_approval", "waiting_approval"].includes(runStatusRaw)) { runLabel = "waiting approval"; runDotColor = "warning.main"; }
+                                        else if (["failed", "error"].includes(runStatusRaw)) { runLabel = "failed"; runDotColor = "error.main"; }
+                                        else if (runStatusRaw === "cancelled") { runLabel = "cancelled"; runDotColor = "error.light"; }
+                                        else if (["completed", "succeeded", "done"].includes(runStatusRaw)) { runLabel = "idle"; runDotColor = "success.main"; }
+                                        const depCount = task.dependency_ids?.length ?? 0;
+                                        const prNumber = (task.result_payload.github_pr as Record<string, unknown> | undefined)?.number;
+                                        const dueMeta = task.due_date ? (() => {
+                                            const diffDays = Math.ceil((new Date(task.due_date as string).getTime() - Date.now()) / 86_400_000);
+                                            if (diffDays < 0) return { label: `${Math.abs(diffDays)}d late`, color: "error" as const };
+                                            if (diffDays === 0) return { label: "today", color: "warning" as const };
+                                            if (diffDays <= 3) return { label: `${diffDays}d`, color: "warning" as const };
+                                            return { label: `${diffDays}d`, color: "default" as const };
+                                        })() : null;
+                                        const chipSx = { height: 18, fontSize: "0.62rem", "& .MuiChip-label": { px: 0.6 } } as const;
+                                        const avatarSx = { width: 16, height: 16, fontSize: "0.58rem" } as const;
+                                        const ownerInitial = (agent?.name ?? "?").trim().charAt(0).toUpperCase() || "?";
+                                        const reviewerName = task.reviewer_agent_id ? getAgentLabel(task.reviewer_agent_id, allAgents) : "";
+                                        const reviewerInitial = reviewerName.trim().charAt(0).toUpperCase() || "?";
+                                        return (
+                                            <Stack spacing={0.5}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                    <Tooltip title={`Priority: ${task.priority}`}>
+                                                        <Chip label={priorityLetter} size="small" color={priorityChipColor} sx={{ ...chipSx, width: 22, justifyContent: "center" }} />
+                                                    </Tooltip>
+                                                    <Tooltip title={`Source: ${sourceKind}`}>
+                                                        <Box sx={{ display: "inline-flex", alignItems: "center", color: sourceKind === "github" ? "info.main" : sourceKind === "generated" ? "secondary.main" : "text.secondary" }}>
+                                                            <SourceIcon sx={{ fontSize: 14 }} />
+                                                        </Box>
+                                                    </Tooltip>
+                                                    <Tooltip title={`Run: ${runLabel}${lastRun?.completed_at ? ` · ${new Date(lastRun.completed_at).toLocaleString()}` : ""}`}>
+                                                        <Stack direction="row" spacing={0.3} alignItems="center">
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: runDotColor, flexShrink: 0 }} />
+                                                            <Typography variant="caption" sx={{ fontSize: "0.6rem", lineHeight: 1, color: "text.secondary" }}>
+                                                                {runLabel}
+                                                            </Typography>
+                                                        </Stack>
+                                                    </Tooltip>
+                                                    {prNumber != null && (
+                                                        <Tooltip title={`PR #${String(prNumber)}`}>
+                                                            <Chip label={`#${String(prNumber)}`} size="small" color="success" variant="outlined" sx={chipSx} />
+                                                        </Tooltip>
+                                                    )}
+                                                </Stack>
+                                                {(agent || task.reviewer_agent_id) && (
+                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
+                                                        {agent && (
+                                                            <Tooltip title={workerTip}>
+                                                                <Stack direction="row" spacing={0.4} alignItems="center" sx={{ maxWidth: "100%", minWidth: 0 }}>
+                                                                    <Avatar sx={{ ...avatarSx, bgcolor: "secondary.main" }}>{ownerInitial}</Avatar>
+                                                                    <Typography variant="caption" noWrap sx={{ fontSize: "0.62rem", lineHeight: 1, color: "text.primary" }}>
+                                                                        {agent.name}
+                                                                    </Typography>
+                                                                </Stack>
+                                                            </Tooltip>
+                                                        )}
+                                                        {task.reviewer_agent_id && (
+                                                            <Tooltip title={`Reviewer: ${reviewerName}`}>
+                                                                <Stack direction="row" spacing={0.4} alignItems="center" sx={{ maxWidth: "100%", minWidth: 0 }}>
+                                                                    <Avatar sx={{ ...avatarSx, bgcolor: "primary.main" }}>{reviewerInitial}</Avatar>
+                                                                    <Typography variant="caption" noWrap sx={{ fontSize: "0.62rem", lineHeight: 1, color: "text.secondary" }}>
+                                                                        {reviewerName}
+                                                                    </Typography>
+                                                                </Stack>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Stack>
+                                                )}
+                                                {(dueMeta || depCount > 0) && (
+                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                        {dueMeta && (
+                                                            <Tooltip title={`Due ${new Date(task.due_date as string).toLocaleString()}`}>
+                                                                <Chip label={dueMeta.label} size="small" color={dueMeta.color} variant={dueMeta.color === "default" ? "outlined" : "filled"} sx={chipSx} />
+                                                            </Tooltip>
+                                                        )}
+                                                        {depCount > 0 && (
+                                                            <Tooltip title={`${incompleteDependencies.length} blocking · ${depCount} total`}>
+                                                                <Chip
+                                                                    label={`⛓ ${incompleteDependencies.length}/${depCount}`}
+                                                                    size="small"
+                                                                    color={incompleteDependencies.length > 0 ? "warning" : "success"}
+                                                                    variant="outlined"
+                                                                    sx={chipSx}
+                                                                />
+                                                            </Tooltip>
+                                                        )}
+                                                    </Stack>
+                                                )}
+                                            </Stack>
+                                        );
+                                    })()}
+                                    <Stack
+                                        direction="row"
+                                        spacing={0.25}
+                                        sx={{ mt: "auto", pt: 0.5, borderTop: 1, borderColor: "divider" }}
+                                        alignItems="center"
+                                    >
+                                        <Tooltip title="Run">
+                                            <span>
+                                                <IconButton
+                                                    size="small"
+                                                    disabled={isRunPending && selectedTaskId === task.id}
+                                                    onMouseDown={(event) => event.stopPropagation()}
+                                                    onClick={() => onRunTask(task.id, taskRunModes[task.id] ?? "single_agent", taskPrModes[task.id] ?? false)}
+                                                    sx={{ p: 0.25 }}
+                                                >
+                                                    <RunIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </span>
+                                        </Tooltip>
+                                        <Tooltip title="Acceptance check">
+                                            <IconButton
                                                 size="small"
-                                                color="success"
-                                                variant="outlined"
-                                            />
-                                        )}
-                                        {task.due_date && (
-                                            <Chip label={new Date(task.due_date).toLocaleDateString()} size="small" variant="outlined" />
-                                        )}
-                                    </Stack>
-                                    {task.github_issue_number != null && (task.github_issue_url || task.github_repository_full_name) && (
-                                        <Chip
-                                            component={Link}
-                                            href={
-                                                task.github_issue_url
-                                                || `https://github.com/${task.github_repository_full_name}/issues/${task.github_issue_number}`
-                                            }
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            clickable
-                                            size="small"
-                                            variant="outlined"
-                                            icon={<OpenInNewIcon sx={{ "&.MuiChip-icon": { fontSize: 16 } }} />}
-                                            label={`#${task.github_issue_number}${task.github_repository_full_name ? ` · ${task.github_repository_full_name}` : ""}`}
-                                            sx={{ mt: 0.5, maxWidth: "100%" }}
-                                        />
-                                    )}
-                                    <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
-                                        <Button
-                                            size="small"
-                                            variant="text"
-                                            startIcon={<RunIcon />}
-                                            disabled={isRunPending && selectedTaskId === task.id}
-                                            onClick={() => onRunTask(task.id, taskRunModes[task.id] ?? "single_agent", taskPrModes[task.id] ?? false)}
-                                        >
-                                            Run
-                                        </Button>
-                                        <Button size="small" variant="text" onClick={() => onAcceptanceCheck(task.id)}>
-                                            Check
-                                        </Button>
-                                        <Button size="small" variant="text" onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
-                                            {isExpanded ? "Less" : "More"}
-                                        </Button>
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                                onClick={() => onAcceptanceCheck(task.id)}
+                                                sx={{ p: 0.25 }}
+                                            >
+                                                <CheckSimpleIcon sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title={isExpanded ? "Collapse" : "More details"}>
+                                            <IconButton
+                                                size="small"
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                                onClick={() => setExpandedTask(isExpanded ? null : task.id)}
+                                                sx={{ p: 0.25, ml: "auto" }}
+                                            >
+                                                <MoreIcon sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
                                     </Stack>
                                     {isExpanded && (
                                         <Box sx={{ mt: 1.5 }}>
@@ -1922,6 +2159,9 @@ export default function OrchestrationProjectDetailPage() {
     const [taskRunModes, setTaskRunModes] = useState<Record<string, ExecutionMode>>({});
     const [taskPrModes, setTaskPrModes] = useState<Record<string, boolean>>({});
     const [dagDrawerTaskId, setDagDrawerTaskId] = useState<string | null>(null);
+    const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+    const [taskAdditionalOpen, setTaskAdditionalOpen] = useState(false);
+    const [taskCriteriaList, setTaskCriteriaList] = useState<string[]>([]);
     const [dagDependencyDrafts, setDagDependencyDrafts] = useState<Record<string, string[]>>({});
     const [projectTeamSettings, setProjectTeamSettings] = useState<null | {
         manager_agent_id: string;
@@ -1963,44 +2203,54 @@ export default function OrchestrationProjectDetailPage() {
     const [mergeTaskId, setMergeTaskId] = useState<string | null>(null);
     const [mergeNotes, setMergeNotes] = useState("");
     const [repoIndexDrafts, setRepoIndexDrafts] = useState<Record<string, { scheduleLabel: string; pathPrefixes: string; autoEnabled: boolean }>>({});
+    const debouncedKnowledgeQuery = useDebounce(knowledgeQuery.trim(), 250);
+    const projectQueryEnabled = Boolean(projectId);
+    const isTabActive = (...tabs: DetailTab[]) => tabs.includes(tab);
 
     const { data: project } = useQuery({
         queryKey: ["orchestration", "project", projectId],
         queryFn: () => getOrchestrationProject(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled,
+    });
+    const { data: projectLiveSnapshot } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "live-snapshot"],
+        queryFn: () => getProjectLiveSnapshot(projectId),
+        enabled: projectQueryEnabled,
     });
     const { data: tasks = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "tasks"],
         queryFn: () => listOrchestrationTasks(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("board", "dag", "brainstorms"),
     });
     const { data: allAgents = [] } = useQuery({
         queryKey: ["orchestration", "agents", projectId],
         queryFn: () => listAgents(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "board", "dag", "agents", "brainstorms"),
     });
     const { data: agentTemplates = [] } = useQuery({
         queryKey: ["orchestration", "agent-templates"],
         queryFn: listAgentTemplates,
+        enabled: isTabActive("agents"),
     });
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
         queryFn: () => listProviders(),
+        enabled: isTabActive("agents"),
     });
     const { data: projectAgents = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "agents"],
         queryFn: () => listProjectAgents(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("board", "agents"),
     });
     const { data: brainstorms = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "brainstorms"],
         queryFn: () => listBrainstorms(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("brainstorms"),
     });
     const { data: runs = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "runs"],
         queryFn: () => listRuns(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "board", "dag", "activity"),
     });
     const lastRunByTaskId = useMemo(() => {
         const m: Record<string, TaskRun> = {};
@@ -2014,81 +2264,83 @@ export default function OrchestrationProjectDetailPage() {
     const { data: docs = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "documents"],
         queryFn: () => listProjectDocuments(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
     });
     const { data: projectRepositories = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "repositories"],
         queryFn: () => listProjectRepositories(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
     });
     const { data: repositoryIndexStatus = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "repository-index-status"],
         queryFn: () => getProjectRepositoryIndexStatus(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
     });
     const { data: knowledgeResults = [] } = useQuery({
-        queryKey: ["orchestration", "project", projectId, "knowledge", knowledgeQuery, includeDecisionRecall],
-        queryFn: () => searchProjectKnowledge(projectId, knowledgeQuery, undefined, { includeDecisions: includeDecisionRecall }),
-        enabled: Boolean(projectId) && knowledgeQuery.trim().length >= 3,
+        queryKey: ["orchestration", "project", projectId, "knowledge", debouncedKnowledgeQuery, includeDecisionRecall],
+        queryFn: () => searchProjectKnowledge(projectId, debouncedKnowledgeQuery, undefined, { includeDecisions: includeDecisionRecall }),
+        enabled: projectQueryEnabled && isTabActive("knowledge") && debouncedKnowledgeQuery.length >= 3,
     });
     const { data: semanticEntries = [] } = useQuery({
-        queryKey: ["orchestration", "project", projectId, "semantic-memory", knowledgeQuery],
-        queryFn: () => listSemanticMemory(projectId, knowledgeQuery.trim() ? { q: knowledgeQuery, limit: 25 } : { limit: 25 }),
-        enabled: Boolean(projectId),
+        queryKey: ["orchestration", "project", projectId, "semantic-memory", debouncedKnowledgeQuery],
+        queryFn: () => listSemanticMemory(projectId, debouncedKnowledgeQuery ? { q: debouncedKnowledgeQuery, limit: 25 } : { limit: 25 }),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
     });
     const { data: projectMemorySettings } = useQuery({
         queryKey: ["orchestration", "project", projectId, "memory-settings"],
         queryFn: () => getProjectMemorySettings(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
     });
     const { data: memoryIngestJobs = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"],
         queryFn: () => listProjectMemoryIngestJobs(projectId, 80),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
     });
     const { data: memoryEntries = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "memory"],
         queryFn: () => listProjectMemory(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("activity"),
     });
     const { data: approvals = [] } = useQuery({
         queryKey: ["orchestration", "approvals"],
         queryFn: () => listApprovals(),
+        enabled: isTabActive("overview", "activity"),
     });
     const { data: issueLinks = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "issues"],
         queryFn: () => listGithubIssueLinks(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
     });
     const { data: syncEvents = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "sync-events"],
         queryFn: () => listGithubSyncEvents(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
     });
     const { data: milestones = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "milestones"],
         queryFn: () => listProjectMilestones(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview"),
     });
     const { data: decisions = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "decisions"],
         queryFn: () => listProjectDecisions(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("decisions"),
     });
     const { data: gateConfig } = useQuery<GateConfig>({
         queryKey: ["orchestration", "project", projectId, "gate-config"],
         queryFn: () => getGateConfig(projectId),
-        enabled: Boolean(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "agents"),
     });
     const { data: workflowTemplates = [] } = useQuery({
         queryKey: ["orchestration", "workflow-templates"],
         queryFn: () => listWorkflowTemplates(),
+        enabled: isTabActive("overview"),
     });
 
     const { data: dagReadyList = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "dag-ready"],
         queryFn: () => listDagReadyTasks(projectId),
-        enabled: Boolean(projectId) && tab === "dag",
+        enabled: projectQueryEnabled && tab === "dag",
     });
     const { data: mergePreview } = useQuery({
         queryKey: ["orchestration", "project", projectId, "merge-preview", mergeTaskId],
@@ -2099,11 +2351,18 @@ export default function OrchestrationProjectDetailPage() {
     useLiveSnapshotStream(
         projectId ? `/orchestration/projects/${projectId}/stream` : null,
         {
-            enabled: Boolean(projectId),
+            enabled: projectQueryEnabled,
             onSnapshot: () => {
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "live-snapshot"] });
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] });
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "documents"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "repositories"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "decisions"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory"] });
+                void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "issues"] });
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "dag-ready"] });
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "sync-events"] });
                 void queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "memory-ingest-jobs"] });
@@ -2349,7 +2608,8 @@ export default function OrchestrationProjectDetailPage() {
         mutationFn: async ({ selection }: { selection: string }) => {
             if (selection.startsWith("agent:")) {
                 const agentId = selection.slice("agent:".length);
-                return addProjectAgent(projectId, { agent_id: agentId, role: "member" });
+                const membership = await addProjectAgent(projectId, { agent_id: agentId, role: "member" });
+                return { kind: "existing" as const, membership };
             }
             if (selection.startsWith("template:")) {
                 const templateSlug = selection.slice("template:".length);
@@ -2357,17 +2617,29 @@ export default function OrchestrationProjectDetailPage() {
                     project_id: projectId,
                     slug: `${templateSlug}-${Date.now()}`,
                 });
-                return addProjectAgent(projectId, { agent_id: nextAgent.id, role: "member" });
+                const membership = await addProjectAgent(projectId, { agent_id: nextAgent.id, role: "member" });
+                return { kind: "from_template" as const, membership, createdAgent: nextAgent };
             }
             throw new Error("Pick an agent or template first.");
         },
-        onSuccess: async () => {
+        onSuccess: async (data) => {
             setSelectedAgentId("");
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] }),
                 queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", projectId] }),
             ]);
-            showToast({ message: "Agent assigned to project.", severity: "success" });
+            const lintWarnings =
+                data.kind === "from_template"
+                    ? (data.createdAgent.lint?.warnings ?? []).filter((line): line is string => Boolean(line))
+                    : [];
+            if (lintWarnings.length > 0) {
+                showToast({
+                    message: `Agent assigned to project. ${lintWarnings.join(" ")}`,
+                    severity: "warning",
+                });
+            } else {
+                showToast({ message: "Agent assigned to project.", severity: "success" });
+            }
         },
     });
     const deleteAgentMutation = useMutation({
@@ -2399,8 +2671,11 @@ export default function OrchestrationProjectDetailPage() {
                 due_date: "",
                 response_sla_hours: "",
             });
+            setTaskCriteriaList([]);
             setTaskOwnerTouched(false);
             setTaskReviewerTouched(false);
+            setTaskDrawerOpen(false);
+            setTaskAdditionalOpen(false);
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
             showToast({ message: "Task created.", severity: "success" });
         },
@@ -2411,8 +2686,11 @@ export default function OrchestrationProjectDetailPage() {
         onSuccess: async (run) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
-            showToast({ message: "Run started.", severity: "success" });
+            toastQueuedRunWithOptionalWarnings(showToast, run, "Run queued.");
             navigate(`/runs/${run.id}`);
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't start run. Try again."), severity: "error" });
         },
     });
     const dagParallelMutation = useMutation({
@@ -2446,7 +2724,7 @@ export default function OrchestrationProjectDetailPage() {
         onSuccess: async (run) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "runs"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
-            showToast({ message: "Merge resolution run queued.", severity: "success" });
+            toastQueuedRunWithOptionalWarnings(showToast, run, "Merge resolution run queued.");
             setMergeTaskId(null);
             setMergeNotes("");
             navigate(`/runs/${run.id}`);
@@ -2645,6 +2923,13 @@ export default function OrchestrationProjectDetailPage() {
     const pendingProjectApprovals = approvals.filter(
         (approval) => approval.project_id === projectId && approval.status === "pending",
     );
+    const headerTaskCount = projectLiveSnapshot?.task_counts.total ?? tasks.length;
+    const headerAgentCount = projectLiveSnapshot?.agent_counts.total ?? projectAgents.length;
+    const headerActiveRunCount = projectLiveSnapshot?.run_counts.active ?? activeRuns.length;
+    const repositoryCount = projectLiveSnapshot?.resource_counts.repositories ?? projectRepositories.length;
+    const documentCount = projectLiveSnapshot?.resource_counts.documents ?? docs.length;
+    const decisionCount = projectLiveSnapshot?.resource_counts.decisions ?? decisions.length;
+    const memoryEntryCount = projectLiveSnapshot?.resource_counts.memory_entries ?? memoryEntries.length;
 
     const providerOptions: ProviderConfig[] = providers;
     const saveProjectExecutionSettings = () => {
@@ -2765,7 +3050,7 @@ export default function OrchestrationProjectDetailPage() {
                 description={project.description || "No project description yet."}
                 meta={
                     <Typography variant="body2" color="text.secondary">
-                        {tasks.length} tasks • {projectAgents.length} agents • {activeRuns.length} active runs
+                        {headerTaskCount} tasks • {headerAgentCount} agents • {headerActiveRunCount} active runs
                     </Typography>
                 }
                 actions={
@@ -2934,10 +3219,10 @@ export default function OrchestrationProjectDetailPage() {
                                 <Typography variant="body2" color="text.secondary">Memory scope: {project.memory_scope}</Typography>
                                 <Typography variant="body2" color="text.secondary">{project.knowledge_summary || "No knowledge summary yet."}</Typography>
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                    <Chip label={`${projectRepositories.length} repos`} size="small" variant="outlined" />
-                                    <Chip label={`${docs.length} docs`} size="small" variant="outlined" />
-                                    <Chip label={`${decisions.length} decisions`} size="small" variant="outlined" />
-                                    <Chip label={`${memoryEntries.length} memory entries`} size="small" variant="outlined" />
+                                    <Chip label={`${repositoryCount} repos`} size="small" variant="outlined" />
+                                    <Chip label={`${documentCount} docs`} size="small" variant="outlined" />
+                                    <Chip label={`${decisionCount} decisions`} size="small" variant="outlined" />
+                                    <Chip label={`${memoryEntryCount} memory entries`} size="small" variant="outlined" />
                                 </Stack>
                                 {effectiveWorkspaceOverview.executive_summary ? (
                                     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
@@ -3089,33 +3374,132 @@ export default function OrchestrationProjectDetailPage() {
 
             {/* ── Board ── */}
             {tab === "board" && (
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0,1fr)" }, alignItems: "start" }}>
-                    <SectionCard title="Add task" description="Owner, reviewer, dependencies, and acceptance live in the main form now.">
-                        <Stack spacing={2}>
-                            <TextField label="Title" value={taskForm.title} onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))} />
-                            <TextField label="Description" value={taskForm.description} onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))} multiline minRows={3} />
-                            <TextField select label="Initial status" value={taskForm.status} onChange={(e) => setTaskForm((f) => ({ ...f, status: e.target.value }))}>
-                                <MenuItem value="queued">Queued</MenuItem>
-                                <MenuItem value="planned">Planned</MenuItem>
-                                <MenuItem value="backlog">Holding backlog</MenuItem>
-                            </TextField>
-                            <TextField select label="Priority" value={taskForm.priority} onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value }))}>
-                                {["low", "normal", "high", "urgent"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                            </TextField>
+                <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="flex-end">
+                        <Button variant="contained" onClick={() => setTaskDrawerOpen(true)}>
+                            Add task
+                        </Button>
+                    </Stack>
+                    <KanbanBoard
+                        projectId={projectId}
+                        tasks={tasks}
+                        allAgents={allAgents}
+                        lastRunByTaskId={lastRunByTaskId}
+                        onRunTask={(taskId, mode, createPr) => { setSelectedTaskId(taskId); runMutation.mutate({ taskId, runMode: mode, createPr }); }}
+                        onAcceptanceCheck={(taskId) => setAcceptanceTaskId(taskId)}
+                        isRunPending={runMutation.isPending}
+                        selectedTaskId={selectedTaskId}
+                        taskRunModes={taskRunModes}
+                        taskPrModes={taskPrModes}
+                        onModeChange={(taskId, mode) => setTaskRunModes((current) => ({ ...current, [taskId]: mode }))}
+                        onPrModeChange={(taskId, enabled) => setTaskPrModes((current) => ({ ...current, [taskId]: enabled }))}
+                    />
+                </Stack>
+            )}
+
+            <Drawer
+                anchor="right"
+                open={taskDrawerOpen}
+                onClose={() => {
+                    setTaskDrawerOpen(false);
+                    setTaskCriteriaList([]);
+                }}
+                PaperProps={{ sx: { width: { xs: "100%", sm: 440 } } }}
+            >
+                <Box sx={{ p: 2.5 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                        <Typography variant="h6">New task</Typography>
+                        <IconButton size="small" onClick={() => {
+                            setTaskDrawerOpen(false);
+                            setTaskCriteriaList([]);
+                        }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </Stack>
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Title"
+                            value={taskForm.title}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                        />
+                        <TextField
+                            label="Description"
+                            value={taskForm.description}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+                            multiline
+                            minRows={3}
+                        />
+                        <TextField
+                            select
+                            label="Priority"
+                            value={taskForm.priority}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value }))}
+                        >
+                            {["low", "normal", "high", "urgent"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                        </TextField>
+                        <TextField
+                            select
+                            label="Owner agent"
+                            helperText="Defaults to team manager."
+                            value={effectiveTaskOwnerId}
+                            onChange={(e) => {
+                                setTaskOwnerTouched(true);
+                                setTaskForm((f) => ({ ...f, assigned_agent_id: e.target.value }));
+                            }}
+                        >
+                            <MenuItem value="">Unassigned</MenuItem>
+                            {projectAgentProfiles.map((agent) => <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>)}
+                        </TextField>
+                        <TextField
+                            label="Due date (ISO)"
+                            helperText="Optional. Used with SLA scan and routing."
+                            value={taskForm.due_date}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
+                            placeholder="2026-12-31T17:00:00Z"
+                        />
+
+                        <Divider />
+
+                        <Button
+                            onClick={() => setTaskAdditionalOpen((v) => !v)}
+                            endIcon={taskAdditionalOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            sx={{ justifyContent: "space-between", textTransform: "none" }}
+                        >
+                            Additional
+                        </Button>
+                        <Collapse in={taskAdditionalOpen} unmountOnExit>
+                            <Stack spacing={2}>
                                 <TextField
                                     select
-                                    label="Owner agent"
-                                    value={effectiveTaskOwnerId}
-                                    onChange={(e) => {
-                                        setTaskOwnerTouched(true);
-                                        setTaskForm((f) => ({ ...f, assigned_agent_id: e.target.value }));
-                                    }}
+                                    fullWidth
+                                    label="Initial status"
+                                    value={taskForm.status}
+                                    onChange={(e) => setTaskForm((f) => ({ ...f, status: e.target.value }))}
                                 >
-                                    <MenuItem value="">Unassigned</MenuItem>
-                                    {projectAgentProfiles.map((agent) => <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>)}
+                                    <MenuItem value="queued">Queued</MenuItem>
+                                    <MenuItem value="planned">Planned</MenuItem>
+                                    <MenuItem value="backlog">Holding backlog</MenuItem>
                                 </TextField>
                                 <TextField
                                     select
+                                    fullWidth
+                                    SelectProps={{ multiple: true }}
+                                    label="Blocked by"
+                                    value={taskForm.dependency_ids}
+                                    onChange={(e) => {
+                                        const nextValue = e.target.value;
+                                        setTaskForm((f) => ({
+                                            ...f,
+                                            dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                        }));
+                                    }}
+                                    helperText="Dependencies appear on cards and gate execution."
+                                >
+                                    {tasks.map((task) => <MenuItem key={`create-dep-${task.id}`} value={task.id}>{task.title} · {humanizeKey(task.status)}</MenuItem>)}
+                                </TextField>
+                                <TextField
+                                    select
+                                    fullWidth
                                     label="Reviewer agent"
                                     value={effectiveTaskReviewerId}
                                     onChange={(e) => {
@@ -3126,79 +3510,107 @@ export default function OrchestrationProjectDetailPage() {
                                     <MenuItem value="">None</MenuItem>
                                     {projectAgentProfiles.map((agent) => <MenuItem key={`reviewer-create-${agent.id}`} value={agent.id}>{agent.name}</MenuItem>)}
                                 </TextField>
-                            <TextField
-                                select
-                                SelectProps={{ multiple: true }}
-                                label="Blocked by"
-                                value={taskForm.dependency_ids}
-                                onChange={(e) => {
-                                    const nextValue = e.target.value;
-                                    setTaskForm((f) => ({
-                                        ...f,
-                                        dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
-                                    }));
-                                }}
-                                helperText="Dependencies appear on cards and gate execution."
-                            >
-                                {tasks.map((task) => <MenuItem key={`create-dep-${task.id}`} value={task.id}>{task.title} · {humanizeKey(task.status)}</MenuItem>)}
-                            </TextField>
-                            <TextField label="Acceptance criteria" value={taskForm.acceptance_criteria} onChange={(e) => setTaskForm((f) => ({ ...f, acceptance_criteria: e.target.value }))} multiline minRows={2} />
-                            <TextField
-                                label="Due date (ISO)"
-                                helperText="Optional. Used with SLA scan and routing."
-                                value={taskForm.due_date}
-                                onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
-                                placeholder="2026-12-31T17:00:00Z"
-                            />
-                            <TextField
-                                label="Response SLA (hours)"
-                                helperText="Optional. Counted from task creation if no due date; otherwise earliest of due date vs created + hours."
-                                value={taskForm.response_sla_hours}
-                                onChange={(e) => setTaskForm((f) => ({ ...f, response_sla_hours: e.target.value }))}
-                                type="number"
-                            />
-                            <Button
-                                variant="contained"
-                                disabled={!taskForm.title.trim()}
-                                onClick={() => {
-                                    const n = Number(taskForm.response_sla_hours);
-                                    createTaskMutation.mutate({
-                                        title: taskForm.title,
-                                        description: taskForm.description,
-                                        status: taskForm.status,
-                                        priority: taskForm.priority,
-                                        acceptance_criteria: taskForm.acceptance_criteria || null,
-                                        assigned_agent_id: effectiveTaskOwnerId || null,
-                                        reviewer_agent_id: effectiveTaskReviewerId || null,
-                                        dependency_ids: taskForm.dependency_ids,
-                                        due_date: taskForm.due_date.trim() ? taskForm.due_date.trim() : null,
-                                        response_sla_hours: taskForm.response_sla_hours.trim() && !Number.isNaN(n) && n > 0 ? n : null,
-                                    });
-                                }}
-                            >
-                               Save
-                            </Button>
-                            {createTaskMutation.isError && <Alert severity="error">Couldn't create task. Check fields and try again.</Alert>}
-                        </Stack>
-                    </SectionCard>
-                    <Box>
-                        <KanbanBoard
-                            projectId={projectId}
-                            tasks={tasks}
-                            allAgents={allAgents}
-                            lastRunByTaskId={lastRunByTaskId}
-                            onRunTask={(taskId, mode, createPr) => { setSelectedTaskId(taskId); runMutation.mutate({ taskId, runMode: mode, createPr }); }}
-                            onAcceptanceCheck={(taskId) => setAcceptanceTaskId(taskId)}
-                            isRunPending={runMutation.isPending}
-                            selectedTaskId={selectedTaskId}
-                            taskRunModes={taskRunModes}
-                            taskPrModes={taskPrModes}
-                            onModeChange={(taskId, mode) => setTaskRunModes((current) => ({ ...current, [taskId]: mode }))}
-                            onPrModeChange={(taskId, enabled) => setTaskPrModes((current) => ({ ...current, [taskId]: enabled }))}
-                        />
-                    </Box>
+                                 <Box>
+                                     <Typography variant="subtitle2" sx={{ mb: 1 }}>Acceptance Criteria</Typography>
+                                     <Stack spacing={1} sx={{ mb: 1.5 }}>
+                                         {taskCriteriaList.length === 0 ? (
+                                             <Typography variant="caption" color="text.secondary">
+                                                 No criteria added yet.
+                                             </Typography>
+                                         ) : (
+                                             taskCriteriaList.map((criterion, index) => (
+                                                 <Paper
+                                                     key={index}
+                                                     variant="outlined"
+                                                     sx={{
+                                                         p: 1.5,
+                                                         borderRadius: 2,
+                                                         display: "flex",
+                                                         alignItems: "center",
+                                                         gap: 1,
+                                                     }}
+                                                 >
+                                                     <Checkbox
+                                                         size="small"
+                                                         checked={false}
+                                                         disabled
+                                                         sx={{ ml: -0.5 }}
+                                                     />
+                                                     <TextField
+                                                         size="small"
+                                                         fullWidth
+                                                         value={criterion}
+                                                         onChange={(e) => {
+                                                             const newList = [...taskCriteriaList];
+                                                             newList[index] = e.target.value;
+                                                             setTaskCriteriaList(newList);
+                                                         }}
+                                                         placeholder="Enter criterion"
+                                                         variant="standard"
+                                                     />
+                                                     <IconButton
+                                                         size="small"
+                                                         onClick={() => {
+                                                             setTaskCriteriaList(taskCriteriaList.filter((_, i) => i !== index));
+                                                         }}
+                                                         sx={{ color: "error.main" }}
+                                                     >
+                                                         <CloseIcon fontSize="small" />
+                                                     </IconButton>
+                                                 </Paper>
+                                             ))
+                                         )}
+                                     </Stack>
+                                     <Button
+                                         size="small"
+                                         variant="outlined"
+                                         onClick={() => setTaskCriteriaList([...taskCriteriaList, ""])}
+                                     >
+                                         Add criteria
+                                     </Button>
+                                 </Box>
+                                <TextField
+                                    fullWidth
+                                    label="Response SLA (hours)"
+                                    helperText="Optional. Counted from task creation if no due date; otherwise earliest of due date vs created + hours."
+                                    value={taskForm.response_sla_hours}
+                                    onChange={(e) => setTaskForm((f) => ({ ...f, response_sla_hours: e.target.value }))}
+                                    type="number"
+                                />
+                            </Stack>
+                        </Collapse>
+
+                        <Divider />
+
+                        <Button
+                            variant="contained"
+                            disabled={!taskForm.title.trim() || createTaskMutation.isPending}
+                            onClick={() => {
+                                const n = Number(taskForm.response_sla_hours);
+                                const acceptanceCriteriaText = taskCriteriaList
+                                    .filter((c) => c.trim())
+                                    .map((c) => `- ${c.trim()}`)
+                                    .join("\n");
+                                createTaskMutation.mutate({
+                                    title: taskForm.title,
+                                    description: taskForm.description,
+                                    status: taskForm.status,
+                                    priority: taskForm.priority,
+                                    acceptance_criteria: acceptanceCriteriaText || null,
+                                    assigned_agent_id: effectiveTaskOwnerId || null,
+                                    reviewer_agent_id: effectiveTaskReviewerId || null,
+                                    dependency_ids: taskForm.dependency_ids,
+                                    due_date: taskForm.due_date.trim() ? taskForm.due_date.trim() : null,
+                                    response_sla_hours: taskForm.response_sla_hours.trim() && !Number.isNaN(n) && n > 0 ? n : null,
+                                });
+                            }}
+                        >
+                            Save
+                        </Button>
+                        {createTaskMutation.isError && <Alert severity="error">Couldn't create task. Check fields and try again.</Alert>}
+                    </Stack>
                 </Box>
-            )}
+            </Drawer>
 
             {/* ── DAG ── */}
             {tab === "dag" && (
@@ -4516,7 +4928,7 @@ export default function OrchestrationProjectDetailPage() {
                             <Switch checked={includeDecisionRecall} onChange={(_, checked) => setIncludeDecisionRecall(checked)} />
                             <Typography variant="body2">Decision recall: include project decisions ("what did we decide about X?")</Typography>
                         </Stack>
-                        {knowledgeQuery.trim().length >= 3 && (
+                        {debouncedKnowledgeQuery.length >= 3 && (
                             <Paper sx={{ p: 2, borderRadius: 4, mt: 2 }}>
                                 <Typography variant="subtitle2">Results</Typography>
                                 <Stack spacing={1.25} sx={{ mt: 1.25 }}>

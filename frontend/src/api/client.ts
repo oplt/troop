@@ -76,13 +76,26 @@ export async function apiFetch<T>(
             throw new Error(detail);
         }
         if (detail && typeof detail === "object") {
-            const nested = detail as { errors?: unknown; warnings?: unknown; message?: unknown };
+            const nested = detail as {
+                errors?: unknown;
+                warnings?: unknown;
+                message?: unknown;
+                checks?: unknown;
+            };
             const nestedErrors = Array.isArray(nested.errors) ? nested.errors.filter((item): item is string => typeof item === "string") : [];
             const nestedWarnings = Array.isArray(nested.warnings) ? nested.warnings.filter((item): item is string => typeof item === "string") : [];
-            const nestedMessage = typeof nested.message === "string" ? nested.message : "";
-            const parts = [nestedMessage, ...nestedErrors, ...nestedWarnings].filter(Boolean);
+            const nestedMessage = typeof nested.message === "string" ? nested.message.trim() : "";
+            const checkDetails: string[] = [];
+            if (Array.isArray(nested.checks)) {
+                for (const row of nested.checks) {
+                    if (typeof row !== "object" || !row || (row as { passed?: boolean }).passed !== false) continue;
+                    const line = (row as { detail?: unknown }).detail;
+                    if (typeof line === "string" && line.trim()) checkDetails.push(line.trim());
+                }
+            }
+            const parts = [nestedMessage, ...nestedErrors, ...nestedWarnings, ...checkDetails].filter(Boolean);
             if (parts.length > 0) {
-                throw new Error(parts.join(" "));
+                throw new Error(parts.join(" — "));
             }
             throw new Error(JSON.stringify(detail));
         }

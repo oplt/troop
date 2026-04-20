@@ -1751,17 +1751,33 @@ export async function createAgentTemplate(payload: Omit<AgentTemplate, "id">): P
 }
 
 export async function updateAgentTemplate(
-    slug: string,
+    templateId: string,
     payload: Partial<Omit<AgentTemplate, "id">>,
 ): Promise<AgentTemplate> {
-    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(slug)}`, {
+    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(templateId)}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
     });
 }
 
-export async function deleteAgentTemplate(slug: string): Promise<void> {
-    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(slug)}`, {
+export async function deleteAgentTemplate(templateId: string): Promise<void> {
+    return apiFetch(`/orchestration/agents/templates/${encodeURIComponent(templateId)}`, {
+        method: "DELETE",
+    });
+}
+
+export async function updateAgentTemplateBySlug(
+    slug: string,
+    payload: Partial<Omit<AgentTemplate, "id">>,
+): Promise<AgentTemplate> {
+    return apiFetch(`/orchestration/agents/templates/slug/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteAgentTemplateBySlug(slug: string): Promise<void> {
+    return apiFetch(`/orchestration/agents/templates/slug/${encodeURIComponent(slug)}`, {
         method: "DELETE",
     });
 }

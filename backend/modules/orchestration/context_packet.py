@@ -200,7 +200,7 @@ class ContextPacket:
 
 
 def log_context_packet_telemetry(packet: ContextPacket, *, run_id: str) -> None:
-    from backend.modules.orchestration.memory_metrics import record_context_packet_histograms
+    from backend.modules.memory.metrics import record_context_packet_histograms
 
     record_context_packet_histograms(packet.sections)
     payload = packet.telemetry()

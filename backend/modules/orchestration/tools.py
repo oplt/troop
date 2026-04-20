@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from backend.modules.orchestration.cpu_executor import execute_code_job_async
+from backend.modules.orchestration.execution.cpu_executor import execute_code_job_async
 from backend.modules.orchestration.models import (
     GithubConnection,
     GithubIssueLink,

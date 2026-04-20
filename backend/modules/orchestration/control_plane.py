@@ -28,7 +28,7 @@ from backend.modules.orchestration.models import (
     TaskRun,
 )
 from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.orchestration.service import OrchestrationService
+from backend.modules.orchestration.services.service import OrchestrationService
 
 
 def _slugify(value: str) -> str:

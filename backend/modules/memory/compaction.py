@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from backend.modules.orchestration.working_memory import WORKING_MEMORY_KEY, working_memory_from_checkpoint
+from backend.modules.memory.working_memory import WORKING_MEMORY_KEY, working_memory_from_checkpoint
 
 TASK_CLOSE_SNAPSHOT_KIND = "task_close_snapshot"
 AGENT_MEMORY_TTL_SNAPSHOT_KIND = "agent_memory_ttl"

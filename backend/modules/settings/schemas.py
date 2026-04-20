@@ -51,3 +51,10 @@ class DatabaseSettingResponse(BaseModel):
     value: str
     description: str | None
     updated_at: datetime
+
+
+class ParameterCatalogEntryResponse(BaseModel):
+    key: str
+    value_type: str
+    default_value: str
+    description: str

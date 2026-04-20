@@ -11,6 +11,7 @@ from backend.modules.settings.schemas import (
     DatabaseSettingCreate,
     DatabaseSettingResponse,
     DatabaseSettingUpdate,
+    ParameterCatalogEntryResponse,
 )
 from backend.modules.settings.service import SettingsService
 
@@ -68,6 +69,11 @@ async def list_database_settings(
 ):
     service = SettingsService(db)
     return await service.list_database_settings()
+
+
+@router.get("/database/catalog", response_model=list[ParameterCatalogEntryResponse])
+async def list_parameter_catalog(_: User = Depends(get_admin_user)):
+    return SettingsService.list_parameter_catalog()
 
 
 @router.post("/database", response_model=DatabaseSettingResponse, status_code=201)

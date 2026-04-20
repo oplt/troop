@@ -105,8 +105,8 @@ export function TemplateTab(props: TemplateTabProps) {
         },
     });
     const updateTemplateMutation = useMutation({
-        mutationFn: ({ slug, payload }: { slug: string; payload: Partial<Omit<AgentTemplate, "id">> }) =>
-            updateAgentTemplate(slug, payload),
+        mutationFn: ({ id, payload }: { id: string; payload: Partial<Omit<AgentTemplate, "id">> }) =>
+            updateAgentTemplate(id, payload),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
         },
@@ -249,7 +249,10 @@ export function TemplateTab(props: TemplateTabProps) {
         const nextTemplate = buildAgentTemplateFromForm({ ...props.form, slug }, existingTemplate);
 
         if (existingTemplate) {
-            updateTemplateMutation.mutate({ slug: existingTemplate.slug, payload: omitId(nextTemplate) });
+            if (!existingTemplate.id) {
+                return;
+            }
+            updateTemplateMutation.mutate({ id: existingTemplate.id, payload: omitId(nextTemplate) });
         } else {
             createTemplateMutation.mutate(omitId(nextTemplate) as Omit<AgentTemplate, "id">);
         }
@@ -260,7 +263,11 @@ export function TemplateTab(props: TemplateTabProps) {
     }
 
     function handleDeleteTemplate(slug: string) {
-        deleteTemplateMutation.mutate(slug);
+        const template = templates.find((item) => item.slug === slug);
+        if (!template?.id) {
+            return;
+        }
+        deleteTemplateMutation.mutate(template.id);
     }
 
     function openSkillBuilder() {
@@ -330,7 +337,10 @@ export function TemplateTab(props: TemplateTabProps) {
             return;
         }
         const nextTemplate = { ...template, skills: mergeUnique(template.skills, [skillSlug]) };
-        updateTemplateMutation.mutate({ slug: templateSlug, payload: omitId(nextTemplate) });
+        if (!template.id) {
+            return;
+        }
+        updateTemplateMutation.mutate({ id: template.id, payload: omitId(nextTemplate) });
         if (agentBuilderOpen && editingAgentTemplateSlug === templateSlug) {
             props.setForm((current) => ({ ...current, skills: mergeUnique(current.skills, [skillSlug]) }));
         }
@@ -342,7 +352,10 @@ export function TemplateTab(props: TemplateTabProps) {
             return;
         }
         const nextTemplate = { ...template, skills: template.skills.filter((item) => item !== skillSlug) };
-        updateTemplateMutation.mutate({ slug: templateSlug, payload: omitId(nextTemplate) });
+        if (!template.id) {
+            return;
+        }
+        updateTemplateMutation.mutate({ id: template.id, payload: omitId(nextTemplate) });
         if (agentBuilderOpen && editingAgentTemplateSlug === templateSlug) {
             props.setForm((current) => ({ ...current, skills: current.skills.filter((item) => item !== skillSlug) }));
         }

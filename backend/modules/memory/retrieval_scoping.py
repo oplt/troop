@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from backend.modules.memory.models import EpisodicSearchIndex, SemanticMemoryEntry
-from backend.modules.orchestration.memory_metrics import increment_memory_metric
+from backend.modules.memory.metrics import increment_memory_metric
 
 
 class MemoryRetrievalRepo(Protocol):

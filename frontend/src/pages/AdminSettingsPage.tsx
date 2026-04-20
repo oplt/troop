@@ -6,6 +6,7 @@ import {
     Button,
     Chip,
     IconButton,
+    MenuItem,
     Skeleton,
     Stack,
     Tab,
@@ -24,11 +25,13 @@ import {
     deleteDatabaseSetting,
     getConfigSettings,
     listDatabaseSettings,
+    listParameterCatalog,
     updateConfigSettings,
     updateDatabaseSetting,
     type ConfigEntry,
     type ConfigSettingsResponse,
     type DatabaseSetting,
+    type ParameterCatalogEntry,
 } from "../api/settings";
 import { listGithubConnections, listProviders } from "../api/orchestration";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -47,6 +50,8 @@ type DatabaseSettingDrafts = Record<
         description: string;
     }
 >;
+
+type ParameterCatalogMap = Record<string, ParameterCatalogEntry>;
 
 type ConfigGroupId =
     | "application"
@@ -150,7 +155,7 @@ function getConfigGroupId(item: ConfigEntry): ConfigGroupId {
     ) {
         return "ai_config";
     }
-    return "custom";
+    return "application";
 }
 
 function buildConfigGroups(items: ConfigEntry[]) {
@@ -230,6 +235,7 @@ function ConfigEntryEditor({
 function DatabaseSettingEditor({
     item,
     draft,
+    spec,
     onDraftChange,
     onSave,
     onDelete,
@@ -241,12 +247,15 @@ function DatabaseSettingEditor({
         value: string;
         description: string;
     };
+    spec: ParameterCatalogEntry | null;
     onDraftChange: (nextDraft: { value: string; description: string }) => void;
     onSave: () => void;
     onDelete: () => void;
     isSaving: boolean;
     isDeleting: boolean;
 }) {
+    const valueType = spec?.value_type ?? "string";
+    const isKnown = Boolean(spec);
     return (
         <Box
             sx={(theme) => ({
@@ -263,6 +272,10 @@ function DatabaseSettingEditor({
                             Updated {formatDateTime(item.updated_at)}
                         </Typography>
                     </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip label={valueType} size="small" variant="outlined" />
+                        {!isKnown && <Chip label="unknown" size="small" color="warning" variant="outlined" />}
+                    </Stack>
                     <IconButton color="error" onClick={onDelete} disabled={isDeleting}>
                         <DeleteIcon />
                     </IconButton>
@@ -270,16 +283,37 @@ function DatabaseSettingEditor({
                 <TextField
                     label="Value"
                     value={draft.value}
-                    onChange={(event) =>
-                        onDraftChange({
-                            value: event.target.value,
-                            description: draft.description,
-                        })
-                    }
+                    onChange={(event) => onDraftChange({ value: event.target.value, description: draft.description })}
+                    select={valueType === "bool"}
                     fullWidth
-                    multiline
-                    minRows={3}
-                />
+                    multiline={valueType === "json"}
+                    minRows={valueType === "json" ? 3 : undefined}
+                >
+                    {valueType === "bool" ? [
+                        <MenuItem key="true" value="true">true</MenuItem>,
+                        <MenuItem key="false" value="false">false</MenuItem>,
+                    ] : null}
+                </TextField>
+                {spec?.description ? (
+                    <Typography variant="caption" color="text.secondary">
+                        {spec.description}
+                    </Typography>
+                ) : null}
+                {!isKnown ? (
+                    <Alert severity="warning">
+                        Unknown parameter key. This row is legacy/custom and not in catalog.
+                    </Alert>
+                ) : null}
+                {valueType === "int" ? (
+                    <Typography variant="caption" color="text.secondary">
+                        Enter integer value.
+                    </Typography>
+                ) : null}
+                {valueType === "json" ? (
+                    <Typography variant="caption" color="text.secondary">
+                        Enter valid JSON object/array text.
+                    </Typography>
+                ) : null}
                 <TextField
                     label="Description"
                     value={draft.description}
@@ -294,7 +328,7 @@ function DatabaseSettingEditor({
                     minRows={3}
                 />
                 <Button variant="contained" disabled={isSaving} onClick={onSave}>
-                    {isSaving ? "Saving..." : "Save setting"}
+                    {isSaving ? "Saving..." : "Save parameter"}
                 </Button>
             </Stack>
         </Box>
@@ -321,7 +355,12 @@ function AdminSettingsContent({
     onTabChange: (nextTab: SettingsTabValue) => void;
 }) {
     const queryClient = useQueryClient();
-    const configGroups = buildConfigGroups(configData.items);
+    const configGroups: Array<{
+        id: ConfigGroupId;
+        label: string;
+        description: string;
+        items: ConfigEntry[];
+    }> = [];
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
         queryFn: () => listProviders(),
@@ -329,6 +368,10 @@ function AdminSettingsContent({
     const { data: githubConnections = [] } = useQuery({
         queryKey: ["orchestration", "github", "connections"],
         queryFn: () => listGithubConnections(),
+    });
+    const { data: parameterCatalog = [] } = useQuery({
+        queryKey: ["settings", "database", "catalog"],
+        queryFn: listParameterCatalog,
     });
     const [configDrafts, setConfigDrafts] = useState<Record<string, string>>(() =>
         Object.fromEntries(configData.items.map((item) => [item.key, item.value]))
@@ -349,6 +392,10 @@ function AdminSettingsContent({
         value: "",
         description: "",
     });
+    const parameterCatalogMap: ParameterCatalogMap = Object.fromEntries(
+        parameterCatalog.map((item) => [item.key, item])
+    );
+    const selectedParameterSpec = parameterCatalogMap[newSetting.key] ?? null;
 
     const activeConfigGroup =
         activeTab === "database" || activeTab === "providers" || activeTab === "github_sync" || activeTab === "platform"
@@ -392,12 +439,12 @@ function AdminSettingsContent({
             <PageHeader
                 eyebrow="System control"
                 title="Settings"
-                description="Edit environment-backed variables in grouped tabs and keep runtime database settings separate from file-based config."
+                description="Edit environment-backed variables in grouped tabs and keep runtime parameters separate from file-based config."
                 meta={
                     <>
                         <Chip label={`${configGroups.length} config groups`} variant="outlined" />
                         <Chip label={`${customConfigCount} custom values`} variant="outlined" />
-                        <Chip label={`${databaseSettings.length} database settings`} variant="outlined" />
+                        <Chip label={`${databaseSettings.length} parameters`} variant="outlined" />
                         <Chip label={`${providers.length} AI providers`} variant="outlined" />
                         <Chip label={`${githubConnections.length} GitHub connections`} variant="outlined" />
                     </>
@@ -443,10 +490,7 @@ function AdminSettingsContent({
                             label={`${group.label} (${group.items.length})`}
                         />
                     ))}
-                    <Tab
-                        value="database"
-                        label={`Database settings (${databaseSettings.length})`}
-                    />
+
                     <Tab
                         value="providers"
                         label={`AI providers (${providers.length})`}
@@ -454,6 +498,10 @@ function AdminSettingsContent({
                     <Tab
                         value="github_sync"
                         label={`GitHub sync (${githubConnections.length})`}
+                    />
+                    <Tab
+                        value="database"
+                        label={`Parameters (${databaseSettings.length})`}
                     />
                     <Tab
                         value="platform"
@@ -555,31 +603,41 @@ function AdminSettingsContent({
                     }}
                 >
                     <SectionCard
-                        title="Add database setting"
-                        description="Store arbitrary key/value settings inside the database."
+                        title="Add parameter"
+                        description="Create typed runtime parameters from the supported catalog."
                     >
                         <Stack spacing={2}>
-                            {createDatabaseMutation.isSuccess && (
-                                <Alert severity="success">Database setting created.</Alert>
+                                {createDatabaseMutation.isSuccess && (
+                                <Alert severity="success">Parameter created.</Alert>
                             )}
                             {createDatabaseMutation.isError && (
                                 <Alert severity="error">
                                     {createDatabaseMutation.error instanceof Error
                                         ? createDatabaseMutation.error.message
-                                        : "Couldn't save setting. Try again."}
+                                        : "Couldn't save parameter. Try again."}
                                 </Alert>
                             )}
                             <TextField
                                 label="Key"
                                 value={newSetting.key}
-                                onChange={(event) =>
+                                onChange={(event) => {
+                                    const spec = parameterCatalogMap[event.target.value] ?? null;
                                     setNewSetting((current) => ({
                                         ...current,
                                         key: event.target.value,
-                                    }))
-                                }
+                                        value: spec ? spec.default_value : "",
+                                        description: spec?.description ?? current.description,
+                                    }));
+                                }}
+                                select
                                 fullWidth
-                            />
+                            >
+                                {parameterCatalog.map((entry) => (
+                                    <MenuItem key={entry.key} value={entry.key}>
+                                        {entry.key}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
                             <TextField
                                 label="Value"
                                 value={newSetting.value}
@@ -590,9 +648,20 @@ function AdminSettingsContent({
                                     }))
                                 }
                                 fullWidth
-                                multiline
-                                minRows={3}
-                            />
+                                select={selectedParameterSpec?.value_type === "bool"}
+                                multiline={selectedParameterSpec?.value_type === "json"}
+                                minRows={selectedParameterSpec?.value_type === "json" ? 3 : undefined}
+                            >
+                                {selectedParameterSpec?.value_type === "bool" ? [
+                                    <MenuItem key="new-true" value="true">true</MenuItem>,
+                                    <MenuItem key="new-false" value="false">false</MenuItem>,
+                                ] : null}
+                            </TextField>
+                            {selectedParameterSpec ? (
+                                <Typography variant="caption" color="text.secondary">
+                                    Type: {selectedParameterSpec.value_type}. {selectedParameterSpec.description}
+                                </Typography>
+                            ) : null}
                             <TextField
                                 label="Description"
                                 value={newSetting.description}
@@ -617,14 +686,14 @@ function AdminSettingsContent({
                                     })
                                 }
                             >
-                                {createDatabaseMutation.isPending ? "Adding..." : "Add setting"}
+                                {createDatabaseMutation.isPending ? "Adding..." : "Add parameter"}
                             </Button>
                         </Stack>
                     </SectionCard>
 
                     <SectionCard
-                        title="Database settings"
-                        description="Review, edit, and delete runtime settings stored in the database."
+                        title="Parameters"
+                        description="Review, edit, and delete runtime parameters stored in the database."
                     >
                         {databaseSettings.length > 0 ? (
                             <Box
@@ -647,6 +716,7 @@ function AdminSettingsContent({
                                         <DatabaseSettingEditor
                                             key={item.id}
                                             item={item}
+                                            spec={parameterCatalogMap[item.key] ?? null}
                                             draft={databaseDrafts[item.id] ?? {
                                                 value: item.value,
                                                 description: item.description ?? "",
@@ -677,8 +747,8 @@ function AdminSettingsContent({
                         ) : (
                             <EmptyState
                                 icon={<StorageIcon />}
-                                title="No database settings yet"
-                                description="Create a setting when you need runtime-configurable values stored in the database."
+                                title="No parameters yet"
+                                description="Create a parameter when you need runtime-configurable values stored in the database."
                             />
                         )}
                     </SectionCard>

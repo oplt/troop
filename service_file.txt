@@ -11,7 +11,7 @@ constructor to each sub-service.
 
 ---
 
-## 1. Module-level helpers → extract to `orchestration/_helpers.py`
+## 1. Module-level helpers → extract to `orchestration/_helpers.py` completed
 
 Plain functions, no `self`. Pure utilities.
 
@@ -33,7 +33,7 @@ services that own them.
 
 ---
 
-## 2. Agent CRUD + templates → `modules/team/service.py`
+## 2. Agent CRUD + templates → `modules/team/service.py` completed
 
 Existing team module already owns `AgentProfile`, `AgentTemplateCatalog`,
 `SkillPack`, `TeamTemplateCatalog`. Create `team/service.py` with `TeamService`.
@@ -70,7 +70,7 @@ Methods to move (≈1,900 lines, lines 322–469, 7767–7979, 11726–12228):
 
 ---
 
-## 3. Projects + portfolio + policy → `modules/projects/service.py` (exists)
+## 3. Projects + portfolio + policy → `modules/projects/service.py` (exists) completed
 
 Extend `projects/service.py`. Move (≈1,200 lines):
 
@@ -100,7 +100,7 @@ Extend `projects/service.py`. Move (≈1,200 lines):
 
 ---
 
-## 4. Tasks + acceptance + subtasks → `modules/projects/tasks_service.py` (new)
+## 4. Tasks + acceptance + subtasks → `modules/projects/tasks_service.py` (new) completed
 
 ≈1,600 lines. Methods (lines 941–2009, 1528–1598, 1210–1335):
 
@@ -129,7 +129,7 @@ Extend `projects/service.py`. Move (≈1,200 lines):
 
 ---
 
-## 5. Runs + execution → `orchestration/execution_service.py` (new)
+## 5. Runs + execution → `orchestration/execution_service.py` (new) completed
 
 Largest chunk — ≈3,500 lines. The real "orchestrator" engine.
 
@@ -170,7 +170,7 @@ fan-out logic (`_candidate_workers`, `_route_sub_tasks_to_agents`,
 
 ---
 
-## 6. Routing + policy + agent selection → `orchestration/routing_service.py` (new)
+## 6. Routing + policy + agent selection → `orchestration/routing_service.py` (new) completed
 
 ≈500 lines. Lines 8360–8438, 10291–10599.
 
@@ -193,7 +193,7 @@ fan-out logic (`_candidate_workers`, `_route_sub_tasks_to_agents`,
 
 ---
 
-## 7. Providers + models → `modules/ai/service.py` (exists) or new `orchestration/providers_service.py`
+## 7. Providers + models → `modules/ai/service.py` (exists) or new `orchestration/providers_service.py` completed
 
 ≈450 lines.
 
@@ -209,7 +209,7 @@ fan-out logic (`_candidate_workers`, `_route_sub_tasks_to_agents`,
 
 ---
 
-## 8. Brainstorms + debates → `orchestration/brainstorm_service.py` (new)
+## 8. Brainstorms + debates → `orchestration/brainstorm_service.py` (new) completed
 
 ≈750 lines. Lines 6548–6745, 9344–9828, 4857.
 
@@ -235,7 +235,7 @@ fan-out logic (`_candidate_workers`, `_route_sub_tasks_to_agents`,
 
 ---
 
-## 9. Memory (semantic/episodic/procedural/working/knowledge-graph) → `modules/memory/service.py` (new)
+## 9. Memory (semantic/episodic/procedural/working/knowledge-graph) → `modules/memory/service.py` (new) completed
 
 Biggest win for `modules/memory`. ≈2,100 lines. Lines 2640–4413, 7619–7766.
 
@@ -316,7 +316,7 @@ Split proposal:
 
 ---
 
-## 10. GitHub (connections, webhooks, PRs, approvals) → `modules/github/service.py` (new)
+## 10. GitHub (connections, webhooks, PRs, approvals) → `modules/github/service.py` (new) completed
 
 Module has `models/repository/router/schemas` but no `service.py`.
 ≈3,000 lines. Lines 6746–7140, 7273–7525, 12235–13762.
@@ -384,7 +384,7 @@ Split proposal:
 
 ---
 
-## 11. Approvals → `orchestration/approvals_service.py` (new)
+## 11. Approvals → `orchestration/approvals_service.py` (new) completed
 
 ≈260 lines.
 
@@ -396,7 +396,7 @@ inject GithubService.
 
 ---
 
-## 12. Evals + benchmarks + PR assistant → `orchestration/evals_service.py` (new)
+## 12. Evals + benchmarks + PR assistant → `orchestration/evals_service.py` (new) completed
 
 ≈450 lines.
 
@@ -412,7 +412,7 @@ inject GithubService.
 
 ---
 
-## 13. Remaining `OrchestrationService` (facade)
+## 13. Remaining `OrchestrationService` (facade) completed
 
 After moves: `__init__`, constants, and thin delegating wrappers for router
 compatibility. Target <1,500 lines.

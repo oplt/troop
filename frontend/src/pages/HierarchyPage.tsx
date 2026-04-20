@@ -284,6 +284,76 @@ function createUniqueNodeId(value: string, existingIds: string[]) {
     return `${base}-${index}`;
 }
 
+function normalizeAgentName(value: string, fallback = "Untitled agent"): string {
+    const cleaned = value.trim();
+    if (cleaned.length >= 2) {
+        return cleaned;
+    }
+    const fallbackCleaned = fallback.trim();
+    if (fallbackCleaned.length >= 2) {
+        return fallbackCleaned;
+    }
+    return "Untitled agent";
+}
+
+function normalizeAgentSlug(value: string, fallback = "agent"): string {
+    const candidate = slugify(value);
+    if (candidate.length >= 2) {
+        return candidate;
+    }
+    if (candidate.length === 1) {
+        return `${candidate}-agent`;
+    }
+    const fallbackSlug = slugify(fallback);
+    if (fallbackSlug.length >= 2) {
+        return fallbackSlug;
+    }
+    if (fallbackSlug.length === 1) {
+        return `${fallbackSlug}-agent`;
+    }
+    return "agent";
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
+function normalizePermission(value: string): string {
+    const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, "-");
+    if (normalized === "readonly") return "read-only";
+    if (normalized === "commentonly") return "comment-only";
+    if (normalized === "codewrite") return "code-write";
+    if (normalized === "mergeblocked") return "merge-blocked";
+    return PERMISSION_OPTIONS.includes(normalized as (typeof PERMISSION_OPTIONS)[number]) ? normalized : "read-only";
+}
+
+function normalizeMemoryScope(value: string): string {
+    return MEMORY_SCOPE_OPTIONS.includes(value as (typeof MEMORY_SCOPE_OPTIONS)[number]) ? value : "project-only";
+}
+
+function normalizeOutputFormat(value: string): string {
+    return OUTPUT_FORMAT_OPTIONS.includes(value as (typeof OUTPUT_FORMAT_OPTIONS)[number]) ? value : "json";
+}
+
+function normalizeTaskFilters(values: string[]): string[] {
+    return values
+        .map((value) => value.trim())
+        .filter((value) => {
+            if (!value) {
+                return false;
+            }
+            if (!/[\\^$[\]().*+?{}|]/.test(value)) {
+                return true;
+            }
+            try {
+                new RegExp(value);
+                return true;
+            } catch {
+                return false;
+            }
+        });
+}
+
 function stringifyCommaList(items: readonly string[]): string {
     return items
         .map((item) => item.trim())
@@ -549,10 +619,10 @@ function buildNodeDataFromAgent(
 }
 
 function autoLayoutGraph(nodes: TeamGraphNode[]): TeamGraphNode[] {
-    const centerX = 360;
-    const managerY = 80;
-    const childRowY = 320;
-    const gapX = 280;
+    const centerX = 0;
+    const managerY = 0;
+    const childRowY = 500;
+    const gapX = 400;
     const managers = nodes.filter((node) => node.data.role === "manager");
     const nonManagers = nodes.filter((node) => node.data.role !== "manager");
 
@@ -1662,7 +1732,8 @@ export default function AgentLibraryPage() {
     });
 
     const updateAgentTemplateMutation = useMutation({
-        mutationFn: ({ slug, payload }: { slug: string; payload: Partial<Omit<AgentTemplate, "id">> }) => updateAgentTemplate(slug, payload),
+        mutationFn: ({ id, payload }: { id: string; payload: Partial<Omit<AgentTemplate, "id">> }) =>
+            updateAgentTemplate(id, payload),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
             showToast({ message: "Agent template updated.", severity: "success" });
@@ -1751,31 +1822,40 @@ export default function AgentLibraryPage() {
                 const existingAgent = node.data.linkedAgentId
                     ? existingGraphAgents.get(node.data.linkedAgentId) ?? agents.find((agent) => agent.id === node.data.linkedAgentId) ?? null
                     : null;
+                const normalizedName = normalizeAgentName(node.data.name, existingAgent?.name ?? "Untitled agent");
                 const resolvedTemplateSlug = node.data.linkedTemplateSlug && templateSlugSet.has(node.data.linkedTemplateSlug)
                     ? node.data.linkedTemplateSlug
                     : null;
+                const normalizedSlug = normalizeAgentSlug(
+                    node.data.slug,
+                    existingAgent?.slug ?? normalizedName,
+                );
+                const normalizedPermission = normalizePermission(node.data.permission);
+                const normalizedMemoryScope = normalizeMemoryScope(node.data.memoryScope);
+                const normalizedOutputFormat = normalizeOutputFormat(node.data.outputFormat);
+                const normalizedTaskFilters = normalizeTaskFilters(node.data.taskFilters);
+                const normalizedBudget = {
+                    ...(existingAgent?.budget ?? {}),
+                    token_budget: clamp(parsePositiveInteger(node.data.tokenBudget, 8000), 1, 1_000_000),
+                    time_budget_seconds: clamp(parsePositiveInteger(node.data.timeBudgetSeconds, 300), 10, 86_400),
+                    retry_budget: clamp(parsePositiveInteger(node.data.retryBudget, 1), 0, 20),
+                };
                 const modelPolicy = {
                     ...(existingAgent?.model_policy ?? {}),
                     escalation_path: node.data.escalationPath || null,
-                    permissions: node.data.permission || "read-only",
+                    permissions: normalizedPermission,
                 };
                 const memoryPolicy = {
                     ...(existingAgent?.memory_policy ?? {}),
-                    scope: node.data.memoryScope || "project-only",
+                    scope: normalizedMemoryScope,
                 };
                 const outputSchema = {
                     ...(existingAgent?.output_schema ?? {}),
-                    format: node.data.outputFormat || "json",
-                };
-                const budget = {
-                    ...(existingAgent?.budget ?? {}),
-                    token_budget: parsePositiveInteger(node.data.tokenBudget, 8000),
-                    time_budget_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, 300),
-                    retry_budget: parsePositiveInteger(node.data.retryBudget, 1),
+                    format: normalizedOutputFormat,
                 };
                 const metadata = {
                     ...(existingAgent?.metadata ?? {}),
-                    task_filters: node.data.taskFilters,
+                    task_filters: normalizedTaskFilters,
                     hierarchy_builder: {
                         node_id: node.id,
                         project_id: effectiveHierarchyProjectId,
@@ -1788,8 +1868,8 @@ export default function AgentLibraryPage() {
                 let savedAgent: Agent;
                 if (existingAgent) {
                     savedAgent = await updateAgent(existingAgent.id, {
-                        name: node.data.name.trim() || existingAgent.name,
-                        slug: node.data.slug.trim() || existingAgent.slug,
+                        name: normalizedName,
+                        slug: normalizedSlug,
                         description: node.data.description.trim(),
                         role: node.data.role,
                         parent_template_slug: resolvedTemplateSlug || existingAgent.parent_template_slug || null,
@@ -1799,37 +1879,55 @@ export default function AgentLibraryPage() {
                         model_policy: modelPolicy,
                         memory_policy: memoryPolicy,
                         output_schema: outputSchema,
-                        budget,
-                        timeout_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, existingAgent.timeout_seconds || 300),
-                        retry_limit: parsePositiveInteger(node.data.retryBudget, existingAgent.retry_limit || 1),
-                        task_filters: node.data.taskFilters,
+                        budget: normalizedBudget,
+                        timeout_seconds: clamp(parsePositiveInteger(node.data.timeBudgetSeconds, existingAgent.timeout_seconds || 300), 10, 14400),
+                        retry_limit: clamp(parsePositiveInteger(node.data.retryBudget, existingAgent.retry_limit || 1), 0, 10),
+                        task_filters: normalizedTaskFilters,
                         metadata,
                     });
                 } else {
-                    const preferredSlug = node.data.slug.trim() || slugify(node.data.name) || "agent";
-                    const nextSlug = reservedSlugs.has(preferredSlug)
+                    const preferredSlug = normalizeAgentSlug(node.data.slug || normalizedName, normalizedName);
+                    let nextSlug = reservedSlugs.has(preferredSlug)
                         ? createUniqueSlug(preferredSlug, Array.from(reservedSlugs))
                         : preferredSlug;
-                    reservedSlugs.add(nextSlug);
-                    savedAgent = await createAgent({
-                        project_id: effectiveHierarchyProjectId,
-                        parent_template_slug: resolvedTemplateSlug,
-                        name: node.data.name.trim() || "Untitled agent",
-                        slug: nextSlug,
-                        description: node.data.description.trim(),
-                        role: node.data.role,
-                        capabilities: node.data.capabilities,
-                        allowed_tools: sanitizeRuntimeTools(node.data.allowedTools),
-                        tags: node.data.tags,
-                        model_policy: modelPolicy,
-                        memory_policy: memoryPolicy,
-                        output_schema: outputSchema,
-                        budget,
-                        timeout_seconds: parsePositiveInteger(node.data.timeBudgetSeconds, 300),
-                        retry_limit: parsePositiveInteger(node.data.retryBudget, 1),
-                        task_filters: node.data.taskFilters,
-                        metadata,
-                    });
+                    let createAttempt = 0;
+                    while (true) {
+                        createAttempt += 1;
+                        try {
+                            savedAgent = await createAgent({
+                                project_id: effectiveHierarchyProjectId,
+                                parent_template_slug: resolvedTemplateSlug,
+                                name: normalizedName,
+                                slug: nextSlug,
+                                description: node.data.description.trim(),
+                                role: node.data.role,
+                                capabilities: node.data.capabilities,
+                                allowed_tools: sanitizeRuntimeTools(node.data.allowedTools),
+                                tags: node.data.tags,
+                                model_policy: modelPolicy,
+                                memory_policy: memoryPolicy,
+                                output_schema: outputSchema,
+                                budget: normalizedBudget,
+                                timeout_seconds: clamp(parsePositiveInteger(node.data.timeBudgetSeconds, 300), 10, 14400),
+                                retry_limit: clamp(parsePositiveInteger(node.data.retryBudget, 1), 0, 10),
+                                task_filters: normalizedTaskFilters,
+                                metadata,
+                            });
+                            reservedSlugs.add(savedAgent.slug);
+                            break;
+                        } catch (error) {
+                            const message = error instanceof Error ? error.message : "";
+                            const isSlugConflict = message.toLowerCase().includes("slug already exists");
+                            if (!isSlugConflict || createAttempt >= 3) {
+                                throw error;
+                            }
+                            const latestAgents = await listAgents();
+                            for (const existing of latestAgents) {
+                                reservedSlugs.add(existing.slug);
+                            }
+                            nextSlug = createUniqueSlug(preferredSlug, Array.from(reservedSlugs));
+                        }
+                    }
                 }
 
                 nodeToAgentId.set(node.id, savedAgent.id);
@@ -1887,7 +1985,7 @@ export default function AgentLibraryPage() {
                     model_policy: {
                         ...(currentAgent.model_policy ?? {}),
                         escalation_path: escalationSlug,
-                        permissions: node.data.permission || "read-only",
+                        permissions: normalizePermission(node.data.permission),
                     },
                 });
                 savedAgentById.set(agentId, updatedAgent);
@@ -2008,7 +2106,11 @@ export default function AgentLibraryPage() {
         );
 
         if (existingTemplate) {
-            updateAgentTemplateMutation.mutate({ slug: existingTemplate.slug, payload });
+            if (!existingTemplate.id) {
+                showToast({ message: "Template id missing. Refresh and retry.", severity: "error" });
+                return;
+            }
+            updateAgentTemplateMutation.mutate({ id: existingTemplate.id, payload });
         } else {
             createAgentTemplateMutation.mutate(payload);
         }
@@ -2160,8 +2262,12 @@ export default function AgentLibraryPage() {
         if (!template || template.skills.includes(skillSlug)) {
             return;
         }
+        if (!template.id) {
+            showToast({ message: "Template id missing. Refresh and retry.", severity: "error" });
+            return;
+        }
         updateAgentTemplateMutation.mutate({
-            slug: templateSlug,
+            id: template.id,
             payload: { skills: [...template.skills, skillSlug] },
         });
     }
@@ -2171,8 +2277,12 @@ export default function AgentLibraryPage() {
         if (!template) {
             return;
         }
+        if (!template.id) {
+            showToast({ message: "Template id missing. Refresh and retry.", severity: "error" });
+            return;
+        }
         updateAgentTemplateMutation.mutate({
-            slug: templateSlug,
+            id: template.id,
             payload: { skills: template.skills.filter((item) => item !== skillSlug) },
         });
     }
@@ -2346,46 +2456,14 @@ export default function AgentLibraryPage() {
             showToast({ message: "Team template has no agent templates attached.", severity: "warning" });
             return;
         }
-        const existingIds = new Set(nodes.map((node) => node.id));
-        const resolveRole = (template: AgentTemplate): TeamGraphRole =>
-            template.role === "manager" || template.role === "reviewer" ? template.role : "specialist";
-        const newNodes: TeamGraphNode[] = selected.map((template) => {
-            const role = resolveRole(template);
-            const nextId = createUniqueNodeId(`${teamTemplate.slug}-${template.slug}`, Array.from(existingIds));
-            existingIds.add(nextId);
-            return {
-                id: nextId,
-                type: role,
-                position: { x: 0, y: 0 },
-                data: buildNodeDataFromTemplate(template),
-            } as TeamGraphNode;
-        });
-        const templateManager = newNodes.find((node) => node.data.role === "manager");
-        const existingManager = !templateManager ? nodes.find((node) => node.data.role === "manager") ?? null : null;
-        const managerNode = templateManager ?? existingManager;
-        if (templateManager) {
-            templateManager.position = computeDefaultNodePosition("manager", nodes);
-        }
-        const combined = [...nodes, ...newNodes];
-        const newChildIds = new Set(newNodes.filter((node) => node.id !== templateManager?.id).map((node) => node.id));
-        const reflowed = templateManager
-            ? reflowChildRows(combined, { anchorManagerId: templateManager.id, childIds: newChildIds })
-            : reflowChildRows(combined);
-        const newEdges: TeamGraphEdge[] = [];
-        if (managerNode) {
-            for (const child of newNodes) {
-                if (child.id === managerNode.id) continue;
-                const semantic = child.data.role === "reviewer" ? "reviews" : "delegates_to";
-                newEdges.push(createSemanticEdge(managerNode.id, child.id, semantic));
-            }
-        }
-        setNodes(reflowed);
-        if (newEdges.length > 0) {
-            setEdges((current) => [...current, ...newEdges]);
-        }
+        const graph = buildTeamTemplateCanvasGraph(selected);
+        setNodes(graph.nodes);
+        setEdges(graph.edges);
+        setSelectedNodeId(graph.nodes[0]?.id ?? null);
+        setSelectedEdgeId(null);
         setGraphDirty(true);
         setManualTab("hierarchy");
-        showToast({ message: `Team "${teamTemplate.name}" inserted into graph.`, severity: "success" });
+        showToast({ message: `Team "${teamTemplate.name}" loaded into graph.`, severity: "success" });
         fitCanvas();
     }
 
@@ -2610,8 +2688,8 @@ export default function AgentLibraryPage() {
 
             <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
                 <Tabs value={activeTab} onChange={(_, value: BuilderTab) => setManualTab(value)} variant="scrollable" scrollButtons="auto">
-                    <Tab value="hierarchy" label="Hierarchy" />
-                    <Tab value="library" label="Library" />
+                    <Tab value="hierarchy" label="Team Builder" />
+                    <Tab value="library" label="Templates" />
                 </Tabs>
             </Paper>
 
@@ -2724,7 +2802,17 @@ export default function AgentLibraryPage() {
                                                 <Button size="small" variant="outlined" onClick={() => openAgentTemplateDrawer(template)}>
                                                     Edit
                                                 </Button>
-                                                <Button size="small" color="error" onClick={() => deleteAgentTemplateMutation.mutate(template.slug)}>
+                                                <Button
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={() => {
+                                                        if (!template.id) {
+                                                            showToast({ message: "Template id missing. Refresh and retry.", severity: "error" });
+                                                            return;
+                                                        }
+                                                        deleteAgentTemplateMutation.mutate(template.id);
+                                                    }}
+                                                >
                                                     Remove
                                                 </Button>
                                             </Stack>

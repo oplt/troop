@@ -12,11 +12,22 @@ from backend.modules.settings.schemas import (
     ConfigEntryUpdate,
     ConfigSettingsResponse,
 )
+from backend.modules.settings.settings_catalog import (
+    get_spec,
+    list_catalog,
+    normalize_value_for_key,
+    parse_value,
+    serialize_value,
+)
 
 CONFIG_NOTICE = (
     "Config values are saved to backend/.env. Values read directly from"
     " `settings` update immediately, "
     "but infrastructure-bound changes may still require a backend restart."
+)
+PRODUCTION_CONFIG_NOTICE = (
+    "Environment-backed config editing is disabled in production. "
+    "Manage .env and secret values through infrastructure controls."
 )
 
 CONFIG_FIELD_METADATA: dict[str, dict[str, Any]] = {
@@ -243,13 +254,27 @@ class SettingsService:
     async def create_database_setting(
         self, key: str, value: str, description: str | None
     ) -> AppSetting:
+        spec = get_spec(key)
+        if spec is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown parameter key '{key}'. Use a key from the parameter catalog.",
+            )
         existing = await self.repo.get_by_key(key)
         if existing:
             raise HTTPException(
                 status_code=409, detail="A database setting with this key already exists"
             )
 
-        setting = await self.repo.create(key=key, value=value, description=description)
+        try:
+            normalized_value = normalize_value_for_key(key, value)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid value for {key}: {exc}") from exc
+        setting = await self.repo.create(
+            key=key,
+            value=normalized_value,
+            description=description or spec.description,
+        )
         await self.db.commit()
         await self.db.refresh(setting)
         return setting
@@ -258,6 +283,20 @@ class SettingsService:
         setting = await self.repo.get_by_id(setting_id)
         if not setting:
             raise HTTPException(status_code=404, detail="Database setting not found")
+
+        if "value" in updates:
+            spec = get_spec(setting.key)
+            if spec is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown parameter key '{setting.key}'. Remove and recreate with supported key.",
+                )
+            try:
+                updates["value"] = normalize_value_for_key(setting.key, updates["value"] or "")
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422, detail=f"Invalid value for {setting.key}: {exc}"
+                ) from exc
 
         for field, value in updates.items():
             setattr(setting, field, value)
@@ -274,8 +313,36 @@ class SettingsService:
         await self.repo.delete(setting)
         await self.db.commit()
 
+    async def get_parameter_typed(self, key: str) -> Any:
+        spec = get_spec(key)
+        if spec is None:
+            raise HTTPException(status_code=404, detail=f"Unknown parameter key '{key}'")
+        row = await self.repo.get_by_key(key)
+        if row is None:
+            return spec.default
+        try:
+            return parse_value(row.value, spec.value_type)
+        except ValueError:
+            return spec.default
+
+    @staticmethod
+    def list_parameter_catalog() -> list[dict[str, str]]:
+        items: list[dict[str, str]] = []
+        for spec in list_catalog():
+            items.append(
+                {
+                    "key": spec.key,
+                    "value_type": spec.value_type,
+                    "default_value": serialize_value(spec.default, spec.value_type),
+                    "description": spec.description,
+                }
+            )
+        return items
+
     @classmethod
     def list_config_entries(cls) -> ConfigSettingsResponse:
+        if settings.is_production:
+            return ConfigSettingsResponse(items=[], notice=PRODUCTION_CONFIG_NOTICE)
         env_entries = cls._read_env_entries()
         items: list[ConfigEntryResponse] = []
         known_fields = Settings.model_fields
@@ -311,6 +378,11 @@ class SettingsService:
 
     @classmethod
     def update_config_entries(cls, updates: Iterable[ConfigEntryUpdate]) -> ConfigSettingsResponse:
+        if settings.is_production:
+            raise HTTPException(
+                status_code=403,
+                detail="Environment-backed config editing is disabled in production",
+            )
         update_items = list(updates)
         seen_keys: set[str] = set()
         raw_updates: dict[str, str] = {}

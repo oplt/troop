@@ -1,6 +1,6 @@
 import unittest
 
-from backend.modules.orchestration.langgraph_runner import _normalize_run_mode
+from backend.modules.orchestration.execution.langgraph_runner import _normalize_run_mode
 
 
 class LangGraphRunnerTests(unittest.TestCase):

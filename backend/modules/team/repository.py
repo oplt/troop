@@ -106,9 +106,20 @@ class TeamRepositoryMixin:
         )
         return list(result.scalars().all())
 
-    async def get_agent_template_by_slug(self, slug: str) -> AgentTemplateCatalog | None:
-        result = await self.db.execute(select(AgentTemplateCatalog).where(AgentTemplateCatalog.slug == slug))
+    async def get_agent_template(self, template_id: str) -> AgentTemplateCatalog | None:
+        result = await self.db.execute(
+            select(AgentTemplateCatalog).where(AgentTemplateCatalog.id == template_id)
+        )
         return result.scalar_one_or_none()
+
+    async def get_agent_template_by_slug(self, slug: str) -> AgentTemplateCatalog | None:
+        result = await self.db.execute(
+            select(AgentTemplateCatalog)
+            .where(AgentTemplateCatalog.slug == slug)
+            .order_by(AgentTemplateCatalog.created_at.desc(), AgentTemplateCatalog.id.desc())
+            .limit(1)
+        )
+        return result.scalars().first()
 
     async def create_agent_template(self, **kwargs) -> AgentTemplateCatalog:
         item = AgentTemplateCatalog(**kwargs)

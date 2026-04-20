@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from fastapi import HTTPException
 
-from backend.modules.orchestration.execution_workflow import (
+from backend.modules.orchestration.execution.execution_workflow import (
     consume_signal_queue,
     enqueue_signal,
     ensure_workflow_state,
@@ -21,7 +21,8 @@ from backend.modules.orchestration.execution_workflow import (
 from backend.modules.orchestration.markdown import parse_agent_markdown
 from backend.modules.orchestration.providers import ProviderExecutionResult, discover_provider_capabilities
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
-from backend.modules.orchestration.service import OrchestrationService, _chunk_text, _cosine_similarity
+from backend.modules.orchestration._helpers import _chunk_text, _cosine_similarity
+from backend.modules.orchestration.services.service import OrchestrationService
 from backend.modules.orchestration.tools import OrchestrationToolbox
 
 VALID_AGENT_MARKDOWN = """---
@@ -590,7 +591,7 @@ class ReplayFlowTests(unittest.TestCase):
             refresh=lambda item: asyncio.sleep(0),
         )
 
-        with patch("backend.modules.orchestration.durable_execution.submit_orchestration_run") as submit_mock:
+        with patch("backend.modules.orchestration.execution.durable_execution.submit_orchestration_run") as submit_mock:
             result = asyncio.run(
                 service.replay_run(
                     SimpleNamespace(id="user-1"),
@@ -750,7 +751,7 @@ class RunEngineTests(unittest.TestCase):
             refresh=lambda item: asyncio.sleep(0),
         )
 
-        with patch("backend.modules.orchestration.durable_execution.submit_orchestration_run") as submit_mock:
+        with patch("backend.modules.orchestration.execution.durable_execution.submit_orchestration_run") as submit_mock:
             result = asyncio.run(service.resume_run(SimpleNamespace(id="user-1"), "run-1"))
 
         self.assertEqual(result.status, "queued")
@@ -1143,7 +1144,7 @@ class GithubHelperTests(unittest.TestCase):
         service = object.__new__(OrchestrationService)
         connection = SimpleNamespace(encrypted_token="encrypted", metadata_json={"connection_mode": "token"})
 
-        with patch("backend.modules.orchestration.service.decrypt_secret", return_value="ghp_test"):
+        with patch("backend.modules.orchestration.services.service.decrypt_secret", return_value="ghp_test"):
             headers = asyncio.run(service._github_auth_headers(connection))
 
         self.assertEqual(headers["Authorization"], "token ghp_test")
@@ -1332,7 +1333,7 @@ class ProviderHelperTests(unittest.TestCase):
             model_name=None,
             provider_config_id=None,
         )
-        import backend.modules.orchestration.service as service_module
+        import backend.modules.orchestration.services.service as service_module
 
         previous = service_module.execute_prompt
         service_module.execute_prompt = lambda provider, **kwargs: asyncio.sleep(
@@ -1392,7 +1393,7 @@ class ProviderHelperTests(unittest.TestCase):
             model_name="project-default",
             provider_config_id=None,
         )
-        import backend.modules.orchestration.service as service_module
+        import backend.modules.orchestration.services.service as service_module
 
         previous = service_module.execute_prompt
         service_module.execute_prompt = lambda provider, **kwargs: asyncio.sleep(
@@ -1484,7 +1485,7 @@ class MemoryHelperTests(unittest.TestCase):
         self.assertGreater(score, 0.9)
 
     def test_merge_memory_settings_preserves_unknown_keys_and_overrides(self) -> None:
-        from backend.modules.orchestration.memory_settings import DEFAULT_MEMORY_SETTINGS, merge_memory_settings
+        from backend.modules.memory.settings import DEFAULT_MEMORY_SETTINGS, merge_memory_settings
 
         merged = merge_memory_settings({"memory": {"second_stage_rag": True, "episodic_retrieval_depth": 12}})
         self.assertTrue(merged["second_stage_rag"])
@@ -1736,7 +1737,7 @@ class BrainstormConsensusMetricsTests(unittest.TestCase):
 
 class WorkingMemoryHelpersTests(unittest.TestCase):
     def test_merge_working_memory_respects_limits(self) -> None:
-        from backend.modules.orchestration.working_memory import merge_working_memory_patch
+        from backend.modules.memory.working_memory import merge_working_memory_patch
 
         base = merge_working_memory_patch(
             None,
@@ -1761,7 +1762,7 @@ class WorkingMemoryHelpersTests(unittest.TestCase):
 
 class ExecutionStateHelpersTests(unittest.TestCase):
     def test_checkpoint_excerpt_truncates_and_selects_keys(self) -> None:
-        from backend.modules.orchestration.execution_state import checkpoint_excerpt
+        from backend.modules.orchestration.execution.execution_state import checkpoint_excerpt
 
         long = "x" * 600
         out = checkpoint_excerpt(
@@ -1774,7 +1775,7 @@ class ExecutionStateHelpersTests(unittest.TestCase):
         self.assertEqual(len(out["scratchpad"]), 101)
 
     def test_extract_execution_metadata_views(self) -> None:
-        from backend.modules.orchestration.execution_state import extract_execution_metadata_views
+        from backend.modules.orchestration.execution.execution_state import extract_execution_metadata_views
 
         views = extract_execution_metadata_views(
             {

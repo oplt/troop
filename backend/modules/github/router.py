@@ -20,7 +20,7 @@ from backend.modules.github.schemas import (
 )
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.schemas import ApprovalResponse, TaskResponse
-from backend.modules.orchestration.service import OrchestrationService
+from backend.modules.orchestration.services.service import OrchestrationService
 
 router = APIRouter()
 public_router = APIRouter()

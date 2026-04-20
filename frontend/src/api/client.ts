@@ -66,8 +66,27 @@ export async function apiFetch<T>(
     }
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: "Request failed" }));
-        throw new Error(error.detail ?? "Request failed");
+        const error = await response.json().catch(() => ({ detail: "Request failed" })) as {
+            detail?: unknown;
+            errors?: unknown;
+            warnings?: unknown;
+        };
+        const detail = error.detail;
+        if (typeof detail === "string" && detail.trim()) {
+            throw new Error(detail);
+        }
+        if (detail && typeof detail === "object") {
+            const nested = detail as { errors?: unknown; warnings?: unknown; message?: unknown };
+            const nestedErrors = Array.isArray(nested.errors) ? nested.errors.filter((item): item is string => typeof item === "string") : [];
+            const nestedWarnings = Array.isArray(nested.warnings) ? nested.warnings.filter((item): item is string => typeof item === "string") : [];
+            const nestedMessage = typeof nested.message === "string" ? nested.message : "";
+            const parts = [nestedMessage, ...nestedErrors, ...nestedWarnings].filter(Boolean);
+            if (parts.length > 0) {
+                throw new Error(parts.join(" "));
+            }
+            throw new Error(JSON.stringify(detail));
+        }
+        throw new Error("Request failed");
     }
 
     // Handle 204 No Content

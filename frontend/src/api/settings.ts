@@ -30,6 +30,13 @@ export type DatabaseSetting = {
     updated_at: string;
 };
 
+export type ParameterCatalogEntry = {
+    key: string;
+    value_type: "bool" | "int" | "json" | "string";
+    default_value: string;
+    description: string;
+};
+
 export async function getConfigSettings(): Promise<ConfigSettingsResponse> {
     return apiFetch("/settings/config");
 }
@@ -45,6 +52,10 @@ export async function updateConfigSettings(
 
 export async function listDatabaseSettings(): Promise<DatabaseSetting[]> {
     return apiFetch("/settings/database");
+}
+
+export async function listParameterCatalog(): Promise<ParameterCatalogEntry[]> {
+    return apiFetch("/settings/database/catalog");
 }
 
 export async function createDatabaseSetting(payload: {

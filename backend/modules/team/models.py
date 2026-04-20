@@ -123,7 +123,7 @@ class AgentTemplateCatalog(Base):
     __tablename__ = "agent_templates"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    slug: Mapped[str] = mapped_column(String(255), index=True)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(64), default="specialist")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

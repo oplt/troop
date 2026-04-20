@@ -1,8 +1,8 @@
 import asyncio
 
 from backend.core.config import settings
-from backend.modules.orchestration.cpu_executor import execute_code_job
-from backend.modules.orchestration.service import OrchestrationService
+from backend.modules.orchestration.execution.cpu_executor import execute_code_job
+from backend.modules.orchestration.services.service import OrchestrationService
 from backend.workers.celery_app import celery_app
 
 

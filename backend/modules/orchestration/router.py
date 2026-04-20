@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.db.session import get_db
+from backend.db.session import SessionLocal, get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.schemas import (
     ActiveRunSummary,
@@ -127,7 +127,7 @@ from backend.modules.orchestration.schemas import (
     WorkingMemoryResponse,
 )
 from backend.modules.orchestration.models import ApprovalRequest
-from backend.modules.orchestration.service import OrchestrationService
+from backend.modules.orchestration.services.service import OrchestrationService
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.schemas import ProjectAgentMembershipResponse, ProjectAgentMembershipCreate, ProjectAgentMembershipUpdate
 
@@ -703,7 +703,7 @@ async def orchestration_memory_metrics(
     current_user: User = Depends(get_current_user),
 ):
     del current_user  # authenticated; metrics are process-global for now
-    from backend.modules.orchestration.memory_metrics import snapshot_memory_metrics
+    from backend.modules.memory.metrics import snapshot_memory_metrics
 
     return snapshot_memory_metrics()
 
@@ -766,22 +766,40 @@ async def _live_snapshot_stream(snapshot_factory):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+async def _with_fresh_orchestration_session(callback):
+    session = SessionLocal()
+    try:
+        service = OrchestrationService(session)
+        return await callback(service)
+    finally:
+        close_task = asyncio.create_task(session.close())
+        try:
+            await asyncio.shield(close_task)
+        except asyncio.CancelledError:
+            await close_task
+            raise
+
+
 @router.get("/portfolio/stream")
 async def orchestration_portfolio_stream(
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = OrchestrationService(db)
-    return await _live_snapshot_stream(lambda: service.portfolio_live_snapshot(current_user))
+    return await _live_snapshot_stream(
+        lambda: _with_fresh_orchestration_session(
+            lambda service: service.portfolio_live_snapshot(current_user)
+        )
+    )
 
 
 @router.get("/hierarchy/stream")
 async def hierarchy_stream(
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = OrchestrationService(db)
-    return await _live_snapshot_stream(lambda: service.hierarchy_live_snapshot(current_user))
+    return await _live_snapshot_stream(
+        lambda: _with_fresh_orchestration_session(
+            lambda service: service.hierarchy_live_snapshot(current_user)
+        )
+    )
 
 
 @router.post("/agents/validate-markdown", response_model=AgentMarkdownValidationResponse)
@@ -923,26 +941,48 @@ async def create_agent_template(
     return AgentTemplateResponse(**result)
 
 
-@router.patch("/agents/templates/{slug}", response_model=AgentTemplateResponse)
+@router.patch("/agents/templates/{template_id}", response_model=AgentTemplateResponse)
 async def update_agent_template(
-    slug: str,
+    template_id: str,
     payload: AgentTemplateUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     result = await OrchestrationService(db).update_agent_template(
+        template_id, payload.model_dump(exclude_unset=True, exclude_none=True)
+    )
+    return AgentTemplateResponse(**result)
+
+
+@router.delete("/agents/templates/{template_id}", status_code=204)
+async def delete_agent_template(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).delete_agent_template(template_id)
+
+
+@router.patch("/agents/templates/slug/{slug}", response_model=AgentTemplateResponse)
+async def update_agent_template_by_slug(
+    slug: str,
+    payload: AgentTemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).update_agent_template_by_slug(
         slug, payload.model_dump(exclude_unset=True, exclude_none=True)
     )
     return AgentTemplateResponse(**result)
 
 
-@router.delete("/agents/templates/{slug}", status_code=204)
-async def delete_agent_template(
+@router.delete("/agents/templates/slug/{slug}", status_code=204)
+async def delete_agent_template_by_slug(
     slug: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await OrchestrationService(db).delete_agent_template(slug)
+    await OrchestrationService(db).delete_agent_template_by_slug(slug)
 
 
 @router.get("/teams/templates", response_model=list[TeamTemplateResponse])

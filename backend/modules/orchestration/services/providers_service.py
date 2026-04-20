@@ -191,6 +191,13 @@ class OrchestrationProvidersServiceMixin:
         *,
         model_name: str | None = None,
     ) -> int:
+        # Ollama and built-in local heuristic are not metered like cloud APIs; using generic defaults
+        # ($/1k from capability fallbacks) falsely trips expensive-model approval for models like qwen3:4b.
+        if provider is not None and str(getattr(provider, "provider_type", None) or "").strip().lower() in {
+            "ollama",
+            "local",
+        }:
+            return 0
         capability = None
         if model_name:
             capability = next(
@@ -355,6 +362,8 @@ class OrchestrationProvidersServiceMixin:
             return True
         if model_name in {provider.default_model, provider.fallback_model}:
             return True
+        if str(provider.provider_type or "").strip().lower() in {"ollama", "local"}:
+            return True
         capability = await self._model_capability(model_name, provider.provider_type)
         if capability:
             return True
@@ -468,13 +477,32 @@ class OrchestrationProvidersServiceMixin:
                 if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
                     return await _local_provider_for_project()
                 return provider
-        if agent and agent.project_id:
-            providers = await self.repo.list_providers(agent.owner_id, agent.project_id)
-            default = next((item for item in providers if item.is_default), None)
-            if default:
-                if offline_local_only_mode and default.provider_type not in {"ollama", "local"}:
-                    return await _local_provider_for_project()
-                return default
+
+        # Default provider: prefer the orchestration project the run belongs to, then the agent's
+        # home project_id (if any), then user-global (project_id NULL). Agents are often linked to
+        # a project only via membership with agent.project_id left unset; listing only by
+        # agent.project_id skipped workspace defaults and produced stub LLM output.
+        owner_id = project.owner_id if project is not None else (agent.owner_id if agent else None)
+        if owner_id:
+            scope_ids: list[str | None] = []
+            if project is not None:
+                scope_ids.append(project.id)
+            if agent and agent.project_id and agent.project_id not in scope_ids:
+                scope_ids.append(agent.project_id)
+            scope_ids.append(None)
+
+            for lookup_project_id in scope_ids:
+                providers = await self.repo.list_providers(owner_id, lookup_project_id)
+                default = next((item for item in providers if item.is_default), None) or next(
+                    (item for item in providers if item.is_enabled), None
+                )
+                if default:
+                    if offline_local_only_mode and default.provider_type not in {"ollama", "local"}:
+                        picked = await _local_provider_for_project()
+                        if picked:
+                            return picked
+                        continue
+                    return default
         if offline_local_only_mode:
             return await _local_provider_for_project()
         return None

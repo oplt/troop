@@ -494,7 +494,7 @@ class HierarchyControlPlaneService:
         task_id: str,
         member_id: str | None,
     ) -> TaskRun:
-        run = await self.service.start_task_run(
+        run, _startup_warnings = await self.service.start_task_run(
             user,
             project_id,
             task_id,

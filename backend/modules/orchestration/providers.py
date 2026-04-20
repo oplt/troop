@@ -10,7 +10,6 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 
-from backend.core.config import settings
 from backend.modules.ai.providers import LocalHeuristicProvider
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.security import decrypt_secret
@@ -218,8 +217,6 @@ async def execute_prompt(
     user_prompt: str,
     response_format: str = "text",
 ) -> ProviderExecutionResult:
-    if settings.ORCHESTRATION_OFFLINE_MODE:
-        provider = None
     if provider is None or provider.provider_type == "local":
         started = time.perf_counter()
         result = await LocalHeuristicProvider().generate(
@@ -245,7 +242,7 @@ async def execute_prompt(
             latency_ms=latency_ms,
         )
 
-    provider_type = provider.provider_type
+    provider_type = str(provider.provider_type or "").strip().lower()
     if provider_type in {"openai", "openai_compatible", "qwen"}:
         return await _execute_openai_compatible(
             provider,
@@ -410,6 +407,28 @@ async def _execute_anthropic(
     )
 
 
+def _ollama_error_from_payload(payload: Any) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    err = payload.get("error")
+    if err is None:
+        return None
+    return str(err).strip() or None
+
+
+def _ollama_extract_text_from_payload(payload: dict[str, Any]) -> str:
+    """Ollama /api/chat returns assistant text under message.content; /api/generate uses response."""
+    msg = payload.get("message")
+    if isinstance(msg, dict):
+        raw = msg.get("content")
+        if raw is not None:
+            return str(raw)
+    resp = payload.get("response")
+    if resp is not None:
+        return str(resp)
+    return ""
+
+
 async def _execute_ollama(
     provider: ProviderConfig,
     *,
@@ -419,30 +438,77 @@ async def _execute_ollama(
     response_format: str,
 ) -> ProviderExecutionResult:
     started = time.perf_counter()
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
-        base_url=_provider_base_url(provider),
-    ) as client:
-        response = await client.post(
-            "/api/generate",
-            json={
-                "model": model_name,
-                "system": system_prompt,
-                "prompt": user_prompt,
-                "stream": False,
-                "format": "json" if response_format == "json" else None,
-                "options": {
-                    "temperature": provider.temperature,
-                    "num_predict": provider.max_tokens,
-                },
-            },
+    base = _provider_base_url(provider)
+    messages: list[dict[str, str]] = []
+    sys_clean = (system_prompt or "").strip()
+    if sys_clean:
+        messages.append({"role": "system", "content": sys_clean})
+    messages.append({"role": "user", "content": user_prompt})
+    options = {"temperature": provider.temperature, "num_predict": provider.max_tokens}
+    want_json = response_format == "json"
+
+    async def _post_chat(client: httpx.AsyncClient, *, json_format: bool) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": model_name,
+            "messages": messages,
+            "stream": False,
+            "options": options,
+        }
+        if json_format and want_json:
+            body["format"] = "json"
+        r = await client.post("/api/chat", json=body)
+        if r.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"Ollama chat failed: {r.text[:300]}")
+        payload = r.json()
+        err = _ollama_error_from_payload(payload)
+        if err:
+            raise HTTPException(status_code=502, detail=f"Ollama chat failed: {err[:500]}")
+        return payload
+
+    async def _post_generate(client: httpx.AsyncClient) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": model_name,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": False,
+            "options": options,
+        }
+        if want_json:
+            body["format"] = "json"
+        r = await client.post("/api/generate", json=body)
+        if r.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"Ollama generate failed: {r.text[:300]}")
+        payload = r.json()
+        err = _ollama_error_from_payload(payload)
+        if err:
+            raise HTTPException(status_code=502, detail=f"Ollama generate failed: {err[:500]}")
+        return payload
+
+    payload: dict[str, Any]
+    async with httpx.AsyncClient(timeout=float(provider.timeout_seconds), base_url=base) as client:
+        payload = await _post_chat(client, json_format=True)
+        content = _ollama_extract_text_from_payload(payload)
+        if want_json and not str(content).strip():
+            payload = await _post_chat(client, json_format=False)
+            content = _ollama_extract_text_from_payload(payload)
+        if not str(content).strip():
+            payload = await _post_generate(client)
+            content = str(payload.get("response") or "")
+
+    if want_json and not str(content).strip():
+        err = _ollama_error_from_payload(payload) if isinstance(payload, dict) else None
+        hint = f"{err} " if err else ""
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"Ollama returned no usable text for model {model_name!r} (JSON plan expected). {hint}"
+                f"Pull the model if missing (`ollama pull {model_name}`), confirm the backend can reach "
+                f"the Ollama base URL ({base!r}), and try a model that supports structured JSON output."
+            ),
         )
-    if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Ollama request failed: {response.text[:300]}")
-    payload = response.json()
-    content = payload.get("response", "")
+
     parsed_json = None
-    if response_format == "json":
+    if want_json:
         try:
             parsed_json = json.loads(content)
         except json.JSONDecodeError:

@@ -1364,46 +1364,7 @@ class OrchestrationProjectsServiceMixin:
 
     async def project_live_snapshot(self, user: User, project_id: str) -> dict[str, Any]:
         await self.get_project(user, project_id)
-        tasks = await self.repo.list_tasks(project_id)
-        runs = await self.repo.list_runs(user.id, project_id)
-        approvals = [
-            item for item in await self.repo.list_approvals(user.id) if item.project_id == project_id
-        ]
-        sync_events = await self.repo.list_sync_events(user.id, project_id)
-        ingest_jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project_id, limit=60)
-        return {
-            "project_id": project_id,
-            "task_counts": {
-                "open": sum(
-                    1
-                    for task in tasks
-                    if task.status not in {"completed", "archived", "synced_to_github"}
-                ),
-                "blocked": sum(1 for task in tasks if task.status == "blocked"),
-                "review": sum(1 for task in tasks if task.status == "needs_review"),
-            },
-            "run_counts": {
-                "active": sum(1 for run in runs if run.status in {"queued", "in_progress", "blocked"}),
-                "failed": sum(1 for run in runs if run.status == "failed"),
-            },
-            "approval_counts": {
-                "pending": sum(1 for item in approvals if item.status == "pending"),
-            },
-            "sync_counts": {
-                "pending": sum(1 for item in sync_events if item.status in {"queued", "pending"}),
-                "failed": sum(1 for item in sync_events if item.status in {"failed", "error"}),
-            },
-            "ingest_counts": {
-                "pending": sum(1 for item in ingest_jobs if item.status == "pending"),
-                "running": sum(1 for item in ingest_jobs if item.status == "running"),
-                "failed": sum(1 for item in ingest_jobs if item.status == "failed"),
-            },
-            "latest": {
-                "task_updated_at": max((task.updated_at for task in tasks), default=None),
-                "run_created_at": max((run.created_at for run in runs), default=None),
-                "sync_created_at": max((event.created_at for event in sync_events), default=None),
-            },
-        }
+        return await self.repo.get_project_live_snapshot(user.id, project_id)
 
     async def hierarchy_live_snapshot(self, user: User) -> dict[str, Any]:
         agents = await self.repo.list_agents(user.id, None)

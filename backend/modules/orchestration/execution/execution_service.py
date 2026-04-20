@@ -28,6 +28,7 @@ from backend.modules.ai.providers import AiProviderRegistry
 from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
 from backend.modules.memory.classifier import classify_run_events
+from backend.modules.memory.working_memory import EXECUTION_THREAD_ID_KEY
 from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
 from backend.modules.orchestration.execution.execution_state import (
@@ -55,7 +56,7 @@ from backend.modules.orchestration.execution.execution_workflow import (
 )
 from backend.modules.orchestration._helpers import run_orchestration_job
 # from backend.modules.orchestration.model_utils import _model_capabilities
-from backend.modules.orchestration.models import ApprovalRequest, RunEvent, TaskRun
+from backend.modules.orchestration.models import ApprovalRequest, ProviderConfig, RunEvent, TaskRun
 from backend.modules.orchestration.providers import execute_prompt
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask, TaskArtifact
@@ -573,14 +574,22 @@ class OrchestrationExecutionServiceMixin:
         limit = settings.ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE
         if limit <= 0:
             return
+        # Local dev: SPA + parallel starts + retries exhaust a per-minute cap quickly; prod/staging still enforce.
+        if settings.APP_ENV == "dev":
+            return
         key = f"rate_limit:orch_run:{user_id}"
         count = await redis_client.incr(key)
         if count == 1:
             await redis_client.expire(key, 60)
         if count > limit:
+            # Reject without consuming a slot — otherwise every 429 response still bumped the counter (bad UX / lockout).
+            await redis_client.decr(key)
+            ttl = await redis_client.ttl(key)
+            retry_after = max(1, int(ttl)) if ttl is not None and int(ttl) > 0 else 60
             raise HTTPException(
                 status_code=429,
-                detail="Too many orchestration runs started in the last minute. Try again shortly.",
+                detail=f"Orchestration run rate limit exceeded ({limit} starts per rolling minute). Retry in ~{retry_after}s.",
+                headers={"Retry-After": str(retry_after)},
             )
 
     async def _enforce_agent_token_budget(
@@ -593,6 +602,9 @@ class OrchestrationExecutionServiceMixin:
             return
         agent = await self.db.get(AgentProfile, agent_id)
         if agent is None:
+            return
+        # Local providers are non-billable in this stack; do not block run starts on token budgets.
+        if await self._is_local_agent_budget_exempt(agent):
             return
         budget = (agent.budget_json or {}).get("token_budget")
         if not budget:
@@ -620,6 +632,8 @@ class OrchestrationExecutionServiceMixin:
         agent = await self.db.get(AgentProfile, agent_id)
         if agent is None:
             return
+        if await self._is_local_agent_budget_exempt(agent):
+            return
         raw_cap = (agent.budget_json or {}).get("cost_cap_usd")
         if raw_cap is None:
             return
@@ -636,6 +650,19 @@ class OrchestrationExecutionServiceMixin:
                 status_code=429,
                 detail="Agent cost budget (cost_cap_usd) for the configured window is exhausted.",
             )
+
+    async def _is_local_agent_budget_exempt(self, agent: AgentProfile) -> bool:
+        if agent.provider_config_id:
+            provider = await self.db.get(ProviderConfig, agent.provider_config_id)
+            if provider is not None and provider.provider_type in {"local", "ollama"}:
+                return True
+        if agent.project_id:
+            providers = await self.repo.list_providers(agent.owner_id, agent.project_id)
+            default_provider = next((item for item in providers if item.is_default and item.is_enabled), None)
+            if default_provider is not None and default_provider.provider_type in {"local", "ollama"}:
+                return True
+        # When no explicit provider is pinned, orchestration falls back to runtime default.
+        return settings.AI_DEFAULT_PROVIDER == "local"
 
     async def get_run_cost_summary(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
@@ -656,7 +683,6 @@ class OrchestrationExecutionServiceMixin:
         """Non-secret orchestration flags for admin UI (air-gapped / failover toggles)."""
         _ = user
         return {
-            "orchestration_offline_mode": settings.ORCHESTRATION_OFFLINE_MODE,
             "orchestration_provider_failover": settings.ORCHESTRATION_PROVIDER_FAILOVER,
             "orchestration_use_langgraph": settings.ORCHESTRATION_USE_LANGGRAPH,
             "orchestration_durable_queue_backend": settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND,
@@ -798,8 +824,7 @@ class OrchestrationExecutionServiceMixin:
         project_id: str,
         task_id: str,
         payload: dict[str, Any],
-    ):
-        await self._enforce_orchestration_run_rate_limit(user.id)
+    ) -> tuple[TaskRun, list[str]]:
         project = await self.get_project(user, project_id)
         task = await self.get_task(user, project_id, task_id)
         deps = await self.repo.list_task_dependencies_for_task(task.id)
@@ -916,6 +941,7 @@ class OrchestrationExecutionServiceMixin:
         await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=orchestrator_agent_id)
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=worker_agent_id)
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=orchestrator_agent_id)
+        await self._enforce_orchestration_run_rate_limit(user.id)
 
         selection_meta = await self._run_selection_meta(
             project_id=project.id,
@@ -973,19 +999,44 @@ class OrchestrationExecutionServiceMixin:
                 "orchestrator_agent_id": orchestrator_agent_id,
             },
         )
-        await self._transition_task_status(task, "queued", run=run, reason="run queued")
+        startup_warnings: list[str] = []
+        resolution_agent = await self._load_agent_for_run(worker_agent_id or orchestrator_agent_id)
+        resolved_provider = await self._resolve_provider_for_run(run, resolution_agent)
+        if resolved_provider is None:
+            startup_warnings.append(
+                "No LLM provider is configured for this run: the worker agent has no provider, and no project or "
+                "run-level default provider was found. The run will use stub/heuristic output until you add a provider "
+                "(Admin → Settings → Providers) and assign it to the agent or project."
+            )
+        # Only move the task when the state machine allows it. in_progress → queued is invalid (409); follow-up runs
+        # while a task is already active leave the task status unchanged. Re-runs after completion use planned.
+        allowed_next = TASK_TRANSITIONS.get(task.status, set())
+        if task.status == "queued":
+            pass
+        elif "queued" in allowed_next:
+            await self._transition_task_status(task, "queued", run=run, reason="run queued")
+        elif task.status == "completed" and "planned" in allowed_next:
+            await self._transition_task_status(task, "planned", run=run, reason="run queued after completion")
         await self._emit_run_event(
             run,
             event_type="queued",
             message="Run queued for execution.",
             payload={"run_mode": run.run_mode},
         )
+        if startup_warnings:
+            await self._emit_run_event(
+                run,
+                event_type="startup_notice",
+                level="warning",
+                message=startup_warnings[0],
+                payload={"warnings": startup_warnings},
+            )
         await self.db.commit()
         from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
 
         submit_orchestration_run(run.id)
         await self.db.refresh(run)
-        return run
+        return run, startup_warnings
 
     async def cancel_run(self, user: User, run_id: str):
         run = await self.get_run(user, run_id)
@@ -1072,7 +1123,6 @@ class OrchestrationExecutionServiceMixin:
         model_name: str | None = None,
     ):
         """Queue a new run that carries forward transcript context from a parent run."""
-        await self._enforce_orchestration_run_rate_limit(user.id)
         old = await self.get_run(user, run_id)
         old_project = await self.db.get(OrchestratorProject, old.project_id)
         if old_project is None:
@@ -1084,6 +1134,7 @@ class OrchestrationExecutionServiceMixin:
         events = await self.repo.list_run_events(old.id)
         if from_event_index < 0 or from_event_index > len(events):
             raise HTTPException(status_code=400, detail="from_event_index is out of range for this run")
+        await self._enforce_orchestration_run_rate_limit(user.id)
         prior = events[:from_event_index]
         transcript = "\n".join(f"[{e.event_type}] {e.message}" for e in prior)
         base_input = dict(old.input_payload_json or {})
@@ -1281,7 +1332,15 @@ class OrchestrationExecutionServiceMixin:
         approvals = await self.repo.list_pending_approvals_for_run(user.id, run.id)
         tools = [str(e.payload_json.get("tool") or "") for e in events if e.event_type.startswith("tool_call_")]
         tools = [t for t in tools if t]
-        selection = read_orchestration_selection_meta(run.input_payload_json or {})
+        
+        # Extract selection metadata from input payload
+        payload = run.input_payload_json or {}
+        selection = payload.get("orchestration_meta", {})
+        
+        # Provide defaults if metadata is missing
+        worker_agent_rationale = selection.get("worker_agent_rationale", "Worker agent selection metadata unavailable.")
+        model_rationale = selection.get("model_rationale", "Model selection metadata unavailable.")
+        
         return {
             "run_id": run.id,
             "summary": (
@@ -1289,8 +1348,8 @@ class OrchestrationExecutionServiceMixin:
                 f"model {run.model_name or 'default'}, executed {len(tools)} tool calls, "
                 f"and finished with status {run.status}."
             ),
-            "agent_rationale": selection.worker_agent_rationale,
-            "model_rationale": selection.model_rationale,
+            "agent_rationale": worker_agent_rationale,
+            "model_rationale": model_rationale,
             "tools_called": tools[:50],
             "approvals_pending": len(approvals),
             "approvals_pending_types": [a.approval_type for a in approvals],
@@ -1333,10 +1392,14 @@ class OrchestrationExecutionServiceMixin:
             return
         valid = True
         if fmt == "json":
-            try:
-                json.loads(final_output)
-            except Exception:
-                valid = False
+            structured = (run.output_payload_json or {}).get("structured_output_json")
+            if isinstance(structured, (dict, list)):
+                valid = True
+            else:
+                try:
+                    json.loads(final_output)
+                except Exception:
+                    valid = False
         elif fmt == "checklist":
             valid = "- " in final_output or "1." in final_output
         elif fmt == "adr":
@@ -1379,7 +1442,6 @@ class OrchestrationExecutionServiceMixin:
         await self._transition_task_status(task, "blocked", run=run, reason="conflicting agent outputs require resolution")
 
     async def retry_run(self, user: User, run_id: str):
-        await self._enforce_orchestration_run_rate_limit(user.id)
         run = await self.get_run(user, run_id)
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
@@ -1426,11 +1488,14 @@ class OrchestrationExecutionServiceMixin:
         return await self.repo.list_run_events(run.id)
 
     async def execute_run(self, run_id: str) -> TaskRun:
+        logger.info(f"[EXECUTE_RUN START] Starting execution for run {run_id}")
         run = await self.repo.get_run_for_worker(run_id)
         if run is None:
             raise RuntimeError(f"Run {run_id} not found")
         if run.status == "cancelled":
+            logger.info(f"[EXECUTE_RUN] Run {run_id} is cancelled, returning")
             return run
+        logger.info(f"[EXECUTE_RUN] Run {run_id} retrieved, status={run.status}, run_mode={run.run_mode}")
         prior_status = run.status
         workflow = self._ensure_run_workflow(run)
         run.status = "in_progress"
@@ -1460,10 +1525,10 @@ class OrchestrationExecutionServiceMixin:
         await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
-        if task is not None:
-            if task.status == "queued":
-                await self._transition_task_status(task, "planned", run=run, reason="execution planning")
-            await self._transition_task_status(task, "in_progress", run=run, reason="execution started")
+        # Task "planned" = accepted for execution but workflow not started yet. We keep it until after
+        # run setup so the UI can show planned instead of jumping queued → in_progress in one tick.
+        if task is not None and task.status == "queued":
+            await self._transition_task_status(task, "planned", run=run, reason="execution planning")
         await self._emit_run_event(
             run,
             event_type="started",
@@ -1491,6 +1556,8 @@ class OrchestrationExecutionServiceMixin:
 
         try:
             await self._compress_run_context_if_needed(run)
+            if task is not None and task.status in {"planned", "blocked"}:
+                await self._transition_task_status(task, "in_progress", run=run, reason="execution started")
             if settings.ORCHESTRATION_USE_LANGGRAPH:
                 from backend.modules.orchestration.execution.langgraph_runner import run_via_langgraph
 

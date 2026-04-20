@@ -944,6 +944,109 @@ class AgentLintingTests(unittest.TestCase):
         self.assertIn("Primary model is not configured.", lint["warnings"])
         self.assertTrue(lint["activation_ready"])
 
+    def test_lint_warns_template_linked_agent_without_pinned_provider_when_no_workspace_default(
+        self,
+    ) -> None:
+        service = object.__new__(OrchestrationService)
+
+        async def list_skill_packs():
+            return []
+
+        async def get_agent_template_by_slug(slug: str):
+            return SimpleNamespace(slug=slug) if slug == "catalog-tpl" else None
+
+        async def get_provider(user_id: str, provider_id: str):
+            return None
+
+        async def list_providers(user_id: str, project_id: str | None):
+            return []
+
+        service.repo = SimpleNamespace(
+            list_skill_packs=list_skill_packs,
+            get_agent_template_by_slug=get_agent_template_by_slug,
+            get_provider=get_provider,
+            list_providers=list_providers,
+        )
+        service._provider_model_exists = lambda provider, model_name: asyncio.sleep(0, result=True)
+        service._model_capability = lambda model_name, provider_type: asyncio.sleep(0, result=None)
+
+        lint = asyncio.run(
+            service.lint_agent_payload_detailed(
+                SimpleNamespace(id="user-1"),
+                {
+                    "name": "Templated Agent",
+                    "slug": "templated-agent",
+                    "role": "specialist",
+                    "parent_template_slug": "catalog-tpl",
+                    "capabilities": [],
+                    "allowed_tools": [],
+                    "skills": [],
+                    "budget": {},
+                    "memory_policy": {},
+                    "model_policy": {},
+                    "output_schema": {},
+                    "metadata": {},
+                },
+            )
+        )
+
+        self.assertEqual(lint["errors"], [])
+        self.assertTrue(
+            any(
+                "catalog template" in w and "no LLM provider" in w and "no workspace default" in w
+                for w in lint["warnings"]
+            )
+        )
+
+    def test_lint_warns_template_linked_agent_without_pinned_provider_when_default_exists(self) -> None:
+        service = object.__new__(OrchestrationService)
+
+        async def list_skill_packs():
+            return []
+
+        async def get_agent_template_by_slug(slug: str):
+            return SimpleNamespace(slug=slug) if slug == "catalog-tpl" else None
+
+        async def get_provider(user_id: str, provider_id: str):
+            return None
+
+        async def list_providers(user_id: str, project_id: str | None):
+            return [SimpleNamespace(id="prov-1", is_default=True, provider_type="openai")]
+
+        service.repo = SimpleNamespace(
+            list_skill_packs=list_skill_packs,
+            get_agent_template_by_slug=get_agent_template_by_slug,
+            get_provider=get_provider,
+            list_providers=list_providers,
+        )
+        service._provider_model_exists = lambda provider, model_name: asyncio.sleep(0, result=True)
+        service._model_capability = lambda model_name, provider_type: asyncio.sleep(0, result=None)
+
+        lint = asyncio.run(
+            service.lint_agent_payload_detailed(
+                SimpleNamespace(id="user-1"),
+                {
+                    "name": "Templated Agent",
+                    "slug": "templated-agent",
+                    "role": "specialist",
+                    "parent_template_slug": "catalog-tpl",
+                    "capabilities": [],
+                    "allowed_tools": [],
+                    "skills": [],
+                    "budget": {},
+                    "memory_policy": {},
+                    "model_policy": {},
+                    "output_schema": {},
+                    "metadata": {},
+                },
+            )
+        )
+
+        self.assertEqual(lint["errors"], [])
+        self.assertTrue(
+            any("without a pinned saved LLM provider" in w for w in lint["warnings"]),
+        )
+
     def test_activation_rejects_agents_with_validation_errors(self) -> None:
         service = object.__new__(OrchestrationService)
         agent = SimpleNamespace(id="agent-1", is_active=False)
@@ -2048,6 +2151,49 @@ class ContextPacketTokenBudgetTests(unittest.TestCase):
         p = ContextPacket(sections={"task_title": "x" * 5000})
         out = p.combined_user_prompt(50)
         self.assertLessEqual(len(out), 50)
+
+
+class ProjectLiveSnapshotTests(unittest.TestCase):
+    def test_service_uses_aggregated_repo_snapshot(self) -> None:
+        service = object.__new__(OrchestrationService)
+        expected = {
+            "project_id": "project-1",
+            "agent_counts": {"total": 3},
+            "resource_counts": {
+                "repositories": 2,
+                "documents": 5,
+                "decisions": 4,
+                "memory_entries": 6,
+            },
+            "task_counts": {"total": 9, "open": 5, "blocked": 1, "review": 2},
+            "run_counts": {"total": 8, "active": 2, "failed": 1},
+            "approval_counts": {"pending": 1},
+            "sync_counts": {"pending": 2, "failed": 0},
+            "ingest_counts": {"pending": 1, "running": 1, "failed": 0},
+            "latest": {
+                "task_updated_at": datetime.now(UTC),
+                "run_created_at": datetime.now(UTC),
+                "sync_created_at": datetime.now(UTC),
+            },
+        }
+
+        async def fake_get_project(user, project_id):
+            self.assertEqual(user.id, "user-1")
+            self.assertEqual(project_id, "project-1")
+            return SimpleNamespace(id=project_id)
+
+        async def fake_snapshot(owner_id, project_id):
+            self.assertEqual(owner_id, "user-1")
+            self.assertEqual(project_id, "project-1")
+            return expected
+
+        service.get_project = fake_get_project
+        service.repo = SimpleNamespace(get_project_live_snapshot=fake_snapshot)
+
+        result = asyncio.run(
+            service.project_live_snapshot(SimpleNamespace(id="user-1"), "project-1")
+        )
+        self.assertEqual(result, expected)
 
 
 if __name__ == "__main__":

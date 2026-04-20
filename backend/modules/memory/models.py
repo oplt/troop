@@ -244,7 +244,7 @@ class EpisodicSearchIndex(Base):
         ForeignKey("orchestrator_projects.id", ondelete="CASCADE"), index=True
     )
     source_kind: Mapped[str] = mapped_column(String(32), index=True)
-    source_id: Mapped[str] = mapped_column(String(64))
+    source_id: Mapped[str] = mapped_column(String(128))
     text_content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

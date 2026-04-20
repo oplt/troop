@@ -40,6 +40,59 @@ GLOBAL_POLICY_ROUTING_RULES: list[dict[str, Any]] = [
 ]
 
 
+def _format_routing_attempt_error(exc: BaseException) -> str:
+    if isinstance(exc, HTTPException):
+        detail = exc.detail
+        if isinstance(detail, str) and detail.strip():
+            return detail.strip()
+        if detail is not None:
+            try:
+                dumped = json.dumps(detail) if not isinstance(detail, str) else detail
+            except (TypeError, ValueError):
+                dumped = repr(detail)
+            if str(dumped).strip():
+                return str(dumped).strip()
+        code = getattr(exc, "status_code", "") or ""
+        return f"HTTPException(status_code={code})"
+    exc_mod = getattr(type(exc), "__module__", "")
+    exc_type = type(exc).__name__
+    if exc_mod.startswith("httpx") and exc_type in {
+        "ReadTimeout",
+        "ConnectTimeout",
+        "WriteTimeout",
+        "PoolTimeout",
+    }:
+        raw = str(exc).strip()
+        if not raw:
+            raw = exc_type
+        return (
+            f"{raw}: HTTP client timed out waiting for the LLM provider response "
+            f"(raise timeout_seconds on the provider, use a faster model, or fix base_url if the API "
+            f"cannot reach Ollama — e.g. Docker vs localhost)."
+        )
+    if exc_mod.startswith("httpx") and exc_type == "ConnectError":
+        raw = str(exc).strip() or exc_type
+        return f"{raw}: could not connect to the LLM provider (wrong base_url, firewall, or service down)."
+    text = str(exc).strip()
+    if text:
+        return text
+    return repr(exc)
+
+
+def _summarize_provider_chain_for_error(chain: list[ProviderConfig | None]) -> str:
+    parts: list[str] = []
+    for item in chain:
+        if item is None:
+            parts.append("null→local-heuristic")
+        else:
+            short_id = (item.id or "")[:10]
+            ptype = str(item.provider_type or "").strip().lower()
+            base = getattr(item, "base_url", None) or ""
+            base_hint = f", base_url={base!r}" if base else ""
+            parts.append(f"{item.name!r}({ptype}:{short_id}{base_hint})")
+    return ", ".join(parts) if parts else "(empty)"
+
+
 class OrchestrationRoutingServiceMixin:
     def _global_policy_routing(self) -> dict[str, Any]:
         return {
@@ -245,7 +298,6 @@ class OrchestrationRoutingServiceMixin:
         provider_chain: list[ProviderConfig | None] = [target_provider]
         if (
             settings.ORCHESTRATION_PROVIDER_FAILOVER
-            and not settings.ORCHESTRATION_OFFLINE_MODE
             and project
             and run
             and target_provider is not None
@@ -279,6 +331,8 @@ class OrchestrationRoutingServiceMixin:
             tp: ProviderConfig | None, cands: list[str | None]
         ) -> tuple[ProviderConfig | None, Any] | None:
             errors: list[str] = []
+            if not cands:
+                cands = [None]
             for index, candidate in enumerate(cands):
                 if tp and not await self._provider_model_exists(tp, candidate):
                     errors.append(f"Model '{candidate}' is not available on provider '{tp.name}'.")
@@ -303,7 +357,7 @@ class OrchestrationRoutingServiceMixin:
                         response_format=response_format,
                     )
                 except Exception as exc:
-                    errors.append(str(exc))
+                    errors.append(_format_routing_attempt_error(exc))
                     if index + 1 < len(cands):
                         if run is not None:
                             await self._emit_run_event(
@@ -365,7 +419,7 @@ class OrchestrationRoutingServiceMixin:
         for prov_index, current_provider in enumerate(provider_chain):
             target_provider = current_provider
             if prov_index == 0:
-                candidate_list = model_candidates
+                candidate_list = list(model_candidates) if model_candidates else [None]
             else:
                 tm2 = (run.model_name if run else None) or effective_policy.get("model") or (
                     target_provider.default_model if target_provider else None
@@ -383,6 +437,8 @@ class OrchestrationRoutingServiceMixin:
                     candidate_list = [None]
                 if not settings.ORCHESTRATION_PROVIDER_FAILOVER:
                     candidate_list = candidate_list[:1]
+            if not candidate_list:
+                candidate_list = [None]
 
             pair = await _attempt_llm(target_provider, candidate_list)
             if pair:
@@ -398,7 +454,39 @@ class OrchestrationRoutingServiceMixin:
                     },
                 )
 
-        raise HTTPException(status_code=502, detail="; ".join(outer_errors) or "No provider model available")
+        attempt_messages = [str(x).strip() for x in outer_errors if str(x).strip()]
+        chain_hint = _summarize_provider_chain_for_error(provider_chain)
+        chain_ctx = (
+            f"providers=[{chain_hint}], model_candidates={model_candidates!r}, purpose={purpose!r}."
+        )
+        joined = "; ".join(attempt_messages).lower()
+        has_real_provider = any(p is not None for p in provider_chain)
+        if has_real_provider and (
+            "timed out" in joined
+            or "timeout" in joined
+            or "connect" in joined
+            or "could not connect" in joined
+            or "refused" in joined
+        ):
+            advice = (
+                " Hint: network or read-timeout to the configured endpoint (not missing provider rows). "
+                "Point base_url at a host the API process can reach (Docker is not the same as your laptop’s localhost), "
+                "raise timeout_seconds on the provider, or use a smaller/faster model."
+            )
+        elif has_real_provider and attempt_messages:
+            advice = (
+                " Hint: check the upstream error, model slugs vs discovery, provider health, and API keys for cloud providers."
+            )
+        elif has_real_provider:
+            advice = " Hint: no per-attempt error text was captured; verify provider resolution and execution model policy."
+        else:
+            advice = (
+                " Hint: no resolved LLM provider — add an enabled orchestration provider on the project or agent, "
+                "set default/fallback models, and refresh provider model discovery."
+            )
+        detail_base = "; ".join(attempt_messages) if attempt_messages else "No provider model available"
+        detail = f"{detail_base} — {chain_ctx} {advice}"
+        raise HTTPException(status_code=502, detail=detail)
 
     def _extract_required_tools(self, task: OrchestratorTask | None) -> list[str]:
         if task is None:

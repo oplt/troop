@@ -207,6 +207,156 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
+    async def get_project_live_snapshot(self, owner_id: str, project_id: str) -> dict[str, Any]:
+        summary = (
+            await self.db.execute(
+                select(
+                    select(func.count(ProjectAgentMembership.id))
+                    .where(ProjectAgentMembership.project_id == project_id)
+                    .scalar_subquery()
+                    .label("agent_total"),
+                    select(func.count(ProjectRepositoryLink.id))
+                    .where(ProjectRepositoryLink.project_id == project_id)
+                    .scalar_subquery()
+                    .label("repository_total"),
+                    select(func.count(ProjectDocument.id))
+                    .where(
+                        ProjectDocument.project_id == project_id,
+                        ProjectDocument.deleted_at.is_(None),
+                    )
+                    .scalar_subquery()
+                    .label("document_total"),
+                    select(func.count(ProjectDecision.id))
+                    .where(ProjectDecision.project_id == project_id)
+                    .scalar_subquery()
+                    .label("decision_total"),
+                    select(func.count(AgentMemoryEntry.id))
+                    .where(
+                        AgentMemoryEntry.owner_id == owner_id,
+                        AgentMemoryEntry.project_id == project_id,
+                        AgentMemoryEntry.deleted_at.is_(None),
+                    )
+                    .scalar_subquery()
+                    .label("memory_entry_total"),
+                    select(func.count(ApprovalRequest.id))
+                    .where(
+                        ApprovalRequest.project_id == project_id,
+                        ApprovalRequest.status == "pending",
+                    )
+                    .scalar_subquery()
+                    .label("pending_approvals"),
+                )
+            )
+        ).one()
+
+        task_counts = {"total": 0, "open": 0, "blocked": 0, "review": 0}
+        latest_task_updated_at: datetime | None = None
+        task_rows = await self.db.execute(
+            select(
+                OrchestratorTask.status,
+                func.count(OrchestratorTask.id),
+                func.max(OrchestratorTask.updated_at),
+            )
+            .where(OrchestratorTask.project_id == project_id)
+            .group_by(OrchestratorTask.status)
+        )
+        for status, count, updated_at in task_rows.all():
+            count_value = int(count or 0)
+            task_counts["total"] += count_value
+            if status not in {"completed", "archived", "synced_to_github"}:
+                task_counts["open"] += count_value
+            if status == "blocked":
+                task_counts["blocked"] += count_value
+            if status == "needs_review":
+                task_counts["review"] += count_value
+            if updated_at and (latest_task_updated_at is None or updated_at > latest_task_updated_at):
+                latest_task_updated_at = updated_at
+
+        run_counts = {"total": 0, "active": 0, "failed": 0}
+        latest_run_created_at: datetime | None = None
+        run_rows = await self.db.execute(
+            select(
+                TaskRun.status,
+                func.count(TaskRun.id),
+                func.max(TaskRun.created_at),
+            )
+            .where(TaskRun.project_id == project_id)
+            .group_by(TaskRun.status)
+        )
+        for status, count, created_at in run_rows.all():
+            count_value = int(count or 0)
+            run_counts["total"] += count_value
+            if status in {"queued", "in_progress", "blocked"}:
+                run_counts["active"] += count_value
+            if status == "failed":
+                run_counts["failed"] += count_value
+            if created_at and (latest_run_created_at is None or created_at > latest_run_created_at):
+                latest_run_created_at = created_at
+
+        sync_counts = {"pending": 0, "failed": 0}
+        latest_sync_created_at: datetime | None = None
+        sync_rows = await self.db.execute(
+            select(
+                GithubSyncEvent.status,
+                func.count(GithubSyncEvent.id),
+                func.max(GithubSyncEvent.created_at),
+            )
+            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id)
+            .where(GithubRepository.project_id == project_id)
+            .group_by(GithubSyncEvent.status)
+        )
+        for status, count, created_at in sync_rows.all():
+            count_value = int(count or 0)
+            if status in {"queued", "pending"}:
+                sync_counts["pending"] += count_value
+            if status in {"failed", "error"}:
+                sync_counts["failed"] += count_value
+            if created_at and (latest_sync_created_at is None or created_at > latest_sync_created_at):
+                latest_sync_created_at = created_at
+
+        ingest_counts = {"pending": 0, "running": 0, "failed": 0}
+        ingest_rows = await self.db.execute(
+            select(MemoryIngestJob.status, func.count(MemoryIngestJob.id))
+            .where(
+                MemoryIngestJob.owner_id == owner_id,
+                MemoryIngestJob.project_id == project_id,
+            )
+            .group_by(MemoryIngestJob.status)
+        )
+        for status, count in ingest_rows.all():
+            count_value = int(count or 0)
+            if status == "pending":
+                ingest_counts["pending"] += count_value
+            elif status == "running":
+                ingest_counts["running"] += count_value
+            elif status == "failed":
+                ingest_counts["failed"] += count_value
+
+        return {
+            "project_id": project_id,
+            "agent_counts": {
+                "total": int(summary.agent_total or 0),
+            },
+            "resource_counts": {
+                "repositories": int(summary.repository_total or 0),
+                "documents": int(summary.document_total or 0),
+                "decisions": int(summary.decision_total or 0),
+                "memory_entries": int(summary.memory_entry_total or 0),
+            },
+            "task_counts": task_counts,
+            "run_counts": run_counts,
+            "approval_counts": {
+                "pending": int(summary.pending_approvals or 0),
+            },
+            "sync_counts": sync_counts,
+            "ingest_counts": ingest_counts,
+            "latest": {
+                "task_updated_at": latest_task_updated_at,
+                "run_created_at": latest_run_created_at,
+                "sync_created_at": latest_sync_created_at,
+            },
+        }
+
     async def list_project_repositories(self, project_id: str) -> list[ProjectRepositoryLink]:
         result = await self.db.execute(
             select(ProjectRepositoryLink).where(ProjectRepositoryLink.project_id == project_id)

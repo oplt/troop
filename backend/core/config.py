@@ -1,20 +1,30 @@
 import json
 from pathlib import Path
-from typing import Annotated, List
+from typing import Annotated, Any, List, Optional
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+_CONFIG_DIR = Path(__file__).resolve().parent
+_BACKEND_DIR = _CONFIG_DIR.parent
+_REPO_DIR = _BACKEND_DIR.parent
+# Canonical path for code that reads/writes .env on disk (settings UI, etc.).
+ENV_FILE = _BACKEND_DIR / ".env"
+# Pydantic loads in order; later files override (repo-root `.env` wins over `backend/.env`).
+_ENV_FILES_FOR_PYDANTIC: tuple[str, ...] = tuple(
+    str(p) for p in (_BACKEND_DIR / ".env", _REPO_DIR / ".env") if p.is_file()
+)
+_SETTINGS_CONFIG_KWARGS: dict[str, Any] = {
+    "env_file_encoding": "utf-8",
+    "case_sensitive": False,
+    "extra": "ignore",
+    "env_ignore_empty": True,
+}
+if _ENV_FILES_FOR_PYDANTIC:
+    _SETTINGS_CONFIG_KWARGS["env_file"] = _ENV_FILES_FOR_PYDANTIC
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=str(ENV_FILE),
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-        env_ignore_empty=True,
-    )
+    model_config = SettingsConfigDict(**_SETTINGS_CONFIG_KWARGS)
     APP_NAME: str = "fullstack-app"
     APP_ENV: str = "dev"
     APP_HOST: str = "0.0.0.0"
@@ -39,18 +49,16 @@ class Settings(BaseSettings):
     CELERY_RESULT_EXPIRES_SECONDS: int = 3600
     PROVIDER_HEALTHCHECK_INTERVAL_MINUTES: int = 5
     GITHUB_ISSUE_POLL_INTERVAL_MINUTES: int = 15
-    ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE: int = 30
+    ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE: int = 120
     ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES: int = 20
     AGENT_TOKEN_BUDGET_WINDOW_DAYS: int = 30
-    # When true, orchestration LLM calls use the local heuristic provider only (no outbound API).
-    ORCHESTRATION_OFFLINE_MODE: bool = False
     # When false, model-level failover inside a single provider call is disabled (service-level candidate loop may still apply).
     ORCHESTRATION_PROVIDER_FAILOVER: bool = True
     # When true, execute_run routes run modes through a LangGraph StateGraph (see langgraph_runner).
     ORCHESTRATION_USE_LANGGRAPH: bool = False
     # Durable enqueue backend label (future: temporal). Celery is the only implementation today.
     ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
-    ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: int = 180
+    ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: Optional[int] = None
 
     JWT_SECRET: str
     JWT_ALGORITHM: str

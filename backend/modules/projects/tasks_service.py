@@ -349,7 +349,7 @@ class OrchestrationTasksServiceMixin:
         messages: list[str] = []
         for row in ready[:limit]:
             try:
-                run = await self.start_task_run(
+                run, _warnings = await self.start_task_run(
                     user,
                     project_id,
                     row["id"],
@@ -418,7 +418,7 @@ class OrchestrationTasksServiceMixin:
         }
         inp = dict(payload.get("input_payload") or {})
         inp["orchestration_merge_resolve"] = merge_ctx
-        return await self.start_task_run(
+        run, _warnings = await self.start_task_run(
             user,
             project_id,
             parent_task_id,
@@ -428,6 +428,7 @@ class OrchestrationTasksServiceMixin:
                 "model_name": payload.get("model_name"),
             },
         )
+        return run
 
     async def run_global_sla_escalation_scan(self) -> dict[str, Any]:
         projects = await self.repo.list_all_orchestrator_projects()

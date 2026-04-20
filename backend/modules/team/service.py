@@ -798,6 +798,19 @@ class TeamServiceMixin:
             if capability is None and provider.provider_type != "ollama":
                 errors.append(f"Fallback model '{fallback_model}' is missing from the capability matrix.")
 
+        linked_to_catalog_template = bool(str(parent_template_slug or "").strip()) or bool(
+            str((payload.get("metadata") or {}).get("from_template") or "").strip()
+        )
+        if linked_to_catalog_template and not payload.get("provider_config_id"):
+            if provider is None:
+                warnings.append(
+                    "This agent profile is linked to a catalog template but has no LLM provider assigned and no workspace default provider exists."
+                )
+            else:
+                warnings.append(
+                    "This agent profile is linked to a catalog template without a pinned saved LLM provider; assign one on this profile for predictable execution."
+                )
+
         budget = payload.get("budget") or {}
         token_budget = budget.get("token_budget")
         time_budget = budget.get("time_budget_seconds")

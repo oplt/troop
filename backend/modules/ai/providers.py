@@ -58,6 +58,44 @@ def _hash_embedding(text: str, dimensions: int = 32) -> list[float]:
     return [value / norm for value in values]
 
 
+def _line_value_after_prefix(text: str, prefix: str) -> str | None:
+    needle = prefix.lower()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.lower().startswith(needle):
+            rest = line[len(prefix) :].lstrip(" \t:-")
+            return rest[:500] if rest else None
+    return None
+
+
+def _heuristic_json_payload(*, model: str, system_prompt: str, user_prompt: str) -> dict:
+    """Minimal JSON when no remote LLM runs: no invented answers, only task-derived labels + explicit stub flag."""
+    prompt = user_prompt.strip()
+    system = system_prompt.strip()
+    title = _line_value_after_prefix(prompt, "Task title:") or _line_value_after_prefix(prompt, "task title:")
+    desc = _line_value_after_prefix(prompt, "Task description:") or _line_value_after_prefix(prompt, "task description:")
+    stub_notice = (
+        "No remote language model executed this step (local heuristic / missing provider). "
+        "Configure an OpenAI-compatible, Anthropic, or Ollama provider on the project to get real LLM output."
+    )
+    short_summary = (title or "Task").strip()
+    if desc:
+        short_summary = f"{short_summary}: {desc.strip()[:220]}".strip()
+    if len(short_summary) > 280:
+        short_summary = short_summary[:277] + "…"
+
+    return {
+        "provider": "local",
+        "model": model,
+        "summary": short_summary or "No live model output.",
+        "system_context": system[:400],
+        "local_heuristic": True,
+        "stub_notice": stub_notice,
+        "tool_calls": [],
+        "sub_tasks": [],
+    }
+
+
 class LocalHeuristicProvider(BaseAiProvider):
     key = "local"
 
@@ -66,12 +104,11 @@ class LocalHeuristicProvider(BaseAiProvider):
         system = request.system_prompt.strip()
         summary = prompt[:1500]
         if request.response_format == "json":
-            payload = {
-                "provider": self.key,
-                "model": request.model,
-                "summary": summary,
-                "system_context": system[:400],
-            }
+            payload = _heuristic_json_payload(
+                model=request.model,
+                system_prompt=system,
+                user_prompt=prompt,
+            )
             output_text = json.dumps(payload, indent=2)
             output_json = payload
         else:
@@ -86,8 +123,9 @@ class LocalHeuristicProvider(BaseAiProvider):
             model=request.model,
             output_text=output_text,
             output_json=output_json,
-            input_tokens=_estimate_tokens(f"{system}\n{prompt}"),
-            output_tokens=_estimate_tokens(output_text),
+            # Local heuristic is a fallback stub, not billable model usage.
+            input_tokens=0,
+            output_tokens=0,
         )
 
     async def embed_texts(self, texts: list[str], model: str | None = None) -> list[list[float]]:

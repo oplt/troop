@@ -173,7 +173,6 @@ class OrchestrationBrainstormServiceMixin:
         return await self.repo.list_brainstorm_messages(brainstorm_id)
 
     async def start_brainstorm(self, user: User, brainstorm_id: str):
-        await self._enforce_orchestration_run_rate_limit(user.id)
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         if brainstorm.status == "completed":
             raise HTTPException(status_code=409, detail="Brainstorm is already completed")
@@ -471,6 +470,9 @@ class OrchestrationBrainstormServiceMixin:
     def _structured_output_response_format(self, agent: AgentProfile | None) -> str:
         policy = (agent.model_policy_json if agent else {}) or {}
         if policy.get("structured_output_enabled") is True:
+            return "json"
+        schema = (agent.output_schema_json or {}) if agent else {}
+        if str(schema.get("format") or "").strip().lower() == "json":
             return "json"
         return "text"
 

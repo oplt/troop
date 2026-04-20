@@ -564,6 +564,8 @@ class TaskRunResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     cancelled_at: datetime | None
+    # Populated when a run is created (e.g. POST .../runs); empty on later GETs unless re-serialized with context.
+    startup_warnings: list[str] = Field(default_factory=list)
 
 
 class RunCostSummaryResponse(BaseModel):
@@ -610,6 +612,18 @@ class PendingGithubSyncSummary(BaseModel):
     status: str
     detail: str | None
     created_at: datetime
+
+
+class ProjectLiveSnapshotResponse(BaseModel):
+    project_id: str
+    agent_counts: dict[str, int] = Field(default_factory=dict)
+    resource_counts: dict[str, int] = Field(default_factory=dict)
+    task_counts: dict[str, int] = Field(default_factory=dict)
+    run_counts: dict[str, int] = Field(default_factory=dict)
+    approval_counts: dict[str, int] = Field(default_factory=dict)
+    sync_counts: dict[str, int] = Field(default_factory=dict)
+    ingest_counts: dict[str, int] = Field(default_factory=dict)
+    latest: dict[str, datetime | None] = Field(default_factory=dict)
 
 
 class RunEventTailItem(BaseModel):
@@ -1156,7 +1170,6 @@ class ExecutionInsightsResponse(BaseModel):
 
 
 class RuntimeInfoResponse(BaseModel):
-    orchestration_offline_mode: bool
     orchestration_provider_failover: bool
     orchestration_use_langgraph: bool = False
     orchestration_durable_queue_backend: str = "celery"

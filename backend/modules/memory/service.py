@@ -333,7 +333,6 @@ class OrchestrationMemoryServiceMixin:
             vec_q
             and vec_q.strip()
             and ms.get("enable_semantic_vector_search", True)
-            and not settings.ORCHESTRATION_OFFLINE_MODE
         ):
             try:
                 qv = (await self.ai_providers.embed_texts([vec_q.strip()[:8000]]))[0]
@@ -1033,12 +1032,11 @@ class OrchestrationMemoryServiceMixin:
                     created_at=datetime.now(UTC),
                 )
                 await self.db.flush()
-                if not settings.ORCHESTRATION_OFFLINE_MODE:
-                    try:
-                        vec = (await self.ai_providers.embed_texts([snap[:8000]]))[0]
-                        row.embedding_vector = normalize_embedding_for_vector(vec)
-                    except Exception:
-                        pass
+                try:
+                    vec = (await self.ai_providers.embed_texts([snap[:8000]]))[0]
+                    row.embedding_vector = normalize_embedding_for_vector(vec)
+                except Exception:
+                    pass
         runs = await self.repo.list_task_runs_for_task(project.id, task.id, limit=80)
         for r in runs:
             r.checkpoint_json = prune_checkpoint_after_compaction(r.checkpoint_json or {})
@@ -1362,7 +1360,6 @@ class OrchestrationMemoryServiceMixin:
             vec_q
             and str(vec_q).strip()
             and ms.get("enable_episodic_vector_search", True)
-            and not settings.ORCHESTRATION_OFFLINE_MODE
         ):
             try:
                 qv = (await self.ai_providers.embed_texts([str(vec_q).strip()[:8000]]))[0]
@@ -2005,12 +2002,11 @@ class OrchestrationMemoryServiceMixin:
             created_at=datetime.now(UTC),
         )
         await self.db.flush()
-        if not settings.ORCHESTRATION_OFFLINE_MODE:
-            try:
-                vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
-                row.embedding_vector = normalize_embedding_for_vector(vec)
-            except Exception:
-                pass
+        try:
+            vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
+            row.embedding_vector = normalize_embedding_for_vector(vec)
+        except Exception:
+            pass
         increment_memory_metric("memory_ttl_document_snapshots")
 
     async def _snapshot_expiring_agent_memory(self, mem: AgentMemoryEntry) -> None:
@@ -2038,12 +2034,11 @@ class OrchestrationMemoryServiceMixin:
             created_at=datetime.now(UTC),
         )
         await self.db.flush()
-        if not settings.ORCHESTRATION_OFFLINE_MODE:
-            try:
-                vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
-                row.embedding_vector = normalize_embedding_for_vector(vec)
-            except Exception:
-                pass
+        try:
+            vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
+            row.embedding_vector = normalize_embedding_for_vector(vec)
+        except Exception:
+            pass
         increment_memory_metric("memory_ttl_agent_memory_snapshots")
 
     async def sweep_expired_memory_globally(self) -> dict[str, int]:
@@ -2597,7 +2592,7 @@ class OrchestrationMemoryServiceMixin:
             depth = int(ms.get("episodic_retrieval_depth") or 8)
             cand = int(ms.get("deep_recall_episodic_candidates") or 24)
             q_title = (task.title or "")[:200]
-            if ms.get("deep_recall_mode") and not settings.ORCHESTRATION_OFFLINE_MODE:
+            if ms.get("deep_recall_mode"):
                 try:
                     q_text = "\n".join(
                         [

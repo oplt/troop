@@ -65,6 +65,7 @@ from backend.modules.orchestration.schemas import (
     PortfolioExecutionPolicyResponse,
     PortfolioExecutionPolicyUpdate,
     PortfolioProjectSummary,
+    ProjectLiveSnapshotResponse,
     ProceduralPlaybookCreate,
     ProceduralPlaybookResponse,
     ProceduralPlaybookUpdate,
@@ -346,7 +347,7 @@ async def _tasks_to_responses(
     return result
 
 
-def _run(item) -> TaskRunResponse:
+def _run(item, *, startup_warnings: list[str] | None = None) -> TaskRunResponse:
     return TaskRunResponse(
         id=item.id,
         parent_run_id=getattr(item, "parent_run_id", None),
@@ -376,6 +377,7 @@ def _run(item) -> TaskRunResponse:
         started_at=item.started_at,
         completed_at=item.completed_at,
         cancelled_at=item.cancelled_at,
+        startup_warnings=list(startup_warnings or []),
     )
 
 
@@ -2156,14 +2158,13 @@ async def start_task_run(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _run(
-        await OrchestrationService(db).start_task_run(
-            current_user,
-            project_id,
-            task_id,
-            payload.model_dump(exclude_unset=True),
-        )
+    run, startup_warnings = await OrchestrationService(db).start_task_run(
+        current_user,
+        project_id,
+        task_id,
+        payload.model_dump(exclude_unset=True),
     )
+    return _run(run, startup_warnings=startup_warnings)
 
 
 @router.get("/projects/{project_id}/evals", response_model=list[EvalRecordResponse])
@@ -2940,3 +2941,13 @@ async def project_stream(
 ):
     service = OrchestrationService(db)
     return await _live_snapshot_stream(lambda: service.project_live_snapshot(current_user, project_id))
+
+
+@router.get("/projects/{project_id}/live-snapshot", response_model=ProjectLiveSnapshotResponse)
+async def get_project_live_snapshot(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    payload = await OrchestrationService(db).project_live_snapshot(current_user, project_id)
+    return ProjectLiveSnapshotResponse(**payload)

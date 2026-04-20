@@ -1,9 +1,21 @@
+import logging
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from backend.core.cache import redis_client
 from backend.core.config import settings
+
+logger = logging.getLogger("backend.request")
+
+
+def _request_has_session_credentials(request: Request) -> bool:
+    """SPA + cookie auth can exceed a naive per-IP cap from parallel GETs; reserve public RL for anonymous traffic."""
+    if request.cookies.get(settings.ACCESS_COOKIE_NAME) or request.cookies.get(settings.REFRESH_COOKIE_NAME):
+        return True
+    auth = request.headers.get("Authorization")
+    return bool(auth and auth.startswith("Bearer "))
 
 
 class PublicRateLimitMiddleware(BaseHTTPMiddleware):
@@ -14,6 +26,9 @@ class PublicRateLimitMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith("/api/") and not request.url.path.startswith("/health/"):
             return await call_next(request)
 
+        if _request_has_session_credentials(request):
+            return await call_next(request)
+
         client_ip = request.client.host if request.client else "unknown"
         key = f"rate_limit:public:{client_ip}"
         count = await redis_client.incr(key)
@@ -21,6 +36,14 @@ class PublicRateLimitMiddleware(BaseHTTPMiddleware):
             await redis_client.expire(key, settings.PUBLIC_RATE_LIMIT_WINDOW_SECONDS)
         if count > settings.PUBLIC_RATE_LIMIT_REQUESTS:
             ttl = await redis_client.ttl(key)
+            logger.warning(
+                "public_rate_limit_429 ip=%s path=%s count=%s limit=%s ttl=%s",
+                client_ip,
+                request.url.path,
+                count,
+                settings.PUBLIC_RATE_LIMIT_REQUESTS,
+                ttl,
+            )
             return JSONResponse(
                 status_code=429,
                 content={"detail": f"Too many requests. Try again in {ttl} seconds."},

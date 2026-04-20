@@ -31,6 +31,13 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
+        if exc.status_code == 429:
+            logger.warning(
+                "http_429 path=%s correlation_id=%s detail=%s",
+                request.url.path,
+                getattr(request.state, "correlation_id", None),
+                exc.detail,
+            )
         return JSONResponse(
             status_code=exc.status_code,
             content={

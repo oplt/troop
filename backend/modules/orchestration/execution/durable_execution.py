@@ -15,6 +15,10 @@ from __future__ import annotations
 
 def submit_orchestration_run(run_id: str) -> None:
     """Submit a task run to the configured durable queue (Celery)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[SUBMIT] Submitting orchestration run {run_id}")
     from backend.workers.orchestration import queue_orchestration_run
 
     queue_orchestration_run(run_id)
+    logger.info(f"[SUBMIT] Queued run {run_id}")

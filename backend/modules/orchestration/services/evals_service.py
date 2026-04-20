@@ -491,7 +491,6 @@ class OrchestrationEvalsServiceMixin:
         return {"created": created, "count": len(created)}
 
     async def start_benchmark(self, user: User, project_id: str, eval_id: str) -> dict[str, Any]:
-        await self._enforce_orchestration_run_rate_limit(user.id)
         await self.get_project(user, project_id)
         record = await self.repo.get_eval_record(project_id, eval_id)
         if not record:
@@ -534,7 +533,7 @@ class OrchestrationEvalsServiceMixin:
                 "metadata": {**meta, "benchmark_side": "b"},
             },
         )
-        run_a = await self.start_task_run(
+        run_a, _wa = await self.start_task_run(
             user,
             project_id,
             task_a.id,
@@ -545,7 +544,7 @@ class OrchestrationEvalsServiceMixin:
                 "input_payload": {"benchmark_eval_id": record.id, "benchmark_side": "a"},
             },
         )
-        run_b = await self.start_task_run(
+        run_b, _wb = await self.start_task_run(
             user,
             project_id,
             task_b.id,

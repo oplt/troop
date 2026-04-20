@@ -258,10 +258,14 @@ export function GithubSyncPanel() {
                     {connectionMutation.isError && <Alert severity="error">{connectionMutation.error instanceof Error ? connectionMutation.error.message : "Couldn't save GitHub connection. Verify token and retry."}</Alert>}
                     {connections.map((connection) => (
                         <Paper key={connection.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                            {(() => {
+                                const health = (connection.metadata?.health as { status?: string; missing_permissions?: unknown[] } | undefined) ?? {};
+                                return (
                             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
                                     <Chip label={connection.connection_mode === "github_app" ? "GitHub App" : "Legacy token"} size="small" color="secondary" variant="outlined" />
                                     {connection.organization_login && <Chip label={connection.organization_login} size="small" variant="outlined" />}
+                                    <Chip size="small" color={health.status === "healthy" ? "success" : "warning"} label={health.status || "unknown"} />
                                 </Stack>
                                 {connection.connection_mode !== "github_app" ? (
                                     <IconButton
@@ -275,10 +279,17 @@ export function GithubSyncPanel() {
                                     </IconButton>
                                 ) : null}
                             </Stack>
+                                );
+                            })()}
                             <Typography variant="subtitle2">{connection.name}</Typography>
                             <Typography variant="caption" color="text.secondary">
                                 {connection.account_login || "Unknown account"} • {connection.connection_mode === "github_app" ? `installation ${connection.installation_id}` : connection.token_hint}
                             </Typography>
+                            {Array.isArray((connection.metadata?.health as { missing_permissions?: unknown[] } | undefined)?.missing_permissions) && ((connection.metadata?.health as { missing_permissions?: unknown[] } | undefined)?.missing_permissions?.length ?? 0) > 0 ? (
+                                <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 0.5 }}>
+                                    Missing perms: {String(((connection.metadata.health as { missing_permissions?: unknown[] }).missing_permissions || []).join(", "))}
+                                </Typography>
+                            ) : null}
                             <Button size="small" sx={{ mt: 1, px: 0 }} onClick={() => syncReposMutation.mutate(connection.id)}>Sync repos</Button>
                         </Paper>
                     ))}
@@ -316,14 +327,25 @@ export function GithubSyncPanel() {
                     <Stack spacing={1.25}>
                         {repositories.map((repository) => (
                             <Paper key={repository.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                {(() => {
+                                    const health = (repository.metadata?.health as { status?: string; archived?: boolean; disabled?: boolean } | undefined) ?? {};
+                                    return (
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
                                     <Chip size="small" variant="outlined" label={repository.full_name} />
                                     {repository.project_id ? <Chip size="small" color="secondary" variant="outlined" label={`project ${repository.project_id.slice(0, 8)}`} /> : null}
                                     <Chip size="small" color={repository.is_active ? "success" : "default"} label={repository.is_active ? "active" : "inactive"} />
+                                    <Chip size="small" color={health.status === "healthy" ? "success" : "warning"} label={health.status || "unknown"} />
                                 </Stack>
+                                    );
+                                })()}
                                 <Typography variant="caption" color="text.secondary">
                                     {repository.default_branch || "no default branch"} {repository.last_synced_at ? `• synced ${new Date(repository.last_synced_at).toLocaleString()}` : "• never synced"}
                                 </Typography>
+                                {((repository.metadata?.health as { archived?: boolean; disabled?: boolean } | undefined)?.archived || (repository.metadata?.health as { archived?: boolean; disabled?: boolean } | undefined)?.disabled) ? (
+                                    <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 0.5 }}>
+                                        Repository availability degraded.
+                                    </Typography>
+                                ) : null}
                             </Paper>
                         ))}
                     </Stack>

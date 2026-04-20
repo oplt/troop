@@ -2,10 +2,12 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
-
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKeyConstraint
+from typing import Optional
 from backend.db.base import Base
 from backend.modules.orchestration.model_utils import utcnow
+
 
 
 class OrchestratorProject(Base):
@@ -13,6 +15,9 @@ class OrchestratorProject(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255))
     slug: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -88,11 +93,15 @@ class OrchestratorTask(Base):
         nullable=True,
         index=True,
     )
-    github_issue_link_id: Mapped[str | None] = mapped_column(
-        ForeignKey("github_issue_links.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    # github_issue_link_id: Mapped[str | None] = mapped_column(
+    #     ForeignKey("github_issue_links.id", ondelete="SET NULL"),
+    #     nullable=True,
+    #     index=True,
+    # )
+    github_issue_link_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+
     parent_task_id: Mapped[str | None] = mapped_column(
         ForeignKey("orchestrator_tasks.id", ondelete="CASCADE"),
         nullable=True,
@@ -115,6 +124,22 @@ class OrchestratorTask(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["github_issue_link_id"],
+            ["github_issue_links.id"],
+            name="fk_orchestrator_tasks_github_issue_link_id",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+    )
+
+    github_issue_link: Mapped[Optional["GithubIssueLink"]] = relationship(
+        "GithubIssueLink",
+        foreign_keys=[github_issue_link_id],
+        post_update=True,
     )
 
 

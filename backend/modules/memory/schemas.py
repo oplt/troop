@@ -1,9 +1,14 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core.schemas import RequestModel
+from backend.modules.memory.entry_types import (
+    SEMANTIC_ENTRY_TYPES,
+    validate_entry_type,
+)
+from backend.modules.memory.namespaces import validate_namespace
 
 
 class WorkingMemoryResponse(BaseModel):
@@ -28,6 +33,7 @@ class SemanticMemoryEntryResponse(BaseModel):
     id: str
     owner_id: str
     scope: str
+    company_id: str | None = None
     project_id: str | None
     agent_id: str | None
     entry_type: str
@@ -39,13 +45,14 @@ class SemanticMemoryEntryResponse(BaseModel):
     source_task_id: str | None
     source_run_id: str | None
     provenance: dict[str, Any]
+    confidence: float = 0.5
     created_by_user_id: str | None
     created_at: datetime
     updated_at: datetime
 
 
 class SemanticMemoryEntryCreate(RequestModel):
-    scope: str = "project"
+    scope: Literal["project", "agent", "company"] = "project"
     entry_type: str = "note"
     namespace: str = Field(min_length=1, max_length=512)
     title: str = Field(min_length=1, max_length=255)
@@ -57,6 +64,19 @@ class SemanticMemoryEntryCreate(RequestModel):
     source_run_id: str | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("entry_type")
+    @classmethod
+    def _check_entry_type(cls, v: str) -> str:
+        if v not in SEMANTIC_ENTRY_TYPES:
+            raise ValueError(f"entry_type must be one of {SEMANTIC_ENTRY_TYPES}")
+        return v
+
+    @field_validator("namespace")
+    @classmethod
+    def _check_namespace(cls, v: str) -> str:
+        validate_namespace(v)
+        return v
+
 
 class SemanticMemoryEntryUpdate(RequestModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
@@ -64,6 +84,23 @@ class SemanticMemoryEntryUpdate(RequestModel):
     entry_type: str | None = None
     namespace: str | None = None
     metadata: dict[str, Any] | None = None
+
+    @field_validator("entry_type")
+    @classmethod
+    def _check_entry_type(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if v not in SEMANTIC_ENTRY_TYPES:
+            raise ValueError(f"entry_type must be one of {SEMANTIC_ENTRY_TYPES}")
+        return v
+
+    @field_validator("namespace")
+    @classmethod
+    def _check_namespace(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        validate_namespace(v)
+        return v
 
 
 class PromoteWorkingMemoryRequest(RequestModel):
@@ -213,6 +250,9 @@ class TaskMemoryCoordinationPatch(RequestModel):
 
 class SemanticConflictGroupResponse(BaseModel):
     group_key: str
+    kind: str = "title_duplicate"
+    similarity: float | None = None
+    reason: str | None = None
     entries: list[dict[str, Any]]
 
 
@@ -268,5 +308,6 @@ class AgentMemoryEntryResponse(BaseModel):
     expires_at: datetime | None
     deleted_at: datetime | None
     metadata: dict[str, Any]
+    confidence: float = 0.6
     created_at: datetime
     updated_at: datetime

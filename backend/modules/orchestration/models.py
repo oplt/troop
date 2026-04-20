@@ -7,7 +7,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from backend.db.base import Base
 from backend.modules.github.models import (
     GithubConnection,
+    GithubEntityMapping,
     GithubIssueLink,
+    GithubOutboundDedup,
     GithubRepository,
     GithubSyncEvent,
 )
@@ -15,6 +17,7 @@ from backend.modules.memory.models import (
     AgentMemoryEntry,
     EpisodicArchiveManifest,
     EpisodicSearchIndex,
+    KnowledgeGraphEdge,
     MemoryIngestJob,
     ProceduralPlaybook,
     ProjectDocument,
@@ -87,6 +90,11 @@ class ModelCapability(Base):
     __tablename__ = "model_capabilities"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    provider_id: Mapped[str | None] = mapped_column(
+        ForeignKey("provider_configs.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     provider_type: Mapped[str] = mapped_column(String(64), default="openai_compatible", index=True)
     model_slug: Mapped[str] = mapped_column(String(255), index=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -107,6 +115,11 @@ class TaskRun(Base):
     __tablename__ = "task_runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    parent_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("task_runs.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     project_id: Mapped[str] = mapped_column(
         ForeignKey("orchestrator_projects.id", ondelete="CASCADE"),
         index=True,

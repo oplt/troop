@@ -16,6 +16,7 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
     return {
         "backend.workers.orchestration.run_task": {"queue": s.CELERY_TASK_DEFAULT_QUEUE},
         "backend.workers.orchestration.process_github_webhook_event": {"queue": s.CELERY_QUEUE_GITHUB},
+        "backend.workers.orchestration.github_connection_resync": {"queue": s.CELERY_QUEUE_GITHUB},
         "backend.workers.orchestration.provider_healthcheck": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
         "backend.workers.orchestration.github_issue_poll": {"queue": s.CELERY_QUEUE_GITHUB},
         "backend.workers.orchestration.memory_expiration_sweep": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
@@ -23,6 +24,7 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.embed_semantic_memory_entry": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
         "backend.workers.orchestration.process_memory_ingest_jobs": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
         "backend.workers.orchestration.episodic_retention_archive": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
+        "backend.workers.orchestration.memory_compaction_backfill": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
         "backend.workers.orchestration.episodic_index_embedding_batch": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
     }
 
@@ -70,6 +72,10 @@ celery_app.conf.update(
         "episodic-retention-archive": {
             "task": "backend.workers.orchestration.episodic_retention_archive",
             "schedule": crontab(minute=45, hour=4),
+        },
+        "memory-compaction-backfill": {
+            "task": "backend.workers.orchestration.memory_compaction_backfill",
+            "schedule": crontab(minute=20, hour=5, day_of_week=0),
         },
     },
 )

@@ -30,6 +30,7 @@ class ProjectCreate(RequestModel):
     settings: dict[str, Any] = Field(default_factory=dict)
     memory_scope: str = "project"
     knowledge_summary: str | None = None
+    company_id: str | None = None
 
 
 class ProjectUpdate(RequestModel):
@@ -41,6 +42,7 @@ class ProjectUpdate(RequestModel):
     settings: dict[str, Any] | None = None
     memory_scope: str | None = None
     knowledge_summary: str | None = None
+    company_id: str | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -55,6 +57,7 @@ class ProjectResponse(BaseModel):
     settings: dict[str, Any]
     memory_scope: str
     knowledge_summary: str | None
+    company_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

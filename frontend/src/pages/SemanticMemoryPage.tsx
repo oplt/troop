@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
     Box,
     Button,
+    Chip,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
     FormControlLabel,
+    IconButton,
     Link,
     MenuItem,
+    Paper,
     Stack,
     Switch,
     Table,
@@ -20,22 +23,31 @@ import {
     TableHead,
     TableRow,
     TextField,
+    Tooltip,
     Typography,
 } from "@mui/material";
+import { InfoOutlined as InfoOutlinedIcon } from "@mui/icons-material";
 import {
     createSemanticMemory,
+    decideApproval,
     getOrchestrationProject,
     getProjectMemorySettings,
+    getRunWorkingMemory,
     isPendingSemanticWrite,
+    listApprovals,
     listEpisodicArchives,
+    listProceduralPlaybooks,
+    listRuns,
     listSemanticMemory,
     listSemanticMemoryConflicts,
     mergeSemanticMemoryEntries,
     patchProjectMemorySettings,
     reindexEpisodicMemory,
     searchEpisodicMemory,
+    type Approval,
     type SemanticMemoryEntry,
 } from "../api/orchestration";
+import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -53,6 +65,8 @@ export default function SemanticMemoryPage() {
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({ entry_type: "note", title: "", body: "" });
     const [notice, setNotice] = useState<string | null>(null);
+    const [provEntry, setProvEntry] = useState<SemanticMemoryEntry | null>(null);
+    const [approvalReason, setApprovalReason] = useState<Record<string, string>>({});
 
     const { data: project } = useQuery({
         queryKey: ["orchestration", "project", projectId],
@@ -108,6 +122,50 @@ export default function SemanticMemoryPage() {
         enabled: !!projectId,
     });
 
+    const { data: runs = [] } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "runs-memory-page"],
+        queryFn: () => listRuns(projectId!),
+        enabled: !!projectId,
+    });
+    const latestRunId = runs[0]?.id;
+    const { data: latestWm } = useQuery({
+        queryKey: ["orchestration", "run-wm", latestRunId],
+        queryFn: () => getRunWorkingMemory(latestRunId!),
+        enabled: Boolean(latestRunId),
+    });
+
+    const { data: playbooks = [] } = useQuery({
+        queryKey: ["orchestration", "procedural", projectId],
+        queryFn: () => listProceduralPlaybooks(projectId!),
+        enabled: !!projectId,
+    });
+
+    const { data: allApprovals = [] } = useQuery({
+        queryKey: ["orchestration", "approvals"],
+        queryFn: () => listApprovals(),
+    });
+    const semanticApprovals = useMemo(
+        () =>
+            (allApprovals as Approval[]).filter(
+                (a) => a.status === "pending" && a.project_id === projectId && a.approval_type === "semantic_memory_write",
+            ),
+        [allApprovals, projectId],
+    );
+
+    const namespaceTree = useMemo(() => {
+        const roots: Record<string, Record<string, Set<string>>> = {};
+        for (const e of entries) {
+            const parts = (e.namespace || "").split("/").filter(Boolean);
+            const company = parts[0] ?? "(root)";
+            const proj = parts[1] ?? "·";
+            const rest = parts.slice(2).join("/") || "·";
+            roots[company] ??= {};
+            roots[company][proj] ??= new Set();
+            roots[company][proj].add(rest);
+        }
+        return roots;
+    }, [entries]);
+
     const mergeMut = useMutation({
         mutationFn: (args: { canonical_entry_id: string; merge_entry_ids: string[] }) =>
             mergeSemanticMemoryEntries(projectId!, args),
@@ -125,6 +183,16 @@ export default function SemanticMemoryPage() {
         onSuccess: async (res) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "episodic", projectId] });
             setNotice(`Indexed ${res.indexed} episodic rows for search.`);
+        },
+    });
+
+    const decideMut = useMutation({
+        mutationFn: (args: { approvalId: string; status: "approved" | "rejected"; reason?: string }) =>
+            decideApproval(args.approvalId, { status: args.status, reason: args.reason }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "semantic", projectId] });
+            setNotice("Approval updated.");
         },
     });
 
@@ -167,6 +235,14 @@ export default function SemanticMemoryPage() {
                         <Link component={RouterLink} to={`/agent-projects/${projectId}`}>
                             Back to project
                         </Link>
+                        {project?.company_id ? (
+                            <>
+                                {" · "}
+                                <Link component={RouterLink} to={`/companies/${project.company_id}/memory`}>
+                                    Company semantic
+                                </Link>
+                            </>
+                        ) : null}
                     </>
                 }
             />
@@ -176,6 +252,179 @@ export default function SemanticMemoryPage() {
                     {notice}
                 </Alert>
             )}
+
+            <CollapsibleSectionCard
+                title="Memory stack (5 layers)"
+                description="Where each layer lives in this product; drill down in sections below."
+                defaultExpanded
+                sx={{ mb: 3 }}
+            >
+                <Stack spacing={1.5}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Typography variant="subtitle2">1 · Working memory</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Latest run scratchpad (objective, plan, findings). Shown live on Run Inspector; sample from most
+                            recent project run below.
+                        </Typography>
+                        {latestWm ? (
+                            <Typography variant="caption" component="pre" sx={{ display: "block", mt: 1, whiteSpace: "pre-wrap" }}>
+                                {JSON.stringify(
+                                    {
+                                        objective: latestWm.objective?.slice(0, 200),
+                                        latest_findings: latestWm.latest_findings?.slice(0, 200),
+                                        updated_at: latestWm.updated_at,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            </Typography>
+                        ) : (
+                            <Typography variant="caption" color="text.secondary">
+                                No run working memory loaded.
+                            </Typography>
+                        )}
+                        {latestRunId ? (
+                            <Button component={RouterLink} to={`/runs/${latestRunId}`} size="small" sx={{ mt: 1 }}>
+                                Open latest run
+                            </Button>
+                        ) : null}
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Typography variant="subtitle2">2 · Semantic (this page)</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Typed entries with provenance + confidence. Vector + keyword search above.
+                        </Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Typography variant="subtitle2">3 · Episodic</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Search + cold archives below; execution-derived snippets from runs, comments, brainstorms.
+                        </Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Typography variant="subtitle2">4 · Procedural</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Playbooks ({playbooks.length}) — markdown SOPs injected into context when namespaces match.
+                        </Typography>
+                        <Stack spacing={0.5} sx={{ mt: 1, maxHeight: 120, overflow: "auto" }}>
+                            {playbooks.length === 0 ? (
+                                <Typography variant="caption" color="text.secondary">
+                                    No playbooks yet.
+                                </Typography>
+                            ) : (
+                                playbooks.map((pb) => (
+                                    <Typography key={pb.id} variant="caption" sx={{ display: "block" }}>
+                                        {pb.title} · <code>{pb.namespace}</code>
+                                    </Typography>
+                                ))
+                            )}
+                        </Stack>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Typography variant="subtitle2">5 · Execution events</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Durable run_event log + task timeline on the project board. Recent runs:{" "}
+                            {runs.slice(0, 5).map((r) => (
+                                <Link key={r.id} component={RouterLink} to={`/runs/${r.id}`} sx={{ mr: 1 }}>
+                                    {r.id.slice(0, 6)}…
+                                </Link>
+                            ))}
+                        </Typography>
+                    </Paper>
+                </Stack>
+            </CollapsibleSectionCard>
+
+            <CollapsibleSectionCard
+                title="Namespace map (from visible semantic rows)"
+                description="company / project prefix / remainder — derived from entry.namespace strings."
+                sx={{ mb: 3 }}
+            >
+                {Object.keys(namespaceTree).length === 0 ? (
+                    <Typography color="text.secondary">No namespaces in current result set.</Typography>
+                ) : (
+                    <Stack spacing={1}>
+                        {Object.entries(namespaceTree).map(([c, projs]) => (
+                            <Box key={c}>
+                                <Typography variant="subtitle2">{c}</Typography>
+                                {Object.entries(projs).map(([p, rests]) => (
+                                    <Box key={`${c}/${p}`} sx={{ pl: 2, mt: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {p}
+                                        </Typography>
+                                        <Stack sx={{ pl: 2 }}>
+                                            {[...rests].slice(0, 12).map((r) => (
+                                                <Typography key={r} variant="caption" sx={{ display: "block" }}>
+                                                    {r}
+                                                </Typography>
+                                            ))}
+                                        </Stack>
+                                    </Box>
+                                ))}
+                            </Box>
+                        ))}
+                    </Stack>
+                )}
+            </CollapsibleSectionCard>
+
+            <SectionCard
+                title="Semantic write approvals"
+                description="Queue when “Require approval for manual semantic writes” is on (and bypass is off)."
+                sx={{ mb: 3 }}
+            >
+                {semanticApprovals.length === 0 ? (
+                    <Typography color="text.secondary">No pending semantic approvals for this project.</Typography>
+                ) : (
+                    <Stack spacing={1.5}>
+                        {semanticApprovals.map((a) => (
+                            <Paper key={a.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                <Stack spacing={1}>
+                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                        <Chip size="small" label={a.approval_type} />
+                                        <Typography variant="caption" color="text.secondary">
+                                            {formatDateTime(a.created_at)}
+                                        </Typography>
+                                    </Stack>
+                                    <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
+                                        {JSON.stringify(a.payload ?? {}, null, 2).slice(0, 1200)}
+                                    </Typography>
+                                    <TextField
+                                        size="small"
+                                        label="Reason (required to reject)"
+                                        value={approvalReason[a.id] ?? ""}
+                                        onChange={(e) => setApprovalReason((m) => ({ ...m, [a.id]: e.target.value }))}
+                                    />
+                                    <Stack direction="row" spacing={1}>
+                                        <Button
+                                            size="small"
+                                            variant="contained"
+                                            disabled={decideMut.isPending}
+                                            onClick={() => decideMut.mutate({ approvalId: a.id, status: "approved" })}
+                                        >
+                                            Approve
+                                        </Button>
+                                        <Button
+                                            size="small"
+                                            color="error"
+                                            variant="outlined"
+                                            disabled={decideMut.isPending}
+                                            onClick={() => {
+                                                const reason = (approvalReason[a.id] ?? "").trim();
+                                                if (!reason) {
+                                                    setNotice("Rejection needs a reason.");
+                                                    return;
+                                                }
+                                                decideMut.mutate({ approvalId: a.id, status: "rejected", reason });
+                                            }}
+                                        >
+                                            Reject
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+                            </Paper>
+                        ))}
+                    </Stack>
+                )}
+            </SectionCard>
 
             <SectionCard
                 title="Memory automation"
@@ -414,38 +663,70 @@ export default function SemanticMemoryPage() {
                                 <TableCell>Type</TableCell>
                                 <TableCell>Title</TableCell>
                                 <TableCell>Namespace</TableCell>
+                                <TableCell>Source</TableCell>
+                                <TableCell>Prov.</TableCell>
+                                <TableCell>Confidence</TableCell>
                                 <TableCell>Updated</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {entries.map((row: SemanticMemoryEntry) => (
-                                <TableRow key={row.id}>
-                                    <TableCell>{row.entry_type}</TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2" fontWeight={600}>
-                                            {row.title}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                                            {(row.body || "").slice(0, 160)}
-                                            {(row.body || "").length > 160 ? "…" : ""}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
-                                            {row.namespace}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>{formatDateTime(row.updated_at)}</TableCell>
-                                </TableRow>
-                            ))}
+                            {entries.map((row: SemanticMemoryEntry) => {
+                                const source = String(
+                                    (row.provenance as Record<string, unknown>)?.source ?? "api",
+                                );
+                                const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
+                                const confColor =
+                                    conf >= 0.75 ? "success.main" : conf >= 0.5 ? "warning.main" : "error.main";
+                                return (
+                                    <TableRow key={row.id}>
+                                        <TableCell>{row.entry_type}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={600}>
+                                                {row.title}
+                                            </Typography>
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                sx={{ display: "block" }}
+                                            >
+                                                {(row.body || "").slice(0, 160)}
+                                                {(row.body || "").length > 160 ? "…" : ""}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
+                                                {row.namespace}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {source}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Tooltip title="View full provenance JSON">
+                                                <IconButton size="small" onClick={() => setProvEntry(row)} aria-label="provenance">
+                                                    <InfoOutlinedIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" sx={{ color: confColor, fontWeight: 600 }}>
+                                                {(conf * 100).toFixed(0)}%
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>{formatDateTime(row.updated_at)}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 )}
             </SectionCard>
 
             <SectionCard
-                title="Duplicate compaction"
-                description="Same title and type but different bodies — merge into one canonical entry (provenance preserved server-side)."
+                title="Conflict resolver"
+                description="Duplicate-title groups plus embedding-based near-duplicates and contradictions detected across existing entries."
                 sx={{ mt: 3 }}
                 action={
                     <Button
@@ -467,15 +748,40 @@ export default function SemanticMemoryPage() {
                     <Stack spacing={2}>
                         {conflictGroups.map((g) => (
                             <Box key={g.group_key}>
-                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                    {g.group_key}
-                                </Typography>
+                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2">{g.group_key}</Typography>
+                                    {g.kind && g.kind !== "title_duplicate" && (
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                px: 0.75,
+                                                py: 0.25,
+                                                borderRadius: 1,
+                                                bgcolor:
+                                                    g.kind === "contradicts"
+                                                        ? "error.light"
+                                                        : "warning.light",
+                                                color: "#000",
+                                            }}
+                                        >
+                                            {g.kind}
+                                            {typeof g.similarity === "number"
+                                                ? ` · sim ${(g.similarity * 100).toFixed(0)}%`
+                                                : ""}
+                                        </Typography>
+                                    )}
+                                </Stack>
+                                {g.reason && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                                        {g.reason}
+                                    </Typography>
+                                )}
                                 <Table size="small">
                                     <TableHead>
                                         <TableRow>
                                             <TableCell>Title</TableCell>
                                             <TableCell>Namespace</TableCell>
-                                            <TableCell align="right">Action</TableCell>
+                                            <TableCell align="right">Updated</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -597,6 +903,35 @@ export default function SemanticMemoryPage() {
                     </Table>
                 )}
             </SectionCard>
+
+            <Dialog open={Boolean(provEntry)} onClose={() => setProvEntry(null)} fullWidth maxWidth="md">
+                <DialogTitle>Provenance & metadata</DialogTitle>
+                <DialogContent>
+                    {provEntry ? (
+                        <Stack spacing={1} sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                                Entry {provEntry.id}
+                            </Typography>
+                            <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
+                                {JSON.stringify(
+                                    {
+                                        provenance: provEntry.provenance,
+                                        metadata: provEntry.metadata,
+                                        source_task_id: provEntry.source_task_id,
+                                        source_run_id: provEntry.source_run_id,
+                                        confidence: provEntry.confidence,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            </Typography>
+                        </Stack>
+                    ) : null}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setProvEntry(null)}>Close</Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
                 <DialogTitle>New semantic entry</DialogTitle>

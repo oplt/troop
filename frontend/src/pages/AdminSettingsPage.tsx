@@ -15,10 +15,6 @@ import {
 } from "@mui/material";
 import {
     DeleteOutline as DeleteIcon,
-    IntegrationInstructions as GithubIcon,
-    RestartAlt as RestartIcon,
-    SmartToy as AiIcon,
-    SettingsSuggest as SettingsIcon,
     Storage as StorageIcon,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
@@ -42,7 +38,6 @@ import { PlatformPanel } from "./PlatformPage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
-import { StatCard } from "../components/ui/StatCard";
 import { formatDateTime } from "../utils/formatters";
 
 type DatabaseSettingDrafts = Record<
@@ -57,12 +52,14 @@ type ConfigGroupId =
     | "application"
     | "infrastructure"
     | "security"
+    | "ai_config"
+    | "github_app"
     | "email"
     | "observability"
     | "storage"
     | "custom";
 
-type SettingsTabValue = ConfigGroupId | "database" | "ai" | "github" | "platform";
+type SettingsTabValue = ConfigGroupId | "database" | "providers" | "github_sync" | "platform";
 
 type ConfigGroupDefinition = {
     id: ConfigGroupId;
@@ -85,6 +82,16 @@ const CONFIG_GROUP_DEFINITIONS: ConfigGroupDefinition[] = [
         id: "security",
         label: "Auth & Security",
         description: "Token behavior, cookies, verification windows, and admin access controls.",
+    },
+    {
+        id: "ai_config",
+        label: "AI Config",
+        description: "Built-in model defaults, orchestration AI flags, and provider API credentials.",
+    },
+    {
+        id: "github_app",
+        label: "GitHub App",
+        description: "GitHub App credentials and webhook configuration used by sync flows.",
     },
     {
         id: "email",
@@ -114,43 +121,35 @@ function getConfigGroupId(item: ConfigEntry): ConfigGroupId {
     if (is_custom) {
         return "custom";
     }
+
     if (
-        key.startsWith("APP_") ||
-        key === "LOG_LEVEL" ||
-        key.startsWith("CORE_DOMAIN_") ||
-        key === "PLATFORM_DEFAULT_MODULE_PACK" ||
-        key === "FRONTEND_URL"
-    ) {
-        return "application";
-    }
-    if (
-        key === "DATABASE_URL" ||
-        key === "REDIS_URL" ||
-        key.startsWith("CELERY_")
+        key === "PROVIDER_HEALTHCHECK_INTERVAL_MINUTES" ||
+        key === "GITHUB_ISSUE_POLL_INTERVAL_MINUTES" ||
+        key === "ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES"
+
     ) {
         return "infrastructure";
     }
     if (
-        key.startsWith("JWT_") ||
         key === "ACCESS_TOKEN_EXPIRE_MINUTES" ||
         key === "REFRESH_TOKEN_EXPIRE_DAYS" ||
-        key === "COOKIE_SECURE" ||
         key === "VERIFICATION_TOKEN_TTL" ||
         key === "PASSWORD_RESET_TOKEN_TTL" ||
-        key === "ADMIN_SIGNUP_INVITE_CODE"
+        key === "PUBLIC_RATE_LIMIT_REQUESTS" ||
+        key === "PUBLIC_RATE_LIMIT_WINDOW_SECONDS" ||
+        key === "AUTH_FAILURE_LIMIT" ||
+        key === "AUTH_FAILURE_WINDOW_SECONDS" ||
+        key === "REQUIRE_EMAIL_VERIFICATION"
     ) {
         return "security";
     }
-    if (key.startsWith("SMTP_")) {
-        return "email";
+    if (
+        key.startsWith("AI_") ||
+        key === "ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE" ||
+        key === "AGENT_TOKEN_BUDGET_WINDOW_DAYS"
+    ) {
+        return "ai_config";
     }
-    if (key.startsWith("SENTRY_") || key.startsWith("OTLP_")) {
-        return "observability";
-    }
-    if (key.startsWith("STORAGE_")) {
-        return "storage";
-    }
-
     return "custom";
 }
 
@@ -352,10 +351,9 @@ function AdminSettingsContent({
     });
 
     const activeConfigGroup =
-        activeTab === "database" || activeTab === "ai" || activeTab === "github" || activeTab === "platform"
+        activeTab === "database" || activeTab === "providers" || activeTab === "github_sync" || activeTab === "platform"
             ? null
             : configGroups.find((group) => group.id === activeTab) ?? configGroups[0] ?? null;
-    const restartSensitiveCount = configData.items.filter((item) => item.requires_restart).length;
     const customConfigCount = configData.items.filter((item) => item.is_custom).length;
     const changedConfigCount = configData.items.filter(
         (item) => (configDrafts[item.key] ?? item.value) !== item.value
@@ -406,53 +404,6 @@ function AdminSettingsContent({
                 }
             />
 
-            <Box
-                sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: {
-                        xs: "1fr",
-                        sm: "repeat(2, minmax(0, 1fr))",
-                        xl: "repeat(3, minmax(0, 1fr))",
-                    },
-                }}
-            >
-                <StatCard
-                    label="Config variables"
-                    value={configData.items.length}
-                    description="Environment-backed values available in the settings file"
-                    icon={<SettingsIcon />}
-                />
-                <StatCard
-                    label="Restart-sensitive"
-                    value={restartSensitiveCount}
-                    description="Values likely to require a backend restart after saving"
-                    icon={<RestartIcon />}
-                    color="warning"
-                />
-                <StatCard
-                    label="Runtime database settings"
-                    value={databaseSettings.length}
-                    description="Key/value records stored in the database for live updates"
-                    icon={<StorageIcon />}
-                    color="secondary"
-                />
-                <StatCard
-                    label="AI providers"
-                    value={providers.length}
-                    description="Saved hosted and local model endpoints"
-                    icon={<AiIcon />}
-                    color="success"
-                />
-                <StatCard
-                    label="GitHub connections"
-                    value={githubConnections.length}
-                    description="Connected accounts available for repo sync and issue import"
-                    icon={<GithubIcon />}
-                    color="info"
-                />
-            </Box>
-
             {hasConfigError && <Alert severity="error">{configErrorMessage}</Alert>}
             {hasDatabaseError && <Alert severity="error">{databaseErrorMessage}</Alert>}
 
@@ -497,23 +448,24 @@ function AdminSettingsContent({
                         label={`Database settings (${databaseSettings.length})`}
                     />
                     <Tab
-                        value="ai"
+                        value="providers"
                         label={`AI providers (${providers.length})`}
                     />
                     <Tab
-                        value="github"
+                        value="github_sync"
                         label={`GitHub sync (${githubConnections.length})`}
                     />
                     <Tab
                         value="platform"
                         label="Platform"
                     />
+                    
                 </Tabs>
 
                 <Box sx={{ flex: 1, py: 1.5, pr: 1.5, minWidth: 0 }}>
-            {activeTab === "ai" ? (
+            {activeTab === "providers" ? (
                 <ProviderSettingsPanel />
-            ) : activeTab === "github" ? (
+            ) : activeTab === "github_sync" ? (
                 <GithubSyncPanel />
             ) : activeTab === "platform" ? (
                 <PlatformPanel />
@@ -741,6 +693,8 @@ function AdminSettingsContent({
 export default function AdminSettingsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const requestedTab = searchParams.get("tab");
+    const normalizedRequestedTab =
+        requestedTab === "ai" ? "providers" : requestedTab === "github" ? "github_sync" : requestedTab;
     const {
         data: configData,
         isLoading: configLoading,
@@ -775,12 +729,12 @@ export default function AdminSettingsPage() {
 
     const configGroups = buildConfigGroups(configData.items);
     const resolvedActiveTab =
-        requestedTab === "database" ||
-        requestedTab === "ai" ||
-        requestedTab === "github" ||
-        requestedTab === "platform" ||
-        configGroups.some((group) => group.id === requestedTab)
-            ? (requestedTab as SettingsTabValue)
+        normalizedRequestedTab === "database" ||
+        normalizedRequestedTab === "providers" ||
+        normalizedRequestedTab === "github_sync" ||
+        normalizedRequestedTab === "platform" ||
+        configGroups.some((group) => group.id === normalizedRequestedTab)
+            ? (normalizedRequestedTab as SettingsTabValue)
             : configGroups[0]?.id ?? "database";
     const settingsKey = `${configData.items.map((item) => `${item.key}:${item.value}`).join("|")}::${databaseSettings
         .map((item) => `${item.id}:${item.updated_at}`)

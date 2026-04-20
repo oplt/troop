@@ -1,6 +1,15 @@
-import { Alert, Divider, MenuItem, Stack, TextField } from "@mui/material";
+import { Alert, Divider, ListSubheader, MenuItem, Stack, TextField } from "@mui/material";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import type { AgentTemplate, SkillPack } from "../../api/orchestration";
+import {
+    listModelCapabilities,
+    listProviders,
+    type AgentTemplate,
+    type ModelCapability,
+    type ProviderConfig,
+    type SkillPack,
+} from "../../api/orchestration";
 import { SkillPackPicker } from "./SkillPackPicker";
 import { TemplateSection } from "./TemplateSection";
 import { TemplateValidationPanel } from "./TemplateValidationPanel";
@@ -66,6 +75,72 @@ export function TemplateBuilderView({
     onSimulateAgent,
     showRegistryPanel = true,
 }: TemplateBuilderViewProps) {
+    const { data: providers = [] } = useQuery<ProviderConfig[]>({
+        queryKey: ["orchestration", "providers"],
+        queryFn: () => listProviders(),
+    });
+    const { data: modelCapabilities = [] } = useQuery<ModelCapability[]>({
+        queryKey: ["orchestration", "provider-model-capabilities"],
+        queryFn: listModelCapabilities,
+    });
+    const modelGroups = useMemo(() => {
+        const perProvider = new Map<string, { label: string; models: string[] }>();
+        for (const provider of providers) {
+            const bucket = perProvider.get(provider.id) ?? { label: provider.name, models: [] };
+            if (provider.default_model && !bucket.models.includes(provider.default_model)) {
+                bucket.models.push(provider.default_model);
+            }
+            if (provider.fallback_model && !bucket.models.includes(provider.fallback_model)) {
+                bucket.models.push(provider.fallback_model);
+            }
+            perProvider.set(provider.id, bucket);
+        }
+        for (const capability of modelCapabilities) {
+            if (!capability.provider_id) continue;
+            const bucket = perProvider.get(capability.provider_id);
+            if (!bucket) continue;
+            if (!bucket.models.includes(capability.model_slug)) {
+                bucket.models.push(capability.model_slug);
+            }
+        }
+        return [...perProvider.values()].filter((bucket) => bucket.models.length > 0);
+    }, [providers, modelCapabilities]);
+    const availableModels = useMemo(
+        () => new Set(modelGroups.flatMap((bucket) => bucket.models)),
+        [modelGroups],
+    );
+    const renderModelOptions = (currentValue: string, allowNone: boolean) => {
+        const items: JSX.Element[] = [];
+        if (allowNone) {
+            items.push(
+                <MenuItem key="__none" value="">
+                    None
+                </MenuItem>,
+            );
+        }
+        modelGroups.forEach((bucket) => {
+            items.push(
+                <ListSubheader key={`__header-${bucket.label}`} disableSticky>
+                    {bucket.label}
+                </ListSubheader>,
+            );
+            bucket.models.forEach((model) => {
+                items.push(
+                    <MenuItem key={`${bucket.label}:${model}`} value={model}>
+                        {model}
+                    </MenuItem>,
+                );
+            });
+        });
+        if (currentValue && !availableModels.has(currentValue)) {
+            items.push(
+                <MenuItem key={`__custom-${currentValue}`} value={currentValue}>
+                    {currentValue} (custom)
+                </MenuItem>,
+            );
+        }
+        return items;
+    };
     return (
         <Stack spacing={2}>
             <Stack
@@ -121,8 +196,29 @@ export function TemplateBuilderView({
                         <Stack spacing={2}>
                             <TextField label="Allowed tools" helperText="Comma-separated" value={form.allowed_tools} onChange={(event) => setForm((current) => ({ ...current, allowed_tools: event.target.value }))} />
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                <TextField fullWidth label="Primary model" value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} />
-                                <TextField fullWidth label="Fallback model" value={form.fallback_model} onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))} />
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Primary model"
+                                    value={form.model}
+                                    onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))}
+                                    helperText={
+                                        modelGroups.length === 0
+                                            ? "No saved providers. Add one in Admin → Settings → Providers."
+                                            : "Pick from saved providers' models."
+                                    }
+                                >
+                                    {renderModelOptions(form.model, false)}
+                                </TextField>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Fallback model"
+                                    value={form.fallback_model}
+                                    onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))}
+                                >
+                                    {renderModelOptions(form.fallback_model, true)}
+                                </TextField>
                             </Stack>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                 <TextField fullWidth label="Escalation path" value={form.escalation_path} onChange={(event) => setForm((current) => ({ ...current, escalation_path: event.target.value }))} />

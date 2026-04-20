@@ -149,6 +149,16 @@ Tradeoffs:
 - signal application is worker-consumed, not instant remote execution
 - query model is checkpoint-based, not live engine-native
 
+## Execution truth decision (Tier 5)
+
+**Chosen path:** stay on **Celery + Redis + Postgres** as the primary durable execution plane. **Temporal is explicitly deferred** (rejected for immediate migration per Alternatives above).
+
+**Authoritative audit log:** `run_events` is the append-only, queryable timeline for operator forensics, episodic recall, and replay context. `TaskRun.checkpoint_json` (including `durable_workflow_v1`) remains the durable workflow state contract from this ADR.
+
+**Invariant:** every meaningful **task** and **run** lifecycle transition should emit a `run_events` row (either on the active `TaskRun` or, when no run is in context, on the **latest** run for that task). Worker code paths that only mutate `TaskRun.status` must still call `_emit_run_event` or go through `_transition_task_status` / approval flows that emit.
+
+**Temporal later:** see `docs/temporal-migration-spike.md` for a minimal mapping sketch (`TaskRun` ↔ workflow execution) when Phase 2 shadow mode starts.
+
 ## Follow-up
 
 - add external backend adapter implementing same contract

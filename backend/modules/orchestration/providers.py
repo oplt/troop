@@ -4,6 +4,7 @@ import json
 import math
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -31,6 +32,182 @@ class ProviderExecutionResult:
 
 def estimate_tokens(value: str) -> int:
     return max(1, math.ceil(len(value) / 4))
+
+
+def _provider_base_url(provider: ProviderConfig) -> str:
+    if provider.provider_type == "openai":
+        return provider.base_url or "https://api.openai.com/v1"
+    if provider.provider_type == "qwen":
+        return provider.base_url or "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    if provider.provider_type == "anthropic":
+        return provider.base_url or "https://api.anthropic.com"
+    if provider.provider_type == "ollama":
+        return provider.base_url or "http://localhost:11434"
+    return provider.base_url or "https://api.openai.com/v1"
+
+
+def _provider_headers(provider: ProviderConfig) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    api_key = decrypt_secret(provider.encrypted_api_key)
+    if provider.provider_type == "anthropic":
+        if api_key:
+            headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+        return headers
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    if provider.organization:
+        headers["OpenAI-Organization"] = provider.organization
+    return headers
+
+
+def _bool_value(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "supported"}
+    return bool(value)
+
+
+def _int_value(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        digits = "".join(char for char in value if char.isdigit())
+        if digits:
+            return int(digits)
+    return None
+
+
+def _float_value(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _source_value(source: str, value: Any, *, missing: str = "unavailable_from_provider_api") -> str:
+    return source if value is not None and value != "" else missing
+
+
+def _provider_health(provider: ProviderConfig) -> tuple[str, int | None]:
+    if provider.last_healthcheck_status:
+        status = provider.last_healthcheck_status
+    elif provider.is_healthy:
+        status = "healthy"
+    else:
+        status = "unknown"
+    return status, provider.last_healthcheck_latency_ms
+
+
+def _capability_record(
+    provider: ProviderConfig,
+    *,
+    model_slug: str,
+    display_name: str | None,
+    supports_tools: bool,
+    supports_vision: bool,
+    context_window: int | None,
+    max_output_tokens: int | None,
+    input_cost_per_1k: float | None,
+    output_cost_per_1k: float | None,
+    latency_p50: int | None,
+    health_status: str,
+    source_for_each_field: dict[str, str],
+    source: str,
+    override_reason: str | None = None,
+    raw: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    verified_at = datetime.now(UTC)
+    input_cost_per_1m = input_cost_per_1k * 1000 if input_cost_per_1k is not None else None
+    output_cost_per_1m = output_cost_per_1k * 1000 if output_cost_per_1k is not None else None
+    return {
+        "provider_id": provider.id,
+        "provider_type": provider.provider_type,
+        "model_slug": model_slug,
+        "display_name": display_name or model_slug,
+        "supports_tools": supports_tools,
+        "supports_vision": supports_vision,
+        "context_window": context_window,
+        "max_output_tokens": max_output_tokens,
+        "input_cost_per_1k": input_cost_per_1k,
+        "output_cost_per_1k": output_cost_per_1k,
+        "input_cost_per_1m": input_cost_per_1m,
+        "output_cost_per_1m": output_cost_per_1m,
+        "latency_p50": latency_p50,
+        "health_status": health_status,
+        "source_for_each_field": source_for_each_field,
+        "last_verified_at": verified_at,
+        "override_reason": override_reason,
+        "source": source,
+        "raw": raw or {},
+    }
+
+
+async def discover_provider_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+    if provider.provider_type == "local":
+        return _discover_local_capabilities(provider)
+    if provider.provider_type == "ollama":
+        return await _discover_ollama_capabilities(provider)
+    if provider.provider_type == "anthropic":
+        return await _discover_anthropic_capabilities(provider)
+    return await _discover_openai_compatible_capabilities(provider)
+
+
+def _fallback_configured_capabilities(provider: ProviderConfig, reason: str) -> list[dict[str, Any]]:
+    status, latency = _provider_health(provider)
+    models = [provider.default_model]
+    if provider.fallback_model and provider.fallback_model not in models:
+        models.append(provider.fallback_model)
+    return [
+        _capability_record(
+            provider,
+            model_slug=model_slug,
+            display_name=model_slug,
+            supports_tools=False,
+            supports_vision=False,
+            context_window=None,
+            max_output_tokens=None,
+            input_cost_per_1k=None,
+            output_cost_per_1k=None,
+            latency_p50=latency,
+            health_status=status,
+            source_for_each_field={
+                "provider_id": "provider_config",
+                "model_slug": "provider_config:fallback",
+                "display_name": "provider_config:fallback",
+                "supports_tools": "default:false:provider_api_missing",
+                "supports_vision": "default:false:provider_api_missing",
+                "context_window": "unavailable_from_provider_api",
+                "max_output_tokens": "unavailable_from_provider_api",
+                "input_cost_per_1k": "unavailable_from_provider_api",
+                "output_cost_per_1k": "unavailable_from_provider_api",
+                "input_cost_per_1m": "unavailable_from_provider_api",
+                "output_cost_per_1m": "unavailable_from_provider_api",
+                "latency_p50": _source_value("provider_healthcheck", latency),
+                "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                "last_verified_at": "sync_runtime",
+                "override_reason": "sync_runtime",
+            },
+            source="provider_config:fallback",
+            override_reason=reason,
+            raw={},
+        )
+        for model_slug in models
+        if model_slug
+    ]
 
 
 async def execute_prompt(
@@ -69,8 +246,16 @@ async def execute_prompt(
         )
 
     provider_type = provider.provider_type
-    if provider_type in {"openai", "openai_compatible"}:
+    if provider_type in {"openai", "openai_compatible", "qwen"}:
         return await _execute_openai_compatible(
+            provider,
+            model_name=model_name or provider.default_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+        )
+    if provider_type == "anthropic":
+        return await _execute_anthropic(
             provider,
             model_name=model_name or provider.default_model,
             system_prompt=system_prompt,
@@ -105,31 +290,22 @@ async def test_provider(provider: ProviderConfig) -> dict[str, Any]:
 
 
 async def list_provider_models(provider: ProviderConfig) -> list[dict[str, Any]]:
-    if provider.provider_type == "ollama":
-        async with httpx.AsyncClient(
-            timeout=float(provider.timeout_seconds),
-            base_url=provider.base_url or "http://localhost:11434",
-        ) as client:
-            response = await client.get("/api/tags")
-        if response.status_code >= 400:
-            raise HTTPException(
-                status_code=502, detail=f"Ollama model discovery failed: {response.text[:300]}"
-            )
-        payload = response.json()
-        return list(payload.get("models", []))
-
-    models: list[dict[str, Any]] = []
-    if provider.default_model:
-        models.append({"name": provider.default_model, "source": "default"})
-    if provider.fallback_model and provider.fallback_model not in {
-        item["name"] for item in models
-    }:
-        models.append({"name": provider.fallback_model, "source": "fallback"})
-    for item in provider.metadata_json.get("discovered_models", []):
-        name = str(item.get("name") or "").strip()
-        if name and name not in {existing["name"] for existing in models}:
-            models.append(item)
-    return models
+    capabilities = await discover_provider_capabilities(provider)
+    return [
+        {
+            "name": item["model_slug"],
+            "display_name": item.get("display_name"),
+            "context_window": item.get("context_window"),
+            "max_output_tokens": item.get("max_output_tokens"),
+            "supports_tools": item.get("supports_tools"),
+            "supports_vision": item.get("supports_vision"),
+            "latency_p50": item.get("latency_p50"),
+            "health_status": item.get("health_status"),
+            "source": item.get("source"),
+            "source_for_each_field": item.get("source_for_each_field"),
+        }
+        for item in capabilities
+    ]
 
 
 async def _execute_openai_compatible(
@@ -140,20 +316,14 @@ async def _execute_openai_compatible(
     user_prompt: str,
     response_format: str,
 ) -> ProviderExecutionResult:
-    api_key = decrypt_secret(provider.encrypted_api_key)
-    headers = {}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    if provider.organization:
-        headers["OpenAI-Organization"] = provider.organization
     started = time.perf_counter()
     async with httpx.AsyncClient(
         timeout=float(provider.timeout_seconds),
-        base_url=provider.base_url or "https://api.openai.com/v1",
+        base_url=_provider_base_url(provider),
     ) as client:
         response = await client.post(
             "/chat/completions",
-            headers=headers,
+            headers=_provider_headers(provider),
             json={
                 "model": model_name,
                 "temperature": provider.temperature,
@@ -189,6 +359,57 @@ async def _execute_openai_compatible(
     )
 
 
+async def _execute_anthropic(
+    provider: ProviderConfig,
+    *,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    response_format: str,
+) -> ProviderExecutionResult:
+    started = time.perf_counter()
+    async with httpx.AsyncClient(
+        timeout=float(provider.timeout_seconds),
+        base_url=_provider_base_url(provider),
+    ) as client:
+        response = await client.post(
+            "/v1/messages",
+            headers=_provider_headers(provider),
+            json={
+                "model": model_name,
+                "system": system_prompt,
+                "max_tokens": provider.max_tokens,
+                "temperature": provider.temperature,
+                "messages": [{"role": "user", "content": user_prompt}],
+            },
+        )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Anthropic request failed: {response.text[:300]}")
+    payload = response.json()
+    parts = payload.get("content") or []
+    content = "".join(
+        str(item.get("text") or "")
+        for item in parts
+        if isinstance(item, dict) and item.get("type") == "text"
+    )
+    parsed_json = None
+    if response_format == "json":
+        try:
+            parsed_json = json.loads(content)
+        except json.JSONDecodeError:
+            parsed_json = {"raw": content}
+    usage = payload.get("usage") or {}
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    return ProviderExecutionResult(
+        model_name=model_name,
+        output_text=content,
+        output_json=parsed_json,
+        input_tokens=int(usage.get("input_tokens", estimate_tokens(system_prompt + user_prompt))),
+        output_tokens=int(usage.get("output_tokens", estimate_tokens(content))),
+        latency_ms=latency_ms,
+    )
+
+
 async def _execute_ollama(
     provider: ProviderConfig,
     *,
@@ -200,7 +421,7 @@ async def _execute_ollama(
     started = time.perf_counter()
     async with httpx.AsyncClient(
         timeout=float(provider.timeout_seconds),
-        base_url=provider.base_url or "http://localhost:11434",
+        base_url=_provider_base_url(provider),
     ) as client:
         response = await client.post(
             "/api/generate",
@@ -235,3 +456,277 @@ async def _execute_ollama(
         output_tokens=int(payload.get("eval_count", estimate_tokens(content))),
         latency_ms=latency_ms,
     )
+
+
+async def _discover_openai_compatible_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+    status, latency = _provider_health(provider)
+    source = "provider_api:/models"
+    async with httpx.AsyncClient(
+        timeout=float(provider.timeout_seconds),
+        base_url=_provider_base_url(provider),
+    ) as client:
+        response = await client.get("/models", headers=_provider_headers(provider))
+    if response.status_code >= 400:
+        if provider.provider_type in {"qwen", "openai_compatible"}:
+            return _fallback_configured_capabilities(
+                provider,
+                reason=f"Provider /models endpoint unavailable ({response.status_code}); using configured models until API metadata is available.",
+            )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Provider model discovery failed: {response.text[:300]}",
+        )
+    payload = response.json()
+    records = payload.get("data") or payload.get("models") or []
+    discovered: list[dict[str, Any]] = []
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        model_slug = str(item.get("id") or item.get("name") or item.get("model") or "").strip()
+        if not model_slug:
+            continue
+        modalities = item.get("input_modalities") or item.get("modalities") or []
+        capabilities = item.get("capabilities") or {}
+        supports_vision = False
+        if isinstance(modalities, list):
+            supports_vision = any(str(entry).lower() in {"image", "vision"} for entry in modalities)
+        elif isinstance(capabilities, dict):
+            supports_vision = _bool_value(capabilities.get("vision"))
+        supports_tools = False
+        if isinstance(capabilities, dict):
+            supports_tools = _bool_value(
+                capabilities.get("tools") or capabilities.get("tool_use") or capabilities.get("function_calling")
+            )
+        context_window = _int_value(item.get("context_window") or item.get("context_length"))
+        max_output_tokens = _int_value(item.get("max_output_tokens") or item.get("output_token_limit"))
+        input_cost_per_1k = _float_value(item.get("input_cost_per_1k"))
+        output_cost_per_1k = _float_value(item.get("output_cost_per_1k"))
+        override_reason = None
+        if not any(
+            value is not None
+            for value in (context_window, max_output_tokens, input_cost_per_1k, output_cost_per_1k)
+        ):
+            override_reason = "Provider API omits detailed capability and pricing fields; conservative defaults applied."
+        discovered.append(
+            _capability_record(
+                provider,
+                model_slug=model_slug,
+                display_name=str(item.get("display_name") or model_slug),
+                supports_tools=supports_tools,
+                supports_vision=supports_vision,
+                context_window=context_window,
+                max_output_tokens=max_output_tokens,
+                input_cost_per_1k=input_cost_per_1k,
+                output_cost_per_1k=output_cost_per_1k,
+                latency_p50=latency,
+                health_status=status,
+                source_for_each_field={
+                    "provider_id": "provider_config",
+                    "model_slug": source,
+                    "display_name": _source_value(source, item.get("display_name") or model_slug),
+                    "supports_tools": _source_value(source, capabilities if capabilities else None),
+                    "supports_vision": _source_value(source, modalities or capabilities),
+                    "context_window": _source_value(source, context_window),
+                    "max_output_tokens": _source_value(source, max_output_tokens),
+                    "input_cost_per_1k": _source_value(source, input_cost_per_1k),
+                    "output_cost_per_1k": _source_value(source, output_cost_per_1k),
+                    "input_cost_per_1m": _source_value(source, input_cost_per_1k),
+                    "output_cost_per_1m": _source_value(source, output_cost_per_1k),
+                    "latency_p50": _source_value("provider_healthcheck", latency),
+                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "last_verified_at": "sync_runtime",
+                    "override_reason": "sync_runtime" if override_reason else "none",
+                },
+                source=source,
+                override_reason=override_reason,
+                raw=item,
+            )
+        )
+    return discovered
+
+
+async def _discover_anthropic_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+    status, latency = _provider_health(provider)
+    source = "provider_api:/v1/models"
+    async with httpx.AsyncClient(
+        timeout=float(provider.timeout_seconds),
+        base_url=_provider_base_url(provider),
+    ) as client:
+        response = await client.get("/v1/models", headers=_provider_headers(provider))
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Anthropic model discovery failed: {response.text[:300]}",
+        )
+    payload = response.json()
+    records = payload.get("data") or []
+    discovered: list[dict[str, Any]] = []
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        model_slug = str(item.get("id") or "").strip()
+        if not model_slug:
+            continue
+        override_reason = "Anthropic models API currently exposes identity metadata but not tool, vision, context, or pricing fields."
+        discovered.append(
+            _capability_record(
+                provider,
+                model_slug=model_slug,
+                display_name=str(item.get("display_name") or model_slug),
+                supports_tools=False,
+                supports_vision=False,
+                context_window=None,
+                max_output_tokens=None,
+                input_cost_per_1k=None,
+                output_cost_per_1k=None,
+                latency_p50=latency,
+                health_status=status,
+                source_for_each_field={
+                    "provider_id": "provider_config",
+                    "model_slug": source,
+                    "display_name": _source_value(source, item.get("display_name") or model_slug),
+                    "supports_tools": "default:false:provider_api_missing",
+                    "supports_vision": "default:false:provider_api_missing",
+                    "context_window": "unavailable_from_provider_api",
+                    "max_output_tokens": "unavailable_from_provider_api",
+                    "input_cost_per_1k": "unavailable_from_provider_api",
+                    "output_cost_per_1k": "unavailable_from_provider_api",
+                    "input_cost_per_1m": "unavailable_from_provider_api",
+                    "output_cost_per_1m": "unavailable_from_provider_api",
+                    "latency_p50": _source_value("provider_healthcheck", latency),
+                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "last_verified_at": "sync_runtime",
+                    "override_reason": "sync_runtime",
+                },
+                source=source,
+                override_reason=override_reason,
+                raw=item,
+            )
+        )
+    return discovered
+
+
+async def _discover_ollama_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+    status, latency = _provider_health(provider)
+    async with httpx.AsyncClient(
+        timeout=float(provider.timeout_seconds),
+        base_url=_provider_base_url(provider),
+    ) as client:
+        response = await client.get("/api/tags")
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=502, detail=f"Ollama model discovery failed: {response.text[:300]}"
+            )
+        payload = response.json()
+        models = payload.get("models", [])
+        discovered: list[dict[str, Any]] = []
+        for item in models:
+            if not isinstance(item, dict):
+                continue
+            model_slug = str(item.get("name") or item.get("model") or "").strip()
+            if not model_slug:
+                continue
+            show_response = await client.post("/api/show", json={"model": model_slug})
+            show_payload: dict[str, Any] = {}
+            if show_response.status_code < 400:
+                show_payload = show_response.json()
+            capabilities = show_payload.get("capabilities") or []
+            model_info = show_payload.get("model_info") or {}
+            parameters = str(show_payload.get("parameters") or "")
+            context_window = None
+            for key in ("context_length", "llama.context_length", "gemma3.context_length", "qwen2.context_length"):
+                context_window = _int_value(model_info.get(key))
+                if context_window is not None:
+                    break
+            if context_window is None:
+                for line in parameters.splitlines():
+                    parts = line.strip().split(maxsplit=1)
+                    if len(parts) == 2 and parts[0] == "num_ctx":
+                        context_window = _int_value(parts[1])
+                        break
+            max_output_tokens = None
+            for line in parameters.splitlines():
+                parts = line.strip().split(maxsplit=1)
+                if len(parts) == 2 and parts[0] == "num_predict":
+                    max_output_tokens = _int_value(parts[1])
+                    break
+            discovered.append(
+                _capability_record(
+                    provider,
+                    model_slug=model_slug,
+                    display_name=str(item.get("model") or item.get("name") or model_slug),
+                    supports_tools=any(str(entry).lower() == "tools" for entry in capabilities),
+                    supports_vision=any(str(entry).lower() == "vision" for entry in capabilities),
+                    context_window=context_window,
+                    max_output_tokens=max_output_tokens,
+                    input_cost_per_1k=0.0,
+                    output_cost_per_1k=0.0,
+                    latency_p50=latency,
+                    health_status=status,
+                    source_for_each_field={
+                        "provider_id": "provider_config",
+                        "model_slug": "provider_api:/api/tags",
+                        "display_name": "provider_api:/api/tags",
+                        "supports_tools": _source_value("provider_api:/api/show", capabilities),
+                        "supports_vision": _source_value("provider_api:/api/show", capabilities),
+                        "context_window": _source_value("provider_api:/api/show", context_window),
+                        "max_output_tokens": _source_value("provider_api:/api/show", max_output_tokens),
+                        "input_cost_per_1k": "default:0:local_runtime",
+                        "output_cost_per_1k": "default:0:local_runtime",
+                        "input_cost_per_1m": "default:0:local_runtime",
+                        "output_cost_per_1m": "default:0:local_runtime",
+                        "latency_p50": _source_value("provider_healthcheck", latency),
+                        "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                        "last_verified_at": "sync_runtime",
+                        "override_reason": "none",
+                    },
+                    source="provider_api:/api/tags+/api/show",
+                    raw={"tags": item, "show": show_payload},
+                )
+            )
+    return discovered
+
+
+def _discover_local_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+    status, latency = _provider_health(provider)
+    models = [provider.default_model or "local-heuristic"]
+    if provider.fallback_model and provider.fallback_model not in models:
+        models.append(provider.fallback_model)
+    discovered = []
+    for model_slug in models:
+        discovered.append(
+            _capability_record(
+                provider,
+                model_slug=model_slug,
+                display_name=model_slug,
+                supports_tools=False,
+                supports_vision=False,
+                context_window=provider.max_tokens,
+                max_output_tokens=provider.max_tokens,
+                input_cost_per_1k=0.0,
+                output_cost_per_1k=0.0,
+                latency_p50=latency,
+                health_status=status,
+                source_for_each_field={
+                    "provider_id": "provider_config",
+                    "model_slug": "local_runtime",
+                    "display_name": "local_runtime",
+                    "supports_tools": "default:false:local_runtime",
+                    "supports_vision": "default:false:local_runtime",
+                    "context_window": "provider_config:max_tokens",
+                    "max_output_tokens": "provider_config:max_tokens",
+                    "input_cost_per_1k": "default:0:local_runtime",
+                    "output_cost_per_1k": "default:0:local_runtime",
+                    "input_cost_per_1m": "default:0:local_runtime",
+                    "output_cost_per_1m": "default:0:local_runtime",
+                    "latency_p50": _source_value("provider_healthcheck", latency),
+                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "last_verified_at": "sync_runtime",
+                    "override_reason": "sync_runtime",
+                },
+                source="local_runtime",
+                override_reason="Local heuristic provider does not expose a remote models API; runtime defaults stored instead.",
+                raw={},
+            )
+        )
+    return discovered

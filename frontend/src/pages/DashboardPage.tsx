@@ -13,7 +13,6 @@ import {
     Stack,
     Switch,
     TextField,
-    Tooltip,
     Typography,
 } from "@mui/material";
 import {
@@ -142,8 +141,8 @@ export default function DashboardPage() {
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
     });
 
-    const coreDomainPlural = platformMetadata?.core_domain_plural ?? "Projects";
-    const coreDomainLower = coreDomainPlural.toLowerCase();
+    const canonicalProjectLabel = "Agent Projects";
+    const canonicalProjectLower = canonicalProjectLabel.toLowerCase();
     const firstName = getFirstName(user?.full_name) || "there";
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
     const totalNotifications = notifications?.length ?? 0;
@@ -158,44 +157,21 @@ export default function DashboardPage() {
         () => executionInsights?.tool_failures_by_tool ?? [],
         [executionInsights]
     );
-    const accountChecks = [
-        {
-            label: "Email verified",
-            value: user?.is_verified ? "Verified" : "Pending",
-            color: user?.is_verified ? "success.main" : "warning.main",
-            tooltip: user?.is_verified
-                ? "Sign-in identity confirmed."
-                : "Verify email to unlock recovery and trust signals.",
-        },
-        {
-            label: "Multi-factor auth",
-            value: user?.mfa_enabled ? "Enabled" : "Off",
-            color: user?.mfa_enabled ? "success.main" : "warning.main",
-            tooltip: user?.mfa_enabled
-                ? "Extra sign-in layer active."
-                : "Enable MFA to reduce account takeover risk.",
-        },
-    ];
-
     return (
         <PageShell maxWidth="xl">
             <PageHeader
                 eyebrow="Overview"
                 title={`Welcome back, ${firstName}`}
-                description={`Your ${coreDomainLower}, agents, and signals at a glance.`}
+                description="Projects, agents, and run signals at a glance."
                 actions={
-                    <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate("/projects")}>
-                        Open {coreDomainPlural}
+                    <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate("/agent-projects")}>
+                        Open {canonicalProjectLabel}
                     </Button>
                 }
                 meta={
                     <>
                         <Chip
-                            label={
-                                platformMetadata?.module_pack
-                                    ? `Pack · ${platformMetadata.module_pack}`
-                                    : "Standard workspace"
-                            }
+                            label={platformMetadata?.module_pack ?? "Standard workspace"}
                             variant="outlined"
                             size="small"
                         />
@@ -204,11 +180,23 @@ export default function DashboardPage() {
                                 userLoading
                                     ? "Checking security"
                                     : user?.is_verified && user?.mfa_enabled
-                                        ? "Account secure"
-                                        : "Security pending"
+                                        ? "Account secured"
+                                        : "Action needed"
                             }
                             color={user?.is_verified && user?.mfa_enabled ? "success" : "warning"}
                             variant="outlined"
+                            size="small"
+                        />
+                        <Chip
+                            icon={<VerifiedUserIcon />}
+                            label={user?.is_verified ? "Email verified" : "Email pending"}
+                            color={user?.is_verified ? "success" : "warning"}
+                            size="small"
+                        />
+                        <Chip
+                            icon={<SecurityIcon />}
+                            label={user?.mfa_enabled ? "MFA on" : "MFA off"}
+                            color={user?.mfa_enabled ? "success" : "secondary"}
                             size="small"
                         />
                     </>
@@ -218,28 +206,20 @@ export default function DashboardPage() {
             <Box
                 sx={{
                     display: "grid",
-                    gap: 1.25,
+                    gap: 2,
                     gridTemplateColumns: {
                         xs: "repeat(2, minmax(0, 1fr))",
-                        sm: "repeat(4, minmax(0, 1fr))",
-                        lg: "repeat(8, minmax(0, 1fr))",
+                        sm: "repeat(3, minmax(0, 1fr))",
+                        lg: "repeat(5, minmax(0, 1fr))",
                     },
                 }}
             >
                 <StatCard
-                    label={coreDomainPlural}
+                    label={canonicalProjectLabel}
                     value={projects?.length ?? 0}
                     icon={<ProjectsIcon />}
                     loading={projectsLoading}
-                    info={`Total ${coreDomainLower} in your workspace. Includes active, paused, and archived.`}
-                />
-                <StatCard
-                    label="Agent projects"
-                    value={orchestrationOverview?.projects.length ?? 0}
-                    icon={<AgentsIcon />}
-                    loading={orchestrationLoading}
-                    color="info"
-                    info="Execution workspaces running agents and durable tasks."
+                    info="Where goals, tasks, repos, and approvals live."
                 />
                 <StatCard
                     label="Active runs"
@@ -247,7 +227,7 @@ export default function DashboardPage() {
                     icon={<RunsIcon />}
                     loading={orchestrationLoading}
                     color="secondary"
-                    info="Orchestration runs currently queued or in progress."
+                    info="Runs queued or in progress."
                 />
                 <StatCard
                     label="Pending approvals"
@@ -255,7 +235,7 @@ export default function DashboardPage() {
                     icon={<ApprovalsIcon />}
                     loading={orchestrationLoading}
                     color="warning"
-                    info="Human decisions gating external actions."
+                    info="Actions waiting for your approval."
                 />
                 <StatCard
                     label="Unread inbox"
@@ -266,105 +246,45 @@ export default function DashboardPage() {
                     info="New updates and alerts waiting for review."
                 />
                 <StatCard
-                    label="Email"
-                    value={user?.is_verified ? "Verified" : "Pending"}
-                    icon={<VerifiedUserIcon />}
-                    loading={userLoading}
-                    color={user?.is_verified ? "success" : "warning"}
-                    info="Identity confirmation status for your account."
-                />
-                <StatCard
-                    label="MFA"
-                    value={user?.mfa_enabled ? "On" : "Off"}
-                    icon={<SecurityIcon />}
-                    loading={userLoading}
-                    color={user?.mfa_enabled ? "success" : "secondary"}
-                    info="Multi-factor authentication protects sign-in against stolen passwords."
-                />
-                <StatCard
                     label="Agents"
                     value={orchestrationOverview?.agents.length ?? 0}
                     icon={<AgentsIcon />}
                     loading={orchestrationLoading}
                     color="primary"
-                    info="Deployed agents across all orchestration projects."
+                    info="Agents across all projects."
                 />
             </Box>
 
             <Box
                 sx={{
                     display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+                    gap: 3,
+                    gridTemplateColumns: {
+                        xs: "1fr",
+                        md: "repeat(2, minmax(0, 1fr))",
+                        lg: "repeat(12, minmax(0, 1fr))",
+                    },
                     alignItems: "start",
                 }}
             >
                 <CollapsibleSectionCard
-                    title="Recent activity"
-                    info="Latest notifications and alerts from across your workspace."
+                    sx={{ gridColumn: { lg: "span 8" } }}
+                    title="Calendar"
+                    info="Upcoming project dates and workspace schedule."
                     defaultExpanded
-                    count={recentNotifications.length}
                 >
-                    {notificationsLoading ? (
-                        <Stack spacing={1.5}>
-                            {Array.from({ length: 4 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={92} sx={{ borderRadius: 3 }} />
-                            ))}
-                        </Stack>
-                    ) : recentNotifications.length === 0 ? (
-                        <EmptyState
-                            icon={<NotificationsIcon />}
-                            title="No notifications yet"
-                            description="Updates and account events appear here as workspace activity begins."
-                            action={
-                                <Button variant="outlined" onClick={() => navigate("/projects")}>
-                                    Explore workspace
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <Stack spacing={1.25}>
-                            {recentNotifications.map((notification) => (
-                                <Box
-                                    key={notification.id}
-                                    sx={(theme) => ({
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        borderRadius: 3,
-                                        px: 2,
-                                        py: 1.75,
-                                        backgroundColor: notification.is_read
-                                            ? "transparent"
-                                            : alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.12 : 0.05),
-                                    })}
-                                >
-                                    <Stack
-                                        direction={{ xs: "column", sm: "row" }}
-                                        justifyContent="space-between"
-                                        spacing={1}
-                                    >
-                                        <Box sx={{ minWidth: 0 }}>
-                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                                <Typography variant="subtitle2">{notification.title}</Typography>
-                                                {!notification.is_read && <Chip label="New" size="small" color="primary" />}
-                                            </Stack>
-                                            {notification.body && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {notification.body}
-                                                </Typography>
-                                            )}
-                                        </Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-                                            {formatDateTime(notification.created_at)}
-                                        </Typography>
-                                    </Stack>
-                                </Box>
-                            ))}
-                        </Stack>
-                    )}
+                    <DashboardCalendar
+                        projects={projects ?? []}
+                        projectsLoading={projectsLoading}
+                        onOpenProjects={() => navigate("/agent-projects")}
+                        allowedViews={["month"]}
+                        initialView="month"
+                    />
                 </CollapsibleSectionCard>
 
                 <CollapsibleSectionCard
-                    title="Inbox"
+                    sx={{ gridColumn: { lg: "span 4" }, gridRow: { lg: "span 2" } }}
+                    title="All notifications"
                     info="Full notification history. Mark individual items or all as read."
                     count={totalNotifications}
                     action={
@@ -467,43 +387,15 @@ export default function DashboardPage() {
                         <EmptyState
                             icon={<NotificationsActiveIcon />}
                             title="Inbox is clear"
-                            description="You have no notifications yet. New product updates and account events will appear here."
+                            description="New updates and account events will land here."
                         />
                     )}
                 </CollapsibleSectionCard>
 
                 <CollapsibleSectionCard
-                    title="Delivery preferences"
-                    info="Choose how you want this workspace to reach you."
-                >
-                    <Stack spacing={1.5}>
-                        <PreferenceItem
-                            label="Email notifications"
-                            description="Receive operational updates and account messages in your inbox."
-                            checked={prefs?.email_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ email_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Push notifications"
-                            description="Surface urgent activity directly inside the app experience."
-                            checked={prefs?.push_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ push_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Marketing emails"
-                            description="Get launch announcements, feature roundups, and educational updates."
-                            checked={prefs?.marketing_enabled ?? false}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ marketing_enabled: nextValue })}
-                        />
-                    </Stack>
-                </CollapsibleSectionCard>
-
-                <CollapsibleSectionCard
-                    title="Run signals"
-                    info="Aggregated run-event telemetry across orchestration projects (tool failures, fallbacks, LLM responses, etc.)."
+                    sx={{ gridColumn: { lg: "span 8" } }}
+                    title="Run activity"
+                    info="Run events across projects: tool failures, fallbacks, model responses."
                     action={
                         <TextField
                             select
@@ -531,7 +423,7 @@ export default function DashboardPage() {
                                 Events by type
                             </Typography>
                             {insightsLoading ? (
-                                <Typography variant="body2" color="text.secondary">Loading…</Typography>
+                                <Typography variant="body2" color="text.secondary">Loading run events…</Typography>
                             ) : eventRows.length === 0 ? (
                                 <Typography variant="body2" color="text.secondary">
                                     No run events in this window.
@@ -554,23 +446,23 @@ export default function DashboardPage() {
                         <Divider />
                         <Box>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                Quality heuristics
+                                Run health
                             </Typography>
                             {insightsLoading || !executionInsights ? (
-                                <Typography variant="body2" color="text.secondary">Loading…</Typography>
+                                <Typography variant="body2" color="text.secondary">Loading run health…</Typography>
                             ) : (
                                 <Stack spacing={1.5}>
                                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                        <Chip label={`Reopens: ${executionInsights.reopen_events}`} size="small" variant="outlined" />
-                                        <Chip label={`Blocked: ${executionInsights.blocked_events}`} size="small" variant="outlined" />
+                                        <Chip label={`Tasks reopened: ${executionInsights.reopen_events}`} size="small" variant="outlined" />
+                                        <Chip label={`Tasks blocked: ${executionInsights.blocked_events}`} size="small" variant="outlined" />
                                         <Chip label={`Tool failures: ${executionInsights.tool_call_failed_events}`} size="small" variant="outlined" />
-                                        <Chip label={`Brainstorm summaries: ${executionInsights.brainstorm_round_summary_events}`} size="small" variant="outlined" />
+                                        <Chip label={`Brainstorm rounds: ${executionInsights.brainstorm_round_summary_events}`} size="small" variant="outlined" />
                                     </Stack>
                                     <Divider />
-                                    <Typography variant="subtitle2">Tool failures by tool name</Typography>
+                                    <Typography variant="subtitle2">Failures by tool</Typography>
                                     {toolFailures.length === 0 ? (
                                         <Typography variant="body2" color="text.secondary">
-                                            No tool_call_failed events in this window.
+                                            No tool failures in this window.
                                         </Typography>
                                     ) : (
                                         <Stack spacing={1}>
@@ -593,10 +485,11 @@ export default function DashboardPage() {
                 </CollapsibleSectionCard>
 
                 <CollapsibleSectionCard
+                    sx={{ gridColumn: { lg: "span 4" } }}
                     title="Orchestration"
                     info="Projects, runs, approvals, and GitHub activity from the execution workspace."
                     action={
-                        <Button size="small" variant="text" onClick={() => navigate("/projects")}>
+                        <Button size="small" variant="text" onClick={() => navigate("/agent-projects")}>
                             Open
                         </Button>
                     }
@@ -627,6 +520,7 @@ export default function DashboardPage() {
                     </Stack>
                 </CollapsibleSectionCard>
 
+                {/*
                 <CollapsibleSectionCard
                     title="Account health"
                     info="Trust and security posture of your account. Hover each item for remediation guidance."
@@ -658,23 +552,12 @@ export default function DashboardPage() {
                         ))}
                     </Stack>
                 </CollapsibleSectionCard>
+                */}
 
                 <CollapsibleSectionCard
-                    title="Calendar"
-                    info={`Upcoming ${coreDomainLower} dates and workspace schedule.`}
-                >
-                    <DashboardCalendar
-                        projects={projects ?? []}
-                        projectsLoading={projectsLoading}
-                        onOpenProjects={() => navigate("/projects")}
-                        allowedViews={["month"]}
-                        initialView="month"
-                    />
-                </CollapsibleSectionCard>
-
-                <CollapsibleSectionCard
-                    title={`${coreDomainPlural} snapshot`}
-                    info={`Most recent ${coreDomainLower} in your workspace. Click Open ${coreDomainPlural} for the full list.`}
+                    sx={{ gridColumn: { lg: "span 4" } }}
+                    title={`${canonicalProjectLabel} snapshot`}
+                    info={`Most recent ${canonicalProjectLower} in your workspace. Click Open ${canonicalProjectLabel} for the full list.`}
                     count={projects?.length ?? 0}
                 >
                     {projectsLoading ? (
@@ -704,15 +587,45 @@ export default function DashboardPage() {
                     ) : (
                         <EmptyState
                             icon={<ProjectsIcon />}
-                            title={`No ${coreDomainLower} yet`}
-                            description={`Create your first ${platformMetadata?.core_domain_singular?.toLowerCase() ?? "project"} to start.`}
+                            title={`No ${canonicalProjectLower} yet`}
+                            description="Create your first project to begin."
                             action={
-                                <Button variant="contained" onClick={() => navigate("/projects")}>
+                                <Button variant="contained" onClick={() => navigate("/agent-projects")}>
                                     Create
                                 </Button>
                             }
                         />
                     )}
+                </CollapsibleSectionCard>
+
+                <CollapsibleSectionCard
+                    sx={{ gridColumn: { lg: "span 4" } }}
+                    title="Notification settings"
+                    info="Choose how this workspace reaches you."
+                >
+                    <Stack spacing={1.5}>
+                        <PreferenceItem
+                            label="Email notifications"
+                            description="Account and activity updates by email."
+                            checked={prefs?.email_enabled ?? true}
+                            disabled={prefsMutation.isPending}
+                            onChange={(nextValue) => prefsMutation.mutate({ email_enabled: nextValue })}
+                        />
+                        <PreferenceItem
+                            label="Push notifications"
+                            description="Show urgent alerts inside the app."
+                            checked={prefs?.push_enabled ?? true}
+                            disabled={prefsMutation.isPending}
+                            onChange={(nextValue) => prefsMutation.mutate({ push_enabled: nextValue })}
+                        />
+                        <PreferenceItem
+                            label="Marketing emails"
+                            description="Product news and tips."
+                            checked={prefs?.marketing_enabled ?? false}
+                            disabled={prefsMutation.isPending}
+                            onChange={(nextValue) => prefsMutation.mutate({ marketing_enabled: nextValue })}
+                        />
+                    </Stack>
                 </CollapsibleSectionCard>
             </Box>
         </PageShell>

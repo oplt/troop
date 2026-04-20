@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -40,7 +40,7 @@ import {
     PlayArrow as RunIcon,
     Upload as UploadIcon,
 } from "@mui/icons-material";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
     addProjectAgent,
     checkTaskAcceptance,
@@ -93,7 +93,11 @@ import {
     startDagParallelReady,
     startMergeResolutionRun,
     getMergeResolutionPreview,
+    getRunWorkingMemory,
+    getTaskMemoryCoordination,
+    patchTaskMemoryCoordination,
     queueProjectRepositoryIndex,
+    searchEpisodicMemory,
     updateGateConfig,
     updateProjectRepository,
 } from "../api/orchestration";
@@ -126,14 +130,80 @@ const BRAINSTORM_OUTPUT_OPTIONS = [
     { value: "risk_register", label: "Risk register" },
 ] as const;
 
-const KANBAN_COLUMNS: { status: string; label: string; color: "default" | "warning" | "info" | "success" | "error" }[] = [
-    { status: "backlog", label: "Backlog", color: "default" },
+const MAIN_KANBAN_COLUMNS: { status: string; label: string; color: "default" | "warning" | "info" | "success" | "error" }[] = [
     { status: "queued", label: "Queued", color: "warning" },
+    { status: "planned", label: "Planned", color: "default" },
     { status: "in_progress", label: "In Progress", color: "info" },
+    { status: "blocked", label: "Blocked", color: "warning" },
     { status: "needs_review", label: "Review", color: "warning" },
-    { status: "completed", label: "Done", color: "success" },
+    { status: "approved", label: "Approved", color: "success" },
+    { status: "completed", label: "Completed", color: "success" },
+    { status: "synced_to_github", label: "Synced", color: "success" },
+    { status: "archived", label: "Archived", color: "default" },
+];
+
+const EXCEPTION_TASK_COLUMNS: { status: string; label: string; color: "default" | "warning" | "info" | "success" | "error" }[] = [
+    { status: "backlog", label: "Holding", color: "default" },
     { status: "failed", label: "Failed", color: "error" },
 ];
+
+const TASK_TRANSITION_MAP: Record<string, string[]> = {
+    backlog: ["queued", "archived"],
+    queued: ["planned", "blocked", "failed", "archived"],
+    planned: ["in_progress", "blocked", "failed", "archived"],
+    in_progress: ["blocked", "needs_review", "completed", "failed", "planned"],
+    blocked: ["planned", "in_progress", "failed", "archived"],
+    needs_review: ["approved", "planned", "blocked", "failed"],
+    approved: ["completed", "planned", "archived"],
+    completed: ["synced_to_github", "planned", "archived"],
+    failed: ["planned", "queued", "archived"],
+    synced_to_github: ["archived", "planned"],
+    archived: [],
+};
+
+const EXTERNAL_LINK_KIND_OPTIONS = [
+    { value: "spec", label: "Spec" },
+    { value: "doc", label: "Doc" },
+    { value: "figma", label: "Figma" },
+    { value: "pr", label: "PR" },
+    { value: "commit", label: "Commit" },
+    { value: "incident", label: "Incident" },
+    { value: "runbook", label: "Runbook" },
+    { value: "issue", label: "Issue" },
+    { value: "other", label: "Other" },
+] as const;
+
+type ExternalLinkRecord = {
+    id: string;
+    kind: string;
+    label: string;
+    url: string;
+    notes: string;
+};
+
+type EvidenceBundleDraft = {
+    accepted_artifact_ids: string[];
+    accepted_external_link_ids: string[];
+    reviewer_decision_status: string;
+    reviewer_decision_notes: string;
+    sync_summary: string;
+};
+
+type WorkspaceOverviewDraft = {
+    executive_summary: string;
+    current_focus: string;
+    decision_focus: string;
+};
+
+type TransitionOption = {
+    status: string;
+    reason?: string;
+    blocked?: boolean;
+};
+
+function createClientId(prefix: string) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function extractApiErrorMessage(error: unknown, fallback: string): string {
     if (typeof error === "object" && error && "detail" in error) {
@@ -145,6 +215,125 @@ function extractApiErrorMessage(error: unknown, fallback: string): string {
         }
     }
     return fallback;
+}
+
+function readExternalLinks(raw: unknown): ExternalLinkRecord[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item) => {
+        if (typeof item !== "object" || item === null) return [];
+        const row = item as Record<string, unknown>;
+        const url = String(row.url ?? "").trim();
+        const label = String(row.label ?? "").trim();
+        if (!url || !label) return [];
+        return [{
+            id: String(row.id ?? createClientId("link")),
+            kind: String(row.kind ?? "other"),
+            label,
+            url,
+            notes: String(row.notes ?? ""),
+        }];
+    });
+}
+
+function serializeExternalLinks(links: ExternalLinkRecord[]) {
+    return links
+        .map((link) => ({
+            id: link.id,
+            kind: link.kind || "other",
+            label: link.label.trim(),
+            url: link.url.trim(),
+            notes: link.notes.trim(),
+        }))
+        .filter((link) => link.label && link.url);
+}
+
+function readEvidenceBundle(task: OrchestrationTask): EvidenceBundleDraft {
+    const raw = typeof task.metadata?.evidence_bundle === "object" && task.metadata.evidence_bundle !== null
+        ? task.metadata.evidence_bundle as Record<string, unknown>
+        : {};
+    const reviewerDecision = typeof raw.reviewer_decision === "object" && raw.reviewer_decision !== null
+        ? raw.reviewer_decision as Record<string, unknown>
+        : {};
+    return {
+        accepted_artifact_ids: Array.isArray(raw.accepted_artifact_ids)
+            ? raw.accepted_artifact_ids.map((item) => String(item)).filter(Boolean)
+            : [],
+        accepted_external_link_ids: Array.isArray(raw.accepted_external_link_ids)
+            ? raw.accepted_external_link_ids.map((item) => String(item)).filter(Boolean)
+            : [],
+        reviewer_decision_status: String(reviewerDecision.status ?? ""),
+        reviewer_decision_notes: String(reviewerDecision.notes ?? ""),
+        sync_summary: String(raw.sync_summary ?? ""),
+    };
+}
+
+function buildEvidenceBundlePayload(bundle: EvidenceBundleDraft) {
+    return {
+        accepted_artifact_ids: bundle.accepted_artifact_ids,
+        accepted_external_link_ids: bundle.accepted_external_link_ids,
+        reviewer_decision: {
+            status: bundle.reviewer_decision_status.trim(),
+            notes: bundle.reviewer_decision_notes.trim(),
+        },
+        sync_summary: bundle.sync_summary.trim(),
+    };
+}
+
+function readWorkspaceOverview(settings: Record<string, unknown> | undefined): WorkspaceOverviewDraft {
+    const raw = typeof settings?.workspace_overview === "object" && settings.workspace_overview !== null
+        ? settings.workspace_overview as Record<string, unknown>
+        : {};
+    return {
+        executive_summary: String(raw.executive_summary ?? ""),
+        current_focus: String(raw.current_focus ?? ""),
+        decision_focus: String(raw.decision_focus ?? ""),
+    };
+}
+
+function getAgentLabel(agentId: string | null | undefined, allAgents: Array<{ id: string; name: string }>) {
+    if (!agentId) return "Unassigned";
+    return allAgents.find((agent) => agent.id === agentId)?.name ?? agentId;
+}
+
+function buildTransitionOptions(args: {
+    task: OrchestrationTask;
+    acceptancePassed: boolean;
+    evidenceReadyForSync: boolean;
+    evidenceReadyForArchive: boolean;
+    hasIncompleteDependencies: boolean;
+}): TransitionOption[] {
+    const allowed = TASK_TRANSITION_MAP[args.task.status] ?? [];
+    return allowed.map((status) => {
+        if (status === "approved" || status === "completed") {
+            return {
+                status,
+                blocked: !args.acceptancePassed,
+                reason: args.acceptancePassed ? undefined : "Acceptance gate must pass first.",
+            };
+        }
+        if (status === "synced_to_github") {
+            return {
+                status,
+                blocked: !args.evidenceReadyForSync,
+                reason: args.evidenceReadyForSync ? undefined : "Evidence bundle needs accepted artifacts, links, reviewer decision, sync summary.",
+            };
+        }
+        if (status === "archived") {
+            return {
+                status,
+                blocked: !args.evidenceReadyForArchive,
+                reason: args.evidenceReadyForArchive ? undefined : "Archive needs final evidence bundle or prior GitHub sync.",
+            };
+        }
+        if (status === "in_progress") {
+            return {
+                status,
+                blocked: args.hasIncompleteDependencies,
+                reason: args.hasIncompleteDependencies ? "Task still blocked by incomplete dependencies." : undefined,
+            };
+        }
+        return { status };
+    });
 }
 
 type PolicyRoutingRule = {
@@ -292,6 +481,83 @@ function MilestoneTimeline({ milestones }: { milestones: Array<{ id: string; tit
                 </Box>
             </Box>
         </Box>
+    );
+}
+
+function ExternalLinksEditor({
+    links,
+    onChange,
+    compact = false,
+}: {
+    links: ExternalLinkRecord[];
+    onChange: (links: ExternalLinkRecord[]) => void;
+    compact?: boolean;
+}) {
+    return (
+        <Stack spacing={1}>
+            {links.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                    No external links yet.
+                </Typography>
+            ) : null}
+            {links.map((link, index) => (
+                <Paper key={link.id} variant="outlined" sx={{ p: compact ? 1 : 1.25, borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+                            <TextField
+                                select
+                                size="small"
+                                label="Type"
+                                value={link.kind}
+                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, kind: event.target.value } : item))}
+                                sx={{ minWidth: 120 }}
+                            >
+                                {EXTERNAL_LINK_KIND_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                size="small"
+                                label="Label"
+                                value={link.label}
+                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
+                                fullWidth
+                            />
+                            <Button
+                                size="small"
+                                color="error"
+                                onClick={() => onChange(links.filter((item) => item.id !== link.id))}
+                            >
+                                Remove
+                            </Button>
+                        </Stack>
+                        <TextField
+                            size="small"
+                            label="URL"
+                            value={link.url}
+                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))}
+                            fullWidth
+                        />
+                        <TextField
+                            size="small"
+                            label="Notes"
+                            value={link.notes}
+                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item))}
+                            multiline
+                            minRows={compact ? 2 : 1}
+                            fullWidth
+                        />
+                    </Stack>
+                </Paper>
+            ))}
+            <Button
+                size="small"
+                variant="outlined"
+                onClick={() => onChange([...links, { id: createClientId("link"), kind: "doc", label: "", url: "", notes: "" }])}
+            >
+                Add link
+            </Button>
+        </Stack>
     );
 }
 
@@ -518,6 +784,191 @@ function ArtifactPanel({ taskId }: { taskId: string }) {
     );
 }
 
+function TaskMemoryInspector({
+    projectId,
+    taskId,
+    lastRunId,
+}: {
+    projectId: string;
+    taskId: string;
+    lastRunId?: string;
+}) {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [sharedDraft, setSharedDraft] = useState("");
+    const [privateJsonDraft, setPrivateJsonDraft] = useState("{}");
+
+    const { data: episodic } = useQuery({
+        queryKey: ["orchestration", "task-episodic", projectId, taskId],
+        queryFn: () => searchEpisodicMemory(projectId, { task_id: taskId, limit: 40 }),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: semanticRows = [] } = useQuery({
+        queryKey: ["orchestration", "task-semantic", projectId, taskId],
+        queryFn: () => listSemanticMemory(projectId, { source_task_id: taskId, limit: 50 }),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: coord } = useQuery({
+        queryKey: ["orchestration", "task-coord", projectId, taskId],
+        queryFn: () => getTaskMemoryCoordination(projectId, taskId),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: wm } = useQuery({
+        queryKey: ["orchestration", "run-wm", lastRunId],
+        queryFn: () => getRunWorkingMemory(lastRunId!),
+        enabled: Boolean(lastRunId),
+    });
+
+    useEffect(() => {
+        if (!coord) return;
+        setSharedDraft(coord.shared ?? "");
+        try {
+            setPrivateJsonDraft(JSON.stringify(coord.private ?? {}, null, 2));
+        } catch {
+            setPrivateJsonDraft("{}");
+        }
+    }, [coord]);
+
+    const patchCoordMut = useMutation({
+        mutationFn: async () => {
+            let priv: Record<string, string> = {};
+            try {
+                const parsed = JSON.parse(privateJsonDraft) as unknown;
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    priv = Object.fromEntries(
+                        Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
+                    );
+                }
+            } catch {
+                throw new Error("INVALID_JSON");
+            }
+            return patchTaskMemoryCoordination(projectId, taskId, { shared: sharedDraft, private: priv });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "task-coord", projectId, taskId] });
+            showToast({ message: "Task memory coordination saved.", severity: "success" });
+        },
+        onError: (error: unknown) => {
+            const msg =
+                error instanceof Error && error.message === "INVALID_JSON"
+                    ? "Private scratchpad JSON is invalid."
+                    : extractApiErrorMessage(error, "Could not save coordination.");
+            showToast({ message: msg, severity: "error" });
+        },
+    });
+
+    const hits = episodic?.hits ?? [];
+
+    return (
+        <Stack spacing={1.25} sx={{ mt: 1 }}>
+            <Typography variant="subtitle2">Task memory</Typography>
+            <Typography variant="caption" color="text.secondary">
+                Working snapshot from the latest run (if any). Blackboard = shared coordination; private JSON = per-agent
+                scratchpad keys.
+            </Typography>
+            {lastRunId ? (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Button size="small" variant="outlined" onClick={() => navigate(`/runs/${lastRunId}`)}>
+                        Open run {lastRunId.slice(0, 8)}…
+                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                        Updated {wm ? formatDateTime(wm.updated_at) : "…"}
+                    </Typography>
+                </Stack>
+            ) : (
+                <Typography variant="caption" color="text.secondary">
+                    No run yet — start a run to populate working memory.
+                </Typography>
+            )}
+            {wm ? (
+                <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, maxHeight: 160, overflow: "auto" }}>
+                    <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
+                        {JSON.stringify(
+                            {
+                                objective: wm.objective,
+                                accepted_plan: wm.accepted_plan,
+                                latest_findings: wm.latest_findings,
+                                temp_notes: wm.temp_notes,
+                                open_questions: wm.open_questions,
+                            },
+                            null,
+                            2,
+                        )}
+                    </Typography>
+                </Paper>
+            ) : null}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Blackboard (shared)
+            </Typography>
+            <TextField
+                size="small"
+                multiline
+                minRows={2}
+                value={sharedDraft}
+                onChange={(e) => setSharedDraft(e.target.value)}
+                fullWidth
+                placeholder="Visible to all agents on this task…"
+            />
+            <Typography variant="caption" color="text.secondary">
+                Private scratchpad (JSON object: agent_id → text)
+            </Typography>
+            <TextField
+                size="small"
+                multiline
+                minRows={3}
+                value={privateJsonDraft}
+                onChange={(e) => setPrivateJsonDraft(e.target.value)}
+                fullWidth
+            />
+            <Button size="small" variant="contained" disabled={patchCoordMut.isPending} onClick={() => patchCoordMut.mutate()}>
+                Save blackboard / scratchpad
+            </Button>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="caption" color="text.secondary">
+                Episodic timeline (indexed rows for this task)
+            </Typography>
+            <Stack spacing={0.5} sx={{ maxHeight: 180, overflow: "auto" }}>
+                {hits.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                        No episodic hits yet.
+                    </Typography>
+                ) : (
+                    hits.slice(0, 20).map((hit, i) => (
+                        <Paper key={`${String(hit.kind)}-${String(hit.id)}-${i}`} variant="outlined" sx={{ p: 0.75, borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                                {String(hit.kind)} · {formatDateTime(String(hit.created_at))}
+                            </Typography>
+                            <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
+                                {String(hit.snippet ?? "").slice(0, 280)}
+                            </Typography>
+                        </Paper>
+                    ))
+                )}
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Promoted semantic entries (source_task_id)
+            </Typography>
+            <Stack spacing={0.5} sx={{ maxHeight: 140, overflow: "auto" }}>
+                {semanticRows.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                        None linked to this task.
+                    </Typography>
+                ) : (
+                    semanticRows.map((row) => (
+                        <Typography key={row.id} variant="caption" sx={{ display: "block" }}>
+                            <Link component={RouterLink} to={`/agent-projects/${projectId}/memory`} underline="hover">
+                                [{row.entry_type}]
+                            </Link>{" "}
+                            {row.title} · {(row.confidence * 100).toFixed(0)}%
+                        </Typography>
+                    ))
+                )}
+            </Stack>
+        </Stack>
+    );
+}
+
 // ── Kanban Board ─────────────────────────────────────────────
 
 function KanbanBoard({
@@ -549,27 +1000,20 @@ function KanbanBoard({
 }) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const [dragging, setDragging] = useState<string | null>(null);
     const [expandedTask, setExpandedTask] = useState<string | null>(null);
+    const [taskLinkDrafts, setTaskLinkDrafts] = useState<Record<string, ExternalLinkRecord[]>>({});
+    const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, EvidenceBundleDraft>>({});
+    const [nextStatusByTask, setNextStatusByTask] = useState<Record<string, string>>({});
 
-    const moveMutation = useMutation({
-        mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
-            updateOrchestrationTask(projectId, taskId, { status }),
+    const taskUpdateMutation = useMutation({
+        mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, payload),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "task-exec", expandedTask] });
         },
         onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Task status update failed."), severity: "error" });
-        },
-    });
-    const assignMutation = useMutation({
-        mutationFn: ({
-            taskId,
-            assigned_agent_id,
-        }: { taskId: string; assigned_agent_id: string | null }) =>
-            updateOrchestrationTask(projectId, taskId, { assigned_agent_id }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
+            showToast({ message: extractApiErrorMessage(error, "Task update failed."), severity: "error" });
         },
     });
     const acceptanceConfigMutation = useMutation({
@@ -628,45 +1072,37 @@ function KanbanBoard({
         });
     }
 
-    function handleDragStart(e: React.DragEvent, taskId: string) {
-        e.dataTransfer.setData("taskId", taskId);
-        setDragging(taskId);
-    }
-
-    function handleDrop(e: React.DragEvent, status: string) {
-        e.preventDefault();
-        const taskId = e.dataTransfer.getData("taskId");
-        if (taskId && tasks.find((t) => t.id === taskId)?.status !== status) {
-            moveMutation.mutate({ taskId, status });
-        }
-        setDragging(null);
-    }
-
-    function handleDragOver(e: React.DragEvent) {
-        e.preventDefault();
-    }
-
     const tasksByStatus = useMemo(() => {
         const map: Record<string, OrchestrationTask[]> = {};
-        for (const col of KANBAN_COLUMNS) map[col.status] = [];
+        for (const col of MAIN_KANBAN_COLUMNS) map[col.status] = [];
         for (const task of tasks) {
-            const col = KANBAN_COLUMNS.find((c) => c.status === task.status);
+            const col = MAIN_KANBAN_COLUMNS.find((c) => c.status === task.status);
             if (col) map[col.status].push(task);
-            else {
-                if (!map["backlog"]) map["backlog"] = [];
-                map["backlog"].push(task);
-            }
         }
         return map;
     }, [tasks]);
 
+    const exceptionTasks = useMemo(
+        () => EXCEPTION_TASK_COLUMNS.map((column) => ({ ...column, tasks: tasks.filter((task) => task.status === column.status) })),
+        [tasks],
+    );
+
     return (
-        <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1, minHeight: 400 }}>
-            {KANBAN_COLUMNS.map((col) => (
+        <Stack spacing={2}>
+            {exceptionTasks.some((group) => group.tasks.length > 0) ? (
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Off-path tasks</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {exceptionTasks.map((group) => group.tasks.length > 0 ? (
+                            <Chip key={group.status} label={`${group.label} · ${group.tasks.length}`} color={group.color} variant="outlined" />
+                        ) : null)}
+                    </Stack>
+                </Paper>
+            ) : null}
+            <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1, minHeight: 400 }}>
+            {MAIN_KANBAN_COLUMNS.map((col) => (
                 <Box
                     key={col.status}
-                    onDrop={(e) => handleDrop(e, col.status)}
-                    onDragOver={handleDragOver}
                     sx={(theme) => ({
                         minWidth: 260,
                         flex: "0 0 260px",
@@ -687,21 +1123,42 @@ function KanbanBoard({
                             const lastRun = lastRunByTaskId[task.id];
                             const runMeta = readOrchestrationSelectionMeta(lastRun);
                             const acceptanceConfig = readAcceptanceCheckerConfig(task);
+                            const taskLinks = taskLinkDrafts[task.id] ?? readExternalLinks(task.metadata?.external_links);
+                            const evidenceDraft = evidenceDrafts[task.id] ?? readEvidenceBundle(task);
+                            const dependencyTasks = tasks.filter((candidate) => (task.dependency_ids ?? []).includes(candidate.id));
+                            const incompleteDependencies = dependencyTasks.filter((candidate) => !["approved", "completed", "synced_to_github", "archived"].includes(candidate.status));
+                            const acceptancePassed = Boolean(expandedExecSnapshot?.acceptance_summary?.passed);
+                            const acceptedArtifactsCount = evidenceDraft.accepted_artifact_ids.filter((artifactId) => expandedArtifacts.some((artifact) => artifact.id === artifactId)).length;
+                            const acceptedLinksCount = evidenceDraft.accepted_external_link_ids.filter((linkId) => taskLinks.some((link) => link.id === linkId)).length;
+                            const evidenceReadyForSync =
+                                acceptedArtifactsCount > 0 &&
+                                acceptedLinksCount > 0 &&
+                                Boolean(evidenceDraft.reviewer_decision_status) &&
+                                Boolean(evidenceDraft.sync_summary.trim());
+                            const evidenceReadyForArchive =
+                                (acceptedArtifactsCount > 0 &&
+                                    acceptedLinksCount > 0 &&
+                                    Boolean(evidenceDraft.reviewer_decision_status) &&
+                                    (Boolean(evidenceDraft.sync_summary.trim()) || task.status === "synced_to_github"))
+                                || task.status === "archived";
+                            const transitionOptions = buildTransitionOptions({
+                                task,
+                                acceptancePassed,
+                                evidenceReadyForSync,
+                                evidenceReadyForArchive,
+                                hasIncompleteDependencies: incompleteDependencies.length > 0,
+                            });
+                            const selectedNextStatus = nextStatusByTask[task.id] ?? transitionOptions[0]?.status ?? "";
                             const workerTip =
                                 runMeta.worker_agent_rationale
                                 || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
                             return (
                                 <Paper
                                     key={task.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, task.id)}
-                                    onDragEnd={() => setDragging(null)}
                                     sx={(theme) => ({
                                         position: "relative",
                                         p: 1.5,
                                         borderRadius: 3,
-                                        cursor: "grab",
-                                        opacity: dragging === task.id ? 0.4 : 1,
                                         border: `1px solid ${theme.palette.divider}`,
                                         "&:hover": { borderColor: theme.palette.primary.main },
                                     })}
@@ -714,9 +1171,9 @@ function KanbanBoard({
                                             event.stopPropagation();
                                             handleDeleteTask(task.id, task.title);
                                         }}
-                                        disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
-                                        sx={{
-                                            position: "absolute",
+                                            disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
+                                            sx={{
+                                                position: "absolute",
                                             top: 4,
                                             right: 4,
                                             color: "text.secondary",
@@ -730,9 +1187,12 @@ function KanbanBoard({
                                         <Chip label={task.priority} size="small" variant="outlined" />
                                         {agent && (
                                             <Tooltip title={workerTip}>
-                                                <Chip label={agent.name} size="small" color="secondary" variant="outlined" />
+                                                <Chip label={`Owner · ${agent.name}`} size="small" color="secondary" variant="outlined" />
                                             </Tooltip>
                                         )}
+                                        {task.reviewer_agent_id ? (
+                                            <Chip label={`Reviewer · ${getAgentLabel(task.reviewer_agent_id, allAgents)}`} size="small" variant="outlined" />
+                                        ) : null}
                                         {Boolean((task.result_payload.github_pr as Record<string, unknown> | undefined)?.number) && (
                                             <Chip
                                                 label={`PR #${String((task.result_payload.github_pr as Record<string, unknown>).number)} · ${String(((task.result_payload.github_pr as Record<string, unknown>).state as string | undefined) || "open")}`}
@@ -782,46 +1242,134 @@ function KanbanBoard({
                                     {isExpanded && (
                                         <Box sx={{ mt: 1.5 }}>
                                             <Divider sx={{ mb: 1 }} />
+                                            <Stack spacing={1.25}>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Owner agent"
+                                                    value={task.assigned_agent_id ?? ""}
+                                                    onChange={(event) => taskUpdateMutation.mutate({
+                                                        taskId: task.id,
+                                                        payload: { assigned_agent_id: event.target.value || null },
+                                                    })}
+                                                    fullWidth
+                                                >
+                                                    <MenuItem value="">Unassigned</MenuItem>
+                                                    {allAgents.map((currentAgent) => (
+                                                        <MenuItem key={currentAgent.id} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reviewer agent"
+                                                    value={task.reviewer_agent_id ?? ""}
+                                                    onChange={(event) => taskUpdateMutation.mutate({
+                                                        taskId: task.id,
+                                                        payload: { reviewer_agent_id: event.target.value || null },
+                                                    })}
+                                                    fullWidth
+                                                >
+                                                    <MenuItem value="">None</MenuItem>
+                                                    {allAgents.map((currentAgent) => (
+                                                        <MenuItem key={`review-${currentAgent.id}`} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    SelectProps={{ multiple: true }}
+                                                    size="small"
+                                                    label="Blocked by"
+                                                    value={task.dependency_ids ?? []}
+                                                    onChange={(event) => {
+                                                        const nextValue = event.target.value;
+                                                        taskUpdateMutation.mutate({
+                                                            taskId: task.id,
+                                                            payload: {
+                                                                dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                            },
+                                                        });
+                                                    }}
+                                                    helperText="Main task flow dependencies. DAG drawer no longer required for this."
+                                                    fullWidth
+                                                >
+                                                    {tasks.filter((candidate) => candidate.id !== task.id).map((candidate) => (
+                                                        <MenuItem key={`dep-${candidate.id}`} value={candidate.id}>
+                                                            {candidate.title} · {humanizeKey(candidate.status)}
+                                                        </MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                {dependencyTasks.length > 0 ? (
+                                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                        {dependencyTasks.map((dependencyTask) => (
+                                                            <Chip
+                                                                key={dependencyTask.id}
+                                                                label={`${dependencyTask.title} · ${humanizeKey(dependencyTask.status)}`}
+                                                                size="small"
+                                                                color={incompleteDependencies.some((item) => item.id === dependencyTask.id) ? "warning" : "success"}
+                                                                variant="outlined"
+                                                            />
+                                                        ))}
+                                                    </Stack>
+                                                ) : null}
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Execution mode"
+                                                    value={taskRunModes[task.id] ?? "single_agent"}
+                                                    onChange={(event) => onModeChange(task.id, event.target.value as ExecutionMode)}
+                                                    fullWidth
+                                                >
+                                                    <MenuItem value="single_agent">Single agent: fast, cheap</MenuItem>
+                                                    <MenuItem value="manager_worker">Managed team: manager routes work</MenuItem>
+                                                    <MenuItem value="debate">Debate: two agents propose, moderator resolves</MenuItem>
+                                                </TextField>
+                                                <Button
+                                                    size="small"
+                                                    variant={taskPrModes[task.id] ? "contained" : "outlined"}
+                                                    onClick={() => onPrModeChange(task.id, !(taskPrModes[task.id] ?? false))}
+                                                >
+                                                    {taskPrModes[task.id] ? "PR generation on" : "Generate PR"}
+                                                </Button>
+                                            </Stack>
                                             <TextField
-                                                select
                                                 size="small"
-                                                label="Assigned worker"
-                                                value={task.assigned_agent_id ?? ""}
-                                                onChange={(event) => assignMutation.mutate({
-                                                    taskId: task.id,
-                                                    assigned_agent_id: event.target.value || null,
-                                                })}
+                                                select
+                                                label="Next valid status"
+                                                value={selectedNextStatus}
+                                                onChange={(event) => setNextStatusByTask((current) => ({ ...current, [task.id]: event.target.value }))}
                                                 fullWidth
-                                                sx={{ mb: 1 }}
+                                                sx={{ mt: 1.25 }}
                                             >
-                                                <MenuItem value="">Unassigned</MenuItem>
-                                                {allAgents.map((agent) => (
-                                                    <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                                {transitionOptions.map((option) => (
+                                                    <MenuItem key={`${task.id}-${option.status}`} value={option.status} disabled={option.blocked}>
+                                                        {humanizeKey(option.status)}{option.reason ? ` — ${option.reason}` : ""}
+                                                    </MenuItem>
                                                 ))}
                                             </TextField>
-                                            <TextField
-                                                select
-                                                size="small"
-                                                label="Execution mode"
-                                                value={taskRunModes[task.id] ?? "single_agent"}
-                                                onChange={(event) => onModeChange(task.id, event.target.value as ExecutionMode)}
-                                                fullWidth
-                                                sx={{ mb: 1 }}
-                                            >
-                                                <MenuItem value="single_agent">Single agent: fast, cheap</MenuItem>
-                                                <MenuItem value="manager_worker">Managed team: manager routes work</MenuItem>
-                                                <MenuItem value="debate">Debate: two agents propose, moderator resolves</MenuItem>
-                                            </TextField>
+                                            {transitionOptions.filter((option) => option.blocked).map((option) => (
+                                                <Alert key={`${task.id}-${option.status}-blocked`} severity="warning">
+                                                    {humanizeKey(option.status)} blocked: {option.reason}
+                                                </Alert>
+                                            ))}
                                             <Button
                                                 size="small"
-                                                variant={taskPrModes[task.id] ? "contained" : "outlined"}
-                                                onClick={() => onPrModeChange(task.id, !(taskPrModes[task.id] ?? false))}
-                                                sx={{ mb: 1 }}
+                                                variant="contained"
+                                                disabled={!selectedNextStatus || transitionOptions.find((option) => option.status === selectedNextStatus)?.blocked}
+                                                onClick={() => taskUpdateMutation.mutate({
+                                                    taskId: task.id,
+                                                    payload: { status: selectedNextStatus },
+                                                })}
                                             >
-                                                {taskPrModes[task.id] ? "PR generation on" : "Generate PR"}
+                                                Apply transition
                                             </Button>
+                                            <TaskMemoryInspector
+                                                projectId={projectId}
+                                                taskId={task.id}
+                                                lastRunId={lastRun?.id}
+                                            />
                                             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                Task timeline (comments + GitHub sync)
+                                                Task timeline (comments + approvals + GitHub sync)
                                             </Typography>
                                             <Stack spacing={0.75} sx={{ mb: 1.5, maxHeight: 220, overflow: "auto" }}>
                                                 {timeline.length === 0 ? (
@@ -946,6 +1494,157 @@ function KanbanBoard({
                                                         {expandedExecSnapshot.acceptance_summary.passed ? "Acceptance gate currently passes." : "Acceptance gate currently fails."}
                                                     </Alert>
                                                 ) : null}
+                                                {Array.isArray(expandedExecSnapshot?.acceptance_summary?.checks) ? (
+                                                    expandedExecSnapshot.acceptance_summary.checks.map((check) => (
+                                                        <Typography key={`${task.id}-${String(check.name)}`} variant="caption" color="text.secondary">
+                                                            {String(check.name)}: {String(check.detail ?? check.passed)}
+                                                        </Typography>
+                                                    ))
+                                                ) : null}
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                                External links
+                                            </Typography>
+                                            <ExternalLinksEditor
+                                                links={taskLinks}
+                                                onChange={(links) => setTaskLinkDrafts((current) => ({ ...current, [task.id]: links }))}
+                                                compact
+                                            />
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{ mt: 1 }}
+                                                onClick={() => taskUpdateMutation.mutate({
+                                                    taskId: task.id,
+                                                    payload: {
+                                                        metadata: {
+                                                            ...task.metadata,
+                                                            external_links: serializeExternalLinks(taskLinks),
+                                                            evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                                        },
+                                                    },
+                                                })}
+                                            >
+                                                Save links
+                                            </Button>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, mt: 1 }}>
+                                                Final evidence bundle
+                                            </Typography>
+                                            <Stack spacing={1} sx={{ mb: 1.5 }}>
+                                                <TextField
+                                                    select
+                                                    SelectProps={{ multiple: true }}
+                                                    size="small"
+                                                    label="Accepted artifacts"
+                                                    value={evidenceDraft.accepted_artifact_ids}
+                                                    onChange={(event) => {
+                                                        const nextValue = event.target.value;
+                                                        setEvidenceDrafts((current) => ({
+                                                            ...current,
+                                                            [task.id]: {
+                                                                ...evidenceDraft,
+                                                                accepted_artifact_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                            },
+                                                        }));
+                                                    }}
+                                                    fullWidth
+                                                >
+                                                    {expandedArtifacts.map((artifact) => (
+                                                        <MenuItem key={artifact.id} value={artifact.id}>{artifact.title} · {artifact.kind}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    SelectProps={{ multiple: true }}
+                                                    size="small"
+                                                    label="Accepted external links"
+                                                    value={evidenceDraft.accepted_external_link_ids}
+                                                    onChange={(event) => {
+                                                        const nextValue = event.target.value;
+                                                        setEvidenceDrafts((current) => ({
+                                                            ...current,
+                                                            [task.id]: {
+                                                                ...evidenceDraft,
+                                                                accepted_external_link_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                            },
+                                                        }));
+                                                    }}
+                                                    fullWidth
+                                                >
+                                                    {taskLinks.map((link) => (
+                                                        <MenuItem key={`accepted-link-${link.id}`} value={link.id}>{link.label} · {humanizeKey(link.kind)}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reviewer decision"
+                                                    value={evidenceDraft.reviewer_decision_status}
+                                                    onChange={(event) => setEvidenceDrafts((current) => ({
+                                                        ...current,
+                                                        [task.id]: {
+                                                            ...evidenceDraft,
+                                                            reviewer_decision_status: event.target.value,
+                                                        },
+                                                    }))}
+                                                    fullWidth
+                                                >
+                                                    <MenuItem value="">Not recorded</MenuItem>
+                                                    <MenuItem value="approved">Approved</MenuItem>
+                                                    <MenuItem value="changes_requested">Changes requested</MenuItem>
+                                                    <MenuItem value="rejected">Rejected</MenuItem>
+                                                </TextField>
+                                                <TextField
+                                                    size="small"
+                                                    label="Reviewer notes"
+                                                    value={evidenceDraft.reviewer_decision_notes}
+                                                    onChange={(event) => setEvidenceDrafts((current) => ({
+                                                        ...current,
+                                                        [task.id]: {
+                                                            ...evidenceDraft,
+                                                            reviewer_decision_notes: event.target.value,
+                                                        },
+                                                    }))}
+                                                    multiline
+                                                    minRows={2}
+                                                    fullWidth
+                                                />
+                                                <TextField
+                                                    size="small"
+                                                    label="Sync summary"
+                                                    value={evidenceDraft.sync_summary}
+                                                    onChange={(event) => setEvidenceDrafts((current) => ({
+                                                        ...current,
+                                                        [task.id]: {
+                                                            ...evidenceDraft,
+                                                            sync_summary: event.target.value,
+                                                        },
+                                                    }))}
+                                                    multiline
+                                                    minRows={2}
+                                                    helperText="Required before `synced_to_github`; reused for archive notes."
+                                                    fullWidth
+                                                />
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    <Chip label={evidenceReadyForSync ? "Ready for sync" : "Sync evidence incomplete"} size="small" color={evidenceReadyForSync ? "success" : "warning"} />
+                                                    <Chip label={evidenceReadyForArchive ? "Ready for archive" : "Archive evidence incomplete"} size="small" color={evidenceReadyForArchive ? "success" : "warning"} />
+                                                </Stack>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={() => taskUpdateMutation.mutate({
+                                                        taskId: task.id,
+                                                        payload: {
+                                                            metadata: {
+                                                                ...task.metadata,
+                                                                external_links: serializeExternalLinks(taskLinks),
+                                                                evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                                            },
+                                                        },
+                                                    })}
+                                                >
+                                                    Save evidence bundle
+                                                </Button>
                                             </Stack>
                                             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                                                 What changed since last run
@@ -1006,7 +1705,8 @@ function KanbanBoard({
                     </Stack>
                 </Box>
             ))}
-        </Box>
+            </Box>
+        </Stack>
     );
 }
 
@@ -1024,10 +1724,12 @@ function DagView({
     const theme = useTheme();
     const STATUS_COLORS: Record<string, string> = {
         completed: "#4caf50",
+        approved: "#2e7d32",
         synced_to_github: "#4caf50",
         failed: "#f44336",
         in_progress: "#2196f3",
         queued: "#ff9800",
+        planned: "#607d8b",
         blocked: "#9c27b0",
         backlog: "#9e9e9e",
         needs_review: "#ff9800",
@@ -1073,7 +1775,7 @@ function DagView({
     }, [tasks, positions, taskIndex]);
 
     if (tasks.length === 0) {
-        return <EmptyState icon={<DagIcon />} title="No tasks yet" description="Create tasks to see the dependency graph." />;
+        return <EmptyState icon={<DagIcon />} title="No tasks yet" description="Add tasks to see the dependency graph." />;
     }
 
     return (
@@ -1148,10 +1850,26 @@ export default function OrchestrationProjectDetailPage() {
         title: "",
         description: "",
         priority: "normal",
+        status: "queued",
         acceptance_criteria: "",
+        assigned_agent_id: "",
+        reviewer_agent_id: "",
+        dependency_ids: [] as string[],
         due_date: "",
         response_sla_hours: "",
     });
+    const [projectOverviewForm, setProjectOverviewForm] = useState<WorkspaceOverviewDraft>({
+        executive_summary: "",
+        current_focus: "",
+        decision_focus: "",
+    });
+    const [projectOverviewTouched, setProjectOverviewTouched] = useState(false);
+    const [projectGoalsDraft, setProjectGoalsDraft] = useState("");
+    const [projectGoalsTouched, setProjectGoalsTouched] = useState(false);
+    const [projectExternalLinks, setProjectExternalLinks] = useState<ExternalLinkRecord[]>([]);
+    const [projectExternalLinksTouched, setProjectExternalLinksTouched] = useState(false);
+    const [taskOwnerTouched, setTaskOwnerTouched] = useState(false);
+    const [taskReviewerTouched, setTaskReviewerTouched] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string>("");
     const [selectedAgentId, setSelectedAgentId] = useState("");
     const [brainstormForm, setBrainstormForm] = useState({
@@ -1577,6 +2295,27 @@ export default function OrchestrationProjectDetailPage() {
         episodic_retention_days: String(projectMemorySettings?.episodic_retention_days ?? 90),
         deep_recall_mode: Boolean(projectMemorySettings?.deep_recall_mode),
     };
+    const workspaceOverviewBase = readWorkspaceOverview(project?.settings);
+    const effectiveWorkspaceOverview = projectOverviewTouched ? projectOverviewForm : workspaceOverviewBase;
+    const effectiveProjectGoals = projectGoalsTouched ? projectGoalsDraft : (project?.goals_markdown ?? "");
+    const effectiveProjectExternalLinks = projectExternalLinksTouched
+        ? projectExternalLinks
+        : readExternalLinks(project?.settings?.external_links);
+    const suggestedTaskOwnerId = useMemo(() => {
+        const reviewerIds = new Set(resolvedProjectTeamSettings.reviewer_agent_ids);
+        const candidateMembers = projectAgentProfiles.filter((agent) => !reviewerIds.has(agent.id));
+        const workerOnly = candidateMembers.filter((agent) => agent.id !== resolvedProjectTeamSettings.manager_agent_id);
+        if (workerOnly.length === 1) return workerOnly[0].id;
+        if (resolvedProjectTeamSettings.manager_agent_id) return resolvedProjectTeamSettings.manager_agent_id;
+        return workerOnly[0]?.id ?? candidateMembers[0]?.id ?? "";
+    }, [projectAgentProfiles, resolvedProjectTeamSettings.manager_agent_id, resolvedProjectTeamSettings.reviewer_agent_ids]);
+    const suggestedTaskReviewerId = useMemo(() => {
+        const owner = projectAgentProfiles.find((agent) => agent.id === (taskForm.assigned_agent_id || suggestedTaskOwnerId));
+        if (owner?.reviewer_agent_id) return owner.reviewer_agent_id;
+        return resolvedProjectTeamSettings.reviewer_agent_ids[0] ?? "";
+    }, [projectAgentProfiles, resolvedProjectTeamSettings.reviewer_agent_ids, suggestedTaskOwnerId, taskForm.assigned_agent_id]);
+    const effectiveTaskOwnerId = taskOwnerTouched ? taskForm.assigned_agent_id : (taskForm.assigned_agent_id || suggestedTaskOwnerId);
+    const effectiveTaskReviewerId = taskReviewerTouched ? taskForm.reviewer_agent_id : (taskForm.reviewer_agent_id || suggestedTaskReviewerId);
     const memoryIngestCounts = useMemo(() => {
         const counts = { pending: 0, running: 0, completed: 0, failed: 0 };
         for (const job of memoryIngestJobs) {
@@ -1607,10 +2346,16 @@ export default function OrchestrationProjectDetailPage() {
                 title: "",
                 description: "",
                 priority: "normal",
+                status: "queued",
                 acceptance_criteria: "",
+                assigned_agent_id: "",
+                reviewer_agent_id: "",
+                dependency_ids: [],
                 due_date: "",
                 response_sla_hours: "",
             });
+            setTaskOwnerTouched(false);
+            setTaskReviewerTouched(false);
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "tasks"] });
             showToast({ message: "Task created.", severity: "success" });
         },
@@ -1963,7 +2708,7 @@ export default function OrchestrationProjectDetailPage() {
     return (
         <PageShell maxWidth="xl">
             <PageHeader
-                eyebrow="Project"
+                eyebrow="Agent Project"
                 title={project.name}
                 description={project.description || "No project description yet."}
                 meta={
@@ -2005,8 +2750,71 @@ export default function OrchestrationProjectDetailPage() {
             {tab === "overview" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 1fr" } }}>
                     <Stack spacing={2}>
-                        <SectionCard title="Goals" description="High-level objectives and context for prompt assembly.">
-                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{project.goals_markdown || "No goals recorded yet."}</Typography>
+                        <SectionCard title="Workspace overview" description="Editable goals plus top-level workspace summary tying milestones, repos, knowledge, and decisions together.">
+                            <Stack spacing={1.5}>
+                                <TextField
+                                    label="Goals"
+                                    value={effectiveProjectGoals}
+                                    onChange={(event) => {
+                                        setProjectGoalsTouched(true);
+                                        setProjectGoalsDraft(event.target.value);
+                                    }}
+                                    multiline
+                                    minRows={4}
+                                    helperText="Project goals shown to agents during planning and execution."
+                                />
+                                <TextField
+                                    label="Executive summary"
+                                    value={effectiveWorkspaceOverview.executive_summary}
+                                    onChange={(event) => {
+                                        setProjectOverviewTouched(true);
+                                        setProjectOverviewForm((current) => ({ ...current, executive_summary: event.target.value }));
+                                    }}
+                                    multiline
+                                    minRows={3}
+                                />
+                                <TextField
+                                    label="Current focus"
+                                    value={effectiveWorkspaceOverview.current_focus}
+                                    onChange={(event) => {
+                                        setProjectOverviewTouched(true);
+                                        setProjectOverviewForm((current) => ({ ...current, current_focus: event.target.value }));
+                                    }}
+                                    multiline
+                                    minRows={2}
+                                />
+                                <TextField
+                                    label="Decision / knowledge focus"
+                                    value={effectiveWorkspaceOverview.decision_focus}
+                                    onChange={(event) => {
+                                        setProjectOverviewTouched(true);
+                                        setProjectOverviewForm((current) => ({ ...current, decision_focus: event.target.value }));
+                                    }}
+                                    multiline
+                                    minRows={2}
+                                />
+                                <ExternalLinksEditor
+                                    links={effectiveProjectExternalLinks}
+                                    onChange={(links) => {
+                                        setProjectExternalLinksTouched(true);
+                                        setProjectExternalLinks(links);
+                                    }}
+                                />
+                                <Button
+                                    variant="contained"
+                                    onClick={() => saveProjectSettingsMutation.mutate({
+                                        goals_markdown: effectiveProjectGoals,
+                                        settings: {
+                                            ...(project.settings ?? {}),
+                                            workspace_overview: effectiveWorkspaceOverview,
+                                            external_links: serializeExternalLinks(effectiveProjectExternalLinks),
+                                        },
+                                    })}
+                                    disabled={saveProjectSettingsMutation.isPending}
+                                >
+                                    Save workspace overview
+                                </Button>
+                            </Stack>
                         </SectionCard>
                         <SectionCard
                             title={`Milestones ${milestones.length > 0 ? `(${milestoneProgress}% complete)` : ""}`}
@@ -2073,6 +2881,30 @@ export default function OrchestrationProjectDetailPage() {
                                 <Chip label={project.status} color="primary" variant="outlined" />
                                 <Typography variant="body2" color="text.secondary">Memory scope: {project.memory_scope}</Typography>
                                 <Typography variant="body2" color="text.secondary">{project.knowledge_summary || "No knowledge summary yet."}</Typography>
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                    <Chip label={`${projectRepositories.length} repos`} size="small" variant="outlined" />
+                                    <Chip label={`${docs.length} docs`} size="small" variant="outlined" />
+                                    <Chip label={`${decisions.length} decisions`} size="small" variant="outlined" />
+                                    <Chip label={`${memoryEntries.length} memory entries`} size="small" variant="outlined" />
+                                </Stack>
+                                {effectiveWorkspaceOverview.executive_summary ? (
+                                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                        <Typography variant="subtitle2">Workspace summary</Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                            {effectiveWorkspaceOverview.executive_summary}
+                                        </Typography>
+                                        {effectiveWorkspaceOverview.current_focus ? (
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                                                Current focus: {effectiveWorkspaceOverview.current_focus}
+                                            </Typography>
+                                        ) : null}
+                                        {effectiveWorkspaceOverview.decision_focus ? (
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                                Decision / knowledge focus: {effectiveWorkspaceOverview.decision_focus}
+                                            </Typography>
+                                        ) : null}
+                                    </Paper>
+                                ) : null}
                                 <Divider />
                                 <Typography variant="subtitle2">Execution policy</Typography>
                                 <Typography variant="body2" color="text.secondary">
@@ -2206,12 +3038,57 @@ export default function OrchestrationProjectDetailPage() {
             {/* ── Board ── */}
             {tab === "board" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0,1fr)" }, alignItems: "start" }}>
-                    <SectionCard title="Create task" description="Add a task to the board directly.">
+                    <SectionCard title="Add task" description="Owner, reviewer, dependencies, and acceptance live in the main form now.">
                         <Stack spacing={2}>
                             <TextField label="Title" value={taskForm.title} onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))} />
                             <TextField label="Description" value={taskForm.description} onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))} multiline minRows={3} />
+                            <TextField select label="Initial status" value={taskForm.status} onChange={(e) => setTaskForm((f) => ({ ...f, status: e.target.value }))}>
+                                <MenuItem value="queued">Queued</MenuItem>
+                                <MenuItem value="planned">Planned</MenuItem>
+                                <MenuItem value="backlog">Holding backlog</MenuItem>
+                            </TextField>
                             <TextField select label="Priority" value={taskForm.priority} onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value }))}>
                                 {["low", "normal", "high", "urgent"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                            </TextField>
+                                <TextField
+                                    select
+                                    label="Owner agent"
+                                    value={effectiveTaskOwnerId}
+                                    onChange={(e) => {
+                                        setTaskOwnerTouched(true);
+                                        setTaskForm((f) => ({ ...f, assigned_agent_id: e.target.value }));
+                                    }}
+                                >
+                                    <MenuItem value="">Unassigned</MenuItem>
+                                    {projectAgentProfiles.map((agent) => <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>)}
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Reviewer agent"
+                                    value={effectiveTaskReviewerId}
+                                    onChange={(e) => {
+                                        setTaskReviewerTouched(true);
+                                        setTaskForm((f) => ({ ...f, reviewer_agent_id: e.target.value }));
+                                    }}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {projectAgentProfiles.map((agent) => <MenuItem key={`reviewer-create-${agent.id}`} value={agent.id}>{agent.name}</MenuItem>)}
+                                </TextField>
+                            <TextField
+                                select
+                                SelectProps={{ multiple: true }}
+                                label="Blocked by"
+                                value={taskForm.dependency_ids}
+                                onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    setTaskForm((f) => ({
+                                        ...f,
+                                        dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                    }));
+                                }}
+                                helperText="Dependencies appear on cards and gate execution."
+                            >
+                                {tasks.map((task) => <MenuItem key={`create-dep-${task.id}`} value={task.id}>{task.title} · {humanizeKey(task.status)}</MenuItem>)}
                             </TextField>
                             <TextField label="Acceptance criteria" value={taskForm.acceptance_criteria} onChange={(e) => setTaskForm((f) => ({ ...f, acceptance_criteria: e.target.value }))} multiline minRows={2} />
                             <TextField
@@ -2236,14 +3113,18 @@ export default function OrchestrationProjectDetailPage() {
                                     createTaskMutation.mutate({
                                         title: taskForm.title,
                                         description: taskForm.description,
+                                        status: taskForm.status,
                                         priority: taskForm.priority,
                                         acceptance_criteria: taskForm.acceptance_criteria || null,
+                                        assigned_agent_id: effectiveTaskOwnerId || null,
+                                        reviewer_agent_id: effectiveTaskReviewerId || null,
+                                        dependency_ids: taskForm.dependency_ids,
                                         due_date: taskForm.due_date.trim() ? taskForm.due_date.trim() : null,
                                         response_sla_hours: taskForm.response_sla_hours.trim() && !Number.isNaN(n) && n > 0 ? n : null,
                                     });
                                 }}
                             >
-                                Create task
+                               Save
                             </Button>
                             {createTaskMutation.isError && <Alert severity="error">Couldn't create task. Check fields and try again.</Alert>}
                         </Stack>

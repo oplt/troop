@@ -20,6 +20,16 @@ DEFAULT_MEMORY_SETTINGS: dict[str, Any] = {
     "deep_recall_mode": False,
     "deep_recall_episodic_candidates": 24,
     "classifier_worker_enabled": True,
+    # Tier 3 — retrieval scoping + context packet token budgets
+    "retrieval_stage_min_hits": 3,
+    "retrieval_cross_project_limit": 6,
+    "context_packet_max_tokens": 3500,
+    "context_packet_max_chars": 48000,
+    "context_packet_section_token_budgets": None,
+    # Tier 4 — compaction / archival / lifecycle
+    "compaction_on_task_close_enabled": True,
+    "task_close_archive_unpromoted_memory": True,
+    "task_close_low_value_archive_days": 14,
 }
 
 

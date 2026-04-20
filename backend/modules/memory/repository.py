@@ -9,6 +9,7 @@ from backend.modules.memory.models import (
     AgentMemoryEntry,
     EpisodicArchiveManifest,
     EpisodicSearchIndex,
+    KnowledgeGraphEdge,
     MemoryIngestJob,
     ProceduralPlaybook,
     ProjectDocument,
@@ -20,7 +21,10 @@ from backend.modules.memory.models import (
 from backend.modules.orchestration.models import (
     Brainstorm,
     BrainstormMessage,
+    OrchestratorProject,
     OrchestratorTask,
+    ProjectAgentMembership,
+    ProjectRepositoryLink,
     RunEvent,
     TaskComment,
     TaskRun,
@@ -206,6 +210,7 @@ class MemoryRepositoryMixin:
         entry_type: str | None = None,
         namespace_prefix: str | None = None,
         search: str | None = None,
+        source_task_id: str | None = None,
         limit: int = 100,
     ) -> list[SemanticMemoryEntry]:
         stmt = select(SemanticMemoryEntry).where(SemanticMemoryEntry.owner_id == owner_id)
@@ -215,6 +220,8 @@ class MemoryRepositoryMixin:
             stmt = stmt.where(SemanticMemoryEntry.entry_type == entry_type)
         if namespace_prefix:
             stmt = stmt.where(SemanticMemoryEntry.namespace.startswith(namespace_prefix))
+        if source_task_id:
+            stmt = stmt.where(SemanticMemoryEntry.source_task_id == source_task_id)
         if search:
             q = f"%{search}%"
             stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
@@ -289,6 +296,242 @@ class MemoryRepositoryMixin:
         r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
+
+    async def list_semantic_memory_entries_for_company(
+        self,
+        owner_id: str,
+        company_id: str,
+        *,
+        entry_type: str | None = None,
+        namespace_prefix: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+    ) -> list[SemanticMemoryEntry]:
+        """Company-scoped rows live with project_id NULL (see semantic write path for scope=company)."""
+        stmt = select(SemanticMemoryEntry).where(
+            SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.company_id == company_id,
+            SemanticMemoryEntry.project_id.is_(None),
+        )
+        if entry_type:
+            stmt = stmt.where(SemanticMemoryEntry.entry_type == entry_type)
+        if namespace_prefix:
+            stmt = stmt.where(SemanticMemoryEntry.namespace.startswith(namespace_prefix))
+        if search:
+            q = f"%{search}%"
+            stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
+        cap = max(1, min(limit, 200))
+        result = await self.db.execute(stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap))
+        return list(result.scalars().all())
+
+    async def search_semantic_memory_by_vector_scoped(
+        self,
+        owner_id: str,
+        project_id: str,
+        query_vec: list[float],
+        *,
+        namespace_prefix: str | None = None,
+        source_task_id: str | None = None,
+        limit: int = 12,
+    ) -> list[SemanticMemoryEntry]:
+        """Vector search limited to task-linked rows when prefix / source_task_id set."""
+        cap = max(1, min(limit, 50))
+        qv = normalize_embedding_for_vector(query_vec)
+        literal = "[" + ",".join(str(float(x)) for x in qv) + "]"
+        extra = ""
+        params: dict[str, Any] = {"oid": owner_id, "pid": project_id, "qv": literal, "lim": cap}
+        if namespace_prefix and source_task_id:
+            extra = " AND (namespace LIKE :ns OR source_task_id = :tid)"
+            params["ns"] = f"{namespace_prefix}%"
+            params["tid"] = source_task_id
+        elif namespace_prefix:
+            extra = " AND namespace LIKE :ns"
+            params["ns"] = f"{namespace_prefix}%"
+        elif source_task_id:
+            extra = " AND source_task_id = :tid"
+            params["tid"] = source_task_id
+        sql = text(
+            f"""
+            SELECT id FROM semantic_memory_entries
+            WHERE owner_id = :oid
+              AND project_id = :pid
+              AND embedding_vector IS NOT NULL
+              {extra}
+            ORDER BY embedding_vector <=> CAST(:qv AS vector)
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(sql, params)
+        ids = [row[0] for row in result.all()]
+        if not ids:
+            return []
+        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        by_id = {x.id: x for x in r2.scalars().all()}
+        return [by_id[i] for i in ids if i in by_id]
+
+    async def search_semantic_memory_by_vector_company(
+        self,
+        owner_id: str,
+        company_id: str,
+        query_vec: list[float],
+        *,
+        limit: int = 12,
+    ) -> list[SemanticMemoryEntry]:
+        cap = max(1, min(limit, 50))
+        qv = normalize_embedding_for_vector(query_vec)
+        literal = "[" + ",".join(str(float(x)) for x in qv) + "]"
+        sql = text(
+            """
+            SELECT id FROM semantic_memory_entries
+            WHERE owner_id = :oid
+              AND company_id = :cid
+              AND project_id IS NULL
+              AND embedding_vector IS NOT NULL
+            ORDER BY embedding_vector <=> CAST(:qv AS vector)
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(
+            sql, {"oid": owner_id, "cid": company_id, "qv": literal, "lim": cap}
+        )
+        ids = [row[0] for row in result.all()]
+        if not ids:
+            return []
+        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        by_id = {x.id: x for x in r2.scalars().all()}
+        return [by_id[i] for i in ids if i in by_id]
+
+    async def search_semantic_memory_by_vector_for_projects(
+        self,
+        owner_id: str,
+        project_ids: list[str],
+        query_vec: list[float],
+        *,
+        limit: int = 16,
+    ) -> list[SemanticMemoryEntry]:
+        if not project_ids:
+            return []
+        cap = max(1, min(limit, 80))
+        qv = normalize_embedding_for_vector(query_vec)
+        literal = "[" + ",".join(str(float(x)) for x in qv) + "]"
+        placeholders = ",".join(f":p{i}" for i in range(len(project_ids)))
+        params: dict[str, Any] = {"oid": owner_id, "qv": literal, "lim": cap}
+        for i, pid in enumerate(project_ids):
+            params[f"p{i}"] = pid
+        sql = text(
+            f"""
+            SELECT id FROM semantic_memory_entries
+            WHERE owner_id = :oid
+              AND project_id IN ({placeholders})
+              AND embedding_vector IS NOT NULL
+            ORDER BY embedding_vector <=> CAST(:qv AS vector)
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(sql, params)
+        ids = [row[0] for row in result.all()]
+        if not ids:
+            return []
+        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        by_id = {x.id: x for x in r2.scalars().all()}
+        return [by_id[i] for i in ids if i in by_id]
+
+    async def search_episodic_index_by_vector_for_projects(
+        self,
+        owner_id: str,
+        project_ids: list[str],
+        query_vec: list[float],
+        *,
+        limit: int = 24,
+        require_not_archived: bool = True,
+    ) -> list[EpisodicSearchIndex]:
+        if not project_ids:
+            return []
+        cap = max(1, min(limit, 120))
+        qv = normalize_embedding_for_vector(query_vec)
+        literal = "[" + ",".join(str(float(x)) for x in qv) + "]"
+        archived_clause = " AND archived_at IS NULL" if require_not_archived else ""
+        placeholders = ",".join(f":p{i}" for i in range(len(project_ids)))
+        params: dict[str, Any] = {"oid": owner_id, "qv": literal, "lim": cap}
+        for i, pid in enumerate(project_ids):
+            params[f"p{i}"] = pid
+        sql = text(
+            f"""
+            SELECT id FROM episodic_search_index
+            WHERE owner_id = :oid
+              AND project_id IN ({placeholders})
+              AND embedding_vector IS NOT NULL
+              {archived_clause}
+            ORDER BY embedding_vector <=> CAST(:qv AS vector)
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(sql, params)
+        ids = [row[0] for row in result.all()]
+        if not ids:
+            return []
+        r2 = await self.db.execute(select(EpisodicSearchIndex).where(EpisodicSearchIndex.id.in_(ids)))
+        by_id = {x.id: x for x in r2.scalars().all()}
+        return [by_id[i] for i in ids if i in by_id]
+
+    async def list_related_project_ids_for_retrieval(
+        self,
+        owner_id: str,
+        project_id: str,
+        *,
+        agent_id: str | None = None,
+        limit: int = 8,
+    ) -> list[str]:
+        """Related projects: shared GitHub repo link and/or shared agent membership."""
+        cap = max(1, min(limit, 24))
+        ordered: list[str] = []
+        seen: set[str] = {project_id}
+
+        gh_stmt = select(ProjectRepositoryLink.github_repository_id).where(
+            ProjectRepositoryLink.project_id == project_id,
+            ProjectRepositoryLink.github_repository_id.isnot(None),
+        )
+        gh_rows = await self.db.execute(gh_stmt)
+        gh_ids = [row[0] for row in gh_rows.all() if row[0]]
+        if gh_ids:
+            stmt = (
+                select(ProjectRepositoryLink.project_id)
+                .join(OrchestratorProject, ProjectRepositoryLink.project_id == OrchestratorProject.id)
+                .where(
+                    ProjectRepositoryLink.github_repository_id.in_(gh_ids),
+                    ProjectRepositoryLink.project_id != project_id,
+                    OrchestratorProject.owner_id == owner_id,
+                )
+                .distinct()
+                .limit(cap)
+            )
+            res = await self.db.execute(stmt)
+            for (pid,) in res.all():
+                if pid not in seen:
+                    seen.add(pid)
+                    ordered.append(pid)
+
+        if agent_id and len(ordered) < cap:
+            stmt2 = (
+                select(ProjectAgentMembership.project_id)
+                .join(OrchestratorProject, ProjectAgentMembership.project_id == OrchestratorProject.id)
+                .where(
+                    ProjectAgentMembership.agent_id == agent_id,
+                    ProjectAgentMembership.project_id != project_id,
+                    OrchestratorProject.owner_id == owner_id,
+                )
+                .distinct()
+                .limit(cap)
+            )
+            res2 = await self.db.execute(stmt2)
+            for (pid,) in res2.all():
+                if pid not in seen:
+                    seen.add(pid)
+                    ordered.append(pid)
+                    if len(ordered) >= cap:
+                        break
+
+        return ordered[:cap]
 
     async def list_procedural_playbooks(self, owner_id: str, project_id: str) -> list[ProceduralPlaybook]:
         res = await self.db.execute(
@@ -545,6 +788,37 @@ class MemoryRepositoryMixin:
         )
         return int(res.rowcount or 0)
 
+    async def list_run_events_for_task(
+        self, project_id: str, task_id: str, *, limit: int = 400
+    ) -> list[RunEvent]:
+        cap = max(1, min(limit, 2000))
+        stmt = (
+            select(RunEvent)
+            .join(TaskRun, RunEvent.run_id == TaskRun.id)
+            .where(
+                TaskRun.project_id == project_id,
+                TaskRun.task_id == task_id,
+            )
+            .order_by(RunEvent.created_at.desc())
+            .limit(cap)
+        )
+        res = await self.db.execute(stmt)
+        rows = list(res.scalars().all())
+        rows.reverse()
+        return rows
+
+    async def list_task_runs_for_task(
+        self, project_id: str, task_id: str, *, limit: int = 80
+    ) -> list[TaskRun]:
+        cap = max(1, min(limit, 200))
+        res = await self.db.execute(
+            select(TaskRun)
+            .where(TaskRun.project_id == project_id, TaskRun.task_id == task_id)
+            .order_by(TaskRun.created_at.desc())
+            .limit(cap)
+        )
+        return list(res.scalars().all())
+
     async def list_run_events_for_project_before(
         self, project_id: str, before: datetime, *, limit: int = 3000
     ) -> list[RunEvent]:
@@ -556,6 +830,100 @@ class MemoryRepositoryMixin:
             .limit(max(1, min(limit, 10_000)))
         )
         return list(res.scalars().all())
+
+    async def get_knowledge_graph_edge_unique(
+        self,
+        project_id: str,
+        source_kind: str,
+        source_id: str,
+        target_kind: str,
+        target_id: str,
+        relation_type: str,
+    ) -> KnowledgeGraphEdge | None:
+        r = await self.db.execute(
+            select(KnowledgeGraphEdge).where(
+                KnowledgeGraphEdge.project_id == project_id,
+                KnowledgeGraphEdge.source_kind == source_kind,
+                KnowledgeGraphEdge.source_id == source_id,
+                KnowledgeGraphEdge.target_kind == target_kind,
+                KnowledgeGraphEdge.target_id == target_id,
+                KnowledgeGraphEdge.relation_type == relation_type,
+            )
+        )
+        return r.scalar_one_or_none()
+
+    async def create_knowledge_graph_edge(self, **kwargs: Any) -> KnowledgeGraphEdge:
+        row = KnowledgeGraphEdge(**kwargs)
+        self.db.add(row)
+        await self.db.flush()
+        return row
+
+    async def list_knowledge_graph_edges_from_source(
+        self,
+        owner_id: str,
+        project_id: str,
+        source_kind: str,
+        source_id: str,
+        *,
+        limit: int = 200,
+    ) -> list[KnowledgeGraphEdge]:
+        cap = max(1, min(limit, 500))
+        res = await self.db.execute(
+            select(KnowledgeGraphEdge)
+            .where(
+                KnowledgeGraphEdge.owner_id == owner_id,
+                KnowledgeGraphEdge.project_id == project_id,
+                KnowledgeGraphEdge.source_kind == source_kind,
+                KnowledgeGraphEdge.source_id == source_id,
+            )
+            .order_by(KnowledgeGraphEdge.created_at.desc())
+            .limit(cap)
+        )
+        return list(res.scalars().all())
+
+    async def list_knowledge_graph_edges_to_target(
+        self,
+        owner_id: str,
+        project_id: str,
+        target_kind: str,
+        target_id: str,
+        *,
+        limit: int = 200,
+    ) -> list[KnowledgeGraphEdge]:
+        cap = max(1, min(limit, 500))
+        res = await self.db.execute(
+            select(KnowledgeGraphEdge)
+            .where(
+                KnowledgeGraphEdge.owner_id == owner_id,
+                KnowledgeGraphEdge.project_id == project_id,
+                KnowledgeGraphEdge.target_kind == target_kind,
+                KnowledgeGraphEdge.target_id == target_id,
+            )
+            .order_by(KnowledgeGraphEdge.created_at.desc())
+            .limit(cap)
+        )
+        return list(res.scalars().all())
+
+    async def get_knowledge_graph_edge(
+        self, owner_id: str, project_id: str, edge_id: str
+    ) -> KnowledgeGraphEdge | None:
+        r = await self.db.execute(
+            select(KnowledgeGraphEdge).where(
+                KnowledgeGraphEdge.id == edge_id,
+                KnowledgeGraphEdge.owner_id == owner_id,
+                KnowledgeGraphEdge.project_id == project_id,
+            )
+        )
+        return r.scalar_one_or_none()
+
+    async def delete_knowledge_graph_edge(
+        self, owner_id: str, project_id: str, edge_id: str
+    ) -> bool:
+        row = await self.get_knowledge_graph_edge(owner_id, project_id, edge_id)
+        if row is None:
+            return False
+        await self.db.delete(row)
+        return True
 
     async def create_semantic_memory_link(self, **kwargs: Any) -> SemanticMemoryLink:
         row = SemanticMemoryLink(**kwargs)

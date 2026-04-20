@@ -253,6 +253,7 @@ class ModelCapabilityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    provider_id: str | None
     provider_type: str
     model_slug: str
     display_name: str | None
@@ -261,6 +262,17 @@ class ModelCapabilityResponse(BaseModel):
     max_context_tokens: int
     cost_per_1k_input: float
     cost_per_1k_output: float
+    context_window: int | None = None
+    max_output_tokens: int | None = None
+    input_cost_per_1k: float | None = None
+    output_cost_per_1k: float | None = None
+    input_cost_per_1m: float | None = None
+    output_cost_per_1m: float | None = None
+    latency_p50: int | None = None
+    health_status: str | None = None
+    source_for_each_field: dict[str, str] = Field(default_factory=dict)
+    last_verified_at: datetime | None = None
+    override_reason: str | None = None
     metadata: dict[str, Any]
     is_active: bool
     created_at: datetime
@@ -525,6 +537,7 @@ class TaskRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    parent_run_id: str | None
     project_id: str
     task_id: str | None
     triggered_by_user_id: str | None
@@ -642,6 +655,10 @@ class TaskExecutionSnapshotResponse(BaseModel):
     recent_events_tail: list[RunEventTailItem]
     trace: list[RunTraceStep] = Field(default_factory=list)
     durable_workflow: dict[str, Any] = Field(default_factory=dict)
+    child_runs: list[TaskRunResponse] = Field(default_factory=list)
+    blocker_queue: list[dict[str, Any]] = Field(default_factory=list)
+    review_state: dict[str, Any] = Field(default_factory=dict)
+    github_action_state: dict[str, Any] = Field(default_factory=dict)
 
 
 class RunExecutionSnapshotResponse(BaseModel):
@@ -658,6 +675,10 @@ class RunExecutionSnapshotResponse(BaseModel):
     recent_events_tail: list[RunEventTailItem]
     trace: list[RunTraceStep] = Field(default_factory=list)
     durable_workflow: dict[str, Any] = Field(default_factory=dict)
+    child_runs: list[TaskRunResponse] = Field(default_factory=list)
+    blocker_queue: list[dict[str, Any]] = Field(default_factory=list)
+    review_state: dict[str, Any] = Field(default_factory=dict)
+    github_action_state: dict[str, Any] = Field(default_factory=dict)
     resumable: bool = False
 
 
@@ -755,6 +776,9 @@ class MemorySettingsResponse(BaseModel):
     deep_recall_mode: bool
     deep_recall_episodic_candidates: int
     classifier_worker_enabled: bool
+    compaction_on_task_close_enabled: bool
+    task_close_archive_unpromoted_memory: bool
+    task_close_low_value_archive_days: int
 
 
 class MemorySettingsPatch(RequestModel):
@@ -773,6 +797,9 @@ class MemorySettingsPatch(RequestModel):
     deep_recall_mode: bool | None = None
     deep_recall_episodic_candidates: int | None = Field(default=None, ge=4, le=200)
     classifier_worker_enabled: bool | None = None
+    compaction_on_task_close_enabled: bool | None = None
+    task_close_archive_unpromoted_memory: bool | None = None
+    task_close_low_value_archive_days: int | None = Field(default=None, ge=1, le=3650)
 
 
 class PendingSemanticWriteResponse(BaseModel):
@@ -814,6 +841,30 @@ class SemanticMemoryLinkResponse(BaseModel):
     project_id: str
     from_entry_id: str
     to_entry_id: str
+    relation_type: str
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
+class KnowledgeGraphEdgeCreate(RequestModel):
+    source_kind: str = Field(min_length=1, max_length=64)
+    source_id: str = Field(min_length=1, max_length=64)
+    target_kind: str = Field(min_length=1, max_length=64)
+    target_id: str = Field(min_length=1, max_length=64)
+    relation_type: str = Field(min_length=1, max_length=64)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeGraphEdgeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    owner_id: str
+    project_id: str
+    source_kind: str
+    source_id: str
+    target_kind: str
+    target_id: str
     relation_type: str
     metadata: dict[str, Any]
     created_at: datetime
@@ -1129,7 +1180,7 @@ class BrainstormDiscourseInsightsResponse(BaseModel):
 
 
 class TaskTimelineEntry(BaseModel):
-    kind: Literal["comment", "github_sync"]
+    kind: Literal["comment", "github_sync", "approval"]
     id: str
     created_at: datetime
     title: str

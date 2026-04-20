@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Chip, Collapse, Stack } from "@mui/material";
+import { Button, Chip, Collapse, Stack, type SxProps, type Theme } from "@mui/material";
 import { ExpandLess as CollapseIcon, ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 
 import { SectionCard } from "./SectionCard";
@@ -12,6 +12,7 @@ type CollapsibleSectionCardProps = {
     action?: React.ReactNode;
     defaultExpanded?: boolean;
     children: React.ReactNode;
+    sx?: SxProps<Theme>;
 };
 
 export function CollapsibleSectionCard({
@@ -22,10 +23,12 @@ export function CollapsibleSectionCard({
     action,
     defaultExpanded = false,
     children,
+    sx,
 }: CollapsibleSectionCardProps) {
     const [expanded, setExpanded] = useState(defaultExpanded);
     return (
         <SectionCard
+            sx={sx}
             title={
                 <Stack direction="row" spacing={1} alignItems="center">
                     <span>{title}</span>

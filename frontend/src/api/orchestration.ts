@@ -71,6 +71,7 @@ export type OrchestrationProject = {
     settings: Record<string, unknown>;
     memory_scope: string;
     knowledge_summary: string | null;
+    company_id: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -129,6 +130,7 @@ export type DagParallelStartResult = {
 
 export type TaskRun = {
     id: string;
+    parent_run_id: string | null;
     project_id: string;
     task_id: string | null;
     triggered_by_user_id: string | null;
@@ -266,6 +268,10 @@ export type TaskExecutionSnapshot = {
     recent_events_tail: RunEventTailItem[];
     trace: RunTraceStep[];
     durable_workflow: DurableWorkflowState;
+    child_runs: TaskRun[];
+    blocker_queue: Array<Record<string, unknown>>;
+    review_state: Record<string, unknown>;
+    github_action_state: Record<string, unknown>;
 };
 
 export type RunExecutionSnapshot = {
@@ -282,6 +288,10 @@ export type RunExecutionSnapshot = {
     recent_events_tail: RunEventTailItem[];
     trace: RunTraceStep[];
     durable_workflow: DurableWorkflowState;
+    child_runs: TaskRun[];
+    blocker_queue: Array<Record<string, unknown>>;
+    review_state: Record<string, unknown>;
+    github_action_state: Record<string, unknown>;
     resumable: boolean;
 };
 
@@ -360,6 +370,7 @@ export type ProviderModelList = {
 
 export type ModelCapability = {
     id: string;
+    provider_id: string | null;
     provider_type: string;
     model_slug: string;
     display_name: string | null;
@@ -368,6 +379,17 @@ export type ModelCapability = {
     max_context_tokens: number;
     cost_per_1k_input: number;
     cost_per_1k_output: number;
+    context_window: number | null;
+    max_output_tokens: number | null;
+    input_cost_per_1k: number | null;
+    output_cost_per_1k: number | null;
+    input_cost_per_1m: number | null;
+    output_cost_per_1m: number | null;
+    latency_p50: number | null;
+    health_status: string | null;
+    source_for_each_field: Record<string, string>;
+    last_verified_at: string | null;
+    override_reason: string | null;
     metadata: Record<string, unknown>;
     is_active: boolean;
     created_at: string;
@@ -801,6 +823,7 @@ export type SemanticMemoryEntry = {
     id: string;
     owner_id: string;
     scope: string;
+    company_id?: string | null;
     project_id: string | null;
     agent_id: string | null;
     entry_type: string;
@@ -812,6 +835,7 @@ export type SemanticMemoryEntry = {
     source_task_id: string | null;
     source_run_id: string | null;
     provenance: Record<string, unknown>;
+    confidence: number;
     created_by_user_id: string | null;
     created_at: string;
     updated_at: string;
@@ -833,6 +857,9 @@ export type ProjectMemorySettings = {
     deep_recall_mode: boolean;
     deep_recall_episodic_candidates: number;
     classifier_worker_enabled: boolean;
+    compaction_on_task_close_enabled: boolean;
+    task_close_archive_unpromoted_memory: boolean;
+    task_close_low_value_archive_days: number;
 };
 
 /** Returned when semantic writes require human approval (HTTP 202). */
@@ -875,6 +902,7 @@ export async function listSemanticMemory(
         vec_q?: string;
         entry_type?: string;
         namespace_prefix?: string;
+        source_task_id?: string;
         limit?: number;
     }
 ): Promise<SemanticMemoryEntry[]> {
@@ -883,11 +911,71 @@ export async function listSemanticMemory(
     if (params?.vec_q) sp.set("vec_q", params.vec_q);
     if (params?.entry_type) sp.set("entry_type", params.entry_type);
     if (params?.namespace_prefix) sp.set("namespace_prefix", params.namespace_prefix);
+    if (params?.source_task_id) sp.set("source_task_id", params.source_task_id);
     if (params?.limit != null) sp.set("limit", String(params.limit));
     const qs = sp.toString();
     return apiFetch(
         `/orchestration/projects/${projectId}/semantic-memory${qs ? `?${qs}` : ""}`
     );
+}
+
+export async function listCompanySemanticMemory(
+    companyId: string,
+    params?: {
+        q?: string;
+        entry_type?: string;
+        namespace_prefix?: string;
+        limit?: number;
+    }
+): Promise<SemanticMemoryEntry[]> {
+    const sp = new URLSearchParams();
+    if (params?.q) sp.set("q", params.q);
+    if (params?.entry_type) sp.set("entry_type", params.entry_type);
+    if (params?.namespace_prefix) sp.set("namespace_prefix", params.namespace_prefix);
+    if (params?.limit != null) sp.set("limit", String(params.limit));
+    const qs = sp.toString();
+    return apiFetch(`/orchestration/companies/${companyId}/semantic-memory${qs ? `?${qs}` : ""}`);
+}
+
+export type ProceduralPlaybook = {
+    id: string;
+    owner_id: string;
+    project_id: string;
+    slug: string;
+    title: string;
+    body_md: string;
+    version: number;
+    tags: string[];
+    namespace: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export async function listProceduralPlaybooks(projectId: string): Promise<ProceduralPlaybook[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/procedural-playbooks`);
+}
+
+export type TaskMemoryCoordination = {
+    shared: string;
+    private: Record<string, string>;
+};
+
+export async function getTaskMemoryCoordination(
+    projectId: string,
+    taskId: string
+): Promise<TaskMemoryCoordination> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/memory-coordination`);
+}
+
+export async function patchTaskMemoryCoordination(
+    projectId: string,
+    taskId: string,
+    patch: { shared?: string; private?: Record<string, string> }
+): Promise<TaskMemoryCoordination> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/memory-coordination`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+    });
 }
 
 export async function createSemanticMemory(
@@ -928,6 +1016,9 @@ export async function deleteSemanticMemory(
 
 export type SemanticConflictGroup = {
     group_key: string;
+    kind?: "title_duplicate" | "duplicate" | "contradicts" | string;
+    similarity?: number | null;
+    reason?: string | null;
     entries: Array<{
         id: string;
         title: string | null;
@@ -953,6 +1044,61 @@ export async function mergeSemanticMemoryEntries(
     return apiFetch(`/orchestration/projects/${projectId}/semantic-memory/merge`, {
         method: "POST",
         body: JSON.stringify(body),
+    });
+}
+
+export type KnowledgeGraphEdge = {
+    id: string;
+    owner_id: string;
+    project_id: string;
+    source_kind: string;
+    source_id: string;
+    target_kind: string;
+    target_id: string;
+    relation_type: string;
+    metadata: Record<string, unknown>;
+    created_at: string;
+};
+
+export async function listKnowledgeGraphEdges(
+    projectId: string,
+    params:
+        | { source_kind: string; source_id: string; limit?: number }
+        | { target_kind: string; target_id: string; limit?: number }
+): Promise<KnowledgeGraphEdge[]> {
+    const sp = new URLSearchParams();
+    if ("source_kind" in params) {
+        sp.set("source_kind", params.source_kind);
+        sp.set("source_id", params.source_id);
+    } else {
+        sp.set("target_kind", params.target_kind);
+        sp.set("target_id", params.target_id);
+    }
+    if (params.limit != null) sp.set("limit", String(params.limit));
+    const qs = sp.toString();
+    return apiFetch(`/orchestration/projects/${projectId}/knowledge-graph/edges?${qs}`);
+}
+
+export async function createKnowledgeGraphEdge(
+    projectId: string,
+    body: {
+        source_kind: string;
+        source_id: string;
+        target_kind: string;
+        target_id: string;
+        relation_type: string;
+        metadata?: Record<string, unknown>;
+    }
+): Promise<KnowledgeGraphEdge> {
+    return apiFetch(`/orchestration/projects/${projectId}/knowledge-graph/edges`, {
+        method: "POST",
+        body: JSON.stringify(body),
+    });
+}
+
+export async function deleteKnowledgeGraphEdge(projectId: string, edgeId: string): Promise<void> {
+    return apiFetch(`/orchestration/projects/${projectId}/knowledge-graph/edges/${edgeId}`, {
+        method: "DELETE",
     });
 }
 
@@ -1430,6 +1576,11 @@ export async function requestGithubComment(issueLinkId: string, payload: { body:
 
 export async function listApprovals(): Promise<Approval[]> {
     return apiFetch("/orchestration/approvals");
+}
+
+/** Process-global counters + `_rollup` (hit rates, histograms, promotion/conflict summaries). */
+export async function getMemoryMetrics(): Promise<Record<string, unknown>> {
+    return apiFetch("/orchestration/memory-metrics");
 }
 
 export async function decideApproval(approvalId: string, payload: { status: "approved" | "rejected"; reason?: string }): Promise<Approval> {

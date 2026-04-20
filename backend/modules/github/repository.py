@@ -7,7 +7,9 @@ from sqlalchemy import or_, select
 
 from backend.modules.github.models import (
     GithubConnection,
+    GithubEntityMapping,
     GithubIssueLink,
+    GithubOutboundDedup,
     GithubRepository,
     GithubSyncEvent,
 )
@@ -78,10 +80,88 @@ class GithubRepositoryMixin:
         result = await self.db.execute(
             select(GithubConnection).where(
                 GithubConnection.owner_id == owner_id,
-                GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                or_(
+                    GithubConnection.github_installation_id == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                ),
             )
         )
         return result.scalar_one_or_none()
+
+    async def get_github_outbound_dedup_row(
+        self, owner_id: str, dedup_key: str
+    ) -> GithubOutboundDedup | None:
+        result = await self.db.execute(
+            select(GithubOutboundDedup).where(
+                GithubOutboundDedup.owner_id == owner_id,
+                GithubOutboundDedup.dedup_key == dedup_key,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_github_outbound_dedup_row(
+        self,
+        *,
+        owner_id: str,
+        dedup_key: str,
+        approval_id: str,
+        issue_link_id: str | None,
+    ) -> GithubOutboundDedup:
+        row = GithubOutboundDedup(
+            owner_id=owner_id,
+            dedup_key=dedup_key,
+            approval_id=approval_id,
+            issue_link_id=issue_link_id,
+        )
+        self.db.add(row)
+        await self.db.flush()
+        return row
+
+    async def get_github_entity_mapping(
+        self,
+        owner_id: str,
+        *,
+        external_kind: str,
+        external_ref: str,
+        entity_kind: str,
+        entity_id: str,
+    ) -> GithubEntityMapping | None:
+        result = await self.db.execute(
+            select(GithubEntityMapping).where(
+                GithubEntityMapping.owner_id == owner_id,
+                GithubEntityMapping.external_kind == external_kind,
+                GithubEntityMapping.external_ref == external_ref,
+                GithubEntityMapping.entity_kind == entity_kind,
+                GithubEntityMapping.entity_id == entity_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_github_entity_mapping(
+        self,
+        *,
+        owner_id: str,
+        external_kind: str,
+        external_ref: str,
+        entity_kind: str,
+        entity_id: str,
+        connection_id: str | None = None,
+        repository_id: str | None = None,
+        metadata_json: dict[str, Any] | None = None,
+    ) -> GithubEntityMapping:
+        row = GithubEntityMapping(
+            owner_id=owner_id,
+            external_kind=external_kind,
+            external_ref=external_ref,
+            entity_kind=entity_kind,
+            entity_id=entity_id,
+            connection_id=connection_id,
+            repository_id=repository_id,
+            metadata_json=dict(metadata_json or {}),
+        )
+        self.db.add(row)
+        await self.db.flush()
+        return row
 
     async def create_github_repository(self, **kwargs) -> GithubRepository:
         item = GithubRepository(**kwargs)

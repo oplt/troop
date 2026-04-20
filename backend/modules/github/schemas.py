@@ -91,6 +91,8 @@ class GithubSyncEventResponse(BaseModel):
 class GithubCommentRequest(RequestModel):
     body: str = Field(min_length=1)
     close_issue: bool = False
+    idempotency_key: str | None = Field(default=None, max_length=256)
+    artifact_ids: list[str] | None = None
 
 
 class GithubAppInstallResponse(BaseModel):

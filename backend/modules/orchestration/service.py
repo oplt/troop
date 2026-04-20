@@ -23,6 +23,7 @@ import httpx
 import jwt
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes as orm_attributes
 
@@ -33,17 +34,40 @@ from backend.modules.ai.providers import AiProviderRegistry
 from backend.modules.audit.repository import AuditRepository
 from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
+from backend.modules.memory.classifier import (
+    ClassifierCandidate,
+    classify_run_events,
+)
+from backend.modules.memory.conflict_resolver import (
+    ConflictReport,
+    detect as detect_memory_conflicts,
+    summarize as summarize_memory_conflicts,
+)
 from backend.modules.memory.models import (
     AgentMemoryEntry,
+    KnowledgeGraphEdge,
     ProceduralPlaybook,
     ProjectDocument,
     SemanticMemoryEntry,
     SemanticMemoryLink,
     normalize_embedding_for_vector,
 )
+from backend.modules.memory.promotion_rules import (
+    PromotionCandidate,
+    PromotionEvaluation,
+    evaluate as evaluate_promotion,
+)
+from backend.modules.memory.provenance import (
+    DEFAULT_CONFIDENCE,
+    get_confidence as get_provenance_confidence,
+    normalize_provenance,
+)
+from backend.modules.memory.retrieval_scoping import (
+    staged_episodic_vector_retrieval,
+    staged_semantic_vector_retrieval,
+)
 from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.orchestration.markdown import parse_agent_markdown
-from backend.modules.orchestration.model_catalog import BUILTIN_MODEL_CAPABILITIES
 from backend.modules.orchestration.models import (
     ApprovalRequest,
     Brainstorm,
@@ -53,7 +77,11 @@ from backend.modules.orchestration.models import (
     RunEvent,
     TaskRun,
 )
-from backend.modules.orchestration.providers import execute_prompt, list_provider_models, test_provider
+from backend.modules.orchestration.providers import (
+    discover_provider_capabilities,
+    execute_prompt,
+    test_provider,
+)
 from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
 from backend.modules.orchestration.execution_state import (
     EXECUTION_SNAPSHOT_SCHEMA_VERSION,
@@ -83,6 +111,14 @@ from backend.modules.orchestration.memory_coordination import (
     MEMORY_COORDINATION_KEY,
     extract_blackboard_sections,
 )
+from backend.modules.orchestration.memory_compaction import (
+    AGENT_MEMORY_TTL_SNAPSHOT_KIND,
+    PROJECT_DOCUMENT_TTL_SNAPSHOT_KIND,
+    TASK_CLOSE_SNAPSHOT_KIND,
+    build_task_close_snapshot_text,
+    prune_checkpoint_after_compaction,
+    snapshot_source_id,
+)
 from backend.modules.orchestration.memory_episodic import (
     build_episodic_archive_jsonl_gz,
     episodic_object_key,
@@ -107,6 +143,7 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorTask,
     ProjectDecision,
     ProjectMilestone,
+    ProjectRepositoryLink,
     TaskArtifact,
 )
 from backend.modules.team.models import AgentProfile, AgentTemplateCatalog, SkillPack, TeamTemplateCatalog
@@ -129,6 +166,10 @@ TASK_TRANSITIONS: dict[str, set[str]] = {
     "archived": set(),
 }
 
+EXTERNAL_LINK_KINDS: frozenset[str] = frozenset(
+    {"spec", "doc", "figma", "pr", "commit", "incident", "runbook", "issue", "other"}
+)
+
 DEFAULT_PORTFOLIO_EXECUTION_POLICY: dict[str, Any] = {
     "routing_mode": "capability_based",
     "approval_policy": "manager_review",
@@ -136,14 +177,53 @@ DEFAULT_PORTFOLIO_EXECUTION_POLICY: dict[str, Any] = {
     "cost_cap_usd": 250.0,
 }
 
-SEMANTIC_ENTRY_TYPES = frozenset(
-    {"policy", "standard", "adr", "glossary", "convention", "preference", "routing", "note"}
+from backend.modules.memory.entry_types import (
+    SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
+    validate_entry_metadata as _validate_semantic_entry_metadata,
+    validate_entry_type as _validate_semantic_entry_type,
+)
+from backend.modules.memory.namespaces import (
+    build_namespace as _build_memory_namespace,
+    coerce_legacy_namespace as _coerce_memory_namespace,
+    parse_namespace as _parse_memory_namespace,
+)
+
+SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
+
+OPENAI_FAMILY_PROVIDER_TYPES = frozenset({"openai", "openai_compatible", "qwen"})
+GITHUB_WEBHOOK_EVENT_ALLOWLIST = frozenset(
+    {
+        "installation",
+        "installation_repositories",
+        "issues",
+        "issue_comment",
+        "pull_request",
+        "pull_request_review",
+        "pull_request_review_comment",
+        "push",
+        "projects_v2_item",
+    }
 )
 
 
-def _default_semantic_namespace(project_id: str, entry_type: str, title: str) -> str:
+def _default_semantic_namespace(
+    project_id: str | None,
+    entry_type: str,
+    title: str,
+    *,
+    scope: str = "project",
+    company_id: str | None = None,
+    agent_id: str | None = None,
+) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")[:80] or "entry"
-    return f"project/{project_id}/semantic/{entry_type}/{slug}"
+    if scope == "company" and company_id:
+        return _build_memory_namespace("company", company_id, entry_type, slug)
+    if scope == "agent" and agent_id:
+        sub = "preferences" if entry_type == "preference" else "memory"
+        return _build_memory_namespace("agent", agent_id, sub, entry_type, slug)
+    if project_id:
+        return _build_memory_namespace("project", project_id, entry_type, slug)
+    return _build_memory_namespace("global", None, entry_type, slug)
 
 
 def _normalize_task_priority(value: str | None) -> str:
@@ -153,6 +233,14 @@ def _normalize_task_priority(value: str | None) -> str:
     if v == "medium":
         return "normal"
     return v
+
+
+def _provider_type_aliases(provider_type: str | None) -> set[str]:
+    if not provider_type:
+        return set()
+    if provider_type in OPENAI_FAMILY_PROVIDER_TYPES:
+        return set(OPENAI_FAMILY_PROVIDER_TYPES)
+    return {provider_type}
 
 
 GLOBAL_POLICY_ROUTING_RULES: list[dict[str, Any]] = [
@@ -408,6 +496,19 @@ class OrchestrationService:
         await self.db.commit()
         return normalized
 
+    async def _resolve_default_company_id(self, owner_id: str) -> str:
+        from backend.modules.companies.service import CompanyService
+
+        company = await CompanyService(self.db).get_or_create_default(owner_id)
+        return company.id
+
+    async def _ensure_company_id_for_project(self, project: OrchestratorProject) -> str:
+        if getattr(project, "company_id", None):
+            return project.company_id  # type: ignore[return-value]
+        company_id = await self._resolve_default_company_id(project.owner_id)
+        project.company_id = company_id
+        return company_id
+
     async def create_project(self, user: User, payload: dict[str, Any]):
         policy_defaults = await self.get_portfolio_execution_policy(user)
         settings = self._apply_portfolio_defaults_to_project_settings(
@@ -415,8 +516,10 @@ class OrchestrationService:
             policy_defaults,
             explicit_settings=payload.get("settings", {}),
         )
+        company_id = payload.get("company_id") or await self._resolve_default_company_id(user.id)
         project = await self.repo.create_project(
             owner_id=user.id,
+            company_id=company_id,
             name=payload["name"],
             slug=payload["slug"],
             description=payload.get("description"),
@@ -523,10 +626,12 @@ class OrchestrationService:
         return membership
 
     async def add_project_repository(self, user: User, project_id: str, payload: dict[str, Any]):
-        await self.get_project(user, project_id)
+        project = await self.get_project(user, project_id)
         item = await self.repo.create_project_repository(project_id=project_id, **payload)
         await self.db.commit()
         await self.db.refresh(item)
+        await self._sync_knowledge_graph_for_project_repository(project, item)
+        await self.db.commit()
         return item
 
     async def list_project_repositories(self, user: User, project_id: str):
@@ -547,8 +652,12 @@ class OrchestrationService:
                 **(repository_link.metadata_json or {}),
                 **(updates.get("metadata") or {}),
             }
+        if "github_repository_id" in updates and updates.get("github_repository_id") is not None:
+            repository_link.github_repository_id = updates["github_repository_id"]
         await self.db.commit()
         await self.db.refresh(repository_link)
+        await self._sync_knowledge_graph_for_project_repository(project, repository_link)
+        await self.db.commit()
         return repository_link
 
     async def list_project_memory_ingest_jobs(
@@ -846,6 +955,7 @@ class OrchestrationService:
             await self.get_agent(user, payload["assigned_agent_id"])
         if payload.get("reviewer_agent_id"):
             await self.get_agent(user, payload["reviewer_agent_id"])
+        metadata = self._normalized_task_metadata(payload.get("metadata"))
         position = await self.repo.get_next_task_position(project.id)
         task = await self.repo.create_task(
             project_id=project.id,
@@ -857,19 +967,20 @@ class OrchestrationService:
             source=payload.get("source", "manual"),
             task_type=payload.get("task_type", "general"),
             priority=_normalize_task_priority(payload.get("priority")),
-            status=payload.get("status", "backlog"),
+            status=payload.get("status", "queued"),
             acceptance_criteria=payload.get("acceptance_criteria"),
             due_date=payload.get("due_date"),
             response_sla_hours=payload.get("response_sla_hours"),
             labels_json=payload.get("labels", []),
             result_summary=payload.get("result_summary"),
             result_payload_json=payload.get("result_payload", {}),
-            metadata_json=payload.get("metadata", {}),
+            metadata_json=metadata,
             position=position,
         )
         dependency_ids = list(payload.get("dependency_ids", []) or [])
         await self._validate_task_dependencies(project.id, task.id, dependency_ids)
         await self.repo.replace_task_dependencies(task.id, dependency_ids)
+        await self._sync_knowledge_graph_for_task(project, task)
         await self.db.commit()
         await self.db.refresh(task)
         return task
@@ -966,11 +1077,18 @@ class OrchestrationService:
             elif field == "result_payload":
                 task.result_payload_json = value
             elif field == "metadata":
-                task.metadata_json = value
+                task.metadata_json = self._normalized_task_metadata(value)
             elif field == "dependency_ids":
                 dependency_ids = list(value or [])
                 await self._validate_task_dependencies(project_id, task.id, dependency_ids)
                 await self.repo.replace_task_dependencies(task.id, dependency_ids)
+            elif field == "github_secondary_repository_ids":
+                sec_ids = [str(x).strip() for x in (value or []) if str(x).strip()]
+                await self._validate_github_secondary_repository_ids(user, project_id, sec_ids)
+                m = dict(task.metadata_json or {})
+                m["github_secondary_repository_ids"] = sec_ids
+                task.metadata_json = m
+                orm_attributes.flag_modified(task, "metadata_json")
             elif field == "status":
                 if value in {"completed", "approved"}:
                     acceptance = await self._check_task_acceptance_payload(task)
@@ -982,6 +1100,23 @@ class OrchestrationService:
                                 "checks": acceptance["checks"],
                             },
                         )
+                if value in {"synced_to_github", "archived"}:
+                    evidence = await self._check_task_evidence_bundle_payload(task, target_status=value)
+                    if not evidence["passed"]:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "message": f"Evidence bundle must be complete before moving to {value}.",
+                                "checks": evidence["checks"],
+                            },
+                        )
+                terminal = {"completed", "archived", "synced_to_github"}
+                if prev_status in terminal and value not in terminal:
+                    m = dict(task.metadata_json or {})
+                    m.pop("memory_checkpoint_compacted", None)
+                    m.pop("memory_low_value_archived", None)
+                    task.metadata_json = m
+                    orm_attributes.flag_modified(task, "metadata_json")
                 await self._transition_task_status(task, value, reason="manual update")
             elif field == "priority":
                 setattr(task, field, _normalize_task_priority(str(value) if value is not None else None))
@@ -990,8 +1125,13 @@ class OrchestrationService:
         await self.db.commit()
         await self.db.refresh(task)
         await self._queue_task_github_sync_from_internal_changes(user, task, prev_snapshot)
+        await self._sync_knowledge_graph_for_task(project, task)
         if prev_status != task.status and task.status in {"completed", "archived", "synced_to_github"}:
             await self._maybe_promote_task_close_working_memory(user, project, task)
+            await self.db.refresh(task)
+            await self._run_task_close_memory_lifecycle(user, project, task)
+            await self._enqueue_classifier_job_for_task(project, task)
+        await self.db.commit()
         return task
 
     async def _validate_task_dependencies(
@@ -1339,6 +1479,7 @@ class OrchestrationService:
         await self.get_task(user, project_id, task_id)
         comments = await self.repo.list_task_comments(task_id)
         sync_events = await self.repo.list_sync_events_for_task(task_id)
+        approvals = await self.repo.list_approvals_for_task(user.id, project_id, task_id)
         merged: list[dict[str, Any]] = []
         for c in comments:
             merged.append(
@@ -1350,6 +1491,23 @@ class OrchestrationService:
                     "body": c.body,
                     "detail": None,
                     "payload": {"author_user_id": c.author_user_id, "author_agent_id": c.author_agent_id},
+                }
+            )
+        for approval in approvals:
+            payload = dict(approval.payload_json or {})
+            merged.append(
+                {
+                    "kind": "approval",
+                    "id": approval.id,
+                    "created_at": approval.created_at,
+                    "title": approval.approval_type,
+                    "body": payload.get("body") or payload.get("draft_comment"),
+                    "detail": f"{approval.status} approval",
+                    "payload": {
+                        **payload,
+                        "approval_status": approval.status,
+                        "approval_type": approval.approval_type,
+                    },
                 }
             )
         for e in sync_events:
@@ -1454,6 +1612,7 @@ class OrchestrationService:
 
     async def decompose_task(self, user: User, project_id: str, task_id: str, max_subtasks: int = 5, context: str | None = None) -> list[OrchestratorTask]:
         parent = await self.get_task(user, project_id, task_id)
+        project = await self.get_project(user, project_id)
         existing = await self.repo.list_subtasks(task_id)
         if existing:
             raise HTTPException(
@@ -1496,6 +1655,8 @@ class OrchestrationService:
         await self.db.commit()
         for t in subtasks:
             await self.db.refresh(t)
+            await self._sync_knowledge_graph_for_task(project, t)
+        await self.db.commit()
         return subtasks
 
     async def check_task_acceptance(self, user: User, project_id: str, task_id: str) -> dict:
@@ -1717,6 +1878,134 @@ class OrchestrationService:
                 return output_text[start:end].strip()
         return output_text[:160].strip()
 
+    def _normalized_external_links(self, raw: Any) -> list[dict[str, str]]:
+        if not isinstance(raw, list):
+            return []
+        rows: list[dict[str, str]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            url = str(item.get("url") or "").strip()
+            label = str(item.get("label") or "").strip()
+            if not url or not label:
+                continue
+            kind = str(item.get("kind") or "other").strip().lower()
+            if kind not in EXTERNAL_LINK_KINDS:
+                kind = "other"
+            row_id = str(item.get("id") or uuid.uuid4()).strip()
+            rows.append(
+                {
+                    "id": row_id,
+                    "kind": kind,
+                    "label": label[:255],
+                    "url": url[:2000],
+                    "notes": str(item.get("notes") or "").strip()[:500],
+                }
+            )
+        return rows
+
+    def _normalized_task_metadata(self, raw: Any) -> dict[str, Any]:
+        meta = dict(raw or {}) if isinstance(raw, dict) else {}
+        meta["external_links"] = self._normalized_external_links(meta.get("external_links"))
+        bundle_raw = meta.get("evidence_bundle")
+        bundle = dict(bundle_raw) if isinstance(bundle_raw, dict) else {}
+        bundle["accepted_artifact_ids"] = [
+            str(item).strip()
+            for item in (bundle.get("accepted_artifact_ids") or [])
+            if str(item).strip()
+        ]
+        bundle["accepted_external_link_ids"] = [
+            str(item).strip()
+            for item in (bundle.get("accepted_external_link_ids") or [])
+            if str(item).strip()
+        ]
+        reviewer_decision = bundle.get("reviewer_decision")
+        bundle["reviewer_decision"] = (
+            dict(reviewer_decision) if isinstance(reviewer_decision, dict) else {}
+        )
+        bundle["sync_summary"] = str(bundle.get("sync_summary") or "").strip()
+        meta["evidence_bundle"] = bundle
+        return meta
+
+    async def _check_task_evidence_bundle_payload(
+        self,
+        task: OrchestratorTask | Any,
+        *,
+        target_status: str,
+    ) -> dict[str, Any]:
+        metadata = dict(getattr(task, "metadata_json", None) or {})
+        links = self._normalized_external_links(metadata.get("external_links"))
+        bundle = metadata.get("evidence_bundle")
+        if not isinstance(bundle, dict):
+            bundle = {}
+        accepted_artifact_ids = {
+            str(item).strip()
+            for item in (bundle.get("accepted_artifact_ids") or [])
+            if str(item).strip()
+        }
+        accepted_external_link_ids = {
+            str(item).strip()
+            for item in (bundle.get("accepted_external_link_ids") or [])
+            if str(item).strip()
+        }
+        reviewer_decision = (
+            dict(bundle.get("reviewer_decision"))
+            if isinstance(bundle.get("reviewer_decision"), dict)
+            else {}
+        )
+        sync_summary = str(bundle.get("sync_summary") or "").strip()
+        artifacts = await self.repo.list_task_artifacts(task.id)
+        artifact_ids = {str(getattr(item, "id", "")).strip() for item in artifacts if str(getattr(item, "id", "")).strip()}
+        link_ids = {str(item.get("id") or "").strip() for item in links if str(item.get("id") or "").strip()}
+        checks = [
+            {
+                "name": "accepted_artifacts",
+                "passed": bool(accepted_artifact_ids & artifact_ids),
+                "detail": "Accepted artifacts selected."
+                if accepted_artifact_ids & artifact_ids
+                else "Select at least one accepted artifact for final evidence.",
+            },
+            {
+                "name": "accepted_external_links",
+                "passed": bool(accepted_external_link_ids & link_ids),
+                "detail": "Accepted external links selected."
+                if accepted_external_link_ids & link_ids
+                else "Select at least one accepted external link for final evidence.",
+            },
+            {
+                "name": "reviewer_decision",
+                "passed": bool(str(reviewer_decision.get("status") or "").strip()),
+                "detail": "Reviewer decision recorded."
+                if str(reviewer_decision.get("status") or "").strip()
+                else "Record reviewer decision before final sync/archive.",
+            },
+        ]
+        if target_status == "synced_to_github":
+            checks.append(
+                {
+                    "name": "sync_summary",
+                    "passed": bool(sync_summary),
+                    "detail": "Sync summary recorded."
+                    if sync_summary
+                    else "Add sync summary before moving to synced_to_github.",
+                }
+            )
+        if target_status == "archived":
+            checks.append(
+                {
+                    "name": "archive_summary",
+                    "passed": bool(sync_summary) or getattr(task, "status", "") == "synced_to_github",
+                    "detail": "Archive summary or prior GitHub sync recorded."
+                    if bool(sync_summary) or getattr(task, "status", "") == "synced_to_github"
+                    else "Archive needs sync summary or prior synced_to_github state.",
+                }
+            )
+        return {
+            "task_id": task.id,
+            "passed": all(item["passed"] for item in checks),
+            "checks": checks,
+        }
+
     def _generate_subtask_blueprint(
         self,
         parent: OrchestratorTask | Any,
@@ -1841,6 +2130,8 @@ class OrchestrationService:
         )
         await self.db.commit()
         await self.db.refresh(item)
+        await self._sync_knowledge_graph_for_decision(project, item)
+        await self.db.commit()
         await self._maybe_promote_decision_to_semantic(user, project, item)
         return item
 
@@ -1873,11 +2164,19 @@ class OrchestrationService:
     def _workflow_steps_for_run(self, run: TaskRun) -> list[dict[str, Any]]:
         if run.run_mode == "manager_worker":
             return [
-                {"id": "supervisor_plan", "title": "Supervisor plan", "actor": "supervisor"},
-                {"id": "route_workers", "title": "Route workers", "actor": "supervisor"},
-                {"id": "run_branches", "title": "Run delegated branches", "actor": "worker_pool"},
-                {"id": "synthesize", "title": "Synthesize outputs", "actor": "supervisor"},
-                {"id": "persist_output", "title": "Persist outputs", "actor": "system"},
+                {"id": "planning", "title": "Planning", "actor": "supervisor"},
+                {"id": "subtask_dispatch", "title": "Subtask dispatch", "actor": "supervisor"},
+                {"id": "worker_execution", "title": "Worker execution", "actor": "worker_pool"},
+                {"id": "blocker_resolution", "title": "Blocker resolution", "actor": "supervisor"},
+                {"id": "review", "title": "Review", "actor": "reviewer"},
+                {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
+                {"id": "github_sync", "title": "GitHub sync", "actor": "system"},
+            ]
+        if run.run_mode == "review":
+            return [
+                {"id": "review", "title": "Review", "actor": "reviewer"},
+                {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
+                {"id": "github_sync", "title": "GitHub sync", "actor": "system"},
             ]
         return [
             {"id": "build_prompt", "title": "Build prompt", "actor": "system"},
@@ -1898,6 +2197,192 @@ class OrchestrationService:
 
     def _workflow_trace_payload(self, run: TaskRun) -> list[dict[str, Any]]:
         return summarize_trace(run.checkpoint_json)
+
+    async def _child_runs_for_parent(self, parent_run_id: str) -> list[TaskRun]:
+        return await self.repo.list_child_runs(parent_run_id)
+
+    def _stage_state_payload(self, run: TaskRun) -> dict[str, Any]:
+        return {
+            "manager_plan": self._workflow_checkpoint_artifact(run, "manager_worker.plan", {}),
+            "routed_sub_tasks": self._workflow_checkpoint_artifact(run, "manager_worker.routed_sub_tasks", []),
+            "branch_results": self._workflow_checkpoint_artifact(run, "manager_worker.branch_results", []),
+            "review": self._workflow_checkpoint_artifact(run, "manager_worker.review_state", {}),
+            "github_sync": self._workflow_checkpoint_artifact(run, "manager_worker.github_action_state", {}),
+        }
+
+    async def _create_child_run(
+        self,
+        parent_run: TaskRun,
+        *,
+        sub_task: dict[str, Any],
+        assigned_agent_id: str | None,
+    ) -> TaskRun:
+        child = await self.repo.create_run(
+            parent_run_id=parent_run.id,
+            project_id=parent_run.project_id,
+            task_id=parent_run.task_id,
+            triggered_by_user_id=parent_run.triggered_by_user_id,
+            orchestrator_agent_id=parent_run.orchestrator_agent_id,
+            worker_agent_id=assigned_agent_id,
+            reviewer_agent_id=parent_run.reviewer_agent_id,
+            provider_config_id=parent_run.provider_config_id,
+            brainstorm_id=parent_run.brainstorm_id,
+            run_mode="single_agent",
+            status="queued",
+            model_name=parent_run.model_name,
+            input_payload_json={
+                "subtask": sub_task,
+                "parent_run_id": parent_run.id,
+                "orchestration_meta": {
+                    "branch_id": sub_task.get("branch_id"),
+                    "branch_title": sub_task.get("title"),
+                    "parent_run_id": parent_run.id,
+                    "routing_reason": sub_task.get("routing_reason"),
+                    "dependency_ids": sub_task.get("dependency_ids") or [],
+                },
+            },
+        )
+        child.checkpoint_json = ensure_workflow_state(
+            child.checkpoint_json,
+            run_mode=child.run_mode,
+            steps=self._workflow_steps_for_run(child),
+            run_id=child.id,
+        )
+        return child
+
+    def _normalize_subtask_graph(
+        self,
+        sub_tasks: list[dict[str, Any]],
+        *,
+        parent_task: OrchestratorTask | None,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for index, item in enumerate(sub_tasks):
+            branch_id = str(item.get("branch_id") or item.get("id") or f"branch-{index + 1}").strip()
+            dep_indexes = item.get("dependency_indexes") if isinstance(item.get("dependency_indexes"), list) else []
+            dep_ids = [
+                str(item_id).strip()
+                for item_id in (item.get("dependency_ids") or [])
+                if str(item_id).strip()
+            ]
+            for dep_index in dep_indexes:
+                if isinstance(dep_index, int) and 0 <= dep_index < len(sub_tasks):
+                    dep_branch_id = str(sub_tasks[dep_index].get("branch_id") or sub_tasks[dep_index].get("id") or f"branch-{dep_index + 1}").strip()
+                    if dep_branch_id and dep_branch_id not in dep_ids:
+                        dep_ids.append(dep_branch_id)
+            normalized.append(
+                {
+                    "branch_id": branch_id,
+                    "title": str(item.get("title") or f"Subtask {index + 1}"),
+                    "description": str(item.get("description") or ""),
+                    "acceptance_criteria": str(item.get("acceptance_criteria") or (parent_task.acceptance_criteria if parent_task else "") or ""),
+                    "required_tools": [str(x) for x in (item.get("required_tools") or []) if str(x).strip()],
+                    "required_capabilities": [str(x) for x in (item.get("required_capabilities") or []) if str(x).strip()],
+                    "parallelizable": bool(item.get("parallelizable", False)),
+                    "manager_notes": str(item.get("manager_notes") or ""),
+                    "dependency_ids": dep_ids,
+                    "tool_calls": list(item.get("tool_calls") or []),
+                    "rework_scope": list(item.get("rework_scope") or []),
+                }
+            )
+        return normalized
+
+    def _worker_result_contract(
+        self,
+        sub_task: dict[str, Any],
+        output_text: str,
+        output_json: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        payload = dict(output_json or {})
+        status = str(payload.get("status") or "completed").strip().lower()
+        if status not in {"completed", "blocked", "failed"}:
+            status = "completed"
+        changed_files = payload.get("changed_files")
+        if not isinstance(changed_files, list):
+            changed_files = []
+        risks = payload.get("risks")
+        if not isinstance(risks, list):
+            risks = []
+        evidence_refs = payload.get("evidence_refs")
+        if not isinstance(evidence_refs, list):
+            evidence_refs = []
+        return {
+            "status": status,
+            "summary": str(payload.get("summary") or output_text[:1200]),
+            "completion_status": status,
+            "changed_files": [str(x) for x in changed_files if str(x).strip()],
+            "risks": [str(x) for x in risks if str(x).strip()],
+            "evidence_refs": [str(x) for x in evidence_refs if str(x).strip()],
+            "blocker_reason": str(payload.get("blocker_reason") or ""),
+            "rework_scope": [str(x) for x in (payload.get("rework_scope") or sub_task.get("rework_scope") or []) if str(x).strip()],
+            "raw_output": output_text,
+        }
+
+    def _review_state_from_payload(self, review_payload: dict[str, Any], *, round_number: int) -> dict[str, Any]:
+        return {
+            "round": round_number,
+            "decision": str(review_payload.get("decision") or "rework"),
+            "summary": str(review_payload.get("summary") or "")[:1200],
+            "reasons": [str(x) for x in (review_payload.get("reasons") or []) if str(x).strip()],
+            "checklist": [str(x) for x in (review_payload.get("checklist") or []) if str(x).strip()],
+            "rework_scope": [str(x) for x in (review_payload.get("rework_scope") or []) if str(x).strip()],
+            "last_reviewed_at": datetime.now(UTC).isoformat(),
+        }
+
+    async def _publish_final_artifacts(
+        self,
+        run: TaskRun,
+        *,
+        branch_results: list[dict[str, Any]],
+        review_state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        created: list[dict[str, Any]] = []
+        final_output = str(run.output_payload_json.get("final_output") or run.output_payload_json.get("summary") or "")
+        review_text = json.dumps(review_state, indent=2, default=str)
+        evidence_payload = {
+            "branches": [
+                {
+                    "branch_id": item.get("branch_id"),
+                    "title": item.get("title"),
+                    "status": item.get("status"),
+                    "changed_files": item.get("changed_files") or [],
+                    "risks": item.get("risks") or [],
+                    "evidence_refs": item.get("evidence_refs") or [],
+                    "child_run_id": item.get("child_run_id"),
+                }
+                for item in branch_results
+            ],
+            "review": review_state,
+        }
+        for kind, title, content in [
+            ("summary", "Manager summary", str(run.output_payload_json.get("summary") or final_output)[:5000]),
+            ("implementation", "Implementation bundle", final_output[:12000]),
+            ("evidence", "Evidence bundle", json.dumps(evidence_payload, indent=2, default=str)[:12000]),
+            ("review", "Reviewer verdict", review_text[:12000]),
+        ]:
+            await self._write_artifact(
+                run,
+                kind=kind,
+                title=title,
+                content=content,
+                metadata={"parent_run_id": run.id},
+            )
+            created.append({"kind": kind, "title": title})
+        return created
+
+    async def _sync_manager_run_to_github(self, run: TaskRun, task: OrchestratorTask) -> dict[str, Any]:
+        state = self._workflow_checkpoint_artifact(run, "manager_worker.github_action_state", {})
+        if state.get("completed"):
+            return state
+        await self._sync_run_completion_to_github(run, task)
+        state = {
+            "completed": True,
+            "policy": str((run.input_payload_json or {}).get("github_action_policy") or "auto-on-approval"),
+            "last_synced_at": datetime.now(UTC).isoformat(),
+            "run_id": run.id,
+        }
+        self._set_workflow_checkpoint_artifact(run, key="manager_worker.github_action_state", value=state)
+        return state
 
     def _run_is_resumable(self, run: TaskRun) -> bool:
         state = workflow_state(run.checkpoint_json)
@@ -1983,6 +2468,7 @@ class OrchestrationService:
 
         latest = await self.repo.get_latest_run_for_task(project_id, task_id)
         focal = active_runs[0] if active_runs else latest
+        child_runs = await self._child_runs_for_parent(focal.id) if focal else []
         events_tail: list[dict[str, Any]] = []
         cp_excerpt: dict[str, Any] = {}
         if focal:
@@ -2001,6 +2487,7 @@ class OrchestrationService:
             task.id,
             run_id=latest.id if latest else None,
         )
+        stage_state = self._stage_state_payload(focal) if focal else {}
         return {
             "meta": meta,
             "project_id": project_id,
@@ -2053,11 +2540,16 @@ class OrchestrationService:
             "recent_events_tail": events_tail,
             "trace": self._workflow_trace_payload(focal) if focal else [],
             "durable_workflow": self._durable_workflow_payload(focal) if focal else {},
+            "child_runs": child_runs,
+            "blocker_queue": [item for item in (stage_state.get("branch_results") or []) if item.get("status") == "blocked"],
+            "review_state": stage_state.get("review") or {},
+            "github_action_state": stage_state.get("github_sync") or {},
         }
 
     async def get_run_execution_snapshot(self, user: User, run_id: str) -> dict[str, Any]:
         """Run-scoped execution snapshot (relational reads only)."""
         run = await self.get_run(user, run_id)
+        child_runs = await self._child_runs_for_parent(run.id)
         pending_approvals = await self.repo.list_pending_approvals_for_run(user.id, run_id)
         raw_events = await self.repo.list_run_events(run.id)
         events_tail = self._run_event_tail_payloads(raw_events, limit=12)
@@ -2074,6 +2566,7 @@ class OrchestrationService:
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
         execution_memory = extract_execution_memory_details(getattr(task, "metadata_json", None))
         changed_artifacts = await self._changed_artifacts_payload(run.task_id, run_id=run.id) if run.task_id else []
+        stage_state = self._stage_state_payload(run)
         return {
             "meta": meta,
             "project_id": run.project_id,
@@ -2107,6 +2600,10 @@ class OrchestrationService:
             "recent_events_tail": events_tail,
             "trace": self._workflow_trace_payload(run),
             "durable_workflow": self._durable_workflow_payload(run),
+            "child_runs": child_runs,
+            "blocker_queue": [item for item in (stage_state.get("branch_results") or []) if item.get("status") == "blocked"],
+            "review_state": stage_state.get("review") or {},
+            "github_action_state": stage_state.get("github_sync") or {},
             "resumable": self._run_is_resumable(run),
         }
 
@@ -2164,18 +2661,79 @@ class OrchestrationService:
     async def _semantic_context_snippets_for_prompt(
         self, task: OrchestratorTask, project: OrchestratorProject
     ) -> str:
+        ms = merge_memory_settings(project.settings_json)
+        min_hits = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
+        related_cap = max(1, int(ms.get("retrieval_cross_project_limit") or 6))
         title_q = (task.title or "").strip()[:120] or None
-        entries = await self.repo.list_semantic_memory_entries(
+        company_id = await self._ensure_company_id_for_project(project)
+        entries: list[SemanticMemoryEntry] = []
+        seen: set[str] = set()
+
+        def _take(rows: list[SemanticMemoryEntry]) -> None:
+            for e in rows:
+                if e.id in seen:
+                    continue
+                seen.add(e.id)
+                entries.append(e)
+
+        rows = await self.repo.list_semantic_memory_entries(
             project.owner_id,
             project_id=project.id,
+            namespace_prefix=f"task/{task.id}/",
             search=title_q,
-            limit=6,
+            limit=8,
         )
+        increment_memory_metric("retrieval_kw_semantic_task_hit" if rows else "retrieval_kw_semantic_task_miss")
+        _take(rows)
+        increment_memory_metric("retrieval_scope_semantic_task_kw")
+        if len(entries) < min_hits:
+            rows = await self.repo.list_semantic_memory_entries(
+                project.owner_id,
+                project_id=project.id,
+                search=title_q,
+                limit=8,
+            )
+            increment_memory_metric("retrieval_kw_semantic_project_hit" if rows else "retrieval_kw_semantic_project_miss")
+            _take(rows)
+            increment_memory_metric("retrieval_scope_semantic_project_kw")
+        if len(entries) < min_hits and company_id:
+            rows = await self.repo.list_semantic_memory_entries_for_company(
+                project.owner_id,
+                company_id,
+                search=title_q,
+                limit=6,
+            )
+            increment_memory_metric("retrieval_kw_semantic_company_hit" if rows else "retrieval_kw_semantic_company_miss")
+            _take(rows)
+            increment_memory_metric("retrieval_scope_semantic_company_kw")
+        if len(entries) < min_hits:
+            rel = await self.repo.list_related_project_ids_for_retrieval(
+                project.owner_id,
+                project.id,
+                agent_id=task.assigned_agent_id,
+                limit=related_cap,
+            )
+            cross_any = False
+            for rid in rel:
+                rows = await self.repo.list_semantic_memory_entries(
+                    project.owner_id,
+                    project_id=rid,
+                    search=title_q,
+                    limit=4,
+                )
+                if rows:
+                    cross_any = True
+                _take(rows)
+            if rel:
+                increment_memory_metric(
+                    "retrieval_kw_semantic_cross_project_hit" if cross_any else "retrieval_kw_semantic_cross_project_miss"
+                )
+                increment_memory_metric("retrieval_scope_semantic_cross_project_kw")
         if not entries:
             return ""
         lines = [
             f"- [{e.entry_type}] **{e.title}** (`{e.namespace}`): {(e.body or '')[:420].strip()}"
-            for e in entries
+            for e in entries[:12]
         ]
         return "Semantic memory (typed entries):\n" + "\n".join(lines)
 
@@ -2188,6 +2746,7 @@ class OrchestrationService:
         entry_type: str | None = None,
         namespace_prefix: str | None = None,
         vec_q: str | None = None,
+        source_task_id: str | None = None,
         limit: int = 100,
     ) -> list[SemanticMemoryEntry]:
         project = await self.get_project(user, project_id)
@@ -2198,8 +2757,11 @@ class OrchestrationService:
             entry_type=entry_type,
             namespace_prefix=namespace_prefix,
             search=q,
+            source_task_id=source_task_id,
             limit=limit,
         )
+        if source_task_id:
+            return rows
         if (
             vec_q
             and vec_q.strip()
@@ -2224,40 +2786,108 @@ class OrchestrationService:
                 logger.warning("semantic vector search failed, using keyword only: %s", exc)
         return rows
 
+    async def list_semantic_memory_for_company(
+        self,
+        user: User,
+        company_id: str,
+        *,
+        q: str | None = None,
+        entry_type: str | None = None,
+        namespace_prefix: str | None = None,
+        limit: int = 100,
+    ) -> list[SemanticMemoryEntry]:
+        from backend.modules.companies.repository import CompanyRepository
+
+        company = await CompanyRepository(self.db).get(user.id, company_id)
+        if company is None:
+            raise HTTPException(status_code=404, detail="company not found")
+        return await self.repo.list_semantic_memory_entries_for_company(
+            user.id,
+            company_id,
+            entry_type=entry_type,
+            namespace_prefix=namespace_prefix,
+            search=q,
+            limit=limit,
+        )
+
     async def _persist_semantic_memory_row(
         self, user: User, project: OrchestratorProject, payload: dict[str, Any]
     ) -> SemanticMemoryEntry:
         project_id = project.id
-        et = str(payload["entry_type"])
-        if et not in SEMANTIC_ENTRY_TYPES:
-            raise HTTPException(status_code=422, detail=f"Invalid entry_type: {et}")
+        et = _validate_semantic_entry_type(str(payload["entry_type"]))
         title = str(payload["title"]).strip()
         body = str(payload["body"]).strip()
         if not title or not body:
             raise HTTPException(status_code=422, detail="title and body are required")
-        ns = str(payload.get("namespace") or "").strip() or _default_semantic_namespace(
-            project_id, et, title
-        )
         scope = str(payload.get("scope") or "project")
         if scope not in ("project", "agent", "company"):
             raise HTTPException(status_code=422, detail="Invalid scope")
+        company_id = await self._ensure_company_id_for_project(project)
+        agent_id = payload.get("agent_id")
+        ns_raw = str(payload.get("namespace") or "").strip()
+        if ns_raw:
+            ns = _coerce_memory_namespace(
+                ns_raw, project_id=project_id, company_id=company_id, agent_id=agent_id
+            )
+        else:
+            ns = _default_semantic_namespace(
+                project_id,
+                et,
+                title,
+                scope=scope,
+                company_id=company_id,
+                agent_id=agent_id,
+            )
+        metadata = _validate_semantic_entry_metadata(et, dict(payload.get("metadata") or {}))
         proj_for_row = None if scope == "company" else project_id
+
+        provenance = normalize_provenance(
+            payload.get("provenance"),
+            default_source="api",
+            created_by_user_id=user.id,
+            source_task_id=payload.get("source_task_id"),
+            source_run_id=payload.get("source_run_id"),
+            source_agent_id=agent_id,
+        )
+
+        conflict_report = await self._detect_pre_write_conflicts(
+            project=project,
+            scope=scope,
+            company_id=company_id,
+            project_id=proj_for_row,
+            namespace=ns,
+            entry_type=et,
+            title=title,
+            body=body,
+            agent_id=agent_id,
+        )
+        if conflict_report.has_any:
+            metadata = dict(metadata)
+            metadata.setdefault("_conflict_report", summarize_memory_conflicts(conflict_report))
+            provenance = dict(provenance)
+            if conflict_report.best_duplicate is not None:
+                provenance["supersedes"] = list(
+                    dict.fromkeys(
+                        list(provenance.get("supersedes") or [])
+                        + [conflict_report.best_duplicate.entry_id]
+                    )
+                )
+
         entry = await self.repo.create_semantic_memory_entry(
             owner_id=project.owner_id,
             scope=scope,
+            company_id=company_id,
             project_id=proj_for_row,
-            agent_id=payload.get("agent_id"),
+            agent_id=agent_id,
             entry_type=et,
             namespace=ns[:512],
             title=title[:255],
             body=body,
-            metadata_json=dict(payload.get("metadata") or {}),
+            metadata_json=metadata,
             source_chunk_id=payload.get("source_chunk_id"),
             source_task_id=payload.get("source_task_id"),
             source_run_id=payload.get("source_run_id"),
-            provenance_json=dict(
-                payload.get("provenance") or {"source": "api", "created_by_user_id": user.id}
-            ),
+            provenance_json=provenance,
             created_by_user_id=user.id,
         )
         ms_proj = merge_memory_settings(project.settings_json)
@@ -2276,6 +2906,84 @@ class OrchestrationService:
         increment_memory_metric("semantic_entry_created")
         return entry
 
+    async def _detect_pre_write_conflicts(
+        self,
+        *,
+        project: OrchestratorProject,
+        scope: str,
+        company_id: str | None,
+        project_id: str | None,
+        namespace: str,
+        entry_type: str,
+        title: str,
+        body: str,
+        agent_id: str | None,
+    ) -> ConflictReport:
+        try:
+            query_text = f"{title}\n\n{body}"[:8000]
+            try:
+                cand_embedding = (await self.ai_providers.embed_texts([query_text]))[0]
+                cand_vec = normalize_embedding_for_vector(cand_embedding)
+            except Exception as exc:
+                logger.debug("conflict embedding unavailable, fallback to tokens: %s", exc)
+                cand_vec = None
+            namespace_prefix = "/".join(namespace.split("/")[:3]) if namespace else None
+            existing = await self.repo.list_semantic_memory_entries(
+                project.owner_id,
+                project_id=project_id,
+                entry_type=entry_type,
+                namespace_prefix=namespace_prefix,
+                limit=100,
+            )
+            return detect_memory_conflicts(
+                cand_vec,
+                title,
+                body,
+                entry_type,
+                existing,
+            )
+        except Exception as exc:
+            logger.warning("pre-write conflict detection failed: %s", exc)
+            return ConflictReport()
+
+    async def _detect_pre_write_conflicts_from_payload(
+        self, project: OrchestratorProject, payload: dict[str, Any]
+    ) -> ConflictReport:
+        title = str(payload.get("title") or "").strip()
+        body = str(payload.get("body") or "").strip()
+        entry_type = str(payload.get("entry_type") or "note")
+        scope = str(payload.get("scope") or "project")
+        agent_id = payload.get("agent_id")
+        company_id = await self._ensure_company_id_for_project(project)
+        proj_for_row = None if scope == "company" else project.id
+        ns_raw = str(payload.get("namespace") or "").strip()
+        if ns_raw:
+            ns = _coerce_memory_namespace(
+                ns_raw, project_id=project.id, company_id=company_id, agent_id=agent_id
+            )
+        else:
+            ns = _default_semantic_namespace(
+                project.id,
+                entry_type,
+                title,
+                scope=scope,
+                company_id=company_id,
+                agent_id=agent_id,
+            )
+        if not title or not body:
+            return ConflictReport()
+        return await self._detect_pre_write_conflicts(
+            project=project,
+            scope=scope,
+            company_id=company_id,
+            project_id=proj_for_row,
+            namespace=ns,
+            entry_type=entry_type,
+            title=title,
+            body=body,
+            agent_id=agent_id,
+        )
+
     async def create_semantic_memory_entry_for_project(
         self,
         user: User,
@@ -2283,10 +2991,28 @@ class OrchestrationService:
         payload: dict[str, Any],
         *,
         bypass_semantic_write_gate: bool = False,
+        promotion_evaluation: PromotionEvaluation | None = None,
     ) -> SemanticMemoryEntry | ApprovalRequest:
         project = await self.get_project(user, project_id)
         ms = merge_memory_settings(project.settings_json)
-        if ms.get("semantic_write_requires_approval") and not bypass_semantic_write_gate:
+        conflict_report = await self._detect_pre_write_conflicts_from_payload(project, payload)
+        conflict_detected = conflict_report.has_any
+        requires_approval = (
+            ms.get("semantic_write_requires_approval") and not bypass_semantic_write_gate
+        ) or conflict_detected
+        if requires_approval:
+            approval_payload: dict[str, Any] = {"operation": "create", "payload": dict(payload)}
+            if conflict_detected:
+                approval_payload["conflict_report"] = summarize_memory_conflicts(conflict_report)
+            if promotion_evaluation is not None:
+                approval_payload["promotion_suggested"] = True
+                approval_payload["promotion_evaluation"] = {
+                    "verdict": promotion_evaluation.verdict,
+                    "score": promotion_evaluation.score,
+                    "matched_rules": promotion_evaluation.matched_rules,
+                    "rationale": promotion_evaluation.rationale,
+                }
+                increment_memory_metric("promotion_candidate_queued")
             approval = await self.repo.create_approval(
                 project_id=project_id,
                 task_id=None,
@@ -2294,11 +3020,13 @@ class OrchestrationService:
                 requested_by_user_id=user.id,
                 approval_type="semantic_memory_write",
                 status="pending",
-                payload_json={"operation": "create", "payload": dict(payload)},
+                payload_json=approval_payload,
             )
             await self.db.commit()
             await self.db.refresh(approval)
             increment_memory_metric("semantic_write_approval_requested")
+            if conflict_detected:
+                increment_memory_metric("semantic_conflict_detected")
             return approval
         return await self._persist_semantic_memory_row(user, project, payload)
 
@@ -2319,14 +3047,19 @@ class OrchestrationService:
         if "body" in updates and updates["body"] is not None:
             entry.body = str(updates["body"])
         if "entry_type" in updates and updates["entry_type"] is not None:
-            et = str(updates["entry_type"])
-            if et not in SEMANTIC_ENTRY_TYPES:
-                raise HTTPException(status_code=422, detail="Invalid entry_type")
-            entry.entry_type = et
+            entry.entry_type = _validate_semantic_entry_type(str(updates["entry_type"]))
         if "namespace" in updates and updates["namespace"] is not None:
-            entry.namespace = str(updates["namespace"])[:512]
+            ns = _coerce_memory_namespace(
+                str(updates["namespace"]),
+                project_id=entry.project_id,
+                company_id=entry.company_id,
+                agent_id=entry.agent_id,
+            )
+            entry.namespace = ns[:512]
         if "metadata" in updates and updates["metadata"] is not None:
-            entry.metadata_json = dict(updates["metadata"])
+            entry.metadata_json = _validate_semantic_entry_metadata(
+                entry.entry_type, dict(updates["metadata"])
+            )
 
     async def update_semantic_memory_entry_for_project(
         self,
@@ -2481,23 +3214,46 @@ class OrchestrationService:
             body = f"{body}\n\nRationale:\n{decision_row.rationale.strip()}"
         if not body:
             return
+
+        cand = PromotionCandidate(
+            entry_type="adr",
+            title=(decision_row.title or "Decision")[:255],
+            body=body,
+            metadata={"rationale": (decision_row.rationale or "captured from project decision")},
+            scope="project",
+            source="project_decision",
+            source_task_id=decision_row.task_id,
+        )
+        evaluation = evaluate_promotion(cand)
+        if evaluation.verdict == "skip":
+            increment_memory_metric("promotion_skipped")
+            return
+
+        bypass = ms.get("auto_ingest_bypasses_semantic_approval", True) and (
+            evaluation.verdict == "auto"
+        )
         out = await self.create_semantic_memory_entry_for_project(
             user,
             project.id,
             {
-                "entry_type": "adr",
-                "title": (decision_row.title or "Decision")[:255],
-                "body": body,
+                "entry_type": cand.entry_type,
+                "title": cand.title,
+                "body": cand.body,
+                "metadata": cand.metadata,
                 "scope": "project",
                 "source_task_id": decision_row.task_id,
                 "provenance": {
                     "source": "project_decision",
-                    "decision_id": decision_row.id,
+                    "confidence": max(0.75, evaluation.score),
+                    "extras": {
+                        "decision_id": decision_row.id,
+                        "promotion_score": evaluation.score,
+                        "matched_rules": evaluation.matched_rules,
+                    },
                 },
             },
-            bypass_semantic_write_gate=merge_memory_settings(project.settings_json).get(
-                "auto_ingest_bypasses_semantic_approval", True
-            ),
+            bypass_semantic_write_gate=bypass,
+            promotion_evaluation=(None if evaluation.verdict == "auto" else evaluation),
         )
         if isinstance(out, ApprovalRequest):
             return
@@ -2514,21 +3270,51 @@ class OrchestrationService:
         )
         if existing:
             return
+
+        cand = PromotionCandidate(
+            entry_type="preference",
+            title=f"Memory: {memory.key}"[:255],
+            body=memory.value_text or "",
+            metadata={"preference_key": memory.key},
+            scope="project",
+            source="agent_memory",
+            source_agent_id=memory.agent_id,
+            source_run_id=memory.source_run_id,
+        )
+        evaluation = evaluate_promotion(cand)
+        if evaluation.verdict == "skip":
+            increment_memory_metric("promotion_skipped")
+            return
+
+        bypass = ms.get("auto_ingest_bypasses_semantic_approval", True) and (
+            evaluation.verdict == "auto"
+        )
         out = await self.create_semantic_memory_entry_for_project(
             user,
             project.id,
             {
-                "entry_type": "preference",
-                "title": f"Memory: {memory.key}"[:255],
-                "body": memory.value_text,
-                "scope": "project",
+                "entry_type": cand.entry_type,
+                "title": cand.title,
+                "body": cand.body,
+                "scope": "agent",
                 "agent_id": memory.agent_id,
                 "source_run_id": memory.source_run_id,
-                "provenance": {"source": "agent_memory", "agent_memory_id": memory.id},
+                "metadata": cand.metadata,
+                "provenance": {
+                    "source": "agent_memory",
+                    "source_agent_id": memory.agent_id,
+                    "source_run_id": memory.source_run_id,
+                    "confidence": max(0.6, evaluation.score),
+                    "extras": {
+                        "agent_memory_id": memory.id,
+                        "preference_key": memory.key,
+                        "promotion_score": evaluation.score,
+                        "matched_rules": evaluation.matched_rules,
+                    },
+                },
             },
-            bypass_semantic_write_gate=merge_memory_settings(project.settings_json).get(
-                "auto_ingest_bypasses_semantic_approval", True
-            ),
+            bypass_semantic_write_gate=bypass,
+            promotion_evaluation=(None if evaluation.verdict == "auto" else evaluation),
         )
         if isinstance(out, ApprovalRequest):
             return
@@ -2565,21 +3351,47 @@ class OrchestrationService:
         body = "\n\n".join(chunks)[:50000]
         if not body.strip():
             return
+        cand = PromotionCandidate(
+            entry_type="note",
+            title=f"Task close snapshot: {task.title or task.id[:8]}"[:255],
+            body=body,
+            scope="project",
+            source="task_close",
+            source_task_id=task.id,
+            source_run_id=latest.id,
+        )
+        evaluation = evaluate_promotion(cand)
+        if evaluation.verdict == "skip":
+            increment_memory_metric("promotion_skipped")
+            return
+        bypass = ms.get("auto_ingest_bypasses_semantic_approval", True) and (
+            evaluation.verdict == "auto"
+        )
         out = await self.create_semantic_memory_entry_for_project(
             user,
             project.id,
             {
-                "entry_type": "note",
-                "title": f"Task close snapshot: {task.title or task.id[:8]}"[:255],
-                "body": body,
+                "entry_type": cand.entry_type,
+                "title": cand.title,
+                "body": cand.body,
                 "scope": "project",
                 "source_task_id": task.id,
                 "source_run_id": latest.id,
-                "provenance": {"source": "task_close", "task_id": task.id, "run_id": latest.id},
+                "provenance": {
+                    "source": "task_close",
+                    "source_task_id": task.id,
+                    "source_run_id": latest.id,
+                    "confidence": max(0.55, evaluation.score),
+                    "extras": {
+                        "task_id": task.id,
+                        "run_id": latest.id,
+                        "promotion_score": evaluation.score,
+                        "matched_rules": evaluation.matched_rules,
+                    },
+                },
             },
-            bypass_semantic_write_gate=merge_memory_settings(project.settings_json).get(
-                "auto_ingest_bypasses_semantic_approval", True
-            ),
+            bypass_semantic_write_gate=bypass,
+            promotion_evaluation=(None if evaluation.verdict == "auto" else evaluation),
         )
         if isinstance(out, ApprovalRequest):
             return
@@ -2589,6 +3401,117 @@ class OrchestrationService:
         task.metadata_json = meta
         await self.db.commit()
         increment_memory_metric("task_close_auto_promotions")
+
+    async def _run_task_close_memory_lifecycle(
+        self,
+        _user: User | None,
+        project: OrchestratorProject,
+        task: OrchestratorTask,
+    ) -> None:
+        if task.status not in {"completed", "archived", "synced_to_github"}:
+            return
+        meta = dict(task.metadata_json or {})
+        if meta.get("memory_checkpoint_compacted"):
+            return
+        ms = merge_memory_settings(project.settings_json)
+        want_default = bool(ms.get("compaction_on_task_close_enabled", True))
+        low_value = False
+        if ms.get("task_close_archive_unpromoted_memory", True) and not ms.get(
+            "task_close_auto_promote_working_memory", False
+        ):
+            existing = await self.repo.find_semantic_by_task_close(
+                project.owner_id, project.id, task.id
+            )
+            if existing is None:
+                days = int(ms.get("task_close_low_value_archive_days") or 14)
+                age_days = (datetime.now(UTC) - task.created_at).days
+                if age_days >= days:
+                    low_value = True
+        if not want_default and not low_value:
+            meta["memory_checkpoint_compacted"] = True
+            meta["memory_compaction_skip_reason"] = "settings"
+            task.metadata_json = meta
+            orm_attributes.flag_modified(task, "metadata_json")
+            await self.db.commit()
+            return
+        latest = await self.repo.get_latest_run_for_task(project.id, task.id)
+        if not latest:
+            meta["memory_checkpoint_compacted"] = True
+            meta["memory_compaction_skip_reason"] = "no_run"
+            task.metadata_json = meta
+            orm_attributes.flag_modified(task, "metadata_json")
+            await self.db.commit()
+            return
+        events = await self.repo.list_run_events_for_task(project.id, task.id, limit=400)
+        ev_lines = [f"{ev.event_type}: {(ev.message or '')[:360]}" for ev in events[-160:]]
+        wm = working_memory_from_checkpoint(latest.checkpoint_json)
+        snap = build_task_close_snapshot_text(
+            task_title=task.title or "",
+            task_id=task.id,
+            wm=wm,
+            event_lines=ev_lines,
+        )
+        sid = snapshot_source_id(task.id, latest.id)
+        if snap.strip():
+            existing = await self.repo.get_episodic_index_row(
+                project.id, TASK_CLOSE_SNAPSHOT_KIND, sid
+            )
+            if not existing:
+                row = await self.repo.create_episodic_search_index_row(
+                    owner_id=project.owner_id,
+                    project_id=project.id,
+                    source_kind=TASK_CLOSE_SNAPSHOT_KIND,
+                    source_id=sid,
+                    text_content=snap,
+                    created_at=datetime.now(UTC),
+                )
+                await self.db.flush()
+                if not settings.ORCHESTRATION_OFFLINE_MODE:
+                    try:
+                        vec = (await self.ai_providers.embed_texts([snap[:8000]]))[0]
+                        row.embedding_vector = normalize_embedding_for_vector(vec)
+                    except Exception:
+                        pass
+        runs = await self.repo.list_task_runs_for_task(project.id, task.id, limit=80)
+        for r in runs:
+            r.checkpoint_json = prune_checkpoint_after_compaction(r.checkpoint_json or {})
+            orm_attributes.flag_modified(r, "checkpoint_json")
+        meta = dict(task.metadata_json or {})
+        meta.pop("memory_compaction_skip_reason", None)
+        meta["memory_checkpoint_compacted"] = True
+        if low_value:
+            meta["memory_low_value_archived"] = True
+        task.metadata_json = meta
+        orm_attributes.flag_modified(task, "metadata_json")
+        await self.db.commit()
+        increment_memory_metric("task_close_compactions")
+
+    async def run_memory_compaction_backfill(self, *, limit: int = 40) -> int:
+        """Periodic: terminal tasks missing compaction flag."""
+        from sqlalchemy import select
+
+        stmt = (
+            select(OrchestratorTask)
+            .where(
+                OrchestratorTask.status.in_(("completed", "archived", "synced_to_github")),
+            )
+            .order_by(OrchestratorTask.updated_at.desc())
+            .limit(max(limit * 4, 80))
+        )
+        tasks = list((await self.db.execute(stmt)).scalars().all())
+        done = 0
+        for t in tasks:
+            if (t.metadata_json or {}).get("memory_checkpoint_compacted"):
+                continue
+            project = await self.db.get(OrchestratorProject, t.project_id)
+            if project is None:
+                continue
+            await self._run_task_close_memory_lifecycle(None, project, t)
+            done += 1
+            if done >= limit:
+                break
+        increment_memory_metric("memory_compaction_backfill_runs")
+        return done
 
     async def get_project_memory_settings(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
@@ -2632,6 +3555,7 @@ class OrchestrationService:
             out.append(
                 {
                     "group_key": f"{_et}:{title_key}",
+                    "kind": "title_duplicate",
                     "entries": [
                         {
                             "id": x.id,
@@ -2643,6 +3567,64 @@ class OrchestrationService:
                     ],
                 }
             )
+
+        # Embedding-based conflict detection across same-type entries
+        # (catches near-duplicates with different titles and contradictions).
+        by_type: dict[str, list[SemanticMemoryEntry]] = {}
+        for e in entries:
+            by_type.setdefault(e.entry_type, []).append(e)
+        seen_pairs: set[tuple[str, str]] = set()
+        for et, bucket in by_type.items():
+            for i, row in enumerate(bucket):
+                report = detect_memory_conflicts(
+                    row.embedding_vector,
+                    row.title or "",
+                    row.body or "",
+                    et,
+                    bucket[i + 1 :],
+                    ignore_entry_id=row.id,
+                )
+                for hit in report.duplicates + report.contradictions:
+                    pair = tuple(sorted((row.id, hit.entry_id)))
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    out.append(
+                        {
+                            "group_key": f"{et}:{hit.kind}:{hit.entry_id[:8]}",
+                            "kind": hit.kind,
+                            "similarity": hit.similarity,
+                            "reason": hit.reason,
+                            "entries": [
+                                {
+                                    "id": row.id,
+                                    "title": row.title,
+                                    "namespace": row.namespace,
+                                    "updated_at": row.updated_at.isoformat(),
+                                },
+                                {
+                                    "id": hit.entry_id,
+                                    "title": hit.entry_title,
+                                    "namespace": next(
+                                        (x.namespace for x in bucket if x.id == hit.entry_id), ""
+                                    ),
+                                    "updated_at": next(
+                                        (
+                                            x.updated_at.isoformat()
+                                            for x in bucket
+                                            if x.id == hit.entry_id
+                                        ),
+                                        "",
+                                    ),
+                                },
+                            ],
+                        }
+                    )
+        title_groups = sum(1 for x in out if x.get("kind") == "title_duplicate")
+        emb_groups = sum(1 for x in out if x.get("kind") != "title_duplicate")
+        increment_memory_metric("semantic_conflict_scan_title_duplicate_groups", title_groups)
+        increment_memory_metric("semantic_conflict_embedding_groups", emb_groups)
+        increment_memory_metric("semantic_conflict_scan_total_groups", len(out))
         return out
 
     async def _procedural_playbook_excerpt(
@@ -2886,7 +3868,213 @@ class OrchestrationService:
         await self.db.refresh(canonical)
         self._schedule_semantic_embedding(canonical.id)
         increment_memory_metric("semantic_merges")
+        increment_memory_metric("semantic_conflict_resolved_merge")
         return canonical
+
+    async def _ensure_knowledge_graph_edge(
+        self,
+        owner_id: str,
+        project_id: str,
+        source_kind: str,
+        source_id: str,
+        target_kind: str,
+        target_id: str,
+        relation_type: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> KnowledgeGraphEdge | None:
+        if not source_id or not target_id:
+            return None
+        exists = await self.repo.get_knowledge_graph_edge_unique(
+            project_id,
+            source_kind[:64],
+            source_id[:64],
+            target_kind[:64],
+            target_id[:64],
+            relation_type[:64],
+        )
+        if exists:
+            return None
+        row = await self.repo.create_knowledge_graph_edge(
+            owner_id=owner_id,
+            project_id=project_id,
+            source_kind=source_kind[:64],
+            source_id=source_id[:64],
+            target_kind=target_kind[:64],
+            target_id=target_id[:64],
+            relation_type=relation_type[:64],
+            metadata_json=dict(metadata or {}),
+        )
+        increment_memory_metric("knowledge_graph_edges_created")
+        return row
+
+    async def _prune_stale_task_knowledge_graph_edges(
+        self, project: OrchestratorProject, task: OrchestratorTask
+    ) -> None:
+        oid, pid = project.owner_id, project.id
+        dep_ids = {d.depends_on_task_id for d in await self.repo.list_task_dependencies_for_task(task.id)}
+        edges = await self.repo.list_knowledge_graph_edges_from_source(
+            oid, pid, "task", task.id, limit=500
+        )
+        for e in edges:
+            if e.relation_type == "depends_on" and e.target_kind == "task":
+                if e.target_id not in dep_ids:
+                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+            elif e.relation_type == "assigned_to" and e.target_kind == "agent_profile":
+                if not task.assigned_agent_id or e.target_id != task.assigned_agent_id:
+                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+            elif e.relation_type == "reviewed_by" and e.target_kind == "agent_profile":
+                if not task.reviewer_agent_id or e.target_id != task.reviewer_agent_id:
+                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+            elif e.relation_type == "tracks_issue" and e.target_kind == "github_issue_link":
+                if not task.github_issue_link_id or e.target_id != task.github_issue_link_id:
+                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+
+    async def _sync_knowledge_graph_for_task(
+        self, project: OrchestratorProject, task: OrchestratorTask
+    ) -> None:
+        oid, pid = project.owner_id, project.id
+        await self._prune_stale_task_knowledge_graph_edges(project, task)
+        if task.assigned_agent_id:
+            await self._ensure_knowledge_graph_edge(
+                oid, pid, "task", task.id, "agent_profile", task.assigned_agent_id, "assigned_to"
+            )
+        if task.reviewer_agent_id:
+            await self._ensure_knowledge_graph_edge(
+                oid, pid, "task", task.id, "agent_profile", task.reviewer_agent_id, "reviewed_by"
+            )
+        if task.github_issue_link_id:
+            await self._ensure_knowledge_graph_edge(
+                oid,
+                pid,
+                "task",
+                task.id,
+                "github_issue_link",
+                task.github_issue_link_id,
+                "tracks_issue",
+            )
+        for dep in await self.repo.list_task_dependencies_for_task(task.id):
+            await self._ensure_knowledge_graph_edge(
+                oid, pid, "task", task.id, "task", dep.depends_on_task_id, "depends_on"
+            )
+
+    async def _sync_knowledge_graph_for_decision(
+        self, project: OrchestratorProject, decision: ProjectDecision
+    ) -> None:
+        oid, pid = project.owner_id, project.id
+        edges = await self.repo.list_knowledge_graph_edges_from_source(
+            oid, pid, "project_decision", decision.id, limit=100
+        )
+        for e in edges:
+            if e.relation_type == "about_task" and e.target_kind == "task":
+                if not decision.task_id or e.target_id != decision.task_id:
+                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+        if decision.task_id:
+            await self._ensure_knowledge_graph_edge(
+                project.owner_id,
+                project.id,
+                "project_decision",
+                decision.id,
+                "task",
+                decision.task_id,
+                "about_task",
+            )
+
+    async def _sync_knowledge_graph_for_project_repository(
+        self, project: OrchestratorProject, link: ProjectRepositoryLink
+    ) -> None:
+        if link.github_repository_id:
+            await self._ensure_knowledge_graph_edge(
+                project.owner_id,
+                project.id,
+                "github_repository",
+                link.github_repository_id,
+                "orchestrator_project",
+                project.id,
+                "linked_to_project",
+                metadata={"project_repository_link_id": link.id},
+            )
+
+    async def create_knowledge_graph_edge_for_project(
+        self,
+        user: User,
+        project_id: str,
+        *,
+        source_kind: str,
+        source_id: str,
+        target_kind: str,
+        target_id: str,
+        relation_type: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> KnowledgeGraphEdge:
+        project = await self.get_project(user, project_id)
+        row = await self._ensure_knowledge_graph_edge(
+            project.owner_id,
+            project_id,
+            source_kind,
+            source_id,
+            target_kind,
+            target_id,
+            relation_type,
+            metadata=metadata,
+        )
+        if row is not None:
+            await self.db.commit()
+            await self.db.refresh(row)
+            return row
+        existing = await self.repo.get_knowledge_graph_edge_unique(
+            project_id,
+            source_kind[:64],
+            source_id[:64],
+            target_kind[:64],
+            target_id[:64],
+            relation_type[:64],
+        )
+        if existing is None:
+            raise HTTPException(status_code=400, detail="Could not create graph edge")
+        return existing
+
+    async def list_knowledge_graph_edges_for_project(
+        self,
+        user: User,
+        project_id: str,
+        *,
+        source_kind: str | None = None,
+        source_id: str | None = None,
+        target_kind: str | None = None,
+        target_id: str | None = None,
+        limit: int = 200,
+    ) -> list[KnowledgeGraphEdge]:
+        project = await self.get_project(user, project_id)
+        if source_kind and source_id:
+            return await self.repo.list_knowledge_graph_edges_from_source(
+                project.owner_id,
+                project_id,
+                source_kind,
+                source_id,
+                limit=limit,
+            )
+        if target_kind and target_id:
+            return await self.repo.list_knowledge_graph_edges_to_target(
+                project.owner_id,
+                project_id,
+                target_kind,
+                target_id,
+                limit=limit,
+            )
+        raise HTTPException(
+            status_code=422,
+            detail="Provide source_kind+source_id or target_kind+target_id query pair.",
+        )
+
+    async def delete_knowledge_graph_edge_for_project(
+        self, user: User, project_id: str, edge_id: str
+    ) -> None:
+        project = await self.get_project(user, project_id)
+        ok = await self.repo.delete_knowledge_graph_edge(project.owner_id, project_id, edge_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Graph edge not found")
+        await self.db.commit()
 
     async def create_semantic_memory_link_for_project(
         self,
@@ -3057,6 +4245,123 @@ class OrchestrationService:
             await self.db.commit()
         return done
 
+    async def _enqueue_classifier_job_for_task(
+        self, project: OrchestratorProject, task: OrchestratorTask
+    ) -> None:
+        ms = merge_memory_settings(project.settings_json)
+        if not ms.get("classifier_worker_enabled", True):
+            return
+        latest = await self.repo.get_latest_run_for_task(project.id, task.id)
+        if latest is None:
+            return
+        await self.repo.create_memory_ingest_job(
+            owner_id=project.owner_id,
+            project_id=project.id,
+            job_type="classify",
+            payload_json={
+                "project_id": project.id,
+                "run_id": latest.id,
+                "task_id": task.id,
+            },
+            status="pending",
+        )
+        await self.db.commit()
+
+    async def _run_classifier_ingest_job(
+        self, job: Any, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        project_id = str(payload.get("project_id") or "")
+        run_id = str(payload.get("run_id") or "")
+        if not project_id or not run_id:
+            raise RuntimeError("classify job missing project_id / run_id")
+        project = await self.db.get(OrchestratorProject, project_id)
+        if project is None:
+            raise RuntimeError("classify job target project missing")
+        ms = merge_memory_settings(project.settings_json)
+        if not ms.get("classifier_worker_enabled", True):
+            return {"skipped": True}
+        owner_id = str(project.owner_id)
+        owner = await self.db.get(User, owner_id)
+        if owner is None:
+            raise RuntimeError("classify job target owner missing")
+        events = await self.repo.list_run_events(run_id)
+        event_dicts: list[dict[str, Any]] = []
+        for ev in events:
+            event_dicts.append(
+                {
+                    "id": ev.id,
+                    "event_type": ev.event_type,
+                    "message": ev.message,
+                    "payload_json": ev.payload_json,
+                }
+            )
+        candidates = classify_run_events(event_dicts)
+        created = 0
+        approvals = 0
+        skipped = 0
+        for cand in candidates:
+            if cand.layer != "semantic":
+                # Procedural/working layers are out of scope for the
+                # semantic write path; record a metric and move on.
+                increment_memory_metric(f"classifier_candidate_{cand.layer}")
+                continue
+            promotion_cand = PromotionCandidate(
+                entry_type=cand.entry_type,
+                title=cand.title,
+                body=cand.body,
+                metadata={
+                    k: v
+                    for k, v in (cand.metadata or {}).items()
+                    if k in ("rationale", "scope_label", "term", "preference_key")
+                },
+                scope="project",
+                source="classifier",
+                source_run_id=run_id,
+            )
+            evaluation = evaluate_promotion(promotion_cand)
+            if evaluation.verdict == "skip":
+                skipped += 1
+                continue
+            bypass = ms.get("auto_ingest_bypasses_semantic_approval", True) and (
+                evaluation.verdict == "auto"
+            )
+            out = await self.create_semantic_memory_entry_for_project(
+                owner,
+                project_id,
+                {
+                    "entry_type": cand.entry_type,
+                    "title": cand.title,
+                    "body": cand.body,
+                    "scope": "project",
+                    "source_run_id": run_id,
+                    "metadata": promotion_cand.metadata,
+                    "provenance": {
+                        "source": "classifier",
+                        "source_run_id": run_id,
+                        "confidence": max(cand.confidence, evaluation.score),
+                        "extras": {
+                            "classifier_rationale": cand.rationale,
+                            "promotion_score": evaluation.score,
+                            "matched_rules": evaluation.matched_rules,
+                            "source_event_ids": cand.source_event_ids,
+                        },
+                    },
+                },
+                bypass_semantic_write_gate=bypass,
+                promotion_evaluation=(None if evaluation.verdict == "auto" else evaluation),
+            )
+            if isinstance(out, ApprovalRequest):
+                approvals += 1
+            else:
+                created += 1
+        increment_memory_metric("classifier_jobs_completed")
+        return {
+            "candidates": len(candidates),
+            "created": created,
+            "approvals": approvals,
+            "skipped": skipped,
+        }
+
     async def process_memory_ingest_jobs_worker(self, *, limit: int = 15) -> dict[str, Any]:
         jobs = await self.repo.list_pending_memory_ingest_jobs(limit=limit)
         processed = 0
@@ -3087,6 +4392,8 @@ class OrchestrationService:
                         repository_link_id=str(payload.get("repository_link_id") or ""),
                         requested_by_user_id=str(payload.get("requested_by_user_id") or "") or None,
                     )
+                elif jt == "classify":
+                    await self._run_classifier_ingest_job(job, payload)
                 elif jt == "classifier_stub":
                     pass
                 await self.repo.update_memory_ingest_job(
@@ -3943,8 +5250,28 @@ class OrchestrationService:
 
     async def cancel_run(self, user: User, run_id: str):
         run = await self.get_run(user, run_id)
+        child_runs = await self._child_runs_for_parent(run.id)
         run.status = "cancelled"
         run.cancelled_at = datetime.now(UTC)
+        run.checkpoint_json = update_query_snapshot(
+            run.checkpoint_json,
+            data={"latest_status": "cancelled", "cancelled_at": run.cancelled_at.isoformat(), "run_id": run.id},
+        )
+        for child in child_runs:
+            if child.status in {"queued", "in_progress", "blocked"}:
+                child.status = "cancelled"
+                child.cancelled_at = run.cancelled_at
+                child.checkpoint_json = update_query_snapshot(
+                    child.checkpoint_json,
+                    data={"latest_status": "cancelled", "parent_run_id": run.id},
+                )
+                await self._emit_run_event(
+                    child,
+                    event_type="cancelled",
+                    level="warning",
+                    message="Child run cancelled with parent.",
+                    payload={"parent_run_id": run.id},
+                )
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
         if task and task.status in {"queued", "planned", "in_progress"}:
             await self._transition_task_status(task, "planned", run=run, reason="run cancelled")
@@ -3977,6 +5304,19 @@ class OrchestrationService:
             message="Run resumed from durable checkpoint.",
             payload={"trace": self._workflow_trace_payload(run)},
         )
+        for child in await self._child_runs_for_parent(run.id):
+            if child.status in {"blocked", "failed"}:
+                child.status = "queued"
+                child.error_message = None
+                child.completed_at = None
+                child.cancelled_at = None
+                child.checkpoint_json = increment_resume_count(child.checkpoint_json)
+                await self._emit_run_event(
+                    child,
+                    event_type="workflow_resumed",
+                    message="Child run re-queued from parent resume.",
+                    payload={"parent_run_id": run.id},
+                )
         await self.db.commit()
         from backend.modules.orchestration.durable_execution import submit_orchestration_run
 
@@ -4020,6 +5360,7 @@ class OrchestrationService:
         else:
             base_input["orchestration_meta"] = {"replayed_from_run_id": old.id}
         new_run = await self.repo.create_run(
+            parent_run_id=getattr(old, "parent_run_id", None),
             project_id=old.project_id,
             task_id=old.task_id,
             triggered_by_user_id=user.id,
@@ -4784,6 +6125,7 @@ class OrchestrationService:
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
         new_run = await self.repo.create_run(
+            parent_run_id=run.parent_run_id,
             project_id=run.project_id,
             task_id=run.task_id,
             triggered_by_user_id=user.id,
@@ -4932,6 +6274,8 @@ class OrchestrationService:
                 if task.status not in {"blocked", "approved", "completed", "needs_review"}:
                     next_status = "needs_review" if task.reviewer_agent_id else "completed"
                     await self._transition_task_status(task, next_status, run=run, reason="run completed")
+                elif run.run_mode == "manager_worker" and task.status == "approved":
+                    await self._transition_task_status(task, "completed", run=run, reason="manager-worker flow fully completed")
                 self._update_task_execution_memory(task, run)
                 await self._detect_and_log_task_output_conflict(task, run)
             await self._emit_run_event(
@@ -4946,7 +6290,11 @@ class OrchestrationService:
                 task,
             )
             if task:
-                await self._sync_run_completion_to_github(run, task)
+                if not (
+                    isinstance(run.output_payload_json.get("github_action_state"), dict)
+                    and run.output_payload_json["github_action_state"].get("completed")
+                ):
+                    await self._sync_run_completion_to_github(run, task)
             if task and task.github_issue_link_id and run.run_mode != "brainstorm":
                 await self.repo.create_approval(
                     project_id=run.project_id,
@@ -4962,6 +6310,15 @@ class OrchestrationService:
                     },
                 )
             await self.db.commit()
+            if task and task.status in {"completed", "archived", "synced_to_github"}:
+                await self.db.refresh(task)
+                hook_user = None
+                if run.triggered_by_user_id:
+                    hook_user = await self.db.get(User, run.triggered_by_user_id)
+                if hook_user:
+                    await self._maybe_promote_task_close_working_memory(hook_user, project, task)
+                await self._run_task_close_memory_lifecycle(hook_user, project, task)
+                await self._enqueue_classifier_job_for_task(project, task)
             if task:
                 await self._apply_project_escalation_rules(project, run=run, task=task, trigger="run_completed")
             return run
@@ -5029,44 +6386,50 @@ class OrchestrationService:
         return await self.repo.list_providers(user.id, project_id)
 
     async def create_provider(self, user: User, payload: dict[str, Any]):
-        await self._ensure_catalog_seeded()
         if payload.get("is_default"):
             for provider in await self.repo.list_providers(user.id, payload.get("project_id")):
                 provider.is_default = False
-        metadata = dict(payload.get("metadata") or {})
+        data = dict(payload)
+        api_key = data.pop("api_key", None)
+        metadata = data.pop("metadata", None) or {}
         provider = await self.repo.create_provider(
             owner_id=user.id,
-            project_id=payload.get("project_id"),
-            name=payload["name"],
-            provider_type=payload["provider_type"],
-            base_url=payload.get("base_url"),
-            encrypted_api_key=encrypt_secret(payload["api_key"]) if payload.get("api_key") else None,
-            api_key_hint=mask_secret(payload.get("api_key")),
-            organization=payload.get("organization"),
-            default_model=payload["default_model"],
-            fallback_model=payload.get("fallback_model"),
-            temperature=payload.get("temperature", 0.2),
-            max_tokens=payload.get("max_tokens", 4096),
-            timeout_seconds=payload.get("timeout_seconds", 120),
-            is_default=payload.get("is_default", False),
-            is_enabled=payload.get("is_enabled", True),
+            project_id=data.get("project_id"),
+            name=data["name"],
+            provider_type=data["provider_type"],
+            base_url=data.get("base_url"),
+            encrypted_api_key=encrypt_secret(api_key) if api_key else None,
+            api_key_hint=mask_secret(api_key) if api_key else None,
+            organization=data.get("organization"),
+            default_model=data["default_model"],
+            fallback_model=data.get("fallback_model"),
+            temperature=data.get("temperature", 0.2),
+            max_tokens=data.get("max_tokens", 4096),
+            timeout_seconds=data.get("timeout_seconds", 120),
+            is_default=bool(data.get("is_default", False)),
+            is_enabled=bool(data.get("is_enabled", True)),
             metadata_json=metadata,
         )
-        if provider.provider_type == "ollama":
-            try:
-                await self._refresh_provider_models(provider)
-            except Exception as exc:
+        await self.db.commit()
+        await self.db.refresh(provider)
+        provider_id = provider.id
+        try:
+            await self._refresh_provider_models(provider)
+            await self.db.commit()
+        except Exception as exc:
+            await self.db.rollback()
+            provider = await self.repo.get_provider(user.id, provider_id)
+            if provider is not None:
                 provider.metadata_json = {
                     **(provider.metadata_json or {}),
                     "last_discovery_error": str(exc),
                 }
-        await self._validate_provider_models(provider)
-        await self.db.commit()
-        await self.db.refresh(provider)
+                await self.db.commit()
+        if provider is not None:
+            await self.db.refresh(provider)
         return provider
 
     async def update_provider(self, user: User, provider_id: str, updates: dict[str, Any]):
-        await self._ensure_catalog_seeded()
         provider = await self.repo.get_provider(user.id, provider_id)
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
@@ -5081,14 +6444,13 @@ class OrchestrationService:
                 provider.metadata_json = value
             else:
                 setattr(provider, field, value)
-        if provider.provider_type == "ollama":
-            try:
-                await self._refresh_provider_models(provider)
-            except Exception as exc:
-                provider.metadata_json = {
-                    **(provider.metadata_json or {}),
-                    "last_discovery_error": str(exc),
-                }
+        try:
+            await self._refresh_provider_models(provider)
+        except Exception as exc:
+            provider.metadata_json = {
+                **(provider.metadata_json or {}),
+                "last_discovery_error": str(exc),
+            }
         await self._validate_provider_models(provider)
         await self.db.commit()
         await self.db.refresh(provider)
@@ -5115,7 +6477,6 @@ class OrchestrationService:
         }
 
     async def list_model_capabilities(self) -> list[ModelCapability]:
-        await self._ensure_catalog_seeded()
         return await self.repo.list_model_capabilities()
 
     async def compare_providers(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
@@ -5400,22 +6761,41 @@ class OrchestrationService:
         installation = await self._github_app_get_installation(installation_id, api_url=api_url)
         account = installation.get("account") or {}
         account_login = account.get("login") or f"installation-{installation_id}"
+        installation_metadata = {
+            "connection_mode": "github_app",
+            "installation_id": installation_id,
+            "account_login": account_login,
+            "account_type": account.get("type"),
+            "html_url": account.get("html_url"),
+            "repositories_url": installation.get("repositories_url"),
+            "target_type": installation.get("target_type"),
+            "repository_selection": installation.get("repository_selection"),
+            "single_file_name": installation.get("single_file_name"),
+            "permissions": dict(installation.get("permissions") or {}),
+            "events": list(installation.get("events") or []),
+            "suspended_at": installation.get("suspended_at"),
+            "setup_action": setup_action,
+            "last_verified_at": datetime.now(UTC).isoformat(),
+        }
+        installation_metadata["health"] = self._github_connection_health(installation_metadata)
+        verified_at = datetime.now(UTC)
+        webhook_fp = None
+        if settings.GITHUB_APP_WEBHOOK_SECRET:
+            webhook_fp = hashlib.sha256(settings.GITHUB_APP_WEBHOOK_SECRET.encode("utf-8")).hexdigest()[:16]
         existing = await self.repo.get_github_connection_by_installation(user.id, installation_id)
         if existing:
             existing.name = f"{settings.GITHUB_APP_NAME} · {account_login}"
             existing.api_url = api_url
             existing.account_login = account_login
             existing.is_active = True
-            existing.metadata_json = {
-                **(existing.metadata_json or {}),
-                "connection_mode": "github_app",
-                "installation_id": installation_id,
-                "account_login": account_login,
-                "account_type": account.get("type"),
-                "html_url": account.get("html_url"),
-                "repositories_url": installation.get("repositories_url"),
-                "setup_action": setup_action,
-            }
+            existing.github_installation_id = installation_id
+            existing.install_account_type = str(account.get("type") or "") or None
+            existing.repository_selection = str(installation.get("repository_selection") or "") or None
+            existing.install_permissions_json = dict(installation.get("permissions") or {})
+            existing.install_events_json = list(installation.get("events") or [])
+            existing.install_last_verified_at = verified_at
+            existing.webhook_secret_fingerprint = webhook_fp
+            existing.metadata_json = {**(existing.metadata_json or {}), **installation_metadata}
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -5426,15 +6806,14 @@ class OrchestrationService:
             encrypted_token=encrypt_secret("github-app-installation"),
             token_hint="app",
             account_login=account_login,
-            metadata_json={
-                "connection_mode": "github_app",
-                "installation_id": installation_id,
-                "account_login": account_login,
-                "account_type": account.get("type"),
-                "html_url": account.get("html_url"),
-                "repositories_url": installation.get("repositories_url"),
-                "setup_action": setup_action,
-            },
+            metadata_json=installation_metadata,
+            github_installation_id=installation_id,
+            install_account_type=str(account.get("type") or "") or None,
+            repository_selection=str(installation.get("repository_selection") or "") or None,
+            install_permissions_json=dict(installation.get("permissions") or {}),
+            install_events_json=list(installation.get("events") or []),
+            install_last_verified_at=verified_at,
+            webhook_secret_fingerprint=webhook_fp,
         )
         await self.db.commit()
         await self.db.refresh(item)
@@ -5485,8 +6864,27 @@ class OrchestrationService:
         repos = await self._list_github_repositories(connection)
         created = []
         existing = {item.full_name: item for item in await self.repo.list_github_repositories(user.id)}
+        seen_full_names: set[str] = set()
         for repo in repos:
-            if repo["full_name"] in existing:
+            seen_full_names.add(str(repo["full_name"]))
+            row = existing.get(repo["full_name"])
+            repository_metadata = {
+                **repo,
+                "last_verified_at": datetime.now(UTC).isoformat(),
+            }
+            repository_metadata["health"] = self._github_repository_health(
+                connection,
+                repository_metadata,
+                is_active=True,
+            )
+            if row is not None:
+                row.owner_name = repo["owner"]["login"]
+                row.repo_name = repo["name"]
+                row.default_branch = repo.get("default_branch")
+                row.repo_url = repo.get("html_url")
+                row.is_active = True
+                row.last_synced_at = datetime.now(UTC)
+                row.metadata_json = repository_metadata
                 continue
             created.append(
                 await self.repo.create_github_repository(
@@ -5496,11 +6894,31 @@ class OrchestrationService:
                     full_name=repo["full_name"],
                     default_branch=repo.get("default_branch"),
                     repo_url=repo.get("html_url"),
-                    metadata_json=repo,
+                    metadata_json=repository_metadata,
+                    last_synced_at=datetime.now(UTC),
                 )
             )
+        for full_name, row in existing.items():
+            if row.connection_id != connection.id or full_name in seen_full_names:
+                continue
+            row.is_active = False
+            metadata = dict(row.metadata_json or {})
+            metadata["last_verified_at"] = datetime.now(UTC).isoformat()
+            metadata["health"] = self._github_repository_health(connection, metadata, is_active=False)
+            row.metadata_json = metadata
         await self.db.commit()
         return created
+
+    async def resync_github_connection_installation(self, connection_id: str) -> dict[str, Any]:
+        """Recovery: refresh repository rows for a connection (post-install / operator tool)."""
+        connection = await self.db.get(GithubConnection, connection_id)
+        if connection is None:
+            return {"ok": False, "detail": "connection_not_found"}
+        user = await self.db.get(User, connection.owner_id)
+        if user is None:
+            return {"ok": False, "detail": "owner_not_found"}
+        created = await self.sync_github_repositories(user, connection_id)
+        return {"ok": True, "created_repo_rows": len(created or [])}
 
     async def list_github_repositories(self, user: User):
         return await self.repo.list_github_repositories(user.id)
@@ -5582,6 +7000,15 @@ class OrchestrationService:
                         "github_issue_number": issue["number"],
                         "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
                         "imported_from": "github",
+                        "github_sync_provenance": {
+                            "source": "github_issue_import",
+                            "last_synced_at": datetime.now(UTC).isoformat(),
+                            "field_sources": {
+                                "title": "github",
+                                "description": "github",
+                                "labels": "github",
+                            },
+                        },
                     },
                     position=await self.repo.get_next_task_position(project.id),
                 )
@@ -5602,6 +7029,15 @@ class OrchestrationService:
                     "github_issue_number": issue["number"],
                     "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
                     "imported_from": "github",
+                    "github_sync_provenance": {
+                        "source": "github_issue_import",
+                        "last_synced_at": datetime.now(UTC).isoformat(),
+                        "field_sources": {
+                            "title": "github",
+                            "description": "github",
+                            "labels": "github",
+                        },
+                    },
                 }
                 if default_worker and not task.assigned_agent_id:
                     task.assigned_agent_id = default_worker
@@ -5702,9 +7138,113 @@ class OrchestrationService:
             await self.db.commit()
         return updated
 
+    async def _snapshot_expiring_project_document(self, doc: ProjectDocument) -> None:
+        if not doc.project_id:
+            return
+        project = await self.db.get(OrchestratorProject, doc.project_id)
+        if project is None:
+            return
+        existing = await self.repo.get_episodic_index_row(
+            doc.project_id, PROJECT_DOCUMENT_TTL_SNAPSHOT_KIND, doc.id
+        )
+        if existing:
+            return
+        body = (
+            f"[document_ttl] id={doc.id} filename={doc.filename}\n"
+            f"{(doc.summary_text or doc.source_text or '')[:6000]}"
+        ).strip()
+        if not body:
+            return
+        row = await self.repo.create_episodic_search_index_row(
+            owner_id=project.owner_id,
+            project_id=doc.project_id,
+            source_kind=PROJECT_DOCUMENT_TTL_SNAPSHOT_KIND,
+            source_id=doc.id,
+            text_content=body[:8000],
+            created_at=datetime.now(UTC),
+        )
+        await self.db.flush()
+        if not settings.ORCHESTRATION_OFFLINE_MODE:
+            try:
+                vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
+                row.embedding_vector = normalize_embedding_for_vector(vec)
+            except Exception:
+                pass
+        increment_memory_metric("memory_ttl_document_snapshots")
+
+    async def _snapshot_expiring_agent_memory(self, mem: AgentMemoryEntry) -> None:
+        if not mem.project_id:
+            return
+        project = await self.db.get(OrchestratorProject, mem.project_id)
+        if project is None:
+            return
+        existing = await self.repo.get_episodic_index_row(
+            mem.project_id, AGENT_MEMORY_TTL_SNAPSHOT_KIND, mem.id
+        )
+        if existing:
+            return
+        body = (
+            f"[agent_memory_ttl] id={mem.id} key={mem.key}\n{(mem.value_text or '')[:6000]}"
+        ).strip()
+        if not body:
+            return
+        row = await self.repo.create_episodic_search_index_row(
+            owner_id=project.owner_id,
+            project_id=mem.project_id,
+            source_kind=AGENT_MEMORY_TTL_SNAPSHOT_KIND,
+            source_id=mem.id,
+            text_content=body[:8000],
+            created_at=datetime.now(UTC),
+        )
+        await self.db.flush()
+        if not settings.ORCHESTRATION_OFFLINE_MODE:
+            try:
+                vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
+                row.embedding_vector = normalize_embedding_for_vector(vec)
+            except Exception:
+                pass
+        increment_memory_metric("memory_ttl_agent_memory_snapshots")
+
     async def sweep_expired_memory_globally(self) -> dict[str, int]:
-        """Expire knowledge documents and agent memory rows past ``expires_at`` (all tenants)."""
+        """TTL soft-delete; episodic snapshot row first (retrieval), then mark deleted."""
         now = datetime.now(UTC)
+        from sqlalchemy import select
+
+        docs = list(
+            (
+                await self.db.execute(
+                    select(ProjectDocument)
+                    .where(
+                        ProjectDocument.expires_at.isnot(None),
+                        ProjectDocument.expires_at <= now,
+                        ProjectDocument.deleted_at.is_(None),
+                    )
+                    .limit(500)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for doc in docs:
+            await self._snapshot_expiring_project_document(doc)
+        mems = list(
+            (
+                await self.db.execute(
+                    select(AgentMemoryEntry)
+                    .where(
+                        AgentMemoryEntry.expires_at.isnot(None),
+                        AgentMemoryEntry.expires_at <= now,
+                        AgentMemoryEntry.deleted_at.is_(None),
+                    )
+                    .limit(500)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for mem in mems:
+            await self._snapshot_expiring_agent_memory(mem)
+        await self.db.flush()
         doc_result = await self.db.execute(
             update(ProjectDocument)
             .where(
@@ -5724,6 +7264,7 @@ class OrchestrationService:
             .values(deleted_at=now, status="expired")
         )
         await self.db.commit()
+        increment_memory_metric("memory_expiration_sweeps")
         return {
             "expired_documents": doc_result.rowcount or 0,
             "expired_memory_entries": mem_result.rowcount or 0,
@@ -5735,18 +7276,85 @@ class OrchestrationService:
         issue_link_id: str,
         body: str,
         close_issue: bool,
+        *,
+        idempotency_key: str | None = None,
+        artifact_ids: list[str] | None = None,
     ):
         issue_link = await self.repo.get_issue_link(user.id, issue_link_id)
         if not issue_link:
             raise HTTPException(status_code=404, detail="Issue link not found")
-        approval = await self.repo.create_approval(
-            project_id=None,
-            issue_link_id=issue_link.id,
-            requested_by_user_id=user.id,
-            approval_type="github_comment",
-            status="pending",
-            payload_json={"body": body, "close_issue": close_issue},
+        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        task = await self.db.get(OrchestratorTask, issue_link.task_id) if issue_link.task_id else None
+        project = await self.db.get(OrchestratorProject, task.project_id) if task else None
+        policy, trusted_ids = self._effective_github_outbound_comment_policy(project, repository)
+        if policy == "disabled":
+            raise HTTPException(status_code=403, detail="Outbound GitHub comments are disabled for this project.")
+        if policy == "approved_artifacts_only" and not (artifact_ids or []):
+            raise HTTPException(
+                status_code=422,
+                detail="Outbound policy requires artifact_ids for GitHub comments on this project.",
+            )
+        artifact_ids = [str(x).strip() for x in (artifact_ids or []) if str(x).strip()]
+        if artifact_ids:
+            if not issue_link.task_id:
+                raise HTTPException(status_code=422, detail="Artifacts require a linked task.")
+            for aid in artifact_ids:
+                art = await self.db.get(TaskArtifact, aid)
+                if art is None or art.task_id != issue_link.task_id:
+                    raise HTTPException(status_code=404, detail=f"Artifact {aid} not found for this task.")
+                body = (body + f"\n\n### {art.title}\n{art.content or ''}").strip()
+        dedup_key = (idempotency_key or "").strip() or (
+            f"github-comment:{issue_link.id}:{hashlib.sha256(f'{body}|{close_issue}'.encode('utf-8')).hexdigest()[:48]}"
         )
+        existing_row = await self.repo.get_github_outbound_dedup_row(user.id, dedup_key)
+        if existing_row is not None:
+            prev = await self.db.get(ApprovalRequest, existing_row.approval_id)
+            if prev is not None:
+                return prev
+        payload_json: dict[str, Any] = {
+            "body": body,
+            "close_issue": close_issue,
+            "draft_created_at": datetime.now(UTC).isoformat(),
+            "draft_status": "pending_approval",
+            "idempotency_key": dedup_key,
+            "artifact_ids": artifact_ids,
+        }
+        approval: ApprovalRequest | None = None
+        try:
+            async with self.db.begin_nested():
+                approval = await self.repo.create_approval(
+                    project_id=task.project_id if task else None,
+                    task_id=task.id if task else None,
+                    issue_link_id=issue_link.id,
+                    requested_by_user_id=user.id,
+                    approval_type="github_comment",
+                    status="pending",
+                    payload_json=payload_json,
+                )
+                await self.db.flush()
+                await self.repo.create_github_outbound_dedup_row(
+                    owner_id=user.id,
+                    dedup_key=dedup_key,
+                    approval_id=approval.id,
+                    issue_link_id=issue_link.id,
+                )
+        except IntegrityError:
+            row = await self.repo.get_github_outbound_dedup_row(user.id, dedup_key)
+            if row is None:
+                raise
+            approval = await self.db.get(ApprovalRequest, row.approval_id)
+            if approval is None:
+                raise
+            await self.db.commit()
+            await self.db.refresh(approval)
+            return approval
+        if approval is None:
+            raise RuntimeError("GitHub comment approval was not created")
+        if policy == "auto_trusted_agent" and user.id in trusted_ids:
+            approval.status = "approved"
+            approval.approved_by_user_id = user.id
+            approval.resolved_at = datetime.now(UTC)
+            await self._post_approved_github_comment(approval)
         await self.db.commit()
         await self.db.refresh(approval)
         return approval
@@ -5819,6 +7427,11 @@ class OrchestrationService:
                     )
                     await self.db.delete(entry)
                     await self.db.commit()
+            if bool((approval.payload_json or {}).get("promotion_suggested")):
+                if status == "approved":
+                    increment_memory_metric("promotion_semantic_approval_accepted")
+                elif status == "rejected":
+                    increment_memory_metric("promotion_semantic_approval_rejected")
         elif approval.approval_type == "task_assignment_change":
             if status == "approved" and approval.task_id:
                 task = await self.db.get(OrchestratorTask, approval.task_id)
@@ -6526,7 +8139,11 @@ class OrchestrationService:
                     item
                     for item in getattr(self, "_cached_model_capabilities", [])
                     if item.model_slug == model_name
-                    and (provider is None or item.provider_type in {provider.provider_type, "openai_compatible"})
+                    and (
+                        provider is None
+                        or item.provider_id == getattr(provider, "id", None)
+                        or item.provider_type in _provider_type_aliases(provider.provider_type)
+                    )
                 ),
                 None,
             )
@@ -6548,14 +8165,27 @@ class OrchestrationService:
 
     async def _model_capability(self, model_name: str, provider_type: str | None = None) -> ModelCapability | None:
         items = await self._model_capabilities()
+        aliases = _provider_type_aliases(provider_type) if provider_type else None
         for item in items:
             if item.model_slug != model_name:
                 continue
-            if provider_type is None or item.provider_type == provider_type:
+            if aliases is None or item.provider_type in aliases:
                 return item
         return None
 
+    @staticmethod
+    def _jsonify(value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {k: OrchestrationService._jsonify(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [OrchestrationService._jsonify(v) for v in value]
+        return value
+
     def _normalize_discovered_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        _jsonify = self._jsonify
+
         normalized: list[dict[str, Any]] = []
         for item in models:
             name = str(item.get("name") or item.get("model") or "").strip()
@@ -6565,47 +8195,100 @@ class OrchestrationService:
                 {
                     "name": name,
                     "size": item.get("size"),
-                    "modified_at": item.get("modified_at"),
+                    "modified_at": _jsonify(item.get("modified_at")),
                     "digest": item.get("digest"),
-                    "details": item.get("details") or {},
+                    "details": _jsonify(item.get("details") or {}),
                 }
             )
         return normalized
 
     async def _refresh_provider_models(self, provider: ProviderConfig) -> list[dict[str, Any]]:
         try:
-            models = await list_provider_models(provider)
+            discovered = await discover_provider_capabilities(provider)
         except Exception:
-            if provider.provider_type == "ollama":
-                provider.metadata_json = {
-                    **(provider.metadata_json or {}),
-                    "discovered_models": [],
-                }
+            provider.metadata_json = {
+                **(provider.metadata_json or {}),
+                "discovered_models": [],
+            }
             raise
-        normalized = self._normalize_discovered_models(models)
+        normalized = self._normalize_discovered_models(
+            [
+                {
+                    "name": item["model_slug"],
+                    "display_name": item.get("display_name"),
+                    "modified_at": item.get("last_verified_at"),
+                    "details": {
+                        "supports_tools": item.get("supports_tools"),
+                        "supports_vision": item.get("supports_vision"),
+                        "context_window": item.get("context_window"),
+                        "max_output_tokens": item.get("max_output_tokens"),
+                        "input_cost_per_1k": item.get("input_cost_per_1k"),
+                        "output_cost_per_1k": item.get("output_cost_per_1k"),
+                        "latency_p50": item.get("latency_p50"),
+                        "health_status": item.get("health_status"),
+                        "source_for_each_field": item.get("source_for_each_field"),
+                        "override_reason": item.get("override_reason"),
+                        "source": item.get("source"),
+                    },
+                }
+                for item in discovered
+            ]
+        )
         provider.metadata_json = {
             **(provider.metadata_json or {}),
             "discovered_models": normalized,
+            "last_discovery_error": None,
         }
-        if provider.provider_type == "ollama":
-            existing = {
-                item.model_slug for item in await self.repo.list_model_capabilities("ollama", active_only=False)
-            }
-            for item in normalized:
-                if item["name"] in existing:
-                    continue
+        existing = {
+            item.model_slug: item
+            for item in await self.repo.list_model_capabilities(provider_id=provider.id, active_only=False)
+        }
+        seen: set[str] = set()
+        for item in discovered:
+            seen.add(item["model_slug"])
+            metadata = self._jsonify({
+                "context_window": item.get("context_window"),
+                "max_output_tokens": item.get("max_output_tokens"),
+                "input_cost_per_1k": item.get("input_cost_per_1k"),
+                "output_cost_per_1k": item.get("output_cost_per_1k"),
+                "input_cost_per_1m": item.get("input_cost_per_1m"),
+                "output_cost_per_1m": item.get("output_cost_per_1m"),
+                "latency_p50": item.get("latency_p50"),
+                "health_status": item.get("health_status"),
+                "source_for_each_field": item.get("source_for_each_field") or {},
+                "last_verified_at": item.get("last_verified_at"),
+                "override_reason": item.get("override_reason"),
+                "source": item.get("source"),
+                "raw": item.get("raw") or {},
+            })
+            existing_item = existing.get(item["model_slug"])
+            if existing_item:
+                existing_item.provider_type = provider.provider_type
+                existing_item.display_name = item.get("display_name")
+                existing_item.supports_tools = bool(item.get("supports_tools"))
+                existing_item.supports_vision = bool(item.get("supports_vision"))
+                existing_item.max_context_tokens = int(item.get("context_window") or 0)
+                existing_item.cost_per_1k_input = float(item.get("input_cost_per_1k") or 0.0)
+                existing_item.cost_per_1k_output = float(item.get("output_cost_per_1k") or 0.0)
+                existing_item.metadata_json = metadata
+                existing_item.is_active = True
+            else:
                 await self.repo.create_model_capability(
-                    provider_type="ollama",
-                    model_slug=item["name"],
-                    display_name=item["name"],
-                    supports_tools=False,
-                    supports_vision=False,
-                    max_context_tokens=8192,
-                    cost_per_1k_input=0.0,
-                    cost_per_1k_output=0.0,
-                    metadata_json={"source": "discovered"},
+                    provider_id=provider.id,
+                    provider_type=provider.provider_type,
+                    model_slug=item["model_slug"],
+                    display_name=item.get("display_name"),
+                    supports_tools=bool(item.get("supports_tools")),
+                    supports_vision=bool(item.get("supports_vision")),
+                    max_context_tokens=int(item.get("context_window") or 0),
+                    cost_per_1k_input=float(item.get("input_cost_per_1k") or 0.0),
+                    cost_per_1k_output=float(item.get("output_cost_per_1k") or 0.0),
+                    metadata_json=metadata,
                     is_active=True,
                 )
+        for model_slug, item in existing.items():
+            if model_slug not in seen:
+                item.is_active = False
         return normalized
 
     async def _provider_model_exists(self, provider: ProviderConfig, model_name: str | None) -> bool:
@@ -6635,11 +8318,10 @@ class OrchestrationService:
             )
 
     async def _healthcheck_provider(self, provider: ProviderConfig) -> dict[str, Any]:
-        if provider.provider_type == "ollama":
-            try:
-                await self._refresh_provider_models(provider)
-            except Exception:
-                pass
+        try:
+            await self._refresh_provider_models(provider)
+        except Exception:
+            pass
         checked_at = datetime.now(UTC)
         try:
             result = await test_provider(provider)
@@ -7200,7 +8882,7 @@ class OrchestrationService:
         if not isinstance(manager_plan, dict) or not manager_plan:
             await self._mark_run_step(
                 run,
-                step_id="supervisor_plan",
+                step_id="planning",
                 status="in_progress",
                 message="Supervisor is planning delegated work.",
             )
@@ -7223,7 +8905,7 @@ class OrchestrationService:
             self._set_workflow_checkpoint_artifact(run, key="manager_worker.plan", value=manager_plan)
             await self._mark_run_step(
                 run,
-                step_id="supervisor_plan",
+                step_id="planning",
                 status="completed",
                 message="Supervisor plan checkpoint saved.",
                 metadata={"sub_task_count": len(manager_plan.get("sub_tasks") or [])},
@@ -7242,7 +8924,7 @@ class OrchestrationService:
         if not isinstance(routed_sub_tasks, list) or not routed_sub_tasks:
             await self._mark_run_step(
                 run,
-                step_id="route_workers",
+                step_id="subtask_dispatch",
                 status="in_progress",
                 message="Supervisor is routing subtasks to workers.",
             )
@@ -7269,7 +8951,7 @@ class OrchestrationService:
             )
             await self._mark_run_step(
                 run,
-                step_id="route_workers",
+                step_id="subtask_dispatch",
                 status="completed",
                 message="Worker routing checkpoint saved.",
             )
@@ -7277,27 +8959,87 @@ class OrchestrationService:
         if not isinstance(branch_results, list):
             await self._mark_run_step(
                 run,
-                step_id="run_branches",
+                step_id="worker_execution",
                 status="in_progress",
                 message="Executing delegated branches.",
             )
-            parallel, sequential = self._partition_subtasks(routed_sub_tasks)
             branch_results = []
-            if parallel:
-                branch_results.extend(
-                    await asyncio.gather(
-                        *[
-                            self._execute_subtask_branch(run, provider, item, project=project, manager=manager)
-                            for item in parallel
+            pending_by_id = {str(item.get("branch_id")): item for item in routed_sub_tasks}
+            completed_ids: set[str] = set()
+            while pending_by_id:
+                ready = [
+                    item
+                    for item in pending_by_id.values()
+                    if set(item.get("dependency_ids") or []).issubset(completed_ids)
+                ]
+                if not ready:
+                    branch_results.extend(
+                        [
+                            {
+                                **item,
+                                "status": "blocked",
+                                "reason": "dependency_cycle_or_missing_dependency",
+                                "blocker_reason": "Dependency cycle or missing dependency prevented execution.",
+                            }
+                            for item in pending_by_id.values()
                         ]
                     )
-                )
-            for item in sequential:
-                branch_results.append(
-                    await self._execute_subtask_branch(
-                        run, provider, item, project=project, manager=manager
+                    break
+                parallel = [item for item in ready if item.get("parallelizable")]
+                sequential = [item for item in ready if not item.get("parallelizable")]
+                if parallel:
+                    scheduled: list[tuple[dict[str, Any], TaskRun]] = []
+                    for item in parallel:
+                        scheduled.append(
+                            (
+                                item,
+                                await self._create_child_run(
+                                    run,
+                                    sub_task=item,
+                                    assigned_agent_id=item.get("assigned_agent_id"),
+                                ),
+                            )
+                        )
+                    branch_results.extend(
+                        await asyncio.gather(
+                            *[
+                                self._execute_subtask_branch(
+                                    run,
+                                    child_run,
+                                    provider,
+                                    item,
+                                    project=project,
+                                    manager=manager,
+                                )
+                                for item, child_run in scheduled
+                            ]
+                        )
                     )
+                for item in sequential:
+                    child_run = await self._create_child_run(
+                        run,
+                        sub_task=item,
+                        assigned_agent_id=item.get("assigned_agent_id"),
+                    )
+                    branch_results.append(
+                        await self._execute_subtask_branch(
+                            run,
+                            child_run,
+                            provider,
+                            item,
+                            project=project,
+                            manager=manager,
+                        )
+                    )
+                completed_ids.update(
+                    {
+                        str(item.get("branch_id"))
+                        for item in branch_results
+                        if item.get("status") == "completed"
+                    }
                 )
+                for item in ready:
+                    pending_by_id.pop(str(item.get("branch_id")), None)
             self._set_workflow_checkpoint_artifact(
                 run,
                 key="manager_worker.branch_results",
@@ -7305,14 +9047,21 @@ class OrchestrationService:
             )
             await self._mark_run_step(
                 run,
-                step_id="run_branches",
+                step_id="worker_execution",
                 status="completed",
                 message="Branch execution checkpoint saved.",
                 metadata={"branch_count": len(branch_results)},
             )
 
         blocked = [item for item in branch_results if item.get("status") == "blocked"]
+        self._set_workflow_checkpoint_artifact(run, key="manager_worker.blocker_queue", value=blocked)
         if blocked:
+            await self._mark_run_step(
+                run,
+                step_id="blocker_resolution",
+                status="in_progress",
+                message="Supervisor is resolving blockers.",
+            )
             if manager:
                 _, handoff_result = await self._execute_with_routing(
                     run,
@@ -7329,17 +9078,24 @@ class OrchestrationService:
                     run,
                     event_type="manager_handoff",
                     message="Manager reviewed blocked branches.",
-                    payload={"blocked_count": len(blocked)},
+                    payload={"blocked_count": len(blocked), "resolution": handoff_result.output_text[:1000]},
+                )
+            for item in blocked:
+                await self._escalate_blocker(
+                    run,
+                    task=task,
+                    reason=str(item.get("blocker_reason") or item.get("reason") or "Delegated branch blocked"),
+                    metadata={"branch": item},
                 )
             raise BlockedExecution("Delegated sub-task execution is blocked and requires escalation")
-        synthesis_input = json.dumps(branch_results, indent=2)
-        synth_agent = explicit_worker or manager
         await self._mark_run_step(
             run,
-            step_id="synthesize",
-            status="in_progress",
-            message="Supervisor is synthesizing branch outputs.",
+            step_id="blocker_resolution",
+            status="completed",
+            message="No unresolved blockers remain.",
         )
+        synthesis_input = json.dumps(branch_results, indent=2)
+        synth_agent = explicit_worker or manager
         _, synthesis_result = await self._execute_with_routing(
             run,
             provider=provider,
@@ -7364,17 +9120,75 @@ class OrchestrationService:
             key="manager_worker.output_payload",
             value=run.output_payload_json,
         )
+        review_round = int(self._workflow_checkpoint_artifact(run, "manager_worker.review_round", 0) or 0) + 1
+        self._set_workflow_checkpoint_artifact(run, key="manager_worker.review_round", value=review_round)
         await self._mark_run_step(
             run,
-            step_id="synthesize",
-            status="completed",
-            message="Supervisor synthesis checkpoint saved.",
-        )
-        await self._mark_run_step(
-            run,
-            step_id="persist_output",
+            step_id="review",
             status="in_progress",
-            message="Persisting manager execution graph.",
+            message="Reviewer is validating the consolidated result.",
+        )
+        if run.reviewer_agent_id:
+            reviewer = await self._load_agent_for_run(run.reviewer_agent_id)
+            _, review_result = await self._execute_with_routing(
+                run,
+                provider=provider,
+                agent=reviewer,
+                system_prompt=(reviewer.system_prompt if reviewer else "You are a careful reviewer."),
+                user_prompt=(
+                    "Review this manager-worker delivery. Return JSON with decision, summary, reasons, checklist, rework_scope.\n\n"
+                    f"Task title: {task.title if task else 'Unknown'}\n"
+                    f"Acceptance criteria: {task.acceptance_criteria if task else ''}\n"
+                    f"Branch results: {json.dumps(branch_results, indent=2, default=str)}\n"
+                    f"Final output: {synthesis_result.output_text}"
+                ),
+                response_format="json",
+                purpose="manager-worker review",
+            )
+            review_payload = (
+                review_result.output_json
+                if isinstance(review_result.output_json, dict) and review_result.output_json.get("decision")
+                else self._coerce_review_payload(review_result.output_text)
+            )
+        else:
+            review_payload = {
+                "decision": "approved",
+                "summary": "No reviewer configured; manager-worker flow auto-approved.",
+                "reasons": [],
+                "checklist": [],
+                "rework_scope": [],
+            }
+        review_state = self._review_state_from_payload(review_payload, round_number=review_round)
+        self._set_workflow_checkpoint_artifact(run, key="manager_worker.review_state", value=review_state)
+        run.output_payload_json["review_state"] = review_state
+        if review_state["decision"] != "approved":
+            if task:
+                self._append_structured_reopen_record(task, review_payload, run=run)
+                await self._transition_task_status(task, "planned", run=run, reason="review requested rework")
+            affected_scope = set(review_state.get("rework_scope") or [])
+            for child in await self._child_runs_for_parent(run.id):
+                branch_title = str(((child.input_payload_json or {}).get("subtask") or {}).get("title") or "")
+                if not affected_scope or branch_title in affected_scope:
+                    child.status = "planned"
+            raise BlockedExecution("Reviewer requested rework on one or more delegated branches")
+        await self._mark_run_step(
+            run,
+            step_id="review",
+            status="completed",
+            message="Reviewer approved the consolidated result.",
+        )
+        if task:
+            await self._transition_task_status(task, "approved", run=run, reason="review approved")
+        await self._mark_run_step(
+            run,
+            step_id="artifact_publish",
+            status="in_progress",
+            message="Publishing final artifacts.",
+        )
+        await self._publish_final_artifacts(
+            run,
+            branch_results=branch_results,
+            review_state=review_state,
         )
         await self._write_artifact(
             run,
@@ -7385,15 +9199,36 @@ class OrchestrationService:
         )
         await self._mark_run_step(
             run,
-            step_id="persist_output",
+            step_id="artifact_publish",
             status="completed",
-            message="Manager execution graph persisted.",
+            message="Final artifacts published.",
+        )
+        await self._mark_run_step(
+            run,
+            step_id="github_sync",
+            status="in_progress",
+            message="Syncing approved result to GitHub policy layer.",
+        )
+        if task:
+            github_state = await self._sync_manager_run_to_github(run, task)
+            run.output_payload_json["github_action_state"] = github_state
+        await self._mark_run_step(
+            run,
+            step_id="github_sync",
+            status="completed",
+            message="GitHub sync stage completed.",
         )
 
     async def _execute_review_run(self, run: TaskRun) -> None:
         reviewer = await self._load_agent_for_run(run.reviewer_agent_id or run.worker_agent_id)
         provider = await self._resolve_provider_for_run(run, reviewer)
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
+        await self._mark_run_step(
+            run,
+            step_id="review",
+            status="in_progress",
+            message="Reviewer is evaluating the task result.",
+        )
         gh_review = (run.input_payload_json or {}).get("github_pr_review")
         extra_ctx = ""
         if isinstance(gh_review, dict):
@@ -7433,6 +9268,12 @@ class OrchestrationService:
             "review": result.output_text,
             "decision": review_payload.get("decision"),
         }
+        await self._mark_run_step(
+            run,
+            step_id="review",
+            status="completed",
+            message="Reviewer produced a structured verdict.",
+        )
         if task:
             if review_payload.get("decision") == "approved":
                 project = await self.db.get(OrchestratorProject, task.project_id)
@@ -7461,6 +9302,43 @@ class OrchestrationService:
                 run,
                 task,
                 str(review_payload.get("summary") or result.output_text),
+            )
+            await self._mark_run_step(
+                run,
+                step_id="artifact_publish",
+                status="in_progress",
+                message="Publishing review artifacts.",
+            )
+            await self._write_artifact(
+                run,
+                kind="review",
+                title="Review verdict",
+                content=json.dumps(review_payload, indent=2, default=str),
+                metadata={"task_id": task.id},
+            )
+            await self._mark_run_step(
+                run,
+                step_id="artifact_publish",
+                status="completed",
+                message="Review artifacts published.",
+            )
+            await self._mark_run_step(
+                run,
+                step_id="github_sync",
+                status="in_progress",
+                message="Applying GitHub review automation.",
+            )
+            await self._sync_run_completion_to_github(run, task)
+            run.output_payload_json["github_action_state"] = {
+                "completed": True,
+                "last_synced_at": datetime.now(UTC).isoformat(),
+                "mode": "review",
+            }
+            await self._mark_run_step(
+                run,
+                step_id="github_sync",
+                status="completed",
+                message="GitHub review automation completed.",
             )
 
     async def _decorate_brainstorms(self, items: list[Brainstorm]) -> None:
@@ -8057,15 +9935,20 @@ class OrchestrationService:
         task.updated_at = datetime.now(UTC)
         if next_status == "blocked":
             await self._apply_blocked_handoff_suggestion(task, run, reason)
-        if run is not None:
-            payload_json: dict[str, Any] = {"from": current, "to": next_status, "reason": reason}
-            if next_status == "blocked":
-                hid = (task.metadata_json or {}).get("suggested_handoff_agent_id")
-                if hid:
-                    payload_json["suggested_handoff_agent_id"] = hid
-                    payload_json["handoff_suggested_via"] = (task.metadata_json or {}).get("handoff_suggested_via")
+        payload_json: dict[str, Any] = {"from": current, "to": next_status, "reason": reason}
+        if next_status == "blocked":
+            hid = (task.metadata_json or {}).get("suggested_handoff_agent_id")
+            if hid:
+                payload_json["suggested_handoff_agent_id"] = hid
+                payload_json["handoff_suggested_via"] = (task.metadata_json or {}).get("handoff_suggested_via")
+        target_run_id: str | None = run.id if run is not None else None
+        if target_run_id is None:
+            latest = await self.repo.get_latest_run_for_task(task.project_id, task.id)
+            if latest is not None:
+                target_run_id = latest.id
+        if target_run_id is not None:
             await self.repo.create_run_event(
-                run_id=run.id,
+                run_id=target_run_id,
                 task_id=task.id,
                 event_type="task_status_changed",
                 message=f"Task transitioned from {current} to {next_status}.",
@@ -8450,13 +10333,14 @@ class OrchestrationService:
             project_id,
             [agent.id for agent in workers],
         ) if workers else {}
-        for item in sub_tasks:
+        for item in self._normalize_subtask_graph(sub_tasks, parent_task=parent_task):
             required_capabilities = {
                 str(value).strip()
                 for value in item.get("required_capabilities", []) + item.get("required_tools", [])
                 if str(value).strip()
             }
             chosen = None
+            ranked: list[AgentProfile] = []
             if workers:
                 shadow = SimpleNamespace(
                     id=str(item.get("title") or item.get("id") or "subtask"),
@@ -8480,12 +10364,31 @@ class OrchestrationService:
                             break
                 else:
                     chosen = ranked[0] if ranked else None
+            matched_caps = (
+                sorted(required_capabilities.intersection(set(chosen.capabilities_json or [])))
+                if chosen is not None
+                else []
+            )
+            routing_reason = (
+                f"matched capabilities {matched_caps} with queue depth {queue_depths.get(chosen.id, 0)}"
+                if chosen is not None and matched_caps
+                else f"best available worker with queue depth {queue_depths.get(chosen.id, 0)}"
+                if chosen is not None
+                else "no capable worker available"
+            )
             routed.append(
                 {
                     **item,
                     "assigned_agent_id": chosen.id if chosen else None,
                     "assigned_agent_name": chosen.name if chosen else None,
                     "queue_depth": queue_depths.get(chosen.id, 0) if chosen else None,
+                    "routing_reason": routing_reason,
+                    "selected_provider_config_id": chosen.provider_config_id if chosen else None,
+                    "selected_model_name": (
+                        str((chosen.model_policy_json or {}).get("model") or "").strip() or None
+                        if chosen is not None
+                        else None
+                    ),
                 }
             )
         return routed
@@ -8498,6 +10401,7 @@ class OrchestrationService:
     async def _execute_subtask_branch(
         self,
         run: TaskRun,
+        child_run: TaskRun,
         provider: ProviderConfig | None,
         sub_task: dict[str, Any],
         *,
@@ -8510,12 +10414,18 @@ class OrchestrationService:
             event_type="branch_started",
             message=f"Starting delegated branch '{sub_task.get('title', 'Untitled')}'.",
             payload={
+                "child_run_id": child_run.id,
+                "branch_id": sub_task.get("branch_id"),
                 "branch_title": sub_task.get("title"),
                 "assigned_agent_id": sub_task.get("assigned_agent_id"),
                 "trace": self._workflow_trace_payload(run),
             },
         )
+        child_run.status = "in_progress"
+        child_run.started_at = datetime.now(UTC)
         if worker is None:
+            child_run.status = "blocked"
+            child_run.error_message = "no_capable_worker"
             await self._emit_run_event(
                 run,
                 event_type="branch_unassigned",
@@ -8523,7 +10433,13 @@ class OrchestrationService:
                 message=f"No capable worker found for sub-task '{sub_task.get('title', 'Untitled')}'.",
                 payload=sub_task,
             )
-            return {**sub_task, "status": "blocked", "reason": "no_capable_worker"}
+            return {
+                **sub_task,
+                "status": "blocked",
+                "reason": "no_capable_worker",
+                "blocker_reason": "No capable worker found.",
+                "child_run_id": child_run.id,
+            }
         branch_plan = {
             "tool_calls": sub_task.get("tool_calls", []),
             "summary": sub_task.get("description") or sub_task.get("title") or "Sub-task execution",
@@ -8546,7 +10462,7 @@ class OrchestrationService:
             ]
         )
         _, result = await self._execute_with_routing(
-            run,
+            child_run,
             provider=provider,
             agent=worker,
             system_prompt=(worker.system_prompt if worker else "You are a specialist worker."),
@@ -8554,18 +10470,44 @@ class OrchestrationService:
             purpose="delegated sub-task",
             response_format=self._structured_output_response_format(worker),
         )
+        contract = self._worker_result_contract(sub_task, result.output_text, result.output_json)
+        child_run.output_payload_json = contract
+        child_run.completed_at = datetime.now(UTC)
+        child_run.status = "completed" if contract["status"] == "completed" else contract["status"]
+        if contract["status"] == "blocked":
+            child_run.error_message = contract["blocker_reason"] or "blocked"
+        await self._write_artifact(
+            child_run,
+            kind="branch_output",
+            title=f"Branch output · {sub_task.get('title', 'Untitled')}",
+            content=result.output_text[:12000],
+            metadata={"parent_run_id": run.id, "branch_id": sub_task.get("branch_id")},
+        )
         await self._emit_run_event(
             run,
             event_type="worker_response",
             message=f"Worker {worker.name} completed sub-task '{sub_task.get('title', 'Untitled')}'.",
-            payload={"agent_id": worker.id, "branch_title": sub_task.get("title")},
+            payload={
+                "agent_id": worker.id,
+                "branch_title": sub_task.get("title"),
+                "branch_id": sub_task.get("branch_id"),
+                "child_run_id": child_run.id,
+                "status": contract["status"],
+            },
         )
         return {
             **sub_task,
-            "status": "completed",
+            "status": contract["status"],
             "agent_id": worker.id,
             "agent_name": worker.name,
+            "summary": contract["summary"],
             "output": result.output_text,
+            "changed_files": contract["changed_files"],
+            "risks": contract["risks"],
+            "evidence_refs": contract["evidence_refs"],
+            "blocker_reason": contract["blocker_reason"],
+            "completion_status": contract["completion_status"],
+            "child_run_id": child_run.id,
         }
 
     async def _debate_participants(
@@ -8732,6 +10674,11 @@ class OrchestrationService:
         github.setdefault("sync_milestone_to_github", True)
         github.setdefault("repo_indexing_cadence", "daily")
         github.setdefault("repo_agent_pools", {})
+        github.setdefault("outbound_comment_policy", "manual_approval")
+        github.setdefault("outbound_comment_trusted_user_ids", [])
+        github.setdefault("github_field_locks", {})
+        github.setdefault("commit_message_template", "troop: task {task_id} {slug}")
+        github.setdefault("respect_branch_protections", True)
         raw["github"] = github
         hitl = dict(raw.get("hitl") or {})
         hitl.setdefault("sandbox_note", "")
@@ -8843,6 +10790,88 @@ class OrchestrationService:
         if project is None:
             return self._normalize_project_settings({}).get("github", {})
         return self._normalize_project_settings(project.settings_json).get("github", {})
+
+    def _effective_github_outbound_comment_policy(
+        self, project: OrchestratorProject | None, repository: GithubRepository | None
+    ) -> tuple[str, list[str]]:
+        gh = self._project_github_settings(project)
+        policy = str(gh.get("outbound_comment_policy") or "manual_approval")
+        trusted = [str(x).strip() for x in (gh.get("outbound_comment_trusted_user_ids") or []) if str(x).strip()]
+        if repository is not None and repository.full_name:
+            pool = (gh.get("repo_agent_pools") or {}).get(repository.full_name)
+            if isinstance(pool, dict):
+                if pool.get("outbound_comment_policy"):
+                    policy = str(pool["outbound_comment_policy"])
+                if pool.get("outbound_comment_trusted_user_ids"):
+                    trusted = [str(x).strip() for x in pool["outbound_comment_trusted_user_ids"] if str(x).strip()]
+        return policy, trusted
+
+    def _github_field_write_source(
+        self, project: OrchestratorProject | None, task_meta: dict[str, Any], field: str
+    ) -> str:
+        locked = dict((self._project_github_settings(project).get("github_field_locks") or {}))
+        if field in locked and str(locked[field]).lower() in {"app", "internal"}:
+            return "app"
+        prov = (task_meta or {}).get("github_sync_provenance") or {}
+        sources = dict(prov.get("field_sources") or {})
+        return str(sources.get(field, "github")).lower()
+
+    async def _validate_github_secondary_repository_ids(
+        self, user: User, project_id: str, repo_ids: list[str]
+    ) -> None:
+        for rid in repo_ids:
+            row = await self.repo.get_github_repository(user.id, rid)
+            if row is None:
+                raise HTTPException(status_code=404, detail=f"GitHub repository {rid} not found")
+            if row.project_id != project_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Repository {rid} must be linked to this project before use as secondary.",
+                )
+
+    def _github_connection_health(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        permissions = dict(metadata.get("permissions") or {})
+        missing_permissions = [
+            permission
+            for permission in ("issues", "pull_requests", "contents", "metadata")
+            if permissions.get(permission) not in {"read", "write"}
+        ]
+        repositories_selected = str(metadata.get("repository_selection") or "unknown")
+        installation_id = int(metadata.get("installation_id") or 0)
+        status = "healthy"
+        if installation_id <= 0 or missing_permissions:
+            status = "degraded"
+        return {
+            "status": status,
+            "missing_permissions": missing_permissions,
+            "repositories_selected": repositories_selected,
+            "last_verified_at": metadata.get("last_verified_at"),
+            "suspended_at": metadata.get("suspended_at"),
+        }
+
+    def _github_repository_health(
+        self,
+        connection: GithubConnection | None,
+        repository_payload: dict[str, Any],
+        *,
+        is_active: bool,
+    ) -> dict[str, Any]:
+        default_branch = str(repository_payload.get("default_branch") or "").strip()
+        archived = bool(repository_payload.get("archived"))
+        disabled = bool(repository_payload.get("disabled"))
+        deleted = bool(repository_payload.get("deleted"))
+        installation_health = self._github_connection_health(dict((connection.metadata_json or {}) if connection else {}))
+        status = "healthy"
+        if not is_active or archived or disabled or deleted or installation_health["status"] != "healthy":
+            status = "degraded"
+        return {
+            "status": status,
+            "default_branch_present": bool(default_branch),
+            "archived": archived,
+            "disabled": disabled,
+            "deleted": deleted,
+            "installation_status": installation_health["status"],
+        }
 
     def _repo_pool_config(
         self,
@@ -9305,6 +11334,36 @@ class OrchestrationService:
                 item.deleted_at = now
                 item.status = "expired"
 
+    async def _build_company_brief_section(self, project: OrchestratorProject) -> str:
+        company_id = await self._ensure_company_id_for_project(project)
+        if not company_id:
+            return ""
+        from backend.modules.companies.models import Company
+
+        company = await self.db.get(Company, company_id)
+        if company is None:
+            return ""
+        brief = (company.brief_markdown or "").strip()
+        return brief[:500]
+
+    async def _build_agent_preferences_section(self, agent: AgentProfile) -> str:
+        from backend.modules.memory.models import SemanticMemoryEntry as _Sem
+
+        prefix = f"agent/{agent.id}/preferences"
+        res = await self.db.execute(
+            select(_Sem)
+            .where(
+                _Sem.owner_id == agent.owner_id,
+                _Sem.namespace.startswith(prefix),
+            )
+            .order_by(_Sem.updated_at.desc())
+            .limit(8)
+        )
+        rows = list(res.scalars().all())
+        if not rows:
+            return ""
+        return "\n".join(f"- {r.title}: {(r.body or '')[:200]}" for r in rows)
+
     async def _build_agent_memory_context(
         self, agent: AgentProfile | None, project_id: str
     ) -> str:
@@ -9450,11 +11509,13 @@ class OrchestrationService:
         context_docs = ""
         recent_comments = ""
         recent_artifacts = ""
+        company_brief = ""
         if task:
             project = await self.db.get(OrchestratorProject, task.project_id)
             if project:
                 project_name = project.name
                 project_goals = project.goals_markdown
+                company_brief = await self._build_company_brief_section(project)
             context_docs = await self._build_project_knowledge_context(run, task)
             comments = await self.repo.list_task_comments(task.id)
             recent_comments = "\n".join(comment.body[:300] for comment in comments[-3:])
@@ -9496,24 +11557,82 @@ class OrchestrationService:
                         ]
                     ).strip()[:6000]
                     qv = (await self.ai_providers.embed_texts([q_text or q_title]))[0]
-                    epi_vec = await self.repo.search_episodic_index_by_vector(
-                        project.owner_id, project.id, qv, limit=min(cand, 40)
+                    min_hits = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
+                    rel_cap = max(1, int(ms.get("retrieval_cross_project_limit") or 6))
+                    company_id_ctx = await self._ensure_company_id_for_project(project)
+                    run_agent_id = (
+                        run.worker_agent_id
+                        or run.orchestrator_agent_id
+                        or (task.assigned_agent_id if task else None)
                     )
-                    sem_vec = await self.repo.search_semantic_memory_by_vector(
-                        project.owner_id, project.id, qv, limit=min(8, cand // 3)
+                    per_sem = max(3, min(8, cand // 3))
+                    sem_vec, _smeta = await staged_semantic_vector_retrieval(
+                        self.repo,
+                        owner_id=project.owner_id,
+                        project_id=project.id,
+                        task_id=task.id,
+                        company_id=company_id_ctx,
+                        agent_id=run_agent_id,
+                        query_vec=qv,
+                        min_hits=min_hits,
+                        per_stage_limit=per_sem,
+                        related_project_limit=rel_cap,
+                    )
+                    epi_vec, _emeta = await staged_episodic_vector_retrieval(
+                        self.repo,
+                        owner_id=project.owner_id,
+                        project_id=project.id,
+                        company_id=company_id_ctx,
+                        agent_id=run_agent_id,
+                        query_vec=qv,
+                        min_hits=min_hits,
+                        per_stage_limit=min(cand, 40),
+                        related_project_limit=rel_cap,
                     )
                     lines_e = [f"- [episodic] {(r.text_content or '')[:320]}" for r in epi_vec[:cand]]
                     lines_s = [
                         f"- [semantic:{e.entry_type}] {e.title}: {(e.body or '')[:240]}"
-                        for e in sem_vec[:8]
+                        for e in sem_vec[: max(8, per_sem)]
                     ]
+                    if len(lines_e) + len(lines_s) < min_hits:
+                        manifests = await self.repo.list_episodic_archive_manifests(
+                            project.owner_id, project.id, limit=5
+                        )
+                        for m in manifests:
+                            rc = int(getattr(m, "record_count", 0) or 0)
+                            ps = m.period_start.isoformat() if m.period_start else "?"
+                            pe = m.period_end.isoformat() if m.period_end else "?"
+                            lines_e.append(f"- [archive] {ps}..{pe} records={rc}")
                     deep_recall_block = "\n".join(lines_e + lines_s)
                 except Exception as exc:
                     logger.warning("deep_recall_mode assembly failed: %s", exc)
             elif ms.get("second_stage_rag"):
+                min_h = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
                 hits = await self.repo.search_episodic_for_project(
-                    project.id, query=q_title or None, limit=min(depth, 24)
+                    project.id,
+                    query=q_title or None,
+                    limit=min(depth, 24),
+                    task_id=task.id,
                 )
+                increment_memory_metric("retrieval_kw_episodic_task_hit" if hits else "retrieval_kw_episodic_task_miss")
+                increment_memory_metric("retrieval_scope_episodic_task_kw")
+                if len(hits) < min_h:
+                    hits_proj = await self.repo.search_episodic_for_project(
+                        project.id,
+                        query=q_title or None,
+                        limit=min(depth, 24),
+                        task_id=None,
+                    )
+                    by_key = {(h["kind"], h["id"]): h for h in hits}
+                    for h in hits_proj:
+                        by_key.setdefault((h["kind"], h["id"]), h)
+                    hits = sorted(by_key.values(), key=lambda x: x["created_at"], reverse=True)[
+                        : min(depth, 24)
+                    ]
+                    increment_memory_metric(
+                        "retrieval_kw_episodic_project_hit" if hits_proj else "retrieval_kw_episodic_project_miss"
+                    )
+                    increment_memory_metric("retrieval_scope_episodic_project_kw")
                 if hits:
                     lines = [f"- [{h['kind']}] {h['snippet'][:280]}" for h in hits[:depth]]
                     episodic_recall_block = "\n".join(lines)
@@ -9525,8 +11644,13 @@ class OrchestrationService:
         sections: dict[str, str] = {}
         if prefix:
             sections["prefix"] = prefix
+        if company_brief:
+            sections["company_brief"] = f"Company brief:\n{company_brief}"
         if agent:
             sections["agent_label"] = f"Agent: {agent.name}"
+            agent_prefs = await self._build_agent_preferences_section(agent)
+            if agent_prefs:
+                sections["agent_preferences"] = f"Agent preferences:\n{agent_prefs}"
         if task:
             sections["task_title"] = f"Task title: {task.title}"
             if task.description:
@@ -9580,7 +11704,24 @@ class OrchestrationService:
         prefix: str | None = None,
     ) -> str:
         packet = await self._assemble_user_context_packet(run, agent, prefix=prefix)
-        return packet.combined_user_prompt()
+        project = await self.db.get(OrchestratorProject, run.project_id) if run.project_id else None
+        ms = merge_memory_settings(project.settings_json) if project else merge_memory_settings(None)
+        max_chars = int(ms.get("context_packet_max_chars") or 48000)
+        max_tok = int(ms.get("context_packet_max_tokens") or 0)
+        raw_budgets = ms.get("context_packet_section_token_budgets")
+        section_token_budgets: dict[str, int] | None = None
+        if isinstance(raw_budgets, dict) and raw_budgets:
+            section_token_budgets = {}
+            for k, v in raw_budgets.items():
+                if isinstance(k, str) and isinstance(v, (int, float)):
+                    section_token_budgets[k] = max(0, int(v))
+        if max_tok > 0:
+            return packet.combined_user_prompt(
+                max_chars=max_chars,
+                max_tokens=max_tok,
+                section_token_budgets=section_token_budgets,
+            )
+        return packet.combined_user_prompt(max_chars=max_chars)
 
     async def _load_agent_for_run(self, agent_id: str | None) -> AgentProfile | None:
         if not agent_id:
@@ -9709,32 +11850,7 @@ class OrchestrationService:
                 setattr(agent, target, value)
 
     async def _ensure_catalog_seeded(self) -> None:
-        existing_skills = await self.repo.list_skill_packs()
-        existing_models = await self.repo.list_model_capabilities(active_only=False)
-
-        existing_templates = await self.repo.list_agent_templates()
-
-        existing_model_keys = {
-            (item.provider_type, item.model_slug) for item in existing_models
-        }
-        for item in BUILTIN_MODEL_CAPABILITIES:
-            key = (item["provider_type"], item["model_slug"])
-            if key in existing_model_keys:
-                continue
-            await self.repo.create_model_capability(
-                provider_type=item["provider_type"],
-                model_slug=item["model_slug"],
-                display_name=item.get("display_name"),
-                supports_tools=bool(item.get("supports_tools", False)),
-                supports_vision=bool(item.get("supports_vision", False)),
-                max_context_tokens=int(item.get("max_context_tokens", 8192)),
-                cost_per_1k_input=float(item.get("cost_per_1k_input", 0.0)),
-                cost_per_1k_output=float(item.get("cost_per_1k_output", 0.0)),
-                metadata_json=item.get("metadata", {}),
-                is_active=True,
-            )
-        if not existing_skills or not existing_templates or len(existing_model_keys) != len(BUILTIN_MODEL_CAPABILITIES):
-            await self.db.commit()
+        return
 
     async def _ensure_team_template_catalog_seeded(self) -> None:
         existing_templates = await self.repo.list_team_templates()
@@ -10275,6 +12391,8 @@ class OrchestrationService:
         comment_body = payload.get("body") or payload.get("draft_comment")
         if not comment_body:
             raise HTTPException(status_code=422, detail="Approval payload does not include a comment body")
+        if payload.get("posted_comment_id"):
+            return
         response = await self._github_request(
             connection,
             "POST",
@@ -10283,6 +12401,15 @@ class OrchestrationService:
         )
         if response.status_code >= 400:
             raise HTTPException(status_code=502, detail="Failed to post GitHub comment")
+        comment_payload = response.json() if callable(getattr(response, "json", None)) else {}
+        approval.payload_json = {
+            **payload,
+            "draft_status": "posted",
+            "posted_comment_id": comment_payload.get("id"),
+            "posted_comment_url": comment_payload.get("html_url"),
+            "posted_at": datetime.now(UTC).isoformat(),
+        }
+        orm_attributes.flag_modified(approval, "payload_json")
         if payload.get("close_issue"):
             close_response = await self._github_request(
                 connection,
@@ -10308,7 +12435,12 @@ class OrchestrationService:
             action="post_comment",
             status="completed",
             detail="Approved comment posted to GitHub.",
-            payload_json={**payload, "body": comment_body},
+            payload_json={
+                **payload,
+                "body": comment_body,
+                "posted_comment_id": comment_payload.get("id"),
+                "posted_comment_url": comment_payload.get("html_url"),
+            },
         )
 
     async def _approve_github_create_pr(self, approval: ApprovalRequest) -> None:
@@ -10323,7 +12455,7 @@ class OrchestrationService:
         repository = await self.db.get(GithubRepository, issue_link.repository_id)
         if run is None or task is None or repository is None:
             raise HTTPException(status_code=404, detail="PR approval target could not be resolved")
-        await self._create_github_pr_for_run(run, task, repository, issue_link)
+        await self._create_github_pr_for_run(run, task, repository, issue_link, approval=approval)
 
     async def _approve_github_pr_review_comment(self, approval: ApprovalRequest) -> None:
         payload = approval.payload_json or {}
@@ -10409,6 +12541,35 @@ class OrchestrationService:
         delivery_id: str | None = None,
         signature_validated: bool = True,
     ) -> str:
+        if event_name not in GITHUB_WEBHOOK_EVENT_ALLOWLIST:
+            sync_event = await self.repo.create_sync_event(
+                repository_id=None,
+                issue_link_id=None,
+                action=f"webhook.{event_name}.ignored",
+                status="ignored",
+                detail=f"Webhook event {event_name} is not enabled.",
+                payload_json={
+                    "_webhook_meta": {
+                        "delivery_id": delivery_id,
+                        "signature_validated": signature_validated,
+                        "received_at": datetime.now(UTC).isoformat(),
+                        "ignored_reason": "event_not_allowlisted",
+                    }
+                },
+            )
+            await self.db.commit()
+            return sync_event.id
+        if delivery_id:
+            existing = await self.repo.get_sync_event_by_delivery_id(delivery_id)
+            if existing is not None:
+                meta = dict((existing.payload_json or {}).get("_webhook_meta") or {})
+                meta["duplicate_delivery_detected_at"] = datetime.now(UTC).isoformat()
+                existing.payload_json = {**(existing.payload_json or {}), "_webhook_meta": meta}
+                existing.detail = f"Duplicate delivery ignored for {existing.action}."
+                if existing.status == "queued":
+                    existing.status = "pending"
+                await self.db.commit()
+                return existing.id
         repository = payload.get("repository") or {}
         repo_model = None
         if repository.get("full_name"):
@@ -10417,6 +12578,12 @@ class OrchestrationService:
         issue_number = int(((payload.get("issue") or {}).get("number")) or ((payload.get("pull_request") or {}).get("number")) or 0)
         if repo_model and issue_number:
             issue_link = await self.repo.get_issue_link_by_repo_and_number(repo_model.id, issue_number)
+        payload_excerpt = {
+            "issue_number": issue_number or None,
+            "installation_id": int(((payload.get("installation") or {}).get("id")) or 0) or None,
+            "repository_full_name": repository.get("full_name"),
+            "sender_login": ((payload.get("sender") or {}).get("login")),
+        }
         payload = dict(payload)
         payload["_webhook_meta"] = {
             **dict(payload.get("_webhook_meta") or {}),
@@ -10424,6 +12591,9 @@ class OrchestrationService:
             "signature_validated": signature_validated,
             "received_at": datetime.now(UTC).isoformat(),
             "replay_history": list(((payload.get("_webhook_meta") or {}).get("replay_history") or [])),
+            "event_name": event_name,
+            "action": payload.get("action"),
+            "payload_excerpt": payload_excerpt,
         }
         sync_event = await self.repo.create_sync_event(
             repository_id=repo_model.id if repo_model else None,
@@ -10487,25 +12657,49 @@ class OrchestrationService:
         if sync_event is None:
             raise RuntimeError("GitHub sync event not found")
         payload = sync_event.payload_json or {}
-        if sync_event.action == "webhook.issues.opened":
-            await self._process_webhook_issue_opened(sync_event, payload)
-        elif sync_event.action == "webhook.issues.assigned":
-            await self._process_webhook_issue_assigned(sync_event, payload)
-        elif sync_event.action.startswith("webhook.issues."):
-            await self._process_webhook_issue_changed(sync_event, payload)
-        elif sync_event.action == "webhook.issue_comment.created":
-            await self._process_webhook_issue_comment(sync_event, payload)
-        elif sync_event.action == "webhook.pull_request.opened":
-            await self._process_webhook_pull_request_opened(sync_event, payload)
-        elif sync_event.action == "webhook.pull_request_review.submitted":
-            await self._process_webhook_pull_request_review(sync_event, payload)
-        elif sync_event.action == "webhook.pull_request.closed" and (payload.get("pull_request") or {}).get("merged"):
-            await self._process_webhook_pull_request_merged(sync_event, payload)
-        elif sync_event.action.startswith("webhook.projects_v2_item."):
-            await self._process_webhook_projects_v2_item(sync_event, payload)
-        else:
-            sync_event.status = "ignored"
-            sync_event.detail = f"No handler for {sync_event.action}"
+        sync_event.status = "running"
+        try:
+            if sync_event.action.startswith("webhook.installation."):
+                await self._process_webhook_installation(sync_event, payload)
+            elif sync_event.action.startswith("webhook.installation_repositories."):
+                await self._process_webhook_installation_repositories(sync_event, payload)
+            elif sync_event.action == "webhook.issues.opened":
+                await self._process_webhook_issue_opened(sync_event, payload)
+            elif sync_event.action == "webhook.issues.assigned":
+                await self._process_webhook_issue_assigned(sync_event, payload)
+            elif sync_event.action.startswith("webhook.issues."):
+                await self._process_webhook_issue_changed(sync_event, payload)
+            elif sync_event.action == "webhook.issue_comment.created":
+                await self._process_webhook_issue_comment(sync_event, payload)
+            elif sync_event.action.startswith("webhook.pull_request."):
+                suffix = sync_event.action.removeprefix("webhook.pull_request.")
+                pr = payload.get("pull_request") or {}
+                if suffix == "opened":
+                    await self._process_webhook_pull_request_opened(sync_event, payload)
+                elif suffix == "closed":
+                    if pr.get("merged"):
+                        await self._process_webhook_pull_request_merged(sync_event, payload)
+                    else:
+                        await self._process_webhook_pull_request_lifecycle(
+                            sync_event, payload, forced_state="closed"
+                        )
+                else:
+                    await self._process_webhook_pull_request_lifecycle(sync_event, payload)
+            elif sync_event.action == "webhook.pull_request_review_comment.created":
+                await self._process_webhook_pull_request_review_comment(sync_event, payload)
+            elif sync_event.action == "webhook.pull_request_review.submitted":
+                await self._process_webhook_pull_request_review(sync_event, payload)
+            elif sync_event.action.startswith("webhook.push."):
+                await self._process_webhook_push(sync_event, payload)
+            elif sync_event.action.startswith("webhook.projects_v2_item."):
+                await self._process_webhook_projects_v2_item(sync_event, payload)
+            else:
+                sync_event.status = "ignored"
+                sync_event.detail = f"No handler for {sync_event.action}"
+        except Exception as exc:
+            sync_event.status = "failed"
+            sync_event.detail = f"{type(exc).__name__}: {exc}"[:8000]
+            logger.exception("github webhook sync_event=%s failed", sync_event_id)
         await self.db.commit()
 
     async def _process_webhook_projects_v2_item(self, sync_event, payload: dict[str, Any]) -> None:
@@ -10532,7 +12726,12 @@ class OrchestrationService:
             return None
         repo_model = await self.repo.get_github_repository_by_full_name(full_name)
         if repo_model:
-            repo_model.metadata_json = repository
+            connection = await self.db.get(GithubConnection, repo_model.connection_id)
+            repo_model.metadata_json = {
+                **repository,
+                "last_verified_at": datetime.now(UTC).isoformat(),
+                "health": self._github_repository_health(connection, repository, is_active=bool(repo_model.is_active)),
+            }
             return repo_model
         installation_id = int(((payload.get("installation") or {}).get("id")) or 0)
         if installation_id <= 0:
@@ -10553,7 +12752,123 @@ class OrchestrationService:
             full_name=full_name,
             default_branch=repository.get("default_branch"),
             repo_url=repository.get("html_url"),
-            metadata_json=repository,
+            metadata_json={
+                **repository,
+                "last_verified_at": datetime.now(UTC).isoformat(),
+                "health": self._github_repository_health(connection, repository, is_active=True),
+            },
+        )
+
+    async def _process_webhook_installation(self, sync_event, payload: dict[str, Any]) -> None:
+        installation = payload.get("installation") or {}
+        installation_id = int(installation.get("id") or 0)
+        if installation_id <= 0:
+            sync_event.status = "ignored"
+            sync_event.detail = "Installation webhook missing installation id."
+            return
+        result = await self.db.execute(
+            select(GithubConnection).where(
+                or_(
+                    GithubConnection.github_installation_id == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                )
+            )
+        )
+        connection = result.scalar_one_or_none()
+        if connection is None:
+            sync_event.status = "ignored"
+            sync_event.detail = f"No Troop connection for installation {installation_id}."
+            return
+        metadata = dict(connection.metadata_json or {})
+        metadata.update(
+            {
+                "installation_id": installation_id,
+                "repository_selection": installation.get("repository_selection"),
+                "permissions": dict(installation.get("permissions") or metadata.get("permissions") or {}),
+                "events": list(installation.get("events") or metadata.get("events") or []),
+                "suspended_at": installation.get("suspended_at"),
+                "last_verified_at": datetime.now(UTC).isoformat(),
+                "last_webhook_action": payload.get("action"),
+            }
+        )
+        metadata["health"] = self._github_connection_health(metadata)
+        if payload.get("action") == "deleted":
+            connection.is_active = False
+        elif payload.get("action") in {"created", "new_permissions_accepted", "unsuspend"}:
+            connection.is_active = True
+        connection.github_installation_id = installation_id
+        connection.install_permissions_json = dict(installation.get("permissions") or {})
+        connection.install_events_json = list(installation.get("events") or [])
+        connection.install_last_verified_at = datetime.now(UTC)
+        connection.repository_selection = str(installation.get("repository_selection") or "") or None
+        acct = installation.get("account") if isinstance(installation.get("account"), dict) else {}
+        connection.install_account_type = str(acct.get("type") or "") or None
+        connection.metadata_json = metadata
+        sync_event.status = "completed"
+        sync_event.detail = f"Installation {installation_id} state updated from webhook."
+
+    async def _process_webhook_installation_repositories(self, sync_event, payload: dict[str, Any]) -> None:
+        installation_id = int(((payload.get("installation") or {}).get("id")) or 0)
+        if installation_id <= 0:
+            sync_event.status = "ignored"
+            sync_event.detail = "Installation repositories webhook missing installation id."
+            return
+        result = await self.db.execute(
+            select(GithubConnection).where(
+                or_(
+                    GithubConnection.github_installation_id == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                )
+            )
+        )
+        connection = result.scalar_one_or_none()
+        if connection is None:
+            sync_event.status = "ignored"
+            sync_event.detail = f"No Troop connection for installation {installation_id}."
+            return
+        added = list(payload.get("repositories_added") or [])
+        removed = list(payload.get("repositories_removed") or [])
+        for repo in added:
+            repository = await self.repo.get_github_repository_by_full_name(str(repo.get("full_name") or ""))
+            if repository is None:
+                await self.repo.create_github_repository(
+                    connection_id=connection.id,
+                    project_id=None,
+                    owner_name=((repo.get("owner") or {}).get("login") or ""),
+                    repo_name=str(repo.get("name") or ""),
+                    full_name=str(repo.get("full_name") or ""),
+                    default_branch=repo.get("default_branch"),
+                    repo_url=repo.get("html_url"),
+                    is_active=True,
+                    metadata_json={
+                        **repo,
+                        "last_verified_at": datetime.now(UTC).isoformat(),
+                        "health": self._github_repository_health(connection, repo, is_active=True),
+                    },
+                    last_synced_at=datetime.now(UTC),
+                )
+            else:
+                repository.is_active = True
+                repository.metadata_json = {
+                    **(repository.metadata_json or {}),
+                    **repo,
+                    "last_verified_at": datetime.now(UTC).isoformat(),
+                    "health": self._github_repository_health(connection, repo, is_active=True),
+                }
+        for repo in removed:
+            repository = await self.repo.get_github_repository_by_full_name(str(repo.get("full_name") or ""))
+            if repository is None:
+                continue
+            repository.is_active = False
+            repository.metadata_json = {
+                **(repository.metadata_json or {}),
+                **repo,
+                "removed_from_installation_at": datetime.now(UTC).isoformat(),
+                "health": self._github_repository_health(connection, repo, is_active=False),
+            }
+        sync_event.status = "completed"
+        sync_event.detail = (
+            f"Installation repository membership updated: +{len(added)} / -{len(removed)}."
         )
 
     async def _process_webhook_issue_opened(self, sync_event, payload: dict[str, Any]) -> None:
@@ -10581,6 +12896,7 @@ class OrchestrationService:
                 last_synced_at=datetime.now(UTC),
                 metadata_json=issue,
             )
+        task: OrchestratorTask | None = None
         if link.task_id is None:
             task = await self.repo.create_task(
                 project_id=repository.project_id,
@@ -10600,11 +12916,38 @@ class OrchestrationService:
                 metadata_json={
                     "github_issue_number": issue.get("number"),
                     "github_milestone_number": ((issue.get("milestone") or {}).get("number")),
+                    "github_sync_provenance": {
+                        "source": "github_webhook_issue_opened",
+                        "last_synced_at": datetime.now(UTC).isoformat(),
+                        "field_sources": {
+                            "title": "github",
+                            "description": "github",
+                            "labels": "github",
+                            "status": "github",
+                        },
+                    },
                 },
                 position=await self.repo.get_next_task_position(repository.project_id),
             )
             task.github_issue_link_id = link.id
             link.task_id = task.id
+        else:
+            task = await self.db.get(OrchestratorTask, link.task_id)
+        if task is not None:
+            try:
+                async with self.db.begin_nested():
+                    await self.repo.create_github_entity_mapping(
+                        owner_id=owner_id,
+                        external_kind="github_issue",
+                        external_ref=f"{repository.full_name}#{int(issue['number'])}",
+                        entity_kind="task",
+                        entity_id=task.id,
+                        connection_id=repository.connection_id,
+                        repository_id=repository.id,
+                        metadata_json={"issue_number": int(issue["number"])},
+                    )
+            except IntegrityError:
+                pass
         sync_event.issue_link_id = link.id
         sync_event.status = "completed"
         sync_event.detail = f"Issue #{issue['number']} mirrored into an orchestration task."
@@ -10669,15 +13012,37 @@ class OrchestrationService:
         link.metadata_json = {**(link.metadata_json or {}), "last_webhook_issue": issue}
         task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
         if task is not None:
-            task.labels_json = list(link.labels_json or [])
+            project = await self.db.get(OrchestratorProject, task.project_id) if task.project_id else None
             meta = dict(task.metadata_json or {})
+            old_fs = dict(((meta.get("github_sync_provenance") or {}).get("field_sources") or {}))
+            new_fs = dict(old_fs)
+            src_title = self._github_field_write_source(project, meta, "title")
+            src_desc = self._github_field_write_source(project, meta, "description")
+            src_labels = self._github_field_write_source(project, meta, "labels")
+            src_status = self._github_field_write_source(project, meta, "status")
+            if src_title != "app":
+                task.title = str(issue.get("title") or task.title)[:255]
+                new_fs["title"] = "github"
+            if src_desc != "app":
+                task.description = issue.get("body") or task.description
+                new_fs["description"] = "github"
+            if src_labels != "app":
+                task.labels_json = list(link.labels_json or [])
+                new_fs["labels"] = "github"
+            if src_status != "app":
+                new_fs["status"] = "github"
+                if link.state == "closed" and task.status not in {"completed", "synced_to_github", "archived"}:
+                    await self._transition_task_status(task, "synced_to_github", reason="github issue closed")
+                elif link.state == "open" and task.status == "synced_to_github":
+                    await self._transition_task_status(task, "planned", reason="github issue reopened")
             meta["github_milestone_number"] = ((issue.get("milestone") or {}).get("number"))
+            meta["github_sync_provenance"] = {
+                "source": "github_webhook_issue_changed",
+                "last_synced_at": datetime.now(UTC).isoformat(),
+                "field_sources": new_fs,
+            }
             task.metadata_json = meta
             orm_attributes.flag_modified(task, "metadata_json")
-            if link.state == "closed" and task.status not in {"completed", "synced_to_github", "archived"}:
-                await self._transition_task_status(task, "synced_to_github", reason="github issue closed")
-            elif link.state == "open" and task.status == "synced_to_github":
-                await self._transition_task_status(task, "planned", reason="github issue reopened")
         sync_event.status = "completed"
         sync_event.detail = f"Issue #{issue['number']} metadata synced from GitHub."
 
@@ -10777,12 +13142,30 @@ class OrchestrationService:
                         "number": pr.get("number"),
                         "url": pr.get("html_url"),
                         "state": pr.get("state"),
+                        "draft": pr.get("draft"),
                         "head": ((pr.get("head") or {}).get("ref")),
                         "base": ((pr.get("base") or {}).get("ref")),
                         "commits": pr.get("commits"),
                         "head_sha": ((pr.get("head") or {}).get("sha")),
+                        "base_sha": ((pr.get("base") or {}).get("sha")),
                     },
                 }
+                orm_attributes.flag_modified(task, "result_payload_json")
+                try:
+                    async with self.db.begin_nested():
+                        oid = await self._owner_id_for_repository(repository)
+                        await self.repo.create_github_entity_mapping(
+                            owner_id=oid,
+                            external_kind="github_pull_request",
+                            external_ref=f"{repository.full_name}#{int(pr.get('number') or 0)}",
+                            entity_kind="task",
+                            entity_id=task.id,
+                            connection_id=repository.connection_id,
+                            repository_id=repository.id,
+                            metadata_json={"pr_number": int(pr.get("number") or 0)},
+                        )
+                except IntegrityError:
+                    pass
                 if project and self._project_github_settings(project).get("enforce_branch_naming", True):
                     branch_name = (pr.get("head") or {}).get("ref")
                     if not self._github_branch_name_valid_for_task(project, task, branch_name):
@@ -10840,6 +13223,32 @@ class OrchestrationService:
         sync_event.status = "completed"
         sync_event.detail = f"Pull request review received for PR #{pr['number']}."
 
+    async def _process_webhook_pull_request_review_comment(self, sync_event, payload: dict[str, Any]) -> None:
+        repository = await self._ensure_repository_from_webhook_payload(payload)
+        pr = payload.get("pull_request") or {}
+        comment = payload.get("comment") or {}
+        if repository is None:
+            sync_event.status = "ignored"
+            return
+        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        if issue_link and issue_link.task_id:
+            marker = f"<!--gh:review_comment_id={comment.get('id')}-->" if comment.get("id") else ""
+            path = str(comment.get("path") or "").strip()
+            line = comment.get("line") or comment.get("original_line")
+            location = f"{path}:{line}" if path and line else path
+            await self.repo.create_task_comment(
+                task_id=issue_link.task_id,
+                author_user_id=None,
+                author_agent_id=None,
+                body=(
+                    f"{marker}\n[GitHub PR review comment] {location}\n"
+                    f"{comment.get('body') or ''}"
+                ).strip(),
+            )
+            sync_event.issue_link_id = issue_link.id
+        sync_event.status = "completed"
+        sync_event.detail = f"Pull request review comment mirrored for PR #{pr['number']}."
+
     async def _process_webhook_pull_request_merged(self, sync_event, payload: dict[str, Any]) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
         pr = payload.get("pull_request") or {}
@@ -10860,10 +13269,132 @@ class OrchestrationService:
                         "merge_commit_sha": pr.get("merge_commit_sha"),
                     },
                 }
+                orm_attributes.flag_modified(task, "result_payload_json")
                 if task.status in {"approved", "completed", "synced_to_github"}:
                     await self._transition_task_status(task, "synced_to_github", reason="pull request merged")
         sync_event.status = "completed"
         sync_event.detail = f"Pull request #{pr['number']} merged."
+
+    async def _process_webhook_pull_request_lifecycle(
+        self,
+        sync_event,
+        payload: dict[str, Any],
+        *,
+        forced_state: str | None = None,
+    ) -> None:
+        repository = await self._ensure_repository_from_webhook_payload(payload)
+        pr = payload.get("pull_request") or {}
+        if repository is None:
+            sync_event.status = "ignored"
+            return
+        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        if issue_link is None or issue_link.task_id is None:
+            sync_event.status = "ignored"
+            return
+        task = await self.db.get(OrchestratorTask, issue_link.task_id)
+        if task is None:
+            sync_event.status = "ignored"
+            return
+        prev = (task.result_payload_json or {}).get("github_pr") or {}
+        head = pr.get("head") or {}
+        base = pr.get("base") or {}
+        state = forced_state or ("merged" if pr.get("merged") else pr.get("state")) or prev.get("state")
+        reviewers = pr.get("requested_reviewers") or []
+        reviewer_logins = [u.get("login") for u in reviewers if isinstance(u, dict) and u.get("login")]
+        gh_pr = {
+            **prev,
+            "number": pr.get("number", prev.get("number")),
+            "url": pr.get("html_url", prev.get("url")),
+            "state": state,
+            "title": pr.get("title", prev.get("title")),
+            "draft": pr.get("draft", prev.get("draft")),
+            "mergeable": pr.get("mergeable", prev.get("mergeable")),
+            "head": head.get("ref", prev.get("head")),
+            "base": base.get("ref", prev.get("base")),
+            "head_sha": head.get("sha", prev.get("head_sha")),
+            "base_sha": base.get("sha", prev.get("base_sha")),
+            "commits": pr.get("commits", prev.get("commits")),
+            "merge_commit_sha": pr.get("merge_commit_sha", prev.get("merge_commit_sha")),
+            "changed_files": pr.get("changed_files", prev.get("changed_files")),
+        }
+        if reviewer_logins:
+            gh_pr["requested_reviewers"] = reviewer_logins
+        task.result_payload_json = {**(task.result_payload_json or {}), "github_pr": gh_pr}
+        orm_attributes.flag_modified(task, "result_payload_json")
+        await self.repo.create_sync_event(
+            repository_id=repository.id,
+            issue_link_id=issue_link.id,
+            action=f"github_pr_lifecycle.{(payload.get('action') or sync_event.action)}",
+            status="completed",
+            detail="PR fields synced from GitHub webhook.",
+            payload_json={
+                "task_id": task.id,
+                "pr_number": pr.get("number"),
+                "head_sha": gh_pr.get("head_sha"),
+                "delivery_id": (payload.get("_webhook_meta") or {}).get("delivery_id"),
+            },
+        )
+        sync_event.issue_link_id = issue_link.id
+        sync_event.status = "completed"
+        sync_event.detail = f"Pull request #{pr.get('number')} lifecycle synced ({payload.get('action')})."
+
+    async def _process_webhook_push(self, sync_event, payload: dict[str, Any]) -> None:
+        repository = await self._ensure_repository_from_webhook_payload(payload)
+        ref = str(payload.get("ref") or "")
+        branch = ref.split("/")[-1] if ref else ""
+        commits = list(payload.get("commits") or [])
+        head_sha = str(payload.get("after") or "")
+        if repository is None:
+            sync_event.status = "ignored"
+            return
+        task: OrchestratorTask | None = None
+        issue_link: GithubIssueLink | None = None
+        for candidate in await self.repo.list_issue_links_stale(older_than=datetime.now(UTC) + timedelta(days=3650), limit=200):
+            if candidate.repository_id != repository.id or not candidate.task_id:
+                continue
+            candidate_task = await self.db.get(OrchestratorTask, candidate.task_id)
+            if candidate_task is None:
+                continue
+            if branch and self._github_branch_name_valid_for_task(await self.db.get(OrchestratorProject, candidate_task.project_id), candidate_task, branch):
+                task = candidate_task
+                issue_link = candidate
+                break
+        if task is not None:
+            task.result_payload_json = {
+                **(task.result_payload_json or {}),
+                "github_branch": {
+                    "name": branch,
+                    "head_sha": head_sha or None,
+                    "commit_count": len(commits),
+                    "commits": [
+                        {
+                            "sha": item.get("id"),
+                            "message": item.get("message"),
+                            "url": item.get("url"),
+                        }
+                        for item in commits[:20]
+                        if isinstance(item, dict)
+                    ],
+                },
+            }
+            sync_event.issue_link_id = issue_link.id if issue_link else None
+        sync_event.status = "completed"
+        sync_event.detail = f"Push mirrored for branch {branch or ref}."
+        sync_event.payload_json = {
+            **(sync_event.payload_json or {}),
+            "branch": branch,
+            "head_sha": head_sha or None,
+            "commit_count": len(commits),
+            "commits": [
+                {
+                    "sha": item.get("id"),
+                    "message": item.get("message"),
+                    "url": item.get("url"),
+                }
+                for item in commits[:20]
+                if isinstance(item, dict)
+            ],
+        }
 
     async def _sync_run_completion_to_github(self, run: TaskRun, task: OrchestratorTask) -> None:
         if not task.github_issue_link_id:
@@ -11021,6 +13552,8 @@ class OrchestrationService:
         task: OrchestratorTask,
         repository: GithubRepository,
         issue_link: GithubIssueLink,
+        *,
+        approval: ApprovalRequest | None = None,
     ) -> None:
         connection = await self.db.get(GithubConnection, repository.connection_id)
         project = await self.db.get(OrchestratorProject, task.project_id)
@@ -11028,12 +13561,33 @@ class OrchestrationService:
             return
         branch_name = self._github_branch_name_for_task(project, task)
         github_settings = self._project_github_settings(project)
+        if github_settings.get("respect_branch_protections", True):
+            await self.repo.create_sync_event(
+                repository_id=repository.id,
+                issue_link_id=issue_link.id,
+                action="github_branch_protection_guard",
+                status="completed",
+                detail="Stub: GitHub branch protection API not queried; proceeding with automation.",
+                payload_json={"branch": branch_name, "run_id": run.id, "stub": True},
+            )
         patch_body = str(
             run.output_payload_json.get("final_output")
             or run.output_payload_json.get("summary")
             or task.result_summary
             or ""
         )
+        ap_payload = (approval.payload_json or {}) if approval is not None else {}
+        for aid in list(ap_payload.get("artifact_ids") or []):
+            art = await self.db.get(TaskArtifact, str(aid))
+            if art is None or art.task_id != task.id:
+                continue
+            patch_body = (patch_body + f"\n\n### {art.title}\n{art.content or ''}").strip()
+        msg_tpl = str(github_settings.get("commit_message_template") or "troop: task {task_id} {slug}")
+        commit_message = msg_tpl.format(
+            task_id=task.id,
+            title=(task.title or "")[:120],
+            slug=self._slugify(task.title),
+        )[:500]
         default_branch = repository.default_branch or "main"
         ref_response = await self._github_request(
             connection,
@@ -11086,7 +13640,7 @@ class OrchestrationService:
             "POST",
             f"/repos/{repository.full_name}/git/commits",
             json_body={
-                "message": f"troop: task {task.id} patch proposal",
+                "message": commit_message,
                 "tree": new_tree_sha,
                 "parents": [base_commit_sha],
             },
@@ -11143,8 +13697,11 @@ class OrchestrationService:
                 "url": pr_payload.get("html_url"),
                 "state": pr_payload.get("state"),
                 "branch": branch_name,
+                "head_sha": new_commit_sha,
+                "base_sha": base_commit_sha,
             },
         }
+        orm_attributes.flag_modified(task, "result_payload_json")
         await self.repo.create_sync_event(
             repository_id=repository.id,
             issue_link_id=issue_link.id,

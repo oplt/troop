@@ -30,6 +30,8 @@ const BenchmarkPage = lazy(() => import("../pages/BenchmarkPage"));
 const SemanticMemoryPage = lazy(() => import("../pages/SemanticMemoryPage"));
 const ModelSettingsPage = lazy(() => import("../pages/ModelSettingsPage"));
 const OrchestrationPortfolioPage = lazy(() => import("../pages/OrchestrationPortfolioPage"));
+const CompaniesPage = lazy(() => import("../pages/CompaniesPage"));
+const CompanyMemoryPage = lazy(() => import("../pages/CompanyMemoryPage"));
 
 function PageLoader() {
     return (
@@ -85,6 +87,8 @@ export function AppRouter() {
                     <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
+                    <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
+                    <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
                     <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />

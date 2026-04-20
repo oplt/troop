@@ -19,7 +19,7 @@ from backend.modules.orchestration.execution_workflow import (
     workflow_state,
 )
 from backend.modules.orchestration.markdown import parse_agent_markdown
-from backend.modules.orchestration.providers import ProviderExecutionResult
+from backend.modules.orchestration.providers import ProviderExecutionResult, discover_provider_capabilities
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
 from backend.modules.orchestration.service import OrchestrationService, _chunk_text, _cosine_similarity
 from backend.modules.orchestration.tools import OrchestrationToolbox
@@ -139,6 +139,136 @@ class SecretHandlingTests(unittest.TestCase):
         self.assertEqual(decrypt_secret(encrypted), "secret-token")
 
 
+class ProviderCapabilityDiscoveryTests(unittest.TestCase):
+    def test_openai_like_model_discovery_stores_api_sources(self) -> None:
+        provider = SimpleNamespace(
+            id="provider-1",
+            provider_type="openai",
+            base_url="https://api.openai.com/v1",
+            encrypted_api_key=encrypt_secret("token"),
+            organization=None,
+            timeout_seconds=30,
+            last_healthcheck_status="healthy",
+            last_healthcheck_latency_ms=123,
+            last_healthcheck_at=datetime.now(UTC),
+            is_healthy=True,
+            default_model="gpt-4.1-mini",
+            fallback_model=None,
+            max_tokens=4096,
+        )
+
+        class _Response:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return {"data": [{"id": "gpt-4.1-mini", "display_name": "GPT 4.1 mini"}]}
+
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def get(self, path, headers=None):
+                self.path = path
+                return _Response()
+
+        with patch("backend.modules.orchestration.providers.httpx.AsyncClient", _Client):
+            rows = asyncio.run(discover_provider_capabilities(provider))
+
+        self.assertEqual(rows[0]["model_slug"], "gpt-4.1-mini")
+        self.assertEqual(rows[0]["source_for_each_field"]["model_slug"], "provider_api:/models")
+        self.assertEqual(rows[0]["latency_p50"], 123)
+        self.assertIn("conservative defaults", rows[0]["override_reason"])
+
+    def test_ollama_model_discovery_reads_show_details(self) -> None:
+        provider = SimpleNamespace(
+            id="provider-2",
+            provider_type="ollama",
+            base_url="http://localhost:11434",
+            encrypted_api_key=None,
+            organization=None,
+            timeout_seconds=30,
+            last_healthcheck_status="healthy",
+            last_healthcheck_latency_ms=45,
+            last_healthcheck_at=datetime.now(UTC),
+            is_healthy=True,
+            default_model="qwen2.5-coder:7b",
+            fallback_model=None,
+            max_tokens=4096,
+        )
+
+        class _Response:
+            def __init__(self, payload):
+                self.status_code = 200
+                self.text = ""
+                self._payload = payload
+
+            def json(self):
+                return self._payload
+
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def get(self, path, headers=None):
+                return _Response({"models": [{"name": "qwen2.5-coder:7b", "model": "qwen2.5-coder:7b"}]})
+
+            async def post(self, path, json=None, headers=None):
+                return _Response(
+                    {
+                        "capabilities": ["completion", "vision"],
+                        "parameters": "num_ctx 32768\nnum_predict 4096",
+                        "model_info": {"qwen2.context_length": 32768},
+                    }
+                )
+
+        with patch("backend.modules.orchestration.providers.httpx.AsyncClient", _Client):
+            rows = asyncio.run(discover_provider_capabilities(provider))
+
+        self.assertTrue(rows[0]["supports_vision"])
+        self.assertEqual(rows[0]["context_window"], 32768)
+        self.assertEqual(rows[0]["max_output_tokens"], 4096)
+
+    def test_refresh_provider_models_upserts_provider_scoped_capabilities(self) -> None:
+        service = object.__new__(OrchestrationService)
+        provider = SimpleNamespace(
+            id="provider-3",
+            provider_type="local",
+            metadata_json={},
+            last_healthcheck_status="healthy",
+            last_healthcheck_latency_ms=11,
+            last_healthcheck_at=datetime.now(UTC),
+            is_healthy=True,
+            default_model="local-heuristic",
+            fallback_model=None,
+            max_tokens=2048,
+        )
+        created: dict[str, object] = {}
+        service.repo = SimpleNamespace(
+            list_model_capabilities=lambda **kwargs: asyncio.sleep(0, result=[]),
+            create_model_capability=lambda **kwargs: asyncio.sleep(0, result=created.update(kwargs) or SimpleNamespace()),
+        )
+
+        rows = asyncio.run(service._refresh_provider_models(provider))
+
+        self.assertEqual(rows[0]["name"], "local-heuristic")
+        self.assertEqual(created["provider_id"], "provider-3")
+        self.assertEqual(created["provider_type"], "local")
+        self.assertEqual(created["metadata_json"]["source"], "local_runtime")
+
+
 class HierarchyTests(unittest.TestCase):
     def test_direct_report_is_allowed(self) -> None:
         service = object.__new__(OrchestrationService)
@@ -220,7 +350,12 @@ class TaskStateMachineTests(unittest.TestCase):
             list_task_dependencies_for_task=lambda task_id: asyncio.sleep(0, result=[]),
             get_task_by_id=lambda task_id: asyncio.sleep(0, result=None),
         )
-        service.db = SimpleNamespace(commit=lambda: asyncio.sleep(0), refresh=lambda item: asyncio.sleep(0, result=None))
+        service.action_requires_approval = lambda project, action: False
+        service.db = SimpleNamespace(
+            get=lambda model, project_id: asyncio.sleep(0, result=SimpleNamespace(id=project_id, settings_json={})),
+            commit=lambda: asyncio.sleep(0),
+            refresh=lambda item: asyncio.sleep(0, result=None),
+        )
         with self.assertRaises(HTTPException):
             asyncio.run(
                 service.update_task(
@@ -237,9 +372,72 @@ class TaskStateMachineTests(unittest.TestCase):
             SimpleNamespace(id="task-1", dependency_ids=[]),
             SimpleNamespace(id="task-2", dependency_ids=["task-1"]),
         ]
-        service.repo = SimpleNamespace(list_tasks=lambda project_id: asyncio.sleep(0, result=tasks))
+        service.repo = SimpleNamespace(
+            list_tasks=lambda project_id: asyncio.sleep(0, result=tasks),
+            list_task_dependencies=lambda project_id: asyncio.sleep(
+                0,
+                result=[SimpleNamespace(task_id="task-2", depends_on_task_id="task-1")],
+            ),
+        )
         with self.assertRaises(HTTPException):
             asyncio.run(service._validate_task_dependencies("project-1", "task-1", ["task-2"]))
+
+    def test_create_task_defaults_to_queued(self) -> None:
+        service = object.__new__(OrchestrationService)
+        created: dict[str, object] = {}
+        service.get_project = lambda user, project_id: asyncio.sleep(0, result=SimpleNamespace(id=project_id))
+        service.repo = SimpleNamespace(
+            get_next_task_position=lambda project_id: asyncio.sleep(0, result=0),
+            create_task=lambda **kwargs: asyncio.sleep(0, result=created.update(kwargs) or SimpleNamespace(id="task-1")),
+            replace_task_dependencies=lambda task_id, dependency_ids: asyncio.sleep(0),
+        )
+        service._validate_task_dependencies = lambda project_id, task_id, dependency_ids: asyncio.sleep(0)
+        service.db = SimpleNamespace(commit=lambda: asyncio.sleep(0), refresh=lambda item: asyncio.sleep(0, result=None))
+        asyncio.run(service.create_task(SimpleNamespace(id="user-1"), "project-1", {"title": "Task"}))
+        self.assertEqual(created["status"], "queued")
+
+    def test_evidence_bundle_required_for_synced_to_github(self) -> None:
+        service = object.__new__(OrchestrationService)
+        task = SimpleNamespace(
+            id="task-1",
+            metadata_json={
+                "external_links": [{"id": "link-1", "kind": "pr", "label": "PR", "url": "https://example.com/pr/1"}],
+                "evidence_bundle": {
+                    "accepted_artifact_ids": ["artifact-1"],
+                    "accepted_external_link_ids": ["link-1"],
+                    "reviewer_decision": {"status": "approved"},
+                    "sync_summary": "",
+                },
+            },
+        )
+        service.repo = SimpleNamespace(
+            list_task_artifacts=lambda task_id: asyncio.sleep(0, result=[SimpleNamespace(id="artifact-1")])
+        )
+        result = asyncio.run(service._check_task_evidence_bundle_payload(task, target_status="synced_to_github"))
+        self.assertFalse(result["passed"])
+        sync_check = next(item for item in result["checks"] if item["name"] == "sync_summary")
+        self.assertFalse(sync_check["passed"])
+
+    def test_evidence_bundle_passes_when_archive_has_prior_sync_or_summary(self) -> None:
+        service = object.__new__(OrchestrationService)
+        task = SimpleNamespace(
+            id="task-1",
+            status="synced_to_github",
+            metadata_json={
+                "external_links": [{"id": "link-1", "kind": "commit", "label": "Commit", "url": "https://example.com/commit/1"}],
+                "evidence_bundle": {
+                    "accepted_artifact_ids": ["artifact-1"],
+                    "accepted_external_link_ids": ["link-1"],
+                    "reviewer_decision": {"status": "approved"},
+                    "sync_summary": "",
+                },
+            },
+        )
+        service.repo = SimpleNamespace(
+            list_task_artifacts=lambda task_id: asyncio.sleep(0, result=[SimpleNamespace(id="artifact-1")])
+        )
+        result = asyncio.run(service._check_task_evidence_bundle_payload(task, target_status="archived"))
+        self.assertTrue(result["passed"])
 
 
 class RoutingTests(unittest.TestCase):
@@ -411,6 +609,155 @@ class ReplayFlowTests(unittest.TestCase):
             "run-1",
         )
         submit_mock.assert_called_once_with("run-2")
+
+
+class RunEngineTests(unittest.TestCase):
+    def test_create_child_run_carries_parent_and_routing_metadata(self) -> None:
+        service = object.__new__(OrchestrationService)
+        created: dict[str, object] = {}
+
+        async def create_run(**kwargs):
+            created.update(kwargs)
+            return SimpleNamespace(
+                id="child-1",
+                parent_run_id=kwargs.get("parent_run_id"),
+                project_id=kwargs["project_id"],
+                task_id=kwargs["task_id"],
+                triggered_by_user_id=kwargs.get("triggered_by_user_id"),
+                orchestrator_agent_id=kwargs.get("orchestrator_agent_id"),
+                worker_agent_id=kwargs.get("worker_agent_id"),
+                reviewer_agent_id=kwargs.get("reviewer_agent_id"),
+                provider_config_id=kwargs.get("provider_config_id"),
+                brainstorm_id=kwargs.get("brainstorm_id"),
+                run_mode=kwargs["run_mode"],
+                status=kwargs["status"],
+                model_name=kwargs.get("model_name"),
+                checkpoint_json={},
+                input_payload_json=kwargs["input_payload_json"],
+            )
+
+        service.repo = SimpleNamespace(create_run=create_run)
+        parent_run = SimpleNamespace(
+            id="run-1",
+            project_id="project-1",
+            task_id="task-1",
+            triggered_by_user_id="user-1",
+            orchestrator_agent_id="mgr-1",
+            reviewer_agent_id="rev-1",
+            provider_config_id="provider-1",
+            brainstorm_id=None,
+            model_name="gpt-5",
+        )
+
+        child = asyncio.run(
+            service._create_child_run(
+                parent_run,
+                sub_task={
+                    "branch_id": "branch-1",
+                    "title": "Implement API",
+                    "routing_reason": "matched capabilities ['api_design'] with queue depth 0",
+                    "dependency_ids": ["branch-0"],
+                },
+                assigned_agent_id="worker-1",
+            )
+        )
+
+        self.assertEqual(child.parent_run_id, "run-1")
+        self.assertEqual(created["parent_run_id"], "run-1")
+        self.assertEqual(created["worker_agent_id"], "worker-1")
+        self.assertEqual(
+            created["input_payload_json"]["orchestration_meta"]["routing_reason"],
+            "matched capabilities ['api_design'] with queue depth 0",
+        )
+        self.assertEqual(
+            created["input_payload_json"]["orchestration_meta"]["dependency_ids"],
+            ["branch-0"],
+        )
+
+    def test_cancel_run_cancels_active_child_runs(self) -> None:
+        service = object.__new__(OrchestrationService)
+        parent_run = SimpleNamespace(
+            id="run-1",
+            task_id="task-1",
+            status="in_progress",
+            cancelled_at=None,
+            checkpoint_json={},
+        )
+        child_active = SimpleNamespace(
+            id="child-1",
+            status="in_progress",
+            cancelled_at=None,
+            checkpoint_json={},
+        )
+        child_done = SimpleNamespace(
+            id="child-2",
+            status="completed",
+            cancelled_at=None,
+            checkpoint_json={},
+        )
+        task = SimpleNamespace(id="task-1", status="in_progress")
+
+        service.get_run = lambda user, run_id: asyncio.sleep(0, result=parent_run)
+        service._child_runs_for_parent = lambda run_id: asyncio.sleep(0, result=[child_active, child_done])
+        service._transition_task_status = lambda *args, **kwargs: asyncio.sleep(0)
+        service._emit_run_event = lambda *args, **kwargs: asyncio.sleep(0)
+        service.db = SimpleNamespace(
+            get=lambda model, item_id: asyncio.sleep(0, result=task),
+            commit=lambda: asyncio.sleep(0),
+            refresh=lambda item: asyncio.sleep(0),
+        )
+
+        result = asyncio.run(service.cancel_run(SimpleNamespace(id="user-1"), "run-1"))
+
+        self.assertEqual(result.status, "cancelled")
+        self.assertEqual(child_active.status, "cancelled")
+        self.assertIsNotNone(child_active.cancelled_at)
+        self.assertEqual(child_done.status, "completed")
+
+    def test_resume_run_requeues_failed_or_blocked_child_runs(self) -> None:
+        service = object.__new__(OrchestrationService)
+        parent_run = SimpleNamespace(
+            id="run-1",
+            status="blocked",
+            error_message="blocked",
+            completed_at=datetime.now(UTC),
+            cancelled_at=datetime.now(UTC),
+            checkpoint_json={},
+        )
+        blocked_child = SimpleNamespace(
+            id="child-1",
+            status="blocked",
+            error_message="blocked",
+            completed_at=datetime.now(UTC),
+            cancelled_at=datetime.now(UTC),
+            checkpoint_json={},
+        )
+        completed_child = SimpleNamespace(
+            id="child-2",
+            status="completed",
+            error_message=None,
+            completed_at=datetime.now(UTC),
+            cancelled_at=None,
+            checkpoint_json={},
+        )
+
+        service.get_run = lambda user, run_id: asyncio.sleep(0, result=parent_run)
+        service._run_is_resumable = lambda run: True
+        service._child_runs_for_parent = lambda run_id: asyncio.sleep(0, result=[blocked_child, completed_child])
+        service._emit_run_event = lambda *args, **kwargs: asyncio.sleep(0)
+        service.db = SimpleNamespace(
+            commit=lambda: asyncio.sleep(0),
+            refresh=lambda item: asyncio.sleep(0),
+        )
+
+        with patch("backend.modules.orchestration.durable_execution.submit_orchestration_run") as submit_mock:
+            result = asyncio.run(service.resume_run(SimpleNamespace(id="user-1"), "run-1"))
+
+        self.assertEqual(result.status, "queued")
+        self.assertEqual(blocked_child.status, "queued")
+        self.assertIsNone(blocked_child.error_message)
+        self.assertEqual(completed_child.status, "completed")
+        submit_mock.assert_called_once_with("run-1")
 
 
 class PortfolioPolicyTests(unittest.TestCase):
@@ -818,6 +1165,125 @@ class GithubHelperTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 422)
         self.assertIn("Reconnect GitHub", str(ctx.exception.detail))
         self.assertIn("Bad credentials", str(ctx.exception.detail))
+
+    def test_github_connection_health_reports_missing_permissions(self) -> None:
+        service = object.__new__(OrchestrationService)
+        health = service._github_connection_health(
+            {
+                "installation_id": 42,
+                "repository_selection": "selected",
+                "permissions": {"issues": "write", "metadata": "read"},
+            }
+        )
+        self.assertEqual(health["status"], "degraded")
+        self.assertIn("pull_requests", health["missing_permissions"])
+
+    def test_record_github_webhook_event_deduplicates_delivery_id(self) -> None:
+        service = object.__new__(OrchestrationService)
+        existing = SimpleNamespace(
+            id="sync-1",
+            action="webhook.issues.opened",
+            status="completed",
+            detail="done",
+            payload_json={"_webhook_meta": {"delivery_id": "delivery-1"}},
+        )
+        commits = []
+
+        async def create_sync_event(**kwargs):
+            commits.append(kwargs)
+            return SimpleNamespace(id="sync-2")
+
+        service.repo = SimpleNamespace(
+            get_sync_event_by_delivery_id=lambda delivery_id: asyncio.sleep(0, result=existing),
+            get_github_repository_by_full_name=lambda full_name: asyncio.sleep(0, result=None),
+            create_sync_event=create_sync_event,
+        )
+        service.db = SimpleNamespace(commit=lambda: asyncio.sleep(0))
+
+        sync_event_id = asyncio.run(
+            service.record_github_webhook_event(
+                "issues",
+                {"action": "opened", "repository": {"full_name": "org/repo"}},
+                delivery_id="delivery-1",
+            )
+        )
+
+        self.assertEqual(sync_event_id, "sync-1")
+        self.assertEqual(existing.detail, "Duplicate delivery ignored for webhook.issues.opened.")
+        self.assertEqual(commits, [])
+
+    def test_record_github_webhook_event_ignores_non_allowlisted_event(self) -> None:
+        service = object.__new__(OrchestrationService)
+        created: dict[str, object] = {}
+
+        async def create_sync_event(**kwargs):
+            created.update(kwargs)
+            return SimpleNamespace(id="sync-9")
+
+        service.repo = SimpleNamespace(create_sync_event=create_sync_event)
+        service.db = SimpleNamespace(commit=lambda: asyncio.sleep(0))
+
+        sync_event_id = asyncio.run(
+            service.record_github_webhook_event(
+                "fork",
+                {"action": "created"},
+                delivery_id="delivery-9",
+            )
+        )
+
+        self.assertEqual(sync_event_id, "sync-9")
+        self.assertEqual(created["status"], "ignored")
+        self.assertEqual(created["action"], "webhook.fork.ignored")
+
+    def test_normalize_project_settings_github_outbound_defaults(self) -> None:
+        service = object.__new__(OrchestrationService)
+        gh = service._normalize_project_settings({}).get("github") or {}
+        self.assertIn("outbound_comment_policy", gh)
+        self.assertIn("github_field_locks", gh)
+        self.assertIn("commit_message_template", gh)
+        self.assertIn("respect_branch_protections", gh)
+
+    def test_effective_github_outbound_comment_policy_repo_override(self) -> None:
+        service = object.__new__(OrchestrationService)
+        project = SimpleNamespace(
+            settings_json={
+                "github": {
+                    "outbound_comment_policy": "manual_approval",
+                    "repo_agent_pools": {
+                        "acme/api": {"outbound_comment_policy": "disabled"},
+                    },
+                }
+            }
+        )
+        repository = SimpleNamespace(full_name="acme/api")
+        policy, _trusted = service._effective_github_outbound_comment_policy(project, repository)
+        self.assertEqual(policy, "disabled")
+
+    def test_task_timeline_includes_approvals(self) -> None:
+        service = object.__new__(OrchestrationService)
+        service.get_task = lambda user, project_id, task_id: asyncio.sleep(0, result=SimpleNamespace(id=task_id))
+        service.repo = SimpleNamespace(
+            list_task_comments=lambda task_id: asyncio.sleep(0, result=[]),
+            list_sync_events_for_task=lambda task_id: asyncio.sleep(0, result=[]),
+            list_approvals_for_task=lambda owner_id, project_id, task_id: asyncio.sleep(
+                0,
+                result=[
+                    SimpleNamespace(
+                        id="approval-1",
+                        created_at=datetime.now(UTC),
+                        approval_type="github_comment",
+                        status="pending",
+                        payload_json={"body": "Ship it", "pr_number": 12},
+                    )
+                ],
+            ),
+        )
+
+        timeline = asyncio.run(service.list_task_timeline(SimpleNamespace(id="user-1"), "project-1", "task-1"))
+
+        self.assertEqual(len(timeline), 1)
+        self.assertEqual(timeline[0]["kind"], "approval")
+        self.assertEqual(timeline[0]["payload"]["approval_type"], "github_comment")
 
 
 class ProviderHelperTests(unittest.TestCase):
@@ -1405,6 +1871,182 @@ class DurableWorkflowTests(unittest.TestCase):
         self.assertEqual(len(state["signal_queue"]), 0)
         self.assertEqual(len(state["signal_history"]), 1)
         self.assertEqual(state["query_snapshot"]["latest_status"], "in_progress")
+
+
+class MemoryClassifierTests(unittest.TestCase):
+    def test_decision_marker_produces_decision_entry_type(self) -> None:
+        from backend.modules.memory.classifier import classify_text
+
+        cand = classify_text("We decided to pin fastapi at 0.110.0 for the next quarter.")
+        self.assertIsNotNone(cand)
+        assert cand is not None
+        self.assertEqual(cand.layer, "semantic")
+        self.assertIn(cand.entry_type, ("decision", "dependency_rule"))
+
+    def test_short_note_is_rejected(self) -> None:
+        from backend.modules.memory.classifier import classify_text
+
+        self.assertIsNone(classify_text("ok"))
+
+    def test_working_marker_routes_to_working_layer(self) -> None:
+        from backend.modules.memory.classifier import classify_text
+
+        cand = classify_text("WIP: scratch notes on the retrieval flow before cleanup")
+        assert cand is not None
+        self.assertEqual(cand.layer, "working")
+
+    def test_classify_run_events_batches_candidates(self) -> None:
+        from backend.modules.memory.classifier import classify_run_events
+
+        events = [
+            {
+                "id": "e1",
+                "event_type": "decision",
+                "message": "We decided to use Postgres row-level security for tenants.",
+                "payload_json": {},
+            },
+            {
+                "id": "e2",
+                "event_type": "log",
+                "message": "fetched 42 rows",
+                "payload_json": {},
+            },
+        ]
+        cands = classify_run_events(events)
+        self.assertGreaterEqual(len(cands), 1)
+        self.assertTrue(any(c.layer == "semantic" for c in cands))
+
+
+class PromotionRulesTests(unittest.TestCase):
+    def test_adr_type_auto_promotes(self) -> None:
+        from backend.modules.memory.promotion_rules import PromotionCandidate, evaluate
+
+        cand = PromotionCandidate(
+            entry_type="adr",
+            title="Migrate auth to OIDC",
+            body="Decided to replace the legacy session store with OIDC. Rationale: architecture shift.",
+        )
+        ev = evaluate(cand)
+        self.assertEqual(ev.verdict, "auto")
+
+    def test_tiny_body_is_skipped(self) -> None:
+        from backend.modules.memory.promotion_rules import PromotionCandidate, evaluate
+
+        ev = evaluate(PromotionCandidate(entry_type="note", title="x", body="y"))
+        self.assertEqual(ev.verdict, "skip")
+
+    def test_company_rule_requires_org_keywords(self) -> None:
+        from backend.modules.memory.promotion_rules import PromotionCandidate, evaluate
+
+        cand = PromotionCandidate(
+            entry_type="policy",
+            title="Secrets policy",
+            body="Company-wide policy: never commit secrets. Security compliance requirement.",
+            scope="company",
+        )
+        ev = evaluate(cand)
+        self.assertIn(ev.verdict, ("auto", "suggest"))
+
+
+class ConflictResolverTests(unittest.TestCase):
+    def _mk_entry(self, entry_id: str, title: str, body: str, entry_type: str = "convention") -> SimpleNamespace:
+        return SimpleNamespace(
+            id=entry_id,
+            title=title,
+            body=body,
+            entry_type=entry_type,
+            embedding_vector=None,
+            namespace=f"project/p1/{entry_type}/{entry_id}",
+            updated_at=datetime.now(UTC),
+        )
+
+    def test_detects_near_duplicate_via_tokens(self) -> None:
+        from backend.modules.memory.conflict_resolver import detect
+
+        existing = [
+            self._mk_entry(
+                "e1",
+                "Always use snake_case",
+                "We always use snake_case naming convention across services.",
+            )
+        ]
+        report = detect(
+            None,
+            "Always use snake_case",
+            "We always use snake_case naming convention across services.",
+            "convention",
+            existing,
+        )
+        self.assertTrue(report.duplicates)
+
+    def test_detects_polarity_contradiction(self) -> None:
+        from backend.modules.memory.conflict_resolver import detect
+
+        existing = [
+            self._mk_entry(
+                "e1",
+                "Use feature flags",
+                "Always use feature flags for new surfaces rolled to production.",
+                entry_type="policy",
+            )
+        ]
+        report = detect(
+            None,
+            "Avoid feature flags",
+            "Never use feature flags for new surfaces rolled to production.",
+            "policy",
+            existing,
+        )
+        # polarity clash at similarity>=0.75 triggers contradiction
+        self.assertTrue(report.contradictions or report.duplicates)
+
+
+class ProvenanceNormalizationTests(unittest.TestCase):
+    def test_defaults_filled_and_confidence_clamped(self) -> None:
+        from backend.modules.memory.provenance import normalize_provenance
+
+        p = normalize_provenance(
+            {"source": "classifier", "confidence": 2.5, "decision_id": "d1"},
+            created_by_user_id="u1",
+            source_run_id="r1",
+        )
+        self.assertEqual(p["source"], "classifier")
+        self.assertEqual(p["confidence"], 1.0)
+        self.assertEqual(p["source_run_id"], "r1")
+        self.assertEqual(p["created_by_user_id"], "u1")
+        self.assertIn("decision_id", p["extras"])
+
+    def test_missing_confidence_uses_source_floor(self) -> None:
+        from backend.modules.memory.provenance import normalize_provenance
+
+        p = normalize_provenance({"source": "api"}, created_by_user_id="u1")
+        self.assertGreaterEqual(p["confidence"], 0.85)
+
+
+class ContextPacketTokenBudgetTests(unittest.TestCase):
+    def test_combined_user_prompt_respects_max_tokens(self) -> None:
+        from backend.modules.orchestration.context_packet import ContextPacket, count_text_tokens
+
+        long = "word " * 2000
+        p = ContextPacket(
+            sections={
+                "task_title": "Task title: " + long,
+                "episodic_recall": "Episodic recall (second stage):\n" + long,
+            }
+        )
+        out = p.combined_user_prompt(
+            max_chars=500_000,
+            max_tokens=80,
+            section_token_budgets={"task_title": 25, "episodic_recall": 25},
+        )
+        self.assertLessEqual(count_text_tokens(out), 85)
+
+    def test_legacy_char_cap_when_max_tokens_none(self) -> None:
+        from backend.modules.orchestration.context_packet import ContextPacket
+
+        p = ContextPacket(sections={"task_title": "x" * 5000})
+        out = p.combined_user_prompt(50)
+        self.assertLessEqual(len(out), 50)
 
 
 if __name__ == "__main__":

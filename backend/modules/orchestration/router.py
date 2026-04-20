@@ -4,11 +4,11 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.api.deps.db import get_db
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.schemas import (
     ActiveRunSummary,
@@ -49,6 +49,8 @@ from backend.modules.orchestration.schemas import (
     GateConfigResponse,
     GateConfigUpdate,
     GithubSyncEventResponse,
+    KnowledgeGraphEdgeCreate,
+    KnowledgeGraphEdgeResponse,
     KnowledgeSearchResultResponse,
     MemorySettingsPatch,
     MemorySettingsResponse,
@@ -209,8 +211,10 @@ def _provider(item) -> ProviderConfigResponse:
 
 
 def _model_capability(item) -> ModelCapabilityResponse:
+    metadata = item.metadata_json or {}
     return ModelCapabilityResponse(
         id=item.id,
+        provider_id=item.provider_id,
         provider_type=item.provider_type,
         model_slug=item.model_slug,
         display_name=item.display_name,
@@ -219,7 +223,20 @@ def _model_capability(item) -> ModelCapabilityResponse:
         max_context_tokens=item.max_context_tokens,
         cost_per_1k_input=item.cost_per_1k_input,
         cost_per_1k_output=item.cost_per_1k_output,
-        metadata=item.metadata_json,
+        context_window=metadata.get("context_window")
+        if metadata.get("context_window") is not None
+        else (item.max_context_tokens or None),
+        max_output_tokens=metadata.get("max_output_tokens"),
+        input_cost_per_1k=metadata.get("input_cost_per_1k", item.cost_per_1k_input),
+        output_cost_per_1k=metadata.get("output_cost_per_1k", item.cost_per_1k_output),
+        input_cost_per_1m=metadata.get("input_cost_per_1m"),
+        output_cost_per_1m=metadata.get("output_cost_per_1m"),
+        latency_p50=metadata.get("latency_p50"),
+        health_status=metadata.get("health_status"),
+        source_for_each_field=metadata.get("source_for_each_field") or {},
+        last_verified_at=metadata.get("last_verified_at"),
+        override_reason=metadata.get("override_reason"),
+        metadata=metadata,
         is_active=item.is_active,
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -330,6 +347,7 @@ async def _tasks_to_responses(
 def _run(item) -> TaskRunResponse:
     return TaskRunResponse(
         id=item.id,
+        parent_run_id=getattr(item, "parent_run_id", None),
         project_id=item.project_id,
         task_id=item.task_id,
         triggered_by_user_id=item.triggered_by_user_id,
@@ -381,6 +399,10 @@ def _task_execution_snapshot(raw: dict[str, Any]) -> TaskExecutionSnapshotRespon
         recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
         trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
         durable_workflow=raw.get("durable_workflow") or {},
+        child_runs=[_run(item) for item in raw.get("child_runs") or []],
+        blocker_queue=list(raw.get("blocker_queue") or []),
+        review_state=dict(raw.get("review_state") or {}),
+        github_action_state=dict(raw.get("github_action_state") or {}),
     )
 
 
@@ -399,15 +421,23 @@ def _run_execution_snapshot(raw: dict[str, Any]) -> RunExecutionSnapshotResponse
         recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
         trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
         durable_workflow=raw.get("durable_workflow") or {},
+        child_runs=[_run(item) for item in raw.get("child_runs") or []],
+        blocker_queue=list(raw.get("blocker_queue") or []),
+        review_state=dict(raw.get("review_state") or {}),
+        github_action_state=dict(raw.get("github_action_state") or {}),
         resumable=bool(raw.get("resumable", False)),
     )
 
 
 def _semantic_entry(item) -> SemanticMemoryEntryResponse:
+    from backend.modules.memory.provenance import get_confidence
+
+    provenance = item.provenance_json or {}
     return SemanticMemoryEntryResponse(
         id=item.id,
         owner_id=item.owner_id,
         scope=item.scope,
+        company_id=getattr(item, "company_id", None),
         project_id=item.project_id,
         agent_id=item.agent_id,
         entry_type=item.entry_type,
@@ -418,7 +448,8 @@ def _semantic_entry(item) -> SemanticMemoryEntryResponse:
         source_chunk_id=item.source_chunk_id,
         source_task_id=item.source_task_id,
         source_run_id=item.source_run_id,
-        provenance=item.provenance_json or {},
+        provenance=provenance,
+        confidence=get_confidence(provenance),
         created_by_user_id=item.created_by_user_id,
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -587,6 +618,13 @@ def _document(item) -> ProjectDocumentResponse:
 
 
 def _memory(item) -> AgentMemoryEntryResponse:
+    meta = item.metadata_json or {}
+    conf_raw = meta.get("_confidence") if isinstance(meta, dict) else None
+    try:
+        confidence = float(conf_raw) if conf_raw is not None else 0.6
+    except (TypeError, ValueError):
+        confidence = 0.6
+    confidence = max(0.0, min(1.0, confidence))
     return AgentMemoryEntryResponse(
         id=item.id,
         owner_id=item.owner_id,
@@ -601,7 +639,8 @@ def _memory(item) -> AgentMemoryEntryResponse:
         ttl_days=item.ttl_days,
         expires_at=item.expires_at,
         deleted_at=item.deleted_at,
-        metadata=item.metadata_json,
+        metadata=meta,
+        confidence=confidence,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -1146,6 +1185,27 @@ async def patch_project_memory_settings(
     return MemorySettingsResponse(**data)
 
 
+@router.get("/companies/{company_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse])
+async def list_company_semantic_memory(
+    company_id: str,
+    q: str | None = None,
+    entry_type: str | None = None,
+    namespace_prefix: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = await OrchestrationService(db).list_semantic_memory_for_company(
+        current_user,
+        company_id,
+        q=q,
+        entry_type=entry_type,
+        namespace_prefix=namespace_prefix,
+        limit=limit,
+    )
+    return [_semantic_entry(item) for item in rows]
+
+
 @router.get("/projects/{project_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse])
 async def list_semantic_memory(
     project_id: str,
@@ -1153,6 +1213,7 @@ async def list_semantic_memory(
     vec_q: str | None = None,
     entry_type: str | None = None,
     namespace_prefix: str | None = None,
+    source_task_id: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -1164,6 +1225,7 @@ async def list_semantic_memory(
         vec_q=vec_q,
         entry_type=entry_type,
         namespace_prefix=namespace_prefix,
+        source_task_id=source_task_id,
         limit=limit,
     )
     return [_semantic_entry(item) for item in rows]
@@ -1316,6 +1378,94 @@ async def list_semantic_memory_links(
         )
         for r in rows
     ]
+
+
+@router.post(
+    "/projects/{project_id}/knowledge-graph/edges",
+    response_model=KnowledgeGraphEdgeResponse,
+    status_code=201,
+)
+async def create_knowledge_graph_edge(
+    project_id: str,
+    payload: KnowledgeGraphEdgeCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = await OrchestrationService(db).create_knowledge_graph_edge_for_project(
+        current_user,
+        project_id,
+        source_kind=payload.source_kind,
+        source_id=payload.source_id,
+        target_kind=payload.target_kind,
+        target_id=payload.target_id,
+        relation_type=payload.relation_type,
+        metadata=payload.metadata,
+    )
+    return KnowledgeGraphEdgeResponse(
+        id=row.id,
+        owner_id=row.owner_id,
+        project_id=row.project_id,
+        source_kind=row.source_kind,
+        source_id=row.source_id,
+        target_kind=row.target_kind,
+        target_id=row.target_id,
+        relation_type=row.relation_type,
+        metadata=row.metadata_json or {},
+        created_at=row.created_at,
+    )
+
+
+@router.get(
+    "/projects/{project_id}/knowledge-graph/edges",
+    response_model=list[KnowledgeGraphEdgeResponse],
+)
+async def list_knowledge_graph_edges(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    source_kind: str | None = Query(default=None),
+    source_id: str | None = Query(default=None),
+    target_kind: str | None = Query(default=None),
+    target_id: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    rows = await OrchestrationService(db).list_knowledge_graph_edges_for_project(
+        current_user,
+        project_id,
+        source_kind=source_kind,
+        source_id=source_id,
+        target_kind=target_kind,
+        target_id=target_id,
+        limit=limit,
+    )
+    return [
+        KnowledgeGraphEdgeResponse(
+            id=r.id,
+            owner_id=r.owner_id,
+            project_id=r.project_id,
+            source_kind=r.source_kind,
+            source_id=r.source_id,
+            target_kind=r.target_kind,
+            target_id=r.target_id,
+            relation_type=r.relation_type,
+            metadata=r.metadata_json or {},
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+@router.delete("/projects/{project_id}/knowledge-graph/edges/{edge_id}", status_code=204)
+async def delete_knowledge_graph_edge(
+    project_id: str,
+    edge_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).delete_knowledge_graph_edge_for_project(
+        current_user, project_id, edge_id
+    )
+    return Response(status_code=204)
 
 
 @router.get("/projects/{project_id}/semantic-memory/{entry_id}", response_model=SemanticMemoryEntryResponse)

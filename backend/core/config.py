@@ -1,9 +1,8 @@
 import json
 from pathlib import Path
-from typing import Annotated
-
+from typing import Annotated, List
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
@@ -128,7 +127,8 @@ class Settings(BaseSettings):
     GITHUB_APP_CLIENT_SECRET: str = ""
     GITHUB_APP_NAME: str = "Troop GitHub App"
 
-    CORS_ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    CORS_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+
 
     @property
     def celery_broker_url(self) -> str:

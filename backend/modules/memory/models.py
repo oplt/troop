@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.base import Base
@@ -83,6 +83,9 @@ class AgentMemoryEntry(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     agent_id: Mapped[str] = mapped_column(
         ForeignKey("agent_profiles.id", ondelete="CASCADE"),
         index=True,
@@ -122,6 +125,11 @@ class SemanticMemoryEntry(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     scope: Mapped[str] = mapped_column(String(32), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     project_id: Mapped[str | None] = mapped_column(
         ForeignKey("orchestrator_projects.id", ondelete="CASCADE"),
         nullable=True,
@@ -173,6 +181,9 @@ class ProceduralPlaybook(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     project_id: Mapped[str] = mapped_column(
         ForeignKey("orchestrator_projects.id", ondelete="CASCADE"), index=True
     )
@@ -243,6 +254,37 @@ class EpisodicSearchIndex(Base):
     )
 
 
+class KnowledgeGraphEdge(Base):
+    """Cross-entity edges: tasks, decisions, agents, repos, issues, semantic entries, etc."""
+
+    __tablename__ = "knowledge_graph_edges"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "source_kind",
+            "source_id",
+            "target_kind",
+            "target_id",
+            "relation_type",
+            name="uq_knowledge_graph_edge_endpoints",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("orchestrator_projects.id", ondelete="CASCADE"),
+        index=True,
+    )
+    source_kind: Mapped[str] = mapped_column(String(64), index=True)
+    source_id: Mapped[str] = mapped_column(String(64), index=True)
+    target_kind: Mapped[str] = mapped_column(String(64), index=True)
+    target_id: Mapped[str] = mapped_column(String(64), index=True)
+    relation_type: Mapped[str] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class SemanticMemoryLink(Base):
     __tablename__ = "semantic_memory_links"
 
@@ -267,6 +309,7 @@ __all__ = [
     "EMBEDDING_VECTOR_DIMENSIONS",
     "EpisodicArchiveManifest",
     "EpisodicSearchIndex",
+    "KnowledgeGraphEdge",
     "MemoryIngestJob",
     "ProceduralPlaybook",
     "ProjectDocument",

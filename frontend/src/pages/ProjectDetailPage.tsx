@@ -558,7 +558,7 @@ export default function ProjectDetailPage() {
                 }}
             >
                 <SectionCard
-                    title={selectedTask ? "Edit task" : "Create task"}
+                    title={selectedTask ? "Edit task" : "Add task"}
                     description={
                         selectedTask
                             ? "Update task details, assignee, due date, or status."
@@ -676,7 +676,7 @@ export default function ProjectDetailPage() {
                                         : "Save task"
                                     : createTaskMutation.isPending
                                         ? "Creating..."
-                                        : "Create task"}
+                                        : "New task"}
                             </Button>
                             {selectedTask && (
                                 <Button

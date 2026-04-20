@@ -3,7 +3,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.admin import get_admin_user
-from backend.api.deps.db import get_db
+from backend.db.session import get_db
 from backend.modules.admin.schemas import (
     AdminUserListResponse,
     AdminUserResponse,

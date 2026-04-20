@@ -309,6 +309,14 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
+    async def list_child_runs(self, parent_run_id: str) -> list[TaskRun]:
+        result = await self.db.execute(
+            select(TaskRun)
+            .where(TaskRun.parent_run_id == parent_run_id)
+            .order_by(TaskRun.created_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_run(self, owner_id: str, run_id: str) -> TaskRun | None:
         result = await self.db.execute(
             select(TaskRun)
@@ -463,9 +471,15 @@ class OrchestrationRepository(
         return list(result.scalars().all())
 
     async def list_model_capabilities(
-        self, provider_type: str | None = None, *, active_only: bool = True
+        self,
+        provider_type: str | None = None,
+        *,
+        provider_id: str | None = None,
+        active_only: bool = True,
     ) -> list[ModelCapability]:
         stmt = select(ModelCapability)
+        if provider_id:
+            stmt = stmt.where(ModelCapability.provider_id == provider_id)
         if provider_type:
             stmt = stmt.where(ModelCapability.provider_type == provider_type)
         if active_only:
@@ -476,9 +490,15 @@ class OrchestrationRepository(
         return list(result.scalars().all())
 
     async def get_model_capability(
-        self, model_slug: str, provider_type: str | None = None
+        self,
+        model_slug: str,
+        provider_type: str | None = None,
+        *,
+        provider_id: str | None = None,
     ) -> ModelCapability | None:
         stmt = select(ModelCapability).where(ModelCapability.model_slug == model_slug)
+        if provider_id:
+            stmt = stmt.where(ModelCapability.provider_id == provider_id)
         if provider_type:
             stmt = stmt.where(ModelCapability.provider_type == provider_type)
         result = await self.db.execute(stmt.order_by(ModelCapability.updated_at.desc()))
@@ -624,17 +644,6 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def get_github_connection_by_installation(
-        self, owner_id: str, installation_id: int
-    ) -> GithubConnection | None:
-        result = await self.db.execute(
-            select(GithubConnection).where(
-                GithubConnection.owner_id == owner_id,
-                GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
-            )
-        )
-        return result.scalar_one_or_none()
-
     async def create_github_repository(self, **kwargs) -> GithubRepository:
         item = GithubRepository(**kwargs)
         self.db.add(item)
@@ -729,6 +738,14 @@ class OrchestrationRepository(
     async def get_sync_event(self, sync_event_id: str) -> GithubSyncEvent | None:
         result = await self.db.execute(
             select(GithubSyncEvent).where(GithubSyncEvent.id == sync_event_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_sync_event_by_delivery_id(self, delivery_id: str) -> GithubSyncEvent | None:
+        result = await self.db.execute(
+            select(GithubSyncEvent).where(
+                GithubSyncEvent.payload_json["_webhook_meta"]["delivery_id"].as_string() == delivery_id
+            )
         )
         return result.scalar_one_or_none()
 
@@ -1005,6 +1022,38 @@ class OrchestrationRepository(
             .order_by(ApprovalRequest.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def list_approvals_for_task(self, owner_id: str, project_id: str, task_id: str) -> list[ApprovalRequest]:
+        by_task = (
+            select(ApprovalRequest)
+            .join(OrchestratorProject, ApprovalRequest.project_id == OrchestratorProject.id, isouter=True)
+            .where(
+                ApprovalRequest.task_id == task_id,
+                ApprovalRequest.project_id == project_id,
+                OrchestratorProject.owner_id == owner_id,
+            )
+        )
+        by_link = (
+            select(ApprovalRequest)
+            .join(GithubIssueLink, ApprovalRequest.issue_link_id == GithubIssueLink.id)
+            .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(
+                GithubIssueLink.task_id == task_id,
+                GithubConnection.owner_id == owner_id,
+            )
+        )
+        rows_by_task = list((await self.db.execute(by_task)).scalars().all())
+        rows_by_link = list((await self.db.execute(by_link)).scalars().all())
+        seen: set[str] = set()
+        merged: list[ApprovalRequest] = []
+        for row in rows_by_task + rows_by_link:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            merged.append(row)
+        merged.sort(key=lambda item: item.created_at)
+        return merged
 
     async def create_approval(self, **kwargs) -> ApprovalRequest:
         item = ApprovalRequest(**kwargs)
@@ -1305,6 +1354,7 @@ class OrchestrationRepository(
         self,
         owner_id: str,
         *,
+        source_task_id: str | None = None,
         project_id: str | None = None,
         entry_type: str | None = None,
         namespace_prefix: str | None = None,

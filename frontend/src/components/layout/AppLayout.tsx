@@ -29,8 +29,8 @@ import {
     Dashboard as DashboardIcon,
     DarkMode as DarkModeIcon,
     Extension as PlatformIcon,
-    FolderOpen as ProjectsIcon,
     Hub as AgentProjectsIcon,
+    Business as CompaniesIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
@@ -209,10 +209,6 @@ export function AppLayout() {
 
     const pendingCount = pendingApprovals?.count ?? 0;
     const appName = platformMetadata?.app_name ?? "Your App";
-    const coreDomainPlural = platformMetadata?.core_domain_plural ?? "Projects";
-    const showWorkspaceProjectsNav = coreDomainPlural !== "Projects";
-    const hasUserPlatformModule =
-        platformMetadata?.module_catalog.some((item) => item.user_visible && item.enabled) ?? false;
     const hasAiModule =
         platformMetadata?.module_catalog.some((item) => item.key === "ai" && item.enabled) ?? false;
     const drawerCollapsed = !isMobile && desktopNavCollapsed;
@@ -221,18 +217,9 @@ export function AppLayout() {
     const navItems = useMemo<NavItem[]>(
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-
-            ...(showWorkspaceProjectsNav
-                ? [{ label: coreDomainPlural, icon: <ProjectsIcon />, path: "/projects", group: "workspace" as const }]
-                : []),
-            ...(hasUserPlatformModule
-                ? [{ label: "Platform", icon: <PlatformIcon />, path: "/admin/settings?tab=platform", group: "workspace" as const }]
-                : []),
-            ...(hasAiModule
-                ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
-                : []),
-            { label: "Hierarchy", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Companies", icon: <CompaniesIcon />, path: "/companies", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
+            { label: "Team", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
             {
                 label: "Activity",
@@ -245,6 +232,9 @@ export function AppLayout() {
                         ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
                         : undefined,
             },
+            ...(hasAiModule
+                ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "workspace" as const }]
+                : []),
             { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
             { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
             { label: "Profile", icon: <ProfileIcon />, path: "/profile", group: "workspace" },
@@ -252,7 +242,7 @@ export function AppLayout() {
             { label: "Platform Admin", icon: <PlatformIcon />, path: "/admin/platform", adminOnly: true, group: "admin" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
-        [coreDomainPlural, hasAiModule, hasUserPlatformModule, pendingCount, showWorkspaceProjectsNav]
+        [hasAiModule, pendingCount]
     );
 
     const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);

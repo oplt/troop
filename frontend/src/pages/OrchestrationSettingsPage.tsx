@@ -29,8 +29,11 @@ import { formatDateTime } from "../utils/formatters";
 
 const PROVIDER_TYPE_OPTIONS = [
     { value: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
+    { value: "anthropic", label: "Anthropic / Claude", baseUrl: "https://api.anthropic.com" },
+    { value: "qwen", label: "Qwen", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" },
     { value: "openai_compatible", label: "OpenAI-compatible", baseUrl: "https://api.openai.com/v1" },
     { value: "ollama", label: "Ollama", baseUrl: "http://localhost:11434" },
+    { value: "local", label: "Local heuristic", baseUrl: "" },
 ] as const;
 
 const HEALTH_COLORS: Record<string, "success" | "warning" | "error" | "default"> = {
@@ -50,12 +53,19 @@ function providerModels(provider: ProviderConfig) {
     return Array.from(names);
 }
 
+function defaultModelForProviderType(providerType: string, capabilityMap: Record<string, string[]>) {
+    if (providerType === "local") return "local-heuristic";
+    if (providerType === "anthropic") return "claude-sonnet-4-20250514";
+    if (providerType === "qwen") return "qwen-plus";
+    return capabilityMap[providerType]?.[0] ?? "";
+}
+
 export function ProviderSettingsPanel() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const [form, setForm] = useState({
         name: "",
-        provider_type: "openai_compatible",
+        provider_type: "openai",
         base_url: "https://api.openai.com/v1",
         api_key: "",
         default_model: "gpt-4.1-mini",
@@ -84,40 +94,76 @@ export function ProviderSettingsPanel() {
     const providerCapabilityMap = useMemo(() => {
         return modelCapabilities.reduce<Record<string, string[]>>((accumulator, item) => {
             accumulator[item.provider_type] = accumulator[item.provider_type] ?? [];
-            accumulator[item.provider_type].push(item.model_slug);
+            if (!accumulator[item.provider_type].includes(item.model_slug)) {
+                accumulator[item.provider_type].push(item.model_slug);
+            }
             return accumulator;
         }, {});
     }, [modelCapabilities]);
     const capabilityMatrix = useMemo(() => {
+        const providerNameById = new Map(providers.map((provider) => [provider.id, provider.name]));
         const rows = modelCapabilities.map((item) => ({
+            providerId: item.provider_id,
+            providerLabel: item.provider_id ? providerNameById.get(item.provider_id) ?? item.provider_type : item.provider_type,
             providerType: item.provider_type,
             modelSlug: item.model_slug,
             supportsTools: item.supports_tools,
             supportsVision: item.supports_vision,
-            contextTokens: item.max_context_tokens,
-            inputCost: item.cost_per_1k_input,
-            outputCost: item.cost_per_1k_output,
+            contextTokens: item.context_window ?? item.max_context_tokens,
+            maxOutputTokens: item.max_output_tokens,
+            inputCost: item.input_cost_per_1k ?? item.cost_per_1k_input,
+            outputCost: item.output_cost_per_1k ?? item.cost_per_1k_output,
+            latencyP50: item.latency_p50,
+            healthStatus: item.health_status ?? "unknown",
+            source: String(item.metadata?.source ?? "provider"),
+            lastVerifiedAt: item.last_verified_at,
+            overrideReason: item.override_reason,
         }));
+        for (const provider of providers) {
+            for (const model of providerModels(provider)) {
+                if (rows.some((item) => item.providerId === provider.id && item.modelSlug === model)) {
+                    continue;
+                }
+                rows.push({
+                    providerId: provider.id,
+                    providerLabel: provider.name,
+                    providerType: provider.provider_type,
+                    modelSlug: model,
+                    supportsTools: false,
+                    supportsVision: false,
+                    contextTokens: 8192,
+                    maxOutputTokens: null,
+                    inputCost: 0,
+                    outputCost: 0,
+                    latencyP50: provider.last_healthcheck_latency_ms,
+                    healthStatus: provider.last_healthcheck_status ?? "unknown",
+                    source: "provider",
+                    lastVerifiedAt: null,
+                    overrideReason: null,
+                });
+            }
+        }
         rows.sort((a, b) =>
             a.providerType === b.providerType
                 ? a.modelSlug.localeCompare(b.modelSlug)
-                : a.providerType.localeCompare(b.providerType)
+                : `${a.providerLabel}`.localeCompare(`${b.providerLabel}`)
         );
         return rows;
-    }, [modelCapabilities]);
+    }, [modelCapabilities, providers]);
 
     const createMutation = useMutation({
         mutationFn: createProvider,
         onSuccess: async () => {
             setForm({
                 name: "",
-                provider_type: "openai_compatible",
+                provider_type: "openai",
                 base_url: "https://api.openai.com/v1",
                 api_key: "",
                 default_model: "gpt-4.1-mini",
                 fallback_model: "",
             });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
             showToast({ message: "Provider saved.", severity: "success" });
         },
     });
@@ -125,6 +171,7 @@ export function ProviderSettingsPanel() {
         mutationFn: testProvider,
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
             showToast({ message: "Provider health check completed.", severity: "success" });
         },
     });
@@ -132,6 +179,7 @@ export function ProviderSettingsPanel() {
         mutationFn: listProviderModels,
         onSuccess: async (_, providerId) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
             showToast({ message: "Provider models refreshed.", severity: "success" });
             setCompareForm((current) => ({
                 ...current,
@@ -151,7 +199,7 @@ export function ProviderSettingsPanel() {
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "380px minmax(0, 1fr)" } }}>
                 <SectionCard
                     title="Add provider"
-                    description="Register hosted or local model endpoints. Ollama providers auto-discover running local models."
+                    description="Register OpenAI, Qwen, Claude, Ollama, compatible, or local endpoints and sync model metadata into the capability matrix."
                 >
                     <Stack spacing={2}>
                         <TextField
@@ -171,8 +219,9 @@ export function ProviderSettingsPanel() {
                                     ...current,
                                     provider_type: nextType,
                                     base_url: nextOption?.baseUrl ?? current.base_url,
-                                    default_model: suggestedModels[0] ?? current.default_model,
-                                    fallback_model: suggestedModels[1] ?? current.fallback_model,
+                                    api_key: nextType === "local" || nextType === "ollama" ? "" : current.api_key,
+                                    default_model: suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
+                                    fallback_model: nextType === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
                                 }));
                             }}
                         >
@@ -186,39 +235,34 @@ export function ProviderSettingsPanel() {
                             label="Base URL"
                             value={form.base_url}
                             onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))}
+                            helperText={form.provider_type === "local" ? "Local heuristic provider does not use a base URL." : undefined}
+                            disabled={form.provider_type === "local"}
                         />
                         <TextField
                             label="API key"
                             type="password"
                             value={form.api_key}
                             onChange={(event) => setForm((current) => ({ ...current, api_key: event.target.value }))}
-                            helperText={form.provider_type === "ollama" ? "Leave blank for local Ollama." : undefined}
+                            helperText={form.provider_type === "ollama" ? "Leave blank for local Ollama." : form.provider_type === "local" ? "Not used for local heuristic provider." : undefined}
+                            disabled={form.provider_type === "local"}
                         />
                         <TextField
-                            select
                             label="Default model"
                             value={form.default_model}
                             onChange={(event) => setForm((current) => ({ ...current, default_model: event.target.value }))}
-                        >
-                            {(providerCapabilityMap[form.provider_type] ?? [form.default_model]).map((model) => (
-                                <MenuItem key={model} value={model}>
-                                    {model}
-                                </MenuItem>
-                            ))}
-                        </TextField>
+                            helperText={
+                                (providerCapabilityMap[form.provider_type]?.length ?? 0) > 0
+                                    ? `Known: ${providerCapabilityMap[form.provider_type].join(", ")}`
+                                    : "Type the model slug exactly as the provider expects (e.g. llama3.1:8b)."
+                            }
+                        />
                         <TextField
-                            select
                             label="Fallback model"
                             value={form.fallback_model}
                             onChange={(event) => setForm((current) => ({ ...current, fallback_model: event.target.value }))}
-                        >
-                            <MenuItem value="">None</MenuItem>
-                            {(providerCapabilityMap[form.provider_type] ?? []).map((model) => (
-                                <MenuItem key={model} value={model}>
-                                    {model}
-                                </MenuItem>
-                            ))}
-                        </TextField>
+                            helperText="Optional. Leave blank for none."
+                        />
+
                         <Button
                             variant="contained"
                             onClick={() =>
@@ -267,15 +311,13 @@ export function ProviderSettingsPanel() {
                                                     {provider.fallback_model ? ` → ${provider.fallback_model}` : ""}
                                                 </Typography>
                                             </Box>
-                                            <Stack direction="row" spacing={1}>
+                                        <Stack direction="row" spacing={1}>
                                                 <Button size="small" onClick={() => testMutation.mutate(provider.id)}>
                                                     Test connection
                                                 </Button>
-                                                {provider.provider_type === "ollama" && (
-                                                    <Button size="small" onClick={() => discoverMutation.mutate(provider.id)}>
-                                                        Refresh models
-                                                    </Button>
-                                                )}
+                                                <Button size="small" onClick={() => discoverMutation.mutate(provider.id)}>
+                                                    Refresh models
+                                                </Button>
                                             </Stack>
                                         </Stack>
                                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -466,19 +508,33 @@ export function ProviderSettingsPanel() {
             >
                 <Stack spacing={1.25}>
                     {capabilityMatrix.map((item) => (
-                        <Paper key={`${item.providerType}-${item.modelSlug}`} sx={{ p: 1.5, borderRadius: 3 }}>
+                        <Paper key={`${item.providerId ?? item.providerType}-${item.modelSlug}`} sx={{ p: 1.5, borderRadius: 3 }}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} justifyContent="space-between">
                                 <Typography variant="body2">
-                                    <strong>{item.providerType}</strong> · {item.modelSlug}
+                                    <strong>{item.providerLabel}</strong> · {item.modelSlug}
                                 </Typography>
                                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                                     <Chip size="small" label={item.supportsTools ? "tools" : "no-tools"} />
                                     <Chip size="small" label={item.supportsVision ? "vision" : "text-only"} />
-                                    <Chip size="small" label={`${item.contextTokens.toLocaleString()} ctx`} />
+                                    <Chip size="small" label={item.contextTokens ? `${item.contextTokens.toLocaleString()} ctx` : "ctx —"} />
+                                    <Chip size="small" label={item.maxOutputTokens ? `${item.maxOutputTokens.toLocaleString()} out` : "out —"} />
                                     <Chip size="small" label={`in $${item.inputCost.toFixed(4)}/1k`} />
                                     <Chip size="small" label={`out $${item.outputCost.toFixed(4)}/1k`} />
+                                    <Chip size="small" label={item.latencyP50 ? `${item.latencyP50} ms p50` : "p50 —"} />
+                                    <Chip size="small" label={item.healthStatus} variant="outlined" />
+                                    <Chip size="small" variant="outlined" label={item.source} />
+                                    <Chip
+                                        size="small"
+                                        variant="outlined"
+                                        label={item.lastVerifiedAt ? formatDateTime(item.lastVerifiedAt) : "unverified"}
+                                    />
                                 </Stack>
                             </Stack>
+                            {item.overrideReason && (
+                                <Typography variant="caption" color="text.secondary">
+                                    {item.overrideReason}
+                                </Typography>
+                            )}
                         </Paper>
                     ))}
                 </Stack>

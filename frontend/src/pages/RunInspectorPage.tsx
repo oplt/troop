@@ -646,23 +646,15 @@ export default function RunInspectorPage() {
         enabled: Boolean(runId),
     });
 
-    const [wmObjective, setWmObjective] = useState("");
-    const [wmFindings, setWmFindings] = useState("");
-    const [wmQuestions, setWmQuestions] = useState("");
+    const [wmDraft, setWmDraft] = useState<Partial<Pick<WorkingMemory, "objective" | "latest_findings" | "open_questions">>>({});
     const [signalName, setSignalName] = useState("add_note");
     const [signalPayload, setSignalPayload] = useState("{\n  \"note\": \"\"\n}");
-
-    useEffect(() => {
-        if (!workingMemory) return;
-        setWmObjective(workingMemory.objective);
-        setWmFindings(workingMemory.latest_findings);
-        setWmQuestions(workingMemory.open_questions);
-    }, [workingMemory]);
 
     const wmPatchMutation = useMutation({
         mutationFn: (patch: Partial<Pick<WorkingMemory, "objective" | "latest_findings" | "open_questions">>) =>
             patchRunWorkingMemory(runId!, patch),
         onSuccess: async () => {
+            setWmDraft({});
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "working-memory"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "execution-state"] });
         },
@@ -726,8 +718,6 @@ export default function RunInspectorPage() {
 
         const controller = new AbortController();
         abortRef.current = controller;
-        setStreaming(true);
-        setStreamError(null);
 
         const csrfToken = readCookie("csrf_token");
         const headers: Record<string, string> = {};
@@ -735,6 +725,8 @@ export default function RunInspectorPage() {
 
         (async () => {
             try {
+                setStreaming(true);
+                setStreamError(null);
                 const response = await fetch(`${API_BASE}/orchestration/runs/${runId}/stream`, {
                     credentials: "include",
                     headers,
@@ -1052,6 +1044,91 @@ export default function RunInspectorPage() {
 
             {execSnapshot && (
                 <SectionCard
+                    title="Delegation Flow"
+                    description="Child runs, blocker queue, reviewer verdict, and GitHub action state for manager-worker execution."
+                    sx={{ mt: 2 }}
+                >
+                    <Stack spacing={1.5}>
+                        <Stack spacing={0.75}>
+                            <Typography variant="caption" color="text.secondary">Child runs</Typography>
+                            {execSnapshot.child_runs.length > 0 ? (
+                                execSnapshot.child_runs.map((child) => (
+                                    <Paper key={child.id} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between">
+                                            <Box>
+                                                <Typography variant="body2">
+                                                    {String((child.input_payload?.subtask as Record<string, unknown> | undefined)?.title || child.id)}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {child.status} • {child.worker_agent_id ?? "unassigned"}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                                    {String(((child.input_payload?.subtask as Record<string, unknown> | undefined)?.routing_reason) || "No routing reason captured.")}
+                                                </Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                <Chip size="small" variant="outlined" label={child.run_mode} />
+                                                <Chip size="small" label={child.status} color={child.status === "completed" ? "success" : child.status === "blocked" ? "warning" : child.status === "failed" ? "error" : "default"} />
+                                                <Chip size="small" variant="outlined" label={`${child.token_total} tokens`} />
+                                                {Array.isArray((child.input_payload?.subtask as Record<string, unknown> | undefined)?.dependency_ids) && ((child.input_payload?.subtask as Record<string, unknown> | undefined)?.dependency_ids as unknown[]).length > 0 ? (
+                                                    <Chip
+                                                        size="small"
+                                                        variant="outlined"
+                                                        label={`deps ${(((child.input_payload?.subtask as Record<string, unknown> | undefined)?.dependency_ids) as unknown[]).length}`}
+                                                    />
+                                                ) : null}
+                                            </Stack>
+                                        </Stack>
+                                    </Paper>
+                                ))
+                            ) : (
+                                <Typography variant="body2" color="text.secondary">No child runs recorded.</Typography>
+                            )}
+                        </Stack>
+                        <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="text.secondary">Blocker queue</Typography>
+                                {execSnapshot.blocker_queue.length > 0 ? (
+                                    <Stack spacing={0.75} sx={{ mt: 0.75 }}>
+                                        {execSnapshot.blocker_queue.map((item, index) => (
+                                            <Paper key={`${String(item.branch_id || index)}`} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Typography variant="body2">{String(item.title || item.branch_id || `Blocker ${index + 1}`)}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {String(item.blocker_reason || item.reason || "blocked")}
+                                                </Typography>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>No active blockers.</Typography>
+                                )}
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="text.secondary">Review state</Typography>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mt: 0.75 }}>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
+                                        <Chip size="small" label={String(execSnapshot.review_state?.decision || "pending")} color={execSnapshot.review_state?.decision === "approved" ? "success" : execSnapshot.review_state?.decision ? "warning" : "default"} />
+                                        <Chip size="small" variant="outlined" label={`round ${String(execSnapshot.review_state?.round || 0)}`} />
+                                    </Stack>
+                                    <Typography variant="body2">{String(execSnapshot.review_state?.summary || "No review summary yet.")}</Typography>
+                                </Paper>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>GitHub action state</Typography>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mt: 0.75 }}>
+                                    <Typography variant="body2">
+                                        {execSnapshot.github_action_state?.completed ? "completed" : "pending"}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {String(execSnapshot.github_action_state?.policy || execSnapshot.github_action_state?.mode || "No GitHub action policy captured.")}
+                                    </Typography>
+                                </Paper>
+                            </Box>
+                        </Stack>
+                    </Stack>
+                </SectionCard>
+            )}
+
+            {execSnapshot && (
+                <SectionCard
                     title="Routing & Diff"
                     description="Selection explainability, previous-run diff, and artifacts produced by this run."
                     sx={{ mt: 2 }}
@@ -1111,8 +1188,8 @@ export default function RunInspectorPage() {
                     )}
                     <TextField
                         label="Objective"
-                        value={wmObjective}
-                        onChange={(e) => setWmObjective(e.target.value)}
+                        value={wmDraft.objective ?? workingMemory?.objective ?? ""}
+                        onChange={(e) => setWmDraft((prev) => ({ ...prev, objective: e.target.value }))}
                         multiline
                         minRows={2}
                         fullWidth
@@ -1121,8 +1198,8 @@ export default function RunInspectorPage() {
                     />
                     <TextField
                         label="Latest findings"
-                        value={wmFindings}
-                        onChange={(e) => setWmFindings(e.target.value)}
+                        value={wmDraft.latest_findings ?? workingMemory?.latest_findings ?? ""}
+                        onChange={(e) => setWmDraft((prev) => ({ ...prev, latest_findings: e.target.value }))}
                         multiline
                         minRows={3}
                         fullWidth
@@ -1131,8 +1208,8 @@ export default function RunInspectorPage() {
                     />
                     <TextField
                         label="Open questions"
-                        value={wmQuestions}
-                        onChange={(e) => setWmQuestions(e.target.value)}
+                        value={wmDraft.open_questions ?? workingMemory?.open_questions ?? ""}
+                        onChange={(e) => setWmDraft((prev) => ({ ...prev, open_questions: e.target.value }))}
                         multiline
                         minRows={2}
                         fullWidth
@@ -1149,9 +1226,9 @@ export default function RunInspectorPage() {
                         disabled={!wmEditable || wmPatchMutation.isPending}
                         onClick={() =>
                             wmPatchMutation.mutate({
-                                objective: wmObjective,
-                                latest_findings: wmFindings,
-                                open_questions: wmQuestions,
+                                objective: wmDraft.objective ?? workingMemory?.objective ?? "",
+                                latest_findings: wmDraft.latest_findings ?? workingMemory?.latest_findings ?? "",
+                                open_questions: wmDraft.open_questions ?? workingMemory?.open_questions ?? "",
                             })
                         }
                     >

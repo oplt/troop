@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listCompanies } from "../api/companies";
 import {
     Alert,
     Box,
@@ -36,6 +37,7 @@ type ProjectForm = {
     slug: string;
     description: string;
     goals_markdown: string;
+    company_id: string;
 };
 
 type StatusFilter = "all" | "active" | "archived";
@@ -45,7 +47,19 @@ export default function OrchestrationProjectsPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const { register, handleSubmit, reset } = useForm<ProjectForm>();
+    const { register, handleSubmit, reset, setValue, watch } = useForm<ProjectForm>({
+        defaultValues: { name: "", slug: "", description: "", goals_markdown: "", company_id: "" },
+    });
+    const { data: companies = [] } = useQuery({
+        queryKey: ["companies"],
+        queryFn: listCompanies,
+    });
+    const selectedCompanyId = watch("company_id");
+    useEffect(() => {
+        if (!selectedCompanyId && companies.length) {
+            setValue("company_id", companies[0].id);
+        }
+    }, [companies, selectedCompanyId, setValue]);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [sortKey, setSortKey] = useState<SortKey>("last_active");
     const [bootstrapPrompt, setBootstrapPrompt] = useState("");
@@ -119,7 +133,7 @@ export default function OrchestrationProjectsPage() {
         onSuccess: async (project) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
             reset();
-            showToast({ message: "Orchestration project created.", severity: "success" });
+            showToast({ message: "Project created.", severity: "success" });
             navigate(`/agent-projects/${project.id}`);
         },
     });
@@ -131,7 +145,7 @@ export default function OrchestrationProjectsPage() {
         mutationFn: () => applyBootstrappedProject(bootstrapDraft ?? {}),
         onSuccess: async (project) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
-            showToast({ message: "Bootstrapped project created.", severity: "success" });
+            showToast({ message: "Project created from draft.", severity: "success" });
             navigate(`/agent-projects/${project.id}`);
         },
     });
@@ -139,9 +153,9 @@ export default function OrchestrationProjectsPage() {
     return (
         <PageShell maxWidth="xl">
             <PageHeader
-                eyebrow="Execution"
+                eyebrow="Workspace"
                 title="Agent Projects"
-                description="Projects own tasks, brainstorms, repositories, knowledge, and approvals. Cards show linked agent count and active runs."
+                description="Manage tasks, brainstorms, repos, knowledge, and approvals per project."
             />
 
             <Box
@@ -152,7 +166,7 @@ export default function OrchestrationProjectsPage() {
                     alignItems: "start",
                 }}
             >
-                <SectionCard title="Create project" description="Use a stable slug so provider overrides, repo mappings, and agent scopes remain consistent.">
+                <SectionCard title="New project" description="Pick a stable slug — used in URLs, repo links, and agent assignments.">
                     <Stack
                         component="form"
                         spacing={2}
@@ -180,20 +194,41 @@ export default function OrchestrationProjectsPage() {
                         />
                         <TextField
                             label="Slug"
-                            helperText="Lowercase letters, numbers, dashes. Leave blank to derive from name."
+                            helperText="Lowercase letters, numbers, dashes. Auto-generated from name if blank."
                             inputProps={{ maxLength: 255, pattern: "[a-z0-9][a-z0-9\\-]*" }}
                             {...register("slug", { pattern: /^[a-z0-9][a-z0-9\-]*$/ })}
                         />
+                        <TextField
+                            select
+                            label="Company"
+                            value={selectedCompanyId}
+                            onChange={(e) => setValue("company_id", e.target.value)}
+                            helperText={
+                                companies.length === 0
+                                    ? "No companies yet — a default workspace will be created."
+                                    : "Scopes company-level memory."
+                            }
+                        >
+                            {companies.map((c) => (
+                                <MenuItem key={c.id} value={c.id}>
+                                    {c.name}
+                                </MenuItem>
+                            ))}
+                            {companies.length === 0 && (
+                                <MenuItem value="">Default workspace</MenuItem>
+                            )}
+                        </TextField>
                         <TextField label="Description" {...register("description")} multiline minRows={3} />
                         <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
                         {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}</Alert>}
-                        <Button type="submit" variant="contained" disabled={mutation.isPending}>Create project</Button>
+                        <Button type="submit" variant="contained" disabled={mutation.isPending}>Save</Button>
                     </Stack>
                     <Divider sx={{ my: 2 }} />
                     <Stack spacing={1.5}>
-                        <Typography variant="subtitle2">Natural language setup</Typography>
+                        <Typography variant="subtitle2">Generate from description</Typography>
                         <TextField
-                            label='Example: "Create a project to build a REST API for payments"'
+                            label="Project description"
+                            placeholder='e.g. "Build a REST API for payments"'
                             value={bootstrapPrompt}
                             onChange={(e) => setBootstrapPrompt(e.target.value)}
                             multiline
@@ -209,7 +244,7 @@ export default function OrchestrationProjectsPage() {
                         {bootstrapDraft && (
                             <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
                                 <Typography variant="caption" color="text.secondary">
-                                    Draft ready. Review and apply to create goals, milestones, and starter tasks.
+                                    Draft ready. Apply to create the project with goals, milestones, and starter tasks.
                                 </Typography>
                                 <Button
                                     size="small"
@@ -237,7 +272,7 @@ export default function OrchestrationProjectsPage() {
                                 sx={{ minWidth: 160 }}
                             >
                                 <MenuItem value="all">All statuses</MenuItem>
-                                <MenuItem value="active">Active / running</MenuItem>
+                                <MenuItem value="active">Active</MenuItem>
                                 <MenuItem value="archived">Archived</MenuItem>
                             </TextField>
                             <TextField
@@ -253,14 +288,14 @@ export default function OrchestrationProjectsPage() {
                                 <MenuItem value="created">Recently created</MenuItem>
                             </TextField>
                             <Typography variant="body2" color="text.secondary">
-                                {filteredSortedProjects.length} shown
+                                {filteredSortedProjects.length} {filteredSortedProjects.length === 1 ? "project" : "projects"}
                             </Typography>
                         </Stack>
                     </Paper>
 
-                    <SectionCard title="Projects" description="Open a project to manage tasks, runs, brainstorms, GitHub links, and activity.">
+                    <SectionCard>
                         {projects.length === 0 ? (
-                            <EmptyState icon={<ProjectIcon />} title="No orchestration projects yet" description="Create one to start assigning agents and execution tasks." />
+                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Create your first project to assign agents and tasks." />
                         ) : (
                             <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
                                 {filteredSortedProjects.map((project) => {

@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.api.deps.db import get_db
+from backend.db.session import get_db
 from backend.core.config import settings
 from backend.modules.github.schemas import (
     GithubAppInstallResponse,
@@ -300,6 +300,8 @@ async def request_github_comment(
         issue_link_id,
         payload.body,
         payload.close_issue,
+        idempotency_key=payload.idempotency_key,
+        artifact_ids=payload.artifact_ids,
     )
     return _approval(approval)
 

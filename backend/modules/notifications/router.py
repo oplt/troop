@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.api.deps.db import get_db
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.notifications.schemas import (

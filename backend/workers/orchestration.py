@@ -21,6 +21,13 @@ class OrchestrationWorkerRuntime:
             service = OrchestrationService(db)
             await service.process_github_webhook_sync_event(sync_event_id)
 
+    async def github_connection_resync(self, connection_id: str) -> None:
+        from backend.db.session import SessionLocal
+
+        async with SessionLocal() as db:
+            service = OrchestrationService(db)
+            await service.resync_github_connection_installation(connection_id)
+
     async def health_check_providers(self) -> None:
         from backend.db.session import SessionLocal
 
@@ -69,6 +76,13 @@ class OrchestrationWorkerRuntime:
         async with SessionLocal() as db:
             service = OrchestrationService(db)
             await service.run_episodic_retention_and_archive_job()
+
+    async def memory_compaction_backfill(self) -> None:
+        from backend.db.session import SessionLocal
+
+        async with SessionLocal() as db:
+            service = OrchestrationService(db)
+            await service.run_memory_compaction_backfill(limit=40)
 
     async def episodic_index_embedding_batch(self) -> None:
         from backend.db.session import SessionLocal
@@ -120,6 +134,17 @@ def run_orchestration_task(run_id: str) -> None:
 )
 def process_github_webhook_event(sync_event_id: str) -> None:
     asyncio.run(OrchestrationWorkerRuntime().process_github_webhook(sync_event_id))
+
+
+@celery_app.task(
+    name="backend.workers.orchestration.github_connection_resync",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=2,
+)
+def github_connection_resync(connection_id: str) -> None:
+    asyncio.run(OrchestrationWorkerRuntime().github_connection_resync(connection_id))
 
 
 @celery_app.task(
@@ -197,6 +222,17 @@ def process_memory_ingest_jobs() -> None:
 )
 def episodic_retention_archive() -> None:
     asyncio.run(OrchestrationWorkerRuntime().episodic_retention_archive())
+
+
+@celery_app.task(
+    name="backend.workers.orchestration.memory_compaction_backfill",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=1,
+)
+def memory_compaction_backfill() -> None:
+    asyncio.run(OrchestrationWorkerRuntime().memory_compaction_backfill())
 
 
 @celery_app.task(

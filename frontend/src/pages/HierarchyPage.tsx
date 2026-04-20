@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     Alert,
     Accordion,
@@ -68,6 +68,7 @@ import {
     createAgent,
     createAgentTemplate,
     createSkillPack,
+    createTeamProfileFromTemplate,
     createTeamTemplate,
     deleteAgentTemplate,
     deleteSkillPack,
@@ -80,6 +81,7 @@ import {
     listRuns,
     listSkillCatalog,
     listTeamTemplates,
+    listTeamProfiles,
     updateAgent,
     updateAgentTemplate,
     updateOrchestrationProject,
@@ -93,6 +95,7 @@ import type {
     OrchestrationProject,
     ProjectAgentMembership,
     SkillPack,
+    TeamProfile,
     TeamTemplate,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
@@ -1460,6 +1463,7 @@ function ExpandableSection({
 
 export default function AgentLibraryPage() {
     const location = useLocation();
+    const navigate = useNavigate();
     const routeTab: BuilderTab = location.pathname === "/agent-hierarchy" || location.pathname === "/hierarchy-builder" || location.pathname === "/hierarchy"
         ? "hierarchy"
         : "library";
@@ -1557,6 +1561,10 @@ export default function AgentLibraryPage() {
     const { data: teamTemplates = [] } = useQuery({
         queryKey: ["orchestration", "team-templates"],
         queryFn: listTeamTemplates,
+    });
+    const { data: teamProfiles = [] } = useQuery({
+        queryKey: ["orchestration", "team-profiles"],
+        queryFn: listTeamProfiles,
     });
     const { data: orchestrationProjects = [] } = useQuery({
         queryKey: ["orchestration", "projects"],
@@ -1743,7 +1751,11 @@ export default function AgentLibraryPage() {
     const deleteAgentTemplateMutation = useMutation({
         mutationFn: deleteAgentTemplate,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "project"] }),
+            ]);
             showToast({ message: "Agent template removed.", severity: "success" });
         },
         onError: (err) => {
@@ -1791,6 +1803,14 @@ export default function AgentLibraryPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-templates"] });
             showToast({ message: "Team template removed.", severity: "success" });
+        },
+    });
+    const createTeamProfileMutation = useMutation({
+        mutationFn: ({ templateId, name }: { templateId: string; name?: string }) =>
+            createTeamProfileFromTemplate({ template_id: templateId, name }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-profiles"] });
+            showToast({ message: "Team profile saved from template.", severity: "success" });
         },
     });
     const saveTeamGraphMutation = useMutation({
@@ -2909,6 +2929,17 @@ export default function AgentLibraryPage() {
                                                 <Button size="small" variant="outlined" onClick={() => openTeamTemplateDrawer(teamTemplate)}>
                                                     Edit
                                                 </Button>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={() => createTeamProfileMutation.mutate({
+                                                        templateId: teamTemplate.id,
+                                                        name: `${teamTemplate.name} profile`,
+                                                    })}
+                                                    disabled={createTeamProfileMutation.isPending}
+                                                >
+                                                    Save as profile
+                                                </Button>
                                                 <Button size="small" color="error" onClick={() => deleteTeamTemplateMutation.mutate(teamTemplate.id)}>
                                                     Remove
                                                 </Button>
@@ -2986,6 +3017,55 @@ export default function AgentLibraryPage() {
                                                 <Button size="small" color="error" onClick={() => deleteSkillMutation.mutate(skill.slug)}>
                                                     Remove
                                                 </Button>
+                                            </Stack>
+                                        </Stack>
+                                    </Paper>
+                                ))}
+                            </Box>
+                        )}
+                    </ExpandableSection>
+
+                    <ExpandableSection
+                        title="Team profiles"
+                        description="Project-ready snapshots created from team templates. Use these when creating new projects."
+                        action={(
+                            <Button
+                                variant="outlined"
+                                onClick={() => navigate("/agent-projects")}
+                            >
+                                Open Agent Projects
+                            </Button>
+                        )}
+                        defaultExpanded={false}
+                    >
+                        {teamProfiles.length === 0 ? (
+                            <EmptyState
+                                icon={<GraphIcon />}
+                                title="No team profiles yet"
+                                description="Create one using “Save as profile” on a team template card."
+                            />
+                        ) : (
+                            <Box sx={{ display: "flex", gap: 2, overflowX: "auto", pb: 1 }}>
+                                {teamProfiles.map((teamProfile: TeamProfile) => (
+                                    <Paper key={teamProfile.id} sx={{ minWidth: 360, p: 2, borderRadius: 4, border: "1px solid", borderColor: "divider" }}>
+                                        <Stack spacing={1.25}>
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Box>
+                                                    <Typography variant="subtitle1">{teamProfile.name}</Typography>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {teamProfile.slug} • from {teamProfile.source_team_template_slug}
+                                                    </Typography>
+                                                </Box>
+                                                <Chip size="small" label={teamProfile.autonomy} variant="outlined" />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {teamProfile.description || "No description provided."}
+                                            </Typography>
+                                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                <Chip size="small" variant="outlined" label={`${teamProfile.agent_template_slugs.length} agents`} />
+                                                {teamProfile.roles.slice(0, 3).map((role) => (
+                                                    <Chip key={`${teamProfile.id}-${role}`} size="small" variant="outlined" label={role} />
+                                                ))}
                                             </Stack>
                                         </Stack>
                                     </Paper>

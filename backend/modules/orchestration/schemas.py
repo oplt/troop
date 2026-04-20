@@ -1411,6 +1411,29 @@ class TeamTemplateUpdate(RequestModel):
     canvas_layout: dict[str, Any] | None = None
 
 
+class TeamProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str | None = None
+    source_team_template_slug: str
+    slug: str
+    name: str
+    description: str
+    outcome: str
+    roles: list[str]
+    tools: list[str]
+    autonomy: str
+    visibility: str
+    agent_template_slugs: list[str]
+    canvas_layout: dict[str, Any] = Field(default_factory=dict)
+
+
+class TeamProfileCreateFromTemplate(RequestModel):
+    template_id: str
+    slug: str | None = Field(default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+
+
 class TaskDecomposeRequest(RequestModel):
     max_subtasks: int = Field(default=5, ge=1, le=10)
     context: str | None = None

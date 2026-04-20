@@ -101,7 +101,11 @@ export function TemplateTab(props: TemplateTabProps) {
     const deleteTemplateMutation = useMutation({
         mutationFn: deleteAgentTemplate,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "project"] }),
+            ]);
         },
     });
     const updateTemplateMutation = useMutation({
@@ -263,7 +267,7 @@ export function TemplateTab(props: TemplateTabProps) {
     }
 
     function handleDeleteTemplate(slug: string) {
-        const template = templates.find((item) => item.slug === slug);
+        const template = agentTemplates.find((item) => item.slug === slug);
         if (!template?.id) {
             return;
         }

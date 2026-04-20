@@ -1,12 +1,12 @@
-# Graph Report - .  (2026-04-17)
+# Graph Report - .  (2026-04-20)
 
 ## Corpus Check
-- 262 files · ~206,614 words
+- 287 files · ~255,230 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2709 nodes · 10238 edges · 134 communities detected
-- Extraction: 39% EXTRACTED · 61% INFERRED · 0% AMBIGUOUS · INFERRED: 6227 edges (avg confidence: 0.61)
+- 3176 nodes · 12665 edges · 145 communities detected
+- Extraction: 35% EXTRACTED · 65% INFERRED · 0% AMBIGUOUS · INFERRED: 8226 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -144,124 +144,135 @@
 - [[_COMMUNITY_Community 131|Community 131]]
 - [[_COMMUNITY_Community 132|Community 132]]
 - [[_COMMUNITY_Community 133|Community 133]]
+- [[_COMMUNITY_Community 134|Community 134]]
+- [[_COMMUNITY_Community 135|Community 135]]
+- [[_COMMUNITY_Community 136|Community 136]]
+- [[_COMMUNITY_Community 137|Community 137]]
+- [[_COMMUNITY_Community 138|Community 138]]
+- [[_COMMUNITY_Community 139|Community 139]]
+- [[_COMMUNITY_Community 140|Community 140]]
+- [[_COMMUNITY_Community 141|Community 141]]
+- [[_COMMUNITY_Community 142|Community 142]]
+- [[_COMMUNITY_Community 143|Community 143]]
+- [[_COMMUNITY_Community 144|Community 144]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `OrchestrationService` - 609 edges
-2. `RequestModel` - 251 edges
-3. `apiFetch()` - 235 edges
-4. `OrchestrationRepository` - 224 edges
-5. `ProjectAgentMembershipResponse` - 121 edges
-6. `GithubConnectionResponse` - 121 edges
-7. `GithubRepositoryResponse` - 121 edges
-8. `GithubIssueLinkResponse` - 121 edges
-9. `GithubSyncEventResponse` - 121 edges
-10. `GithubAppInstallResponse` - 121 edges
+1. `OrchestrationService` - 293 edges
+2. `RequestModel` - 262 edges
+3. `apiFetch()` - 256 edges
+4. `OrchestrationRepository` - 241 edges
+5. `TaskRun` - 133 edges
+6. `ProjectAgentMembershipResponse` - 129 edges
+7. `GithubConnectionResponse` - 128 edges
+8. `GithubRepositoryResponse` - 128 edges
+9. `GithubIssueLinkResponse` - 128 edges
+10. `GithubSyncEventResponse` - 128 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `upgrade()` --calls--> `String()`  [INFERRED]
-  backend/alembic/versions/h8i9j0k1l2m3_memory_pipeline_extensions.py → frontend/src/pages/SemanticMemoryPage.tsx
-- `upgrade()` --calls--> `String()`  [INFERRED]
-  backend/alembic/versions/3f1bfc747f3e_generate_tables.py → frontend/src/pages/SemanticMemoryPage.tsx
-- `upgrade()` --calls--> `String()`  [INFERRED]
-  backend/alembic/versions/9f8d7c6b5a4e_add_provider_health_and_model_matrix.py → frontend/src/pages/SemanticMemoryPage.tsx
-- `upgrade()` --calls--> `String()`  [INFERRED]
-  backend/alembic/versions/g7h8i9j0k1l2_add_semantic_memory_entries.py → frontend/src/pages/SemanticMemoryPage.tsx
-- `upgrade()` --calls--> `String()`  [INFERRED]
-  backend/alembic/versions/7b66139f1c4a_add_orchestration_platform.py → frontend/src/pages/SemanticMemoryPage.tsx
+  backend/alembic/versions/f4bdbfb299ae_generate_tables.py → frontend/src/pages/SemanticMemoryPage.tsx
+- `Base` --uses--> `Run migrations in 'offline' mode.      This configures the context with just a U`  [INFERRED]
+  backend/db/base.py → backend/alembic/env.py
+- `Base` --uses--> `In this scenario we need to create an Engine     and associate a connection with`  [INFERRED]
+  backend/db/base.py → backend/alembic/env.py
+- `Base` --uses--> `Run migrations in 'online' mode.`  [INFERRED]
+  backend/db/base.py → backend/alembic/env.py
+- `Memory conflict resolver service (T2.3).  Responsibilities:   - Pre-write semant` --uses--> `SemanticMemoryEntry`  [INFERRED]
+  backend/modules/memory/conflict_resolver.py → backend/modules/memory/models.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
 Cohesion: 0.01
-Nodes (230): refresh(), Durable orchestration enqueueing (control plane).  **Today:** Celery + Redis bro, Submit a task run to the configured durable queue (Celery)., submit_orchestration_run(), checkpoint_excerpt(), extract_execution_memory_details(), extract_execution_metadata_views(), Layer 1 — authoritative execution state (memory architecture Phase 1).  Executio (+222 more)
+Nodes (72): OrchestrationBrainstormServiceMixin, Durable orchestration enqueueing (control plane).  **Today:** Celery + Redis bro, Submit a task run to the configured durable queue (Celery)., submit_orchestration_run(), Typed semantic memory entry schemas (T1.4).  Per memory.txt: typed entries repla, validate_entry_metadata(), validate_entry_type(), OrchestrationExecutionServiceMixin (+64 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.01
-Nodes (259): generate tables  Revision ID: 3f1bfc747f3e Revises:  Create Date: 2026-04-12 17:, upgrade(), add agent catalog and inheritance  Revision ID: 541e4ef0710e Revises: 7b66139f1c, upgrade(), add orchestration platform  Revision ID: 7b66139f1c4a Revises: 3f1bfc747f3e Crea, upgrade(), add provider health and model matrix  Revision ID: 9f8d7c6b5a4e Revises: 541e4ef, upgrade() (+251 more)
+Nodes (40): enforce unique slug for agent templates  Revision ID: 9f2d1b8c4e77 Revises: f4bd, upgrade(), formatCost(), refresh(), statusColor(), build_task_close_snapshot_text(), prune_checkpoint_after_compaction(), Task-close compaction: episodic snapshot text + checkpoint pruning. (+32 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.06
-Nodes (246): BaseModel, DagReadyTaskItem, PortfolioProjectSummary, ProjectCreate, ProjectDecisionCreate, ProjectDecisionResponse, ProjectMilestoneCreate, ProjectMilestoneResponse (+238 more)
+Nodes (262): BaseModel, DagReadyTaskItem, PortfolioProjectSummary, ProjectCreate, ProjectDecisionCreate, ProjectDecisionResponse, ProjectMilestoneCreate, ProjectMilestoneResponse (+254 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.01
-Nodes (27): log_context_packet_telemetry(), Layer 6 — context packet assembly (Phase 6).  Versioned, sectioned user-context, downgrade(), Add pgvector extension and embedding_vector on document chunks.  Revision ID: d4, upgrade(), downgrade(), Normalize task priority medium -> normal.  Revision ID: e1f2a3b4c5d6 Revises: d4, upgrade() (+19 more)
+Nodes (263): listAdminUsers(), updateUserStatus(), createAiDataset(), createAiDatasetCase(), createAiDocument(), createAiFeedback(), createAiReview(), createAiRun() (+255 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.02
-Nodes (84): BaseSettings, Settings, queue_email(), Email delivery helpers for in-process and Celery-backed execution., send_email(), send_email_sync(), send_password_reset_email(), send_verification_email() (+76 more)
+Cohesion: 0.1
+Nodes (177): OrchestrationApprovalsServiceMixin, Return the count of pending approvals for the user., Check if an action type requires approval based on project gate config., Base, Base, ClassifierCandidate, ConflictReport, ContextPacket (+169 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.15
-Nodes (127): Base, Base, ContextPacket, ControlPlanePubSub, AgentRuntimeProfile, build_agent_runtime_profile(), ManagerPlanningOutput, _operation() (+119 more)
+Cohesion: 0.02
+Nodes (219): OrchestrationApprovalsServiceMixin, OrchestrationBrainstormServiceMixin, OrchestrationEvalsServiceMixin, OrchestrationExecutionServiceMixin, OrchestrationGithubServiceMixin, OrchestrationMemoryServiceMixin, OrchestrationProjectsServiceMixin, OrchestrationProvidersServiceMixin (+211 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.02
-Nodes (51): _extract_sections(), _looks_like_regex(), _normalize_memory_policy(), _normalize_output_schema(), _normalize_permissions(), _normalize_string_list(), _normalize_task_filters(), parse_agent_markdown() (+43 more)
+Nodes (132): describeAction(), buildConfigGroups(), confidenceColor(), updateField(), formatCostMicros(), parseVariableDefinitions(), CalendarPage(), formatCurrency() (+124 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.04
-Nodes (53): AiDocument, AiDocumentChunk, AiEvaluationCase, AiEvaluationDataset, AiEvaluationRun, AiEvaluationRunItem, AiFeedback, AiPromptTemplate (+45 more)
+Cohesion: 0.03
+Nodes (78): lifespan(), ApiKey, AppSetting, EmailTemplate, FeatureFlag, SubscriptionPlan, UserSubscription, WebhookEndpoint (+70 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.04
-Nodes (52): _get_authenticated_user(), get_current_user(), RefreshSession, auth_rate_limit_key(), _build_rate_limit_exception(), check_rate_limit(), clear_rate_limit(), enforce_rate_limit() (+44 more)
+Cohesion: 0.03
+Nodes (87): classify_run_events(), classify_text(), _derive_title(), _detect_entry_type(), Memory Classifier worker (T2.1).  Reads raw signals (run events + closed tasks), Classify a batch of run events into candidate memory entries.      Each event is, Pick the best-matching semantic entry_type and a base confidence., Classify a single text blob into a single candidate entry. (+79 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.07
-Nodes (48): ControlPlaneEvent, HierarchyControlPlaneService, _now(), _slugify(), _task_is_active(), _approval(), ApprovalType, approve_task_output() (+40 more)
+Cohesion: 0.04
+Nodes (46): AiDocument, AiDocumentChunk, AiEvaluationCase, AiEvaluationDataset, AiEvaluationRun, AiEvaluationRunItem, AiFeedback, AiPromptTemplate (+38 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.06
-Nodes (25): CalendarEntry, Project, ProjectTask, CalendarRepository, ProjectsRepository, UsersRepository, create_calendar_item(), create_project_task() (+17 more)
+Cohesion: 0.04
+Nodes (58): _get_authenticated_user(), get_current_user(), queue_email(), Email delivery helpers for in-process and Celery-backed execution., send_email(), send_email_sync(), send_password_reset_email(), send_verification_email() (+50 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.05
-Nodes (39): buildDefaultRecords(), createConversation(), createDraft(), createRun(), createSkillBinding(), createTask(), nowIso(), parseCsv() (+31 more)
+Cohesion: 0.04
+Nodes (31): CalendarEntry, Project, ProjectTask, CalendarRepository, ProjectsRepository, create_calendar_item(), create_company(), create_project_task() (+23 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.1
-Nodes (12): UserProfile, ProfileRepository, _build_avatar_object_key(), delete_avatar(), get_profile(), _to_response(), update_profile(), upload_avatar() (+4 more)
+Cohesion: 0.06
+Nodes (45): ControlPlaneEvent, HierarchyControlPlaneService, _now(), _slugify(), _task_is_active(), _approval(), ApprovalType, approve_task_output() (+37 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.12
-Nodes (21): docker_available(), execute_code_job(), execute_code_job_async(), execute_code_job_docker(), embed_semantic_memory_entry(), episodic_index_embedding_batch(), episodic_retention_archive(), github_issue_poll() (+13 more)
+Cohesion: 0.06
+Nodes (12): _provider_type_aliases(), _extract_sections(), _looks_like_regex(), _normalize_memory_policy(), _normalize_output_schema(), _normalize_permissions(), _normalize_string_list(), _normalize_task_filters() (+4 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.11
-Nodes (7): BaseHTTPMiddleware, CorrelationIdMiddleware, CSRFMiddleware, ready(), PublicRateLimitMiddleware, RequestLoggingMiddleware, SecurityHeadersMiddleware
+Cohesion: 0.05
+Nodes (36): docker_available(), execute_code_job(), execute_code_job_async(), execute_code_job_docker(), UserProfile, embed_semantic_memory_entry(), episodic_index_embedding_batch(), episodic_retention_archive() (+28 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.11
-Nodes (4): describeAction(), formatCostMicros(), formatCurrency(), humanizeKey()
+Cohesion: 0.16
+Nodes (15): clip_text_to_token_budget(), count_text_tokens(), _get_token_encoder(), log_context_packet_telemetry(), Layer 6 — context packet assembly (Phase 6).  Versioned, sectioned user-context, Join sections with per-section token caps, then optional global token cap., _build_rollup(), _char_size_bucket() (+7 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.24
-Nodes (12): _clip(), empty_working_memory(), format_working_memory_for_prompt(), merge_working_memory_patch(), normalize_working_memory(), patch_allowed_for_run_status(), Layer 2 — run-scoped working memory (Phase 2).  Structured scratchpad stored in, Compact block for user/context prompts (empty sections omitted). (+4 more)
+Cohesion: 0.13
+Nodes (7): BaseHTTPMiddleware, CorrelationIdMiddleware, CSRFMiddleware, ready(), PublicRateLimitMiddleware, RequestLoggingMiddleware, SecurityHeadersMiddleware
 
 ### Community 17 - "Community 17"
-Cohesion: 0.19
-Nodes (9): _normalize_run_mode(), OrchestrationGraphState, Optional LangGraph router over existing orchestration executors.  When ``ORCHEST, Minimal state — routing is by ``run_mode`` on the bound ``TaskRun``., Execute the run by routing ``run_mode`` through a LangGraph ``StateGraph``., _route_run_mode(), run_via_langgraph(), LangGraphRunnerTests (+1 more)
+Cohesion: 0.14
+Nodes (2): BaseSettings, Settings
 
 ### Community 18 - "Community 18"
-Cohesion: 0.15
-Nodes (0): 
+Cohesion: 0.25
+Nodes (5): Protocol, MemoryRetrievalRepo, _merge_unique_rows(), staged_episodic_vector_retrieval(), staged_semantic_vector_retrieval()
 
 ### Community 19 - "Community 19"
 Cohesion: 0.15
-Nodes (1): policyRuleMatches()
+Nodes (0): 
 
 ### Community 20 - "Community 20"
 Cohesion: 0.2
 Nodes (2): formatItemTime(), formatTimeValue()
 
 ### Community 21 - "Community 21"
-Cohesion: 0.29
-Nodes (6): Run migrations in 'online' mode., Run migrations in 'offline' mode.      This configures the context with just a U, In this scenario we need to create an Engine     and associate a connection with, run_async_migrations(), run_migrations_offline(), run_migrations_online()
+Cohesion: 0.33
+Nodes (8): build_namespace(), coerce_legacy_namespace(), parse_namespace(), Memory namespace taxonomy.  Enforced shape: `<scope>/<id>/<sub>...` where scope, Return (scope, scoped_id, remainder_segments). Raises if invalid., Best-effort upgrade of free-string legacy namespaces to taxonomy form., validate_namespace(), _check_namespace()
 
 ### Community 22 - "Community 22"
-Cohesion: 0.25
-Nodes (4): CalendarPage(), ProjectsPage(), useSnackbar(), usePlatformMetadata()
+Cohesion: 0.29
+Nodes (6): Run migrations in 'online' mode., Run migrations in 'offline' mode.      This configures the context with just a U, In this scenario we need to create an Engine     and associate a connection with, run_async_migrations(), run_migrations_offline(), run_migrations_online()
 
 ### Community 23 - "Community 23"
 Cohesion: 0.29
@@ -277,46 +288,46 @@ Nodes (0):
 
 ### Community 26 - "Community 26"
 Cohesion: 0.5
-Nodes (3): Lightweight in-process counters for memory pipeline observability., snapshot_memory_metrics(), orchestration_memory_metrics()
+Nodes (0): 
 
 ### Community 27 - "Community 27"
-Cohesion: 0.5
-Nodes (1): Add response_sla_hours to orchestrator_tasks.  Revision ID: f5a6b7c8d9e0 Revises
-
-### Community 28 - "Community 28"
-Cohesion: 0.5
-Nodes (1): merge_branches  Revision ID: 917914e3b0f7 Revises: i9j0k1l2m3n4, j1k2l3m4n5o6 Cr
-
-### Community 29 - "Community 29"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 30 - "Community 30"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 31 - "Community 31"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 32 - "Community 32"
 Cohesion: 0.67
 Nodes (2): _orchestration_task_routes(), Route orchestration tasks to service-scoped queues (same codebase, split workers
 
+### Community 28 - "Community 28"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 29 - "Community 29"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 30 - "Community 30"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 31 - "Community 31"
+Cohesion: 1.0
+Nodes (1): Curated workflow templates (V2 roadmap helpers) — static catalog until graph aut
+
+### Community 32 - "Community 32"
+Cohesion: 1.0
+Nodes (0): 
+
 ### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (2): formatCost(), statusColor()
+Nodes (0): 
 
 ### Community 34 - "Community 34"
-Cohesion: 0.67
+Cohesion: 1.0
 Nodes (0): 
 
 ### Community 35 - "Community 35"
-Cohesion: 0.67
+Cohesion: 1.0
 Nodes (0): 
 
 ### Community 36 - "Community 36"
-Cohesion: 0.67
+Cohesion: 1.0
 Nodes (0): 
 
 ### Community 37 - "Community 37"
@@ -337,7 +348,7 @@ Nodes (0):
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (1): Curated workflow templates (V2 roadmap helpers) — static catalog until graph aut
+Nodes (0): 
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
@@ -673,106 +684,166 @@ Nodes (0):
 
 ### Community 125 - "Community 125"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Lightweight in-process counters for memory pipeline observability.
 
 ### Community 126 - "Community 126"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Episodic cold-archive JSONL helpers (Layer 4).
 
 ### Community 127 - "Community 127"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Shared blackboard + per-agent private scratchpads (task metadata).
 
 ### Community 128 - "Community 128"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Return (shared_markdown, private_markdown_for_agent).
 
 ### Community 129 - "Community 129"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Project-scoped memory settings (stored under `settings_json.memory`).
 
 ### Community 130 - "Community 130"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Semantic embedding column, procedural playbooks, memory ingest jobs.  Revision I
 
 ### Community 131 - "Community 131"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): generate tables  Revision ID: 3f1bfc747f3e Revises:  Create Date: 2026-04-12 17:
 
 ### Community 132 - "Community 132"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Add pgvector extension and embedding_vector on document chunks.  Revision ID: d4
 
 ### Community 133 - "Community 133"
+Cohesion: 1.0
+Nodes (1): add provider health and model matrix  Revision ID: 9f8d7c6b5a4e Revises: 541e4ef
+
+### Community 134 - "Community 134"
+Cohesion: 1.0
+Nodes (1): Episodic cold archives, vector index, semantic graph links.  Revision ID: i9j0k1
+
+### Community 135 - "Community 135"
+Cohesion: 1.0
+Nodes (1): Add semantic_memory_entries (Layer 3 typed semantic store).  Revision ID: g7h8i9
+
+### Community 136 - "Community 136"
+Cohesion: 1.0
+Nodes (1): Add response_sla_hours to orchestrator_tasks.  Revision ID: f5a6b7c8d9e0 Revises
+
+### Community 137 - "Community 137"
+Cohesion: 1.0
+Nodes (1): add orchestration platform  Revision ID: 7b66139f1c4a Revises: 3f1bfc747f3e Crea
+
+### Community 138 - "Community 138"
+Cohesion: 1.0
+Nodes (1): merge_branches  Revision ID: 917914e3b0f7 Revises: i9j0k1l2m3n4, j1k2l3m4n5o6 Cr
+
+### Community 139 - "Community 139"
+Cohesion: 1.0
+Nodes (1): add workspace models  Revision ID: a1b2c3d4e5f6 Revises: 7b66139f1c4a Create Dat
+
+### Community 140 - "Community 140"
+Cohesion: 1.0
+Nodes (1): add memory and knowledge tables  Revision ID: c3d4e5f60718 Revises: 9f8d7c6b5a4e
+
+### Community 141 - "Community 141"
+Cohesion: 1.0
+Nodes (1): add agent catalog and inheritance  Revision ID: 541e4ef0710e Revises: 7b66139f1c
+
+### Community 142 - "Community 142"
+Cohesion: 1.0
+Nodes (1): Add team_templates table.  Revision ID: j1k2l3m4n5o6 Revises: f5a6b7c8d9e0 Creat
+
+### Community 143 - "Community 143"
+Cohesion: 1.0
+Nodes (1): Normalize task priority medium -> normal.  Revision ID: e1f2a3b4c5d6 Revises: d4
+
+### Community 144 - "Community 144"
 Cohesion: 1.0
 Nodes (1): Bounded subset of ``TaskRun.checkpoint_json`` for snapshots (no vector reads).
 
 ## Knowledge Gaps
-- **44 isolated node(s):** `OpenTelemetry + Sentry initialisation — no-ops when env vars are unset.`, `Layer 5 — procedural snippets for prompts (Phase 5).  Full agent profiles carry`, `Return a markdown block of procedural excerpts (not a replacement for system pro`, `Lightweight in-process counters for memory pipeline observability.`, `Layer 6 — context packet assembly (Phase 6).  Versioned, sectioned user-context` (+39 more)
+- **70 isolated node(s):** `OpenTelemetry + Sentry initialisation — no-ops when env vars are unset.`, `Standardized provenance schema for memory writes (T2.4).  Schema:     source (st`, `Coerce any incoming provenance dict into the canonical shape.`, `Task-close compaction: episodic snapshot text + checkpoint pruning.`, `Drop bulky WM / scratchpad; keep workflow keys.` (+65 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 37`** (2 nodes): `get_admin_user()`, `admin.py`
+- **Thin community `Community 29`** (2 nodes): `get_admin_user()`, `admin.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (2 nodes): `db.py`, `get_db()`
+- **Thin community `Community 30`** (2 nodes): `error_handler.py`, `register_exception_handlers()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (2 nodes): `error_handler.py`, `register_exception_handlers()`
+- **Thin community `Community 31`** (2 nodes): `workflow_templates.py`, `Curated workflow templates (V2 roadmap helpers) — static catalog until graph aut`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (2 nodes): `logging.py`, `setup_logging()`
+- **Thin community `Community 32`** (2 nodes): `providers.tsx`, `AppProviders()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (2 nodes): `workflow_templates.py`, `Curated workflow templates (V2 roadmap helpers) — static catalog until graph aut`
+- **Thin community `Community 33`** (2 nodes): `useColorMode()`, `colorModeContext.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (2 nodes): `providers.tsx`, `AppProviders()`
+- **Thin community `Community 34`** (2 nodes): `ProtectedRoute.test.tsx`, `renderGuard()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (2 nodes): `useColorMode()`, `colorModeContext.ts`
+- **Thin community `Community 35`** (2 nodes): `CollapsibleSectionCard()`, `CollapsibleSectionCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (2 nodes): `ProtectedRoute.test.tsx`, `renderGuard()`
+- **Thin community `Community 36`** (2 nodes): `MyTemplatesView.tsx`, `MyTemplatesView()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (2 nodes): `MyTemplatesView.tsx`, `MyTemplatesView()`
+- **Thin community `Community 37`** (2 nodes): `TemplateBuilderView.tsx`, `TemplateBuilderView()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (2 nodes): `SkillPackPicker.tsx`, `SkillPackPicker()`
+- **Thin community `Community 38`** (2 nodes): `slugify()`, `CompaniesPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (2 nodes): `OrchestrationProjectsPage.tsx`, `humanizeKey()`
+- **Thin community `Community 39`** (2 nodes): `OrchestrationProjectsPage.tsx`, `humanizeKey()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (2 nodes): `OrchestrationSettingsPage.tsx`, `providerModels()`
+- **Thin community `Community 40`** (2 nodes): `GithubSyncPage.tsx`, `LinkedIssueAssignmentField()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (2 nodes): `ProfilePage.tsx`, `handleAvatarFileChange()`
+- **Thin community `Community 41`** (2 nodes): `ProfilePage.tsx`, `handleAvatarFileChange()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (2 nodes): `useLiveSnapshotStream.ts`, `useLiveSnapshotStream()`
+- **Thin community `Community 42`** (2 nodes): `useLiveSnapshotStream.ts`, `useLiveSnapshotStream()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (2 nodes): `useDebounce.ts`, `useDebounce()`
+- **Thin community `Community 43`** (2 nodes): `useDebounce.ts`, `useDebounce()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (2 nodes): `orchestrationSelection.ts`, `readOrchestrationSelectionMeta()`
+- **Thin community `Community 44`** (2 nodes): `orchestrationSelection.ts`, `readOrchestrationSelectionMeta()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (2 nodes): `useAuth()`, `authContext.ts`
+- **Thin community `Community 45`** (2 nodes): `useAuth()`, `authContext.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (2 nodes): `AuthProvider()`, `AuthContext.tsx`
+- **Thin community `Community 46`** (2 nodes): `AuthProvider()`, `AuthContext.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 47`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 48`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 49`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 50`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 51`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 52`** (1 nodes): `cache.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 53`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 54`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 55`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 56`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `workspaces.py`
+- **Thin community `Community 57`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (1 nodes): `auth.py`
+- **Thin community `Community 58`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `users.py`
+- **Thin community `Community 59`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 60`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (1 nodes): `router.py`
+- **Thin community `Community 61`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (1 nodes): `projects.py`
+- **Thin community `Community 62`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (1 nodes): `__init__.py`
+- **Thin community `Community 63`** (1 nodes): `models.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 64`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (1 nodes): `cache.py`
+- **Thin community `Community 65`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 66`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 67`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (1 nodes): `session.py`
+- **Thin community `Community 68`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 69`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -784,141 +855,163 @@ Nodes (1): Bounded subset of ``TaskRun.checkpoint_json`` for snapshots (no vecto
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 73`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (1 nodes): `__init__.py`
+- **Thin community `Community 74`** (1 nodes): `templates.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 75`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 76`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (1 nodes): `models.py`
+- **Thin community `Community 77`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (1 nodes): `__init__.py`
+- **Thin community `Community 78`** (1 nodes): `playwright.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (1 nodes): `__init__.py`
+- **Thin community `Community 79`** (1 nodes): `vite.config.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (1 nodes): `__init__.py`
+- **Thin community `Community 80`** (1 nodes): `vite.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (1 nodes): `__init__.py`
+- **Thin community `Community 81`** (1 nodes): `vitest.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `__init__.py`
+- **Thin community `Community 82`** (1 nodes): `vite.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `__init__.py`
+- **Thin community `Community 83`** (1 nodes): `eslint.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `__init__.py`
+- **Thin community `Community 84`** (1 nodes): `main.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `__init__.py`
+- **Thin community `Community 85`** (1 nodes): `qrcode.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `__init__.py`
+- **Thin community `Community 86`** (1 nodes): `SnackbarProvider.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `templates.py`
+- **Thin community `Community 87`** (1 nodes): `router.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `model_catalog.py`
+- **Thin community `Community 88`** (1 nodes): `ProtectedRoute.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `__init__.py`
+- **Thin community `Community 89`** (1 nodes): `CommandPalette.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `playwright.config.ts`
+- **Thin community `Community 90`** (1 nodes): `PageShell.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (1 nodes): `vite.config.d.ts`
+- **Thin community `Community 91`** (1 nodes): `EmptyState.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (1 nodes): `vite.config.js`
+- **Thin community `Community 92`** (1 nodes): `PageHeader.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (1 nodes): `vitest.config.ts`
+- **Thin community `Community 93`** (1 nodes): `SectionCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 94`** (1 nodes): `vite.config.ts`
+- **Thin community `Community 94`** (1 nodes): `StatCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 95`** (1 nodes): `eslint.config.js`
+- **Thin community `Community 95`** (1 nodes): `Subsection.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 96`** (1 nodes): `main.tsx`
+- **Thin community `Community 96`** (1 nodes): `SkillTemplateCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 97`** (1 nodes): `qrcode.d.ts`
+- **Thin community `Community 97`** (1 nodes): `AgentRegistryPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 98`** (1 nodes): `SnackbarProvider.tsx`
+- **Thin community `Community 98`** (1 nodes): `TemplateTopBar.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 99`** (1 nodes): `router.tsx`
+- **Thin community `Community 99`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 100`** (1 nodes): `ProtectedRoute.tsx`
+- **Thin community `Community 100`** (1 nodes): `TemplateDetailDrawer.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 101`** (1 nodes): `CommandPalette.tsx`
+- **Thin community `Community 101`** (1 nodes): `TemplateCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 102`** (1 nodes): `PageShell.tsx`
+- **Thin community `Community 102`** (1 nodes): `TemplateValidationPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 103`** (1 nodes): `EmptyState.tsx`
+- **Thin community `Community 103`** (1 nodes): `TemplateSection.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 104`** (1 nodes): `PageHeader.tsx`
+- **Thin community `Community 104`** (1 nodes): `TeamTemplateCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 105`** (1 nodes): `SectionCard.tsx`
+- **Thin community `Community 105`** (1 nodes): `AuthMarketingPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 106`** (1 nodes): `StatCard.tsx`
+- **Thin community `Community 106`** (1 nodes): `AuthShell.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 107`** (1 nodes): `SkillTemplateCard.tsx`
+- **Thin community `Community 107`** (1 nodes): `queryClient.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 108`** (1 nodes): `AgentRegistryPanel.tsx`
+- **Thin community `Community 108`** (1 nodes): `OrchestrationPortfolioPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 109`** (1 nodes): `TemplateTopBar.tsx`
+- **Thin community `Community 109`** (1 nodes): `DashboardPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 110`** (1 nodes): `types.ts`
+- **Thin community `Community 110`** (1 nodes): `CompanyMemoryPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 111`** (1 nodes): `TemplateDetailDrawer.tsx`
+- **Thin community `Community 111`** (1 nodes): `CostAnalyticsPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 112`** (1 nodes): `TemplateCard.tsx`
+- **Thin community `Community 112`** (1 nodes): `NotificationsPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 113`** (1 nodes): `TemplateBuilderView.tsx`
+- **Thin community `Community 113`** (1 nodes): `AdminUsersPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 114`** (1 nodes): `TemplateValidationPanel.tsx`
+- **Thin community `Community 114`** (1 nodes): `AgentLibraryPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 115`** (1 nodes): `TemplateSection.tsx`
+- **Thin community `Community 115`** (1 nodes): `ModelSettingsPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 116`** (1 nodes): `TeamTemplateCard.tsx`
+- **Thin community `Community 116`** (1 nodes): `BrainstormsPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 117`** (1 nodes): `AuthMarketingPanel.tsx`
+- **Thin community `Community 117`** (1 nodes): `ExecutionInsightsPage.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 118`** (1 nodes): `AuthShell.tsx`
+- **Thin community `Community 118`** (1 nodes): `useAuth.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 119`** (1 nodes): `queryClient.ts`
+- **Thin community `Community 119`** (1 nodes): `setup.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 120`** (1 nodes): `OrchestrationPortfolioPage.tsx`
+- **Thin community `Community 120`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 121`** (1 nodes): `DashboardPage.tsx`
+- **Thin community `Community 121`** (1 nodes): `parser.test.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 122`** (1 nodes): `CostAnalyticsPage.tsx`
+- **Thin community `Community 122`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 123`** (1 nodes): `NotificationsPage.tsx`
+- **Thin community `Community 123`** (1 nodes): `parser.test.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 124`** (1 nodes): `AdminUsersPage.tsx`
+- **Thin community `Community 124`** (1 nodes): `schemas.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 125`** (1 nodes): `GithubSyncPage.tsx`
+- **Thin community `Community 125`** (1 nodes): `Lightweight in-process counters for memory pipeline observability.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 126`** (1 nodes): `AgentLibraryPage.tsx`
+- **Thin community `Community 126`** (1 nodes): `Episodic cold-archive JSONL helpers (Layer 4).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 127`** (1 nodes): `ModelSettingsPage.tsx`
+- **Thin community `Community 127`** (1 nodes): `Shared blackboard + per-agent private scratchpads (task metadata).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 128`** (1 nodes): `BrainstormsPage.tsx`
+- **Thin community `Community 128`** (1 nodes): `Return (shared_markdown, private_markdown_for_agent).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 129`** (1 nodes): `ExecutionInsightsPage.tsx`
+- **Thin community `Community 129`** (1 nodes): `Project-scoped memory settings (stored under `settings_json.memory`).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 130`** (1 nodes): `useAuth.ts`
+- **Thin community `Community 130`** (1 nodes): `Semantic embedding column, procedural playbooks, memory ingest jobs.  Revision I`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 131`** (1 nodes): `setup.ts`
+- **Thin community `Community 131`** (1 nodes): `generate tables  Revision ID: 3f1bfc747f3e Revises:  Create Date: 2026-04-12 17:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 132`** (1 nodes): `schemas.ts`
+- **Thin community `Community 132`** (1 nodes): `Add pgvector extension and embedding_vector on document chunks.  Revision ID: d4`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 133`** (1 nodes): `Bounded subset of ``TaskRun.checkpoint_json`` for snapshots (no vector reads).`
+- **Thin community `Community 133`** (1 nodes): `add provider health and model matrix  Revision ID: 9f8d7c6b5a4e Revises: 541e4ef`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 134`** (1 nodes): `Episodic cold archives, vector index, semantic graph links.  Revision ID: i9j0k1`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 135`** (1 nodes): `Add semantic_memory_entries (Layer 3 typed semantic store).  Revision ID: g7h8i9`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 136`** (1 nodes): `Add response_sla_hours to orchestrator_tasks.  Revision ID: f5a6b7c8d9e0 Revises`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 137`** (1 nodes): `add orchestration platform  Revision ID: 7b66139f1c4a Revises: 3f1bfc747f3e Crea`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 138`** (1 nodes): `merge_branches  Revision ID: 917914e3b0f7 Revises: i9j0k1l2m3n4, j1k2l3m4n5o6 Cr`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 139`** (1 nodes): `add workspace models  Revision ID: a1b2c3d4e5f6 Revises: 7b66139f1c4a Create Dat`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 140`** (1 nodes): `add memory and knowledge tables  Revision ID: c3d4e5f60718 Revises: 9f8d7c6b5a4e`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 141`** (1 nodes): `add agent catalog and inheritance  Revision ID: 541e4ef0710e Revises: 7b66139f1c`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 142`** (1 nodes): `Add team_templates table.  Revision ID: j1k2l3m4n5o6 Revises: f5a6b7c8d9e0 Creat`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 143`** (1 nodes): `Normalize task priority medium -> normal.  Revision ID: e1f2a3b4c5d6 Revises: d4`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 144`** (1 nodes): `Bounded subset of ``TaskRun.checkpoint_json`` for snapshots (no vector reads).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `OrchestrationService` connect `Community 0` to `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 12`, `Community 13`, `Community 16`?**
-  _High betweenness centrality (0.318) - this node is a cross-community bridge._
-- **Why does `String()` connect `Community 1` to `Community 11`, `Community 19`, `Community 3`?**
-  _High betweenness centrality (0.275) - this node is a cross-community bridge._
-- **Why does `upgrade()` connect `Community 1` to `Community 3`?**
-  _High betweenness centrality (0.138) - this node is a cross-community bridge._
-- **Are the 239 inferred relationships involving `OrchestrationService` (e.g. with `AgentMarkdownTests` and `SecretHandlingTests`) actually correct?**
-  _`OrchestrationService` has 239 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 249 inferred relationships involving `RequestModel` (e.g. with `AiProviderDescriptor` and `AiVariableDefinition`) actually correct?**
-  _`RequestModel` has 249 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 232 inferred relationships involving `apiFetch()` (e.g. with `getPlatformMetadata()` and `getPlatformConfig()`) actually correct?**
-  _`apiFetch()` has 232 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 82 inferred relationships involving `OrchestrationRepository` (e.g. with `ControlPlaneEvent` and `ControlPlanePubSub`) actually correct?**
-  _`OrchestrationRepository` has 82 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `ProjectsPage()` connect `Community 6` to `Community 0`?**
+  _High betweenness centrality (0.267) - this node is a cross-community bridge._
+- **Are the 280 inferred relationships involving `OrchestrationService` (e.g. with `AgentMarkdownTests` and `SecretHandlingTests`) actually correct?**
+  _`OrchestrationService` has 280 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 260 inferred relationships involving `RequestModel` (e.g. with `AiProviderDescriptor` and `AiVariableDefinition`) actually correct?**
+  _`RequestModel` has 260 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 253 inferred relationships involving `apiFetch()` (e.g. with `getPlatformMetadata()` and `getPlatformConfig()`) actually correct?**
+  _`apiFetch()` has 253 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 96 inferred relationships involving `OrchestrationRepository` (e.g. with `OrchestrationMemoryServiceMixin` and `Worker: compute embedding_vector for a semantic row (pgvector).`) actually correct?**
+  _`OrchestrationRepository` has 96 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `OpenTelemetry + Sentry initialisation — no-ops when env vars are unset.`, `Standardized provenance schema for memory writes (T2.4).  Schema:     source (st`, `Coerce any incoming provenance dict into the canonical shape.` to the rest of the system?**
+  _70 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.01 - nodes in this community are weakly interconnected._

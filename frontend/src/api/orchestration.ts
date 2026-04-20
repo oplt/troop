@@ -611,6 +611,21 @@ export type TeamTemplate = {
     canvas_layout: Record<string, unknown>;
 };
 
+export type TeamProfile = {
+    id: string;
+    source_team_template_slug: string;
+    slug: string;
+    name: string;
+    description: string;
+    outcome: string;
+    roles: string[];
+    tools: string[];
+    autonomy: string;
+    visibility: string;
+    agent_template_slugs: string[];
+    canvas_layout: Record<string, unknown>;
+};
+
 export type OrchestrationOverview = {
     projects: OrchestrationProject[];
     agents: Agent[];
@@ -630,6 +645,10 @@ export async function listAgents(projectId?: string): Promise<Agent[]> {
 
 export async function createAgent(payload: Record<string, unknown>): Promise<Agent> {
     return apiFetch("/orchestration/agents", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function deleteAgent(agentId: string): Promise<void> {
+    return apiFetch(`/orchestration/agents/${agentId}`, { method: "DELETE" });
 }
 
 export async function importAgentMarkdown(file: File, projectId?: string, existingAgentId?: string): Promise<Agent> {
@@ -674,6 +693,10 @@ export async function updateOrchestrationProject(projectId: string, payload: Rec
     return apiFetch(`/orchestration/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+export async function deleteOrchestrationProject(projectId: string): Promise<void> {
+    return apiFetch(`/orchestration/projects/${projectId}`, { method: "DELETE" });
+}
+
 export async function listProjectAgents(projectId: string): Promise<ProjectAgentMembership[]> {
     return apiFetch(`/orchestration/projects/${projectId}/agents`);
 }
@@ -684,6 +707,10 @@ export async function addProjectAgent(projectId: string, payload: Record<string,
 
 export async function updateProjectAgent(projectId: string, membershipId: string, payload: Record<string, unknown>): Promise<ProjectAgentMembership> {
     return apiFetch(`/orchestration/projects/${projectId}/agents/${membershipId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function removeProjectAgent(projectId: string, membershipId: string): Promise<void> {
+    return apiFetch(`/orchestration/projects/${projectId}/agents/${membershipId}`, { method: "DELETE" });
 }
 
 export async function listOrchestrationTasks(projectId: string): Promise<OrchestrationTask[]> {
@@ -1833,6 +1860,21 @@ export async function updateTeamTemplate(
 export async function deleteTeamTemplate(templateId: string): Promise<void> {
     return apiFetch(`/orchestration/teams/templates/${encodeURIComponent(templateId)}`, {
         method: "DELETE",
+    });
+}
+
+export async function listTeamProfiles(): Promise<TeamProfile[]> {
+    return apiFetch("/orchestration/teams/profiles");
+}
+
+export async function createTeamProfileFromTemplate(payload: {
+    template_id: string;
+    slug?: string;
+    name?: string;
+}): Promise<TeamProfile> {
+    return apiFetch("/orchestration/teams/profiles/from-template", {
+        method: "POST",
+        body: JSON.stringify(payload),
     });
 }
 

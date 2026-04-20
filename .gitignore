@@ -363,3 +363,4 @@ frontend/node_modules
 .gitnexus
 .aider*
 opencode.json
+graphify-out/

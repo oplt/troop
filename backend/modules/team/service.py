@@ -4,14 +4,17 @@ import re
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.markdown import parse_agent_markdown
+from backend.modules.projects.orchestration_models import OrchestratorTask
 from backend.modules.team.models import (
     AgentProfile,
     AgentTemplateCatalog,
+    ProjectAgentMembership,
     SkillPack,
+    TeamProfile,
     TeamTemplateCatalog,
 )
 
@@ -37,7 +40,22 @@ class TeamServiceMixin:
     async def list_agents(self, user: User, project_id: str | None = None) -> list[AgentProfile]:
         await self._ensure_catalog_seeded()
         await self._purge_placeholder_test_agents(user.id)
+        await self._purge_orphan_template_agents(user.id)
         return await self.repo.list_agents(user.id, project_id)
+
+    async def _collect_agents_linked_to_template_slug(self, template_slug: str) -> list[AgentProfile]:
+        linked_agents = await self.db.execute(
+            select(AgentProfile).where(AgentProfile.parent_template_slug == template_slug)
+        )
+        agent_map = {agent.id: agent for agent in linked_agents.scalars().all()}
+        by_metadata = await self.db.execute(
+            select(AgentProfile).where(AgentProfile.metadata_json.is_not(None))
+        )
+        for agent in by_metadata.scalars().all():
+            metadata = agent.metadata_json or {}
+            if str(metadata.get("from_template") or "").strip() == template_slug:
+                agent_map[agent.id] = agent
+        return list(agent_map.values())
 
     async def create_agent(self, user: User, payload: dict[str, Any]) -> AgentProfile:
         await self._ensure_catalog_seeded()
@@ -132,6 +150,19 @@ class TeamServiceMixin:
         await self.db.refresh(agent)
         return agent
 
+    async def delete_agent(self, user: User, agent_id: str) -> None:
+        await self._ensure_catalog_seeded()
+        agent = await self.get_agent(user, agent_id)
+        await self.db.delete(agent)
+        await self.audit_repo.log(
+            "orchestration.agent.deleted",
+            user_id=user.id,
+            resource_type="agent",
+            resource_id=agent.id,
+            metadata={"slug": agent.slug},
+        )
+        await self.db.commit()
+
     async def duplicate_agent(self, user: User, agent_id: str) -> AgentProfile:
         await self._ensure_catalog_seeded()
         source = await self.get_agent(user, agent_id)
@@ -198,6 +229,22 @@ class TeamServiceMixin:
         if not stale_agents:
             return
         for agent in stale_agents:
+            await self.db.delete(agent)
+        await self.db.commit()
+
+    async def _purge_orphan_template_agents(self, owner_id: str) -> None:
+        template_slugs_result = await self.db.execute(select(AgentTemplateCatalog.slug))
+        live_slugs = {slug for (slug,) in template_slugs_result.all()}
+        result = await self.db.execute(
+            select(AgentProfile).where(
+                AgentProfile.owner_id == owner_id,
+                AgentProfile.parent_template_slug.is_not(None),
+            )
+        )
+        orphans = [agent for agent in result.scalars().all() if agent.parent_template_slug not in live_slugs]
+        if not orphans:
+            return
+        for agent in orphans:
             await self.db.delete(agent)
         await self.db.commit()
 
@@ -283,6 +330,37 @@ class TeamServiceMixin:
         template = await self.repo.get_agent_template(template_id)
         if not template:
             raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+        linked_agents = await self._collect_agents_linked_to_template_slug(template.slug)
+        linked_agent_ids = [agent.id for agent in linked_agents]
+        if linked_agent_ids:
+            memberships = await self.db.execute(
+                select(ProjectAgentMembership).where(ProjectAgentMembership.agent_id.in_(linked_agent_ids))
+            )
+            membership_hits = list(memberships.scalars().all())
+            tasks = await self.db.execute(
+                select(OrchestratorTask).where(
+                    or_(
+                        OrchestratorTask.assigned_agent_id.in_(linked_agent_ids),
+                        OrchestratorTask.reviewer_agent_id.in_(linked_agent_ids),
+                    )
+                )
+            )
+            task_hits = list(tasks.scalars().all())
+            if membership_hits or task_hits:
+                sample_agents = ", ".join(agent.slug for agent in linked_agents[:3])
+                if len(linked_agents) > 3:
+                    sample_agents = f"{sample_agents}, +{len(linked_agents) - 3} more"
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Template cannot be deleted because linked agents are still assigned. "
+                        f"Agents: {sample_agents or 'unknown'}. "
+                        f"Project assignments: {len(membership_hits)}. Task assignments: {len(task_hits)}. "
+                        "Remove those project/task assignments first."
+                    ),
+                )
+        for agent in linked_agents:
+            await self.db.delete(agent)
         await self.db.delete(template)
         await self.db.commit()
 
@@ -355,6 +433,54 @@ class TeamServiceMixin:
         items = await self.repo.list_team_templates()
         return [self._team_template_model_to_payload(item) for item in items]
 
+    async def list_team_profiles(self, user: User) -> list[dict[str, Any]]:
+        items = await self.repo.list_team_profiles(user.id)
+        return [self._team_profile_model_to_payload(item) for item in items]
+
+    async def create_team_profile_from_template(
+        self,
+        user: User,
+        template_id: str,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        await self._ensure_team_template_catalog_seeded()
+        template = await self.repo.get_team_template(template_id)
+        if template is None:
+            raise HTTPException(status_code=404, detail="Team template not found")
+        existing_profiles = await self.repo.list_team_profiles(user.id)
+        taken_slugs = {item.slug for item in existing_profiles}
+
+        def _slugify(value: str) -> str:
+            return re.sub(r"(^-|-$)", "", re.sub(r"[^a-z0-9]+", "-", value.lower().strip()))
+
+        requested_name = str((payload or {}).get("name") or "").strip()
+        requested_slug = str((payload or {}).get("slug") or "").strip()
+        base_name = requested_name or template.name or "Team profile"
+        base_slug = _slugify(requested_slug or base_name or template.slug or "team-profile") or "team-profile"
+        next_slug = base_slug
+        index = 2
+        while next_slug in taken_slugs:
+            next_slug = f"{base_slug}-{index}"
+            index += 1
+
+        profile = await self.repo.create_team_profile(
+            owner_id=user.id,
+            source_team_template_slug=template.slug,
+            slug=next_slug,
+            name=base_name,
+            description=template.description,
+            outcome=template.outcome,
+            roles_json=list(template.roles_json or []),
+            tools_json=list(template.tools_json or []),
+            autonomy=template.autonomy,
+            visibility=template.visibility,
+            agent_template_slugs_json=list(template.agent_template_slugs_json or []),
+            canvas_layout_json=dict(template.canvas_layout_json or {}),
+        )
+        await self.db.commit()
+        await self.db.refresh(profile)
+        return self._team_profile_model_to_payload(profile)
+
     async def create_team_template(self, payload: dict[str, Any]) -> dict[str, Any]:
         await self._ensure_team_template_catalog_seeded()
         existing = await self.repo.get_team_template_by_slug(payload["slug"])
@@ -421,7 +547,7 @@ class TeamServiceMixin:
         }
         payload["slug"] = overrides.get("slug") or template.slug
         payload["name"] = overrides.get("name") or template.name
-        payload["parent_template_slug"] = overrides.get("parent_template_slug") or template.parent_template_slug or template.slug
+        payload["parent_template_slug"] = overrides.get("parent_template_slug") or template.slug
         payload["metadata"] = {
             **payload.get("metadata", {}),
             "from_template": template_slug,
@@ -935,6 +1061,22 @@ class TeamServiceMixin:
             "visibility": template.visibility,
             "agent_template_slugs": list(template.agent_template_slugs_json or []),
             "canvas_layout": dict(template.canvas_layout_json or {}),
+        }
+
+    def _team_profile_model_to_payload(self, profile: TeamProfile) -> dict[str, Any]:
+        return {
+            "id": profile.id,
+            "source_team_template_slug": profile.source_team_template_slug,
+            "slug": profile.slug,
+            "name": profile.name,
+            "description": profile.description or "",
+            "outcome": profile.outcome,
+            "roles": list(profile.roles_json or []),
+            "tools": list(profile.tools_json or []),
+            "autonomy": profile.autonomy,
+            "visibility": profile.visibility,
+            "agent_template_slugs": list(profile.agent_template_slugs_json or []),
+            "canvas_layout": dict(profile.canvas_layout_json or {}),
         }
 
     async def _ensure_unique_agent_slug(

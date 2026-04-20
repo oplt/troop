@@ -16,6 +16,7 @@ import {
     IconButton,
     LinearProgress,
     Link,
+    ListSubheader,
     MenuItem,
     Paper,
     Stack,
@@ -45,10 +46,12 @@ import {
     addProjectAgent,
     checkTaskAcceptance,
     createBrainstorm,
+    createAgentFromTemplate,
     createOrchestrationTask,
     createProjectDecision,
     createProjectMilestone,
     createTaskArtifact,
+    deleteAgent,
     decideApproval,
     deleteProjectDocument,
     deleteProjectMemoryEntry,
@@ -56,6 +59,7 @@ import {
     getOrchestrationProject,
     getProjectRepositoryIndexStatus,
     listAgents,
+    listAgentTemplates,
     listApprovals,
     listBrainstorms,
     listGithubIssueLinks,
@@ -97,6 +101,7 @@ import {
     getTaskMemoryCoordination,
     patchTaskMemoryCoordination,
     queueProjectRepositoryIndex,
+    removeProjectAgent,
     searchEpisodicMemory,
     updateGateConfig,
     updateProjectRepository,
@@ -1974,6 +1979,10 @@ export default function OrchestrationProjectDetailPage() {
         queryFn: () => listAgents(projectId),
         enabled: Boolean(projectId),
     });
+    const { data: agentTemplates = [] } = useQuery({
+        queryKey: ["orchestration", "agent-templates"],
+        queryFn: listAgentTemplates,
+    });
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
         queryFn: () => listProviders(),
@@ -2110,6 +2119,11 @@ export default function OrchestrationProjectDetailPage() {
         [allAgents, projectAgentMap],
     );
     const availableAgents = allAgents.filter((agent) => !projectAgentMap.has(agent.id));
+    const assignableTemplates = agentTemplates.filter((template) => {
+        const templateSlug = String(template.slug || "").trim();
+        if (!templateSlug) return false;
+        return !projectAgentProfiles.some((agent) => agent.parent_template_slug === templateSlug);
+    });
     const activeRuns = runs.filter((item) => ["queued", "in_progress"].includes(item.status));
     const brainstormParticipantProfiles = useMemo(
         () => allAgents.filter((agent) => brainstormForm.participant_agent_ids.includes(agent.id)),
@@ -2332,11 +2346,42 @@ export default function OrchestrationProjectDetailPage() {
         : Math.round((milestones.filter((m) => m.status === "completed").length / milestones.length) * 100);
 
     const addAgentMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => addProjectAgent(projectId, payload),
+        mutationFn: async ({ selection }: { selection: string }) => {
+            if (selection.startsWith("agent:")) {
+                const agentId = selection.slice("agent:".length);
+                return addProjectAgent(projectId, { agent_id: agentId, role: "member" });
+            }
+            if (selection.startsWith("template:")) {
+                const templateSlug = selection.slice("template:".length);
+                const nextAgent = await createAgentFromTemplate(templateSlug, {
+                    project_id: projectId,
+                    slug: `${templateSlug}-${Date.now()}`,
+                });
+                return addProjectAgent(projectId, { agent_id: nextAgent.id, role: "member" });
+            }
+            throw new Error("Pick an agent or template first.");
+        },
         onSuccess: async () => {
             setSelectedAgentId("");
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", projectId] }),
+            ]);
             showToast({ message: "Agent assigned to project.", severity: "success" });
+        },
+    });
+    const deleteAgentMutation = useMutation({
+        mutationFn: (selection: string) => {
+            const agentId = selection.startsWith("agent:") ? selection.slice("agent:".length) : selection;
+            return deleteAgent(agentId);
+        },
+        onSuccess: async () => {
+            setSelectedAgentId("");
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] }),
+                queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] }),
+            ]);
+            showToast({ message: "Agent deleted from database.", severity: "success" });
         },
     });
     const createTaskMutation = useMutation({
@@ -2449,6 +2494,13 @@ export default function OrchestrationProjectDetailPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] });
             showToast({ message: "Project team updated.", severity: "success" });
+        },
+    });
+    const removeMembershipMutation = useMutation({
+        mutationFn: (membershipId: string) => removeProjectAgent(projectId, membershipId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agents"] });
+            showToast({ message: "Agent removed from project team.", severity: "success" });
         },
     });
     const updateHierarchyAgentMutation = useMutation({
@@ -3196,11 +3248,30 @@ export default function OrchestrationProjectDetailPage() {
                     <SectionCard title="Assign agent" description="Attach global or project agents to the project hierarchy.">
                         <Stack spacing={2}>
                             <TextField select label="Agent" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)}>
-                                {availableAgents.map((agent) => <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>)}
+                                {availableAgents.length > 0 ? <ListSubheader>Existing agents</ListSubheader> : null}
+                                {availableAgents.map((agent) => (
+                                    <MenuItem key={agent.id} value={`agent:${agent.id}`}>{agent.name}</MenuItem>
+                                ))}
+                                {assignableTemplates.length > 0 ? <ListSubheader>Agent templates</ListSubheader> : null}
+                                {assignableTemplates.map((template) => (
+                                    <MenuItem key={`tpl-${template.slug}`} value={`template:${template.slug}`}>
+                                        {template.name} (template)
+                                    </MenuItem>
+                                ))}
                             </TextField>
-                            <Button variant="contained" onClick={() => addAgentMutation.mutate({ agent_id: selectedAgentId, role: "member" })} disabled={!selectedAgentId}>
-                                Add agent
-                            </Button>
+                            <Stack direction="row" spacing={1}>
+                                <Button variant="contained" onClick={() => addAgentMutation.mutate({ selection: selectedAgentId })} disabled={!selectedAgentId}>
+                                    Add agent
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => deleteAgentMutation.mutate(selectedAgentId)}
+                                    disabled={!selectedAgentId || deleteAgentMutation.isPending || !selectedAgentId.startsWith("agent:")}
+                                >
+                                    Delete selected
+                                </Button>
+                            </Stack>
                         </Stack>
                     </SectionCard>
                     <Stack spacing={2}>
@@ -3210,6 +3281,18 @@ export default function OrchestrationProjectDetailPage() {
                                     const agent = allAgents.find((item) => item.id === membership.agent_id);
                                     return (
                                         <Paper key={membership.id} sx={{ p: 2, borderRadius: 4 }}>
+                                            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+                                                <Tooltip title="Remove from project">
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() => removeMembershipMutation.mutate(membership.id)}
+                                                        disabled={removeMembershipMutation.isPending}
+                                                    >
+                                                        <CloseIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
                                             <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
                                                 <Box sx={{ flex: 1 }}>
                                                     <Typography variant="subtitle2">{agent?.name || membership.agent_id}</Typography>

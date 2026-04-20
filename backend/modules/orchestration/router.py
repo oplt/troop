@@ -118,6 +118,8 @@ from backend.modules.orchestration.schemas import (
     TaskRunResponse,
     TaskTimelineEntry,
     TaskUpdate,
+    TeamProfileCreateFromTemplate,
+    TeamProfileResponse,
     TeamTemplateCreate,
     TeamTemplateResponse,
     TeamTemplateUpdate,
@@ -868,6 +870,15 @@ async def import_agent(
     return _agent(item)
 
 
+@router.delete("/agents/{agent_id}", status_code=204)
+async def delete_agent(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).delete_agent(current_user, agent_id)
+
+
 @router.get("/agents/templates", response_model=list[AgentTemplateResponse])
 async def list_agent_templates(
     db: AsyncSession = Depends(get_db),
@@ -1026,6 +1037,29 @@ async def delete_team_template(
     await OrchestrationService(db).delete_team_template(template_id)
 
 
+@router.get("/teams/profiles", response_model=list[TeamProfileResponse])
+async def list_team_profiles(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    items = await OrchestrationService(db).list_team_profiles(current_user)
+    return [TeamProfileResponse(**item) for item in items]
+
+
+@router.post("/teams/profiles/from-template", response_model=TeamProfileResponse, status_code=201)
+async def create_team_profile_from_template(
+    payload: TeamProfileCreateFromTemplate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).create_team_profile_from_template(
+        current_user,
+        payload.template_id,
+        payload.model_dump(exclude_unset=True),
+    )
+    return TeamProfileResponse(**result)
+
+
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(
     agent_id: str,
@@ -1150,6 +1184,15 @@ async def update_project(
     return _project(await OrchestrationService(db).update_project(current_user, project_id, payload.model_dump(exclude_unset=True)))
 
 
+@router.delete("/projects/{project_id}", status_code=204)
+async def delete_project(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).delete_project(current_user, project_id)
+
+
 @router.get("/projects/{project_id}/agents", response_model=list[ProjectAgentMembershipResponse])
 async def list_project_agents(
     project_id: str,
@@ -1181,6 +1224,16 @@ async def update_project_agent(
 ):
     item = await OrchestrationService(db).update_project_agent(current_user, project_id, membership_id, payload.model_dump(exclude_unset=True))
     return _project_agent_membership(item)
+
+
+@router.delete("/projects/{project_id}/agents/{membership_id}", status_code=204)
+async def remove_project_agent(
+    project_id: str,
+    membership_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).remove_project_agent(current_user, project_id, membership_id)
 
 
 @router.get("/projects/{project_id}/gate-config", response_model=GateConfigResponse)

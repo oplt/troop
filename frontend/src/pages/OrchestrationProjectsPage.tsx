@@ -7,23 +7,37 @@ import {
     Box,
     Button,
     Chip,
+    Collapse,
     Divider,
+    IconButton,
     LinearProgress,
     MenuItem,
     Paper,
     Stack,
     TextField,
+    Tooltip,
     Typography,
 } from "@mui/material";
-import { Hub as ProjectIcon } from "@mui/icons-material";
+import {
+    Archive as ArchiveIcon,
+    Delete as DeleteIcon,
+    ExpandLess as ExpandLessIcon,
+    ExpandMore as ExpandMoreIcon,
+    Hub as ProjectIcon,
+} from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import {
     applyBootstrappedProject,
     bootstrapProjectFromText,
+    createTeamProfileFromTemplate,
     createOrchestrationProject,
+    deleteOrchestrationProject,
     listOrchestrationProjects,
     listProjectAgents,
     listRuns,
+    listTeamProfiles,
+    listTeamTemplates,
+    updateOrchestrationProject,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -38,9 +52,9 @@ type ProjectForm = {
     description: string;
     goals_markdown: string;
     company_id: string;
+    team_profile_id: string;
 };
 
-type StatusFilter = "all" | "active" | "archived";
 type SortKey = "last_active" | "name" | "created";
 
 export default function OrchestrationProjectsPage() {
@@ -48,7 +62,7 @@ export default function OrchestrationProjectsPage() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const { register, handleSubmit, reset, setValue, watch } = useForm<ProjectForm>({
-        defaultValues: { name: "", slug: "", description: "", goals_markdown: "", company_id: "" },
+        defaultValues: { name: "", slug: "", description: "", goals_markdown: "", company_id: "", team_profile_id: "" },
     });
     const { data: companies = [] } = useQuery({
         queryKey: ["companies"],
@@ -60,8 +74,12 @@ export default function OrchestrationProjectsPage() {
             setValue("company_id", companies[0].id);
         }
     }, [companies, selectedCompanyId, setValue]);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [sortKey, setSortKey] = useState<SortKey>("last_active");
+    const [expandedGroups, setExpandedGroups] = useState({
+        active: true,
+        completed: true,
+        archived: true,
+    });
     const [bootstrapPrompt, setBootstrapPrompt] = useState("");
     const [bootstrapDraft, setBootstrapDraft] = useState<Record<string, unknown> | null>(null);
 
@@ -73,6 +91,15 @@ export default function OrchestrationProjectsPage() {
         queryKey: ["orchestration", "runs"],
         queryFn: () => listRuns(),
     });
+    const { data: teamTemplates = [] } = useQuery({
+        queryKey: ["orchestration", "team-templates"],
+        queryFn: listTeamTemplates,
+    });
+    const { data: teamProfiles = [] } = useQuery({
+        queryKey: ["orchestration", "team-profiles"],
+        queryFn: listTeamProfiles,
+    });
+    const [selectedTeamTemplateId, setSelectedTeamTemplateId] = useState("");
 
     const membershipQueries = useQueries({
         queries: projects.map((project) => ({
@@ -109,13 +136,8 @@ export default function OrchestrationProjectsPage() {
         return map;
     }, [runs]);
 
-    const filteredSortedProjects = useMemo(() => {
+    const sortedProjects = useMemo(() => {
         let list = [...projects];
-        if (statusFilter === "active") {
-            list = list.filter((p) => p.status !== "archived");
-        } else if (statusFilter === "archived") {
-            list = list.filter((p) => p.status === "archived");
-        }
         list.sort((a, b) => {
             if (sortKey === "name") return a.name.localeCompare(b.name);
             if (sortKey === "created") {
@@ -126,7 +148,15 @@ export default function OrchestrationProjectsPage() {
             return tb - ta;
         });
         return list;
-    }, [projects, statusFilter, sortKey, lastRunAtByProject]);
+    }, [projects, sortKey, lastRunAtByProject]);
+    const groupedProjects = useMemo(
+        () => ({
+            active: sortedProjects.filter((project) => !["archived", "completed"].includes(project.status)),
+            completed: sortedProjects.filter((project) => project.status === "completed"),
+            archived: sortedProjects.filter((project) => project.status === "archived"),
+        }),
+        [sortedProjects],
+    );
 
     const mutation = useMutation({
         mutationFn: createOrchestrationProject,
@@ -147,6 +177,20 @@ export default function OrchestrationProjectsPage() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
             showToast({ message: "Project created from draft.", severity: "success" });
             navigate(`/agent-projects/${project.id}`);
+        },
+    });
+    const archiveProjectMutation = useMutation({
+        mutationFn: (projectId: string) => updateOrchestrationProject(projectId, { status: "archived" }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            showToast({ message: "Project archived.", severity: "success" });
+        },
+    });
+    const deleteProjectMutation = useMutation({
+        mutationFn: (projectId: string) => deleteOrchestrationProject(projectId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            showToast({ message: "Project deleted.", severity: "success" });
         },
     });
 
@@ -183,9 +227,13 @@ export default function OrchestrationProjectsPage() {
                                 slug,
                                 description: values.description?.trim() || null,
                                 goals_markdown: values.goals_markdown ?? "",
+                                settings: values.team_profile_id
+                                    ? { execution: { team_profile_id: values.team_profile_id } }
+                                    : {},
                             });
                         })}
                     >
+                        <input type="hidden" {...register("team_profile_id")} />
                         <TextField
                             label="Name"
                             required
@@ -220,6 +268,57 @@ export default function OrchestrationProjectsPage() {
                         </TextField>
                         <TextField label="Description" {...register("description")} multiline minRows={3} />
                         <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
+                        <TextField
+                            select
+                            label="Team"
+                            value={watch("team_profile_id")}
+                            onChange={(e) => setValue("team_profile_id", e.target.value)}
+                            helperText={teamProfiles.length > 0
+                                ? "Team profile saved from team template."
+                                : "No team profiles yet. Save one from a team template below."}
+                        >
+                            <MenuItem value="">None</MenuItem>
+                            {teamProfiles.map((profile) => (
+                                <MenuItem key={profile.id} value={profile.id}>
+                                    {profile.name}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                        {teamProfiles.length === 0 ? (
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                <TextField
+                                    select
+                                    label="Team template"
+                                    value={selectedTeamTemplateId}
+                                    onChange={(e) => setSelectedTeamTemplateId(e.target.value)}
+                                    sx={{ minWidth: 220 }}
+                                >
+                                    {teamTemplates.map((template) => (
+                                        <MenuItem key={template.id} value={template.id}>{template.name}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <Button
+                                    variant="outlined"
+                                    disabled={!selectedTeamTemplateId}
+                                    onClick={() => {
+                                        createTeamProfileFromTemplate({ template_id: selectedTeamTemplateId })
+                                            .then(async (profile) => {
+                                                await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-profiles"] });
+                                                setValue("team_profile_id", profile.id);
+                                                showToast({ message: "Team profile saved from template.", severity: "success" });
+                                            })
+                                            .catch((error: unknown) => {
+                                                showToast({
+                                                    message: error instanceof Error ? error.message : "Couldn't create team profile.",
+                                                    severity: "error",
+                                                });
+                                            });
+                                    }}
+                                >
+                                    Save team profile
+                                </Button>
+                            </Stack>
+                        ) : null}
                         {mutation.isError && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}</Alert>}
                         <Button type="submit" variant="contained" disabled={mutation.isPending}>Save</Button>
                     </Stack>
@@ -266,18 +365,6 @@ export default function OrchestrationProjectsPage() {
                             <TextField
                                 select
                                 size="small"
-                                label="Status"
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                                sx={{ minWidth: 160 }}
-                            >
-                                <MenuItem value="all">All statuses</MenuItem>
-                                <MenuItem value="active">Active</MenuItem>
-                                <MenuItem value="archived">Archived</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                size="small"
                                 label="Sort by"
                                 value={sortKey}
                                 onChange={(e) => setSortKey(e.target.value as SortKey)}
@@ -288,7 +375,7 @@ export default function OrchestrationProjectsPage() {
                                 <MenuItem value="created">Recently created</MenuItem>
                             </TextField>
                             <Typography variant="body2" color="text.secondary">
-                                {filteredSortedProjects.length} {filteredSortedProjects.length === 1 ? "project" : "projects"}
+                                {projects.length} {projects.length === 1 ? "project" : "projects"}
                             </Typography>
                         </Stack>
                     </Paper>
@@ -297,47 +384,100 @@ export default function OrchestrationProjectsPage() {
                         {projects.length === 0 ? (
                             <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Create your first project to assign agents and tasks." />
                         ) : (
-                            <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
-                                {filteredSortedProjects.map((project) => {
-                                    const agentCount = agentCountByProject.get(project.id) ?? 0;
-                                    const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
-                                    const lastRunMs = lastRunAtByProject.get(project.id);
+                            <Stack spacing={2}>
+                                {(["active", "completed", "archived"] as const).map((groupKey) => {
+                                    const items = groupedProjects[groupKey];
+                                    const isExpanded = expandedGroups[groupKey];
                                     return (
-                                        <Paper key={project.id} sx={{ p: 2.25, borderRadius: 4 }}>
-                                            <Stack spacing={1.25}>
-                                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                                                    <Typography variant="subtitle1">{project.name}</Typography>
-                                                    <Chip size="small" label={humanizeKey(project.status)} color={project.status === "active" ? "success" : "default"} variant="outlined" />
-                                                </Stack>
-                                                <Typography variant="body2" color="text.secondary">{project.description || "No description yet."}</Typography>
-                                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                    <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
-                                                    <Chip
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={activeRuns > 0 ? "warning" : "default"}
-                                                        label={`${activeRuns} active runs`}
-                                                    />
-                                                    <Chip size="small" variant="outlined" label={`Updated ${formatDate(project.updated_at)}`} />
-                                                </Stack>
-                                                {lastRunMs != null && (
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        Last run {formatDateTime(new Date(lastRunMs).toISOString())}
-                                                    </Typography>
-                                                )}
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={Math.min(100, agentCount * 12 + activeRuns * 18)}
-                                                    sx={{ height: 4, borderRadius: 2, opacity: 0.35 }}
-                                                />
-                                                <Button variant="text" sx={{ px: 0, alignSelf: "flex-start" }} onClick={() => navigate(`/agent-projects/${project.id}`)}>
-                                                    Open project
-                                                </Button>
+                                        <Paper key={groupKey} sx={{ p: 1.5, borderRadius: 3, border: 1, borderColor: "divider" }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="subtitle1">
+                                                    {humanizeKey(groupKey)} ({items.length})
+                                                </Typography>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => setExpandedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                                                >
+                                                    {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                                                </IconButton>
                                             </Stack>
+                                            <Collapse in={isExpanded}>
+                                                {items.length === 0 ? (
+                                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                                        No projects.
+                                                    </Typography>
+                                                ) : (
+                                                    <Box sx={{ mt: 1.25, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
+                                                        {items.map((project) => {
+                                                            const agentCount = agentCountByProject.get(project.id) ?? 0;
+                                                            const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+                                                            const lastRunMs = lastRunAtByProject.get(project.id);
+                                                            return (
+                                                                <Paper key={project.id} sx={{ p: 2.25, borderRadius: 4 }}>
+                                                                    <Stack spacing={1.25}>
+                                                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                                                            <Typography variant="subtitle1">{project.name}</Typography>
+                                                                            <Chip size="small" label={humanizeKey(project.status)} color={project.status === "active" ? "success" : "default"} variant="outlined" />
+                                                                        </Stack>
+                                                                        <Typography variant="body2" color="text.secondary">{project.description || "No description yet."}</Typography>
+                                                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                                            <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
+                                                                            <Chip size="small" variant="outlined" color={activeRuns > 0 ? "warning" : "default"} label={`${activeRuns} active runs`} />
+                                                                            <Chip size="small" variant="outlined" label={`Updated ${formatDate(project.updated_at)}`} />
+                                                                        </Stack>
+                                                                        {lastRunMs != null ? (
+                                                                            <Typography variant="caption" color="text.secondary">
+                                                                                Last run {formatDateTime(new Date(lastRunMs).toISOString())}
+                                                                            </Typography>
+                                                                        ) : null}
+                                                                        <LinearProgress
+                                                                            variant="determinate"
+                                                                            value={Math.min(100, agentCount * 12 + activeRuns * 18)}
+                                                                            sx={{ height: 4, borderRadius: 2, opacity: 0.35 }}
+                                                                        />
+                                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                                            <Button variant="text" sx={{ px: 0 }} onClick={() => navigate(`/agent-projects/${project.id}`)}>
+                                                                                Open project
+                                                                            </Button>
+                                                                            {project.status !== "archived" ? (
+                                                                                <Tooltip title="Archive project">
+                                                                                    <Button
+                                                                                        size="small"
+                                                                                        variant="outlined"
+                                                                                        color="warning"
+                                                                                        startIcon={<ArchiveIcon />}
+                                                                                        onClick={() => archiveProjectMutation.mutate(project.id)}
+                                                                                    >
+                                                                                        Archive
+                                                                                    </Button>
+                                                                                </Tooltip>
+                                                                            ) : null}
+                                                                            <Tooltip title="Delete project permanently">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="outlined"
+                                                                                    color="error"
+                                                                                    startIcon={<DeleteIcon />}
+                                                                                    onClick={() => {
+                                                                                        if (!window.confirm(`Delete project "${project.name}" permanently?`)) return;
+                                                                                        deleteProjectMutation.mutate(project.id);
+                                                                                    }}
+                                                                                >
+                                                                                    Delete
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        </Stack>
+                                                                    </Stack>
+                                                                </Paper>
+                                                            );
+                                                        })}
+                                                    </Box>
+                                                )}
+                                            </Collapse>
                                         </Paper>
                                     );
                                 })}
-                            </Box>
+                            </Stack>
                         )}
                     </SectionCard>
                 </Stack>

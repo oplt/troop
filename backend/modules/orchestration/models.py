@@ -46,6 +46,7 @@ from backend.modules.team.models import (
     AgentTemplateCatalog,
     ProjectAgentMembership,
     SkillPack,
+    TeamProfile,
     TeamTemplateCatalog,
 )
 

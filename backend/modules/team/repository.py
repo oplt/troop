@@ -8,6 +8,7 @@ from backend.modules.team.models import (
     AgentTemplateCatalog,
     ProjectAgentMembership,
     SkillPack,
+    TeamProfile,
     TeamTemplateCatalog,
 )
 
@@ -96,6 +97,29 @@ class TeamRepositoryMixin:
 
     async def create_team_template(self, **kwargs) -> TeamTemplateCatalog:
         item = TeamTemplateCatalog(**kwargs)
+        self.db.add(item)
+        await self.db.flush()
+        return item
+
+    async def list_team_profiles(self, owner_id: str) -> list[TeamProfile]:
+        result = await self.db.execute(
+            select(TeamProfile)
+            .where(TeamProfile.owner_id == owner_id)
+            .order_by(TeamProfile.updated_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_team_profile(self, owner_id: str, profile_id: str) -> TeamProfile | None:
+        result = await self.db.execute(
+            select(TeamProfile).where(
+                TeamProfile.owner_id == owner_id,
+                TeamProfile.id == profile_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_team_profile(self, **kwargs) -> TeamProfile:
+        item = TeamProfile(**kwargs)
         self.db.add(item)
         await self.db.flush()
         return item

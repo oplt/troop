@@ -4,6 +4,7 @@ import {
     AppBar,
     Avatar,
     Badge,
+    Breadcrumbs,
     Box,
     Button,
     Chip,
@@ -23,6 +24,7 @@ import {
 import {
     AdminPanelSettings as AdminIcon,
     Analytics as ActivityIcon,
+    ArrowBack as ArrowBackIcon,
     CalendarMonth as CalendarIcon,
     ChevronLeft as ChevronLeftIcon,
     ChevronRight as ChevronRightIcon,
@@ -66,6 +68,48 @@ type NavItem = {
     subtitle?: string;
     group: "workspace" | "admin";
 };
+
+type BreadcrumbItem = {
+    label: string;
+    path: string;
+};
+
+function formatPathSegment(segment: string) {
+    if (!segment) return "";
+    const decoded = decodeURIComponent(segment);
+    const looksLikeId = /^[0-9a-f]{8,}$/i.test(decoded) || decoded.length > 24;
+    if (looksLikeId) {
+        return "Details";
+    }
+    return decoded
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function buildBreadcrumbs(pathname: string, navItems: NavItem[]): BreadcrumbItem[] {
+    const exact = navItems.find((item) => item.path === pathname);
+    if (exact) {
+        return [{ label: exact.label, path: exact.path }];
+    }
+    const root = [...navItems]
+        .sort((left, right) => right.path.length - left.path.length)
+        .find((item) => pathname.startsWith(item.path));
+    if (!root) {
+        return [{ label: "Workspace", path: pathname }];
+    }
+    const breadcrumbs: BreadcrumbItem[] = [{ label: root.label, path: root.path }];
+    const rootSegments = root.path.split("/").filter(Boolean);
+    const pathSegments = pathname.split("/").filter(Boolean);
+    for (let index = rootSegments.length; index < pathSegments.length; index += 1) {
+        const segment = pathSegments[index];
+        const nextPath = `/${pathSegments.slice(0, index + 1).join("/")}`;
+        breadcrumbs.push({
+            label: formatPathSegment(segment),
+            path: nextPath,
+        });
+    }
+    return breadcrumbs;
+}
 
 function ThemeToggle() {
     const { colorMode, setColorMode } = useColorMode();
@@ -281,6 +325,11 @@ export function AppLayout() {
     const currentItem = visibleNavItems.find((item) =>
         item.path === "/dashboard" ? location.pathname === item.path : location.pathname.startsWith(item.path)
     );
+    const breadcrumbs = useMemo(
+        () => buildBreadcrumbs(location.pathname, visibleNavItems),
+        [location.pathname, visibleNavItems],
+    );
+    const canGoBack = breadcrumbs.length > 1 || location.pathname !== (currentItem?.path ?? "/dashboard");
     const avatarLabel = getInitials(currentUser?.full_name, currentUser?.email);
 
     function handleNavigate(path: string) {
@@ -478,9 +527,38 @@ export function AppLayout() {
                         <Typography variant="caption" color="text.secondary">
                             {appName}
                         </Typography>
-                        <Typography variant="h6" noWrap>
-                            {currentItem?.label ?? "Workspace"}
-                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                            {canGoBack ? (
+                                <Button
+                                    size="small"
+                                    variant="text"
+                                    startIcon={<ArrowBackIcon fontSize="small" />}
+                                    onClick={() => navigate(-1)}
+                                    sx={{ minWidth: "auto", px: 0.75 }}
+                                >
+                                    Back
+                                </Button>
+                            ) : null}
+                            <Breadcrumbs
+                                separator="›"
+                                aria-label="breadcrumb"
+                                sx={{
+                                    "& .MuiBreadcrumbs-ol": { flexWrap: "nowrap" },
+                                    "& .MuiBreadcrumbs-li": { minWidth: 0 },
+                                }}
+                            >
+                                {breadcrumbs.map((crumb, index) => (
+                                    <Typography
+                                        key={crumb.path}
+                                        variant={index === breadcrumbs.length - 1 ? "h6" : "body2"}
+                                        color={index === breadcrumbs.length - 1 ? "text.primary" : "text.secondary"}
+                                        noWrap
+                                    >
+                                        {crumb.label}
+                                    </Typography>
+                                ))}
+                            </Breadcrumbs>
+                        </Stack>
                     </Box>
                     <ThemeToggle />
                 </Toolbar>

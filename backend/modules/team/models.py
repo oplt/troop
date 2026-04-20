@@ -119,6 +119,28 @@ class TeamTemplateCatalog(Base):
     )
 
 
+class TeamProfile(Base):
+    __tablename__ = "team_profiles"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_team_template_slug: Mapped[str] = mapped_column(String(255), index=True)
+    slug: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(255), default="")
+    roles_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    tools_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    autonomy: Mapped[str] = mapped_column(String(64), default="medium")
+    visibility: Mapped[str] = mapped_column(String(64), default="private")
+    agent_template_slugs_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    canvas_layout_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class AgentTemplateCatalog(Base):
     __tablename__ = "agent_templates"
 

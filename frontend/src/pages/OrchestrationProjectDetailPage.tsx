@@ -117,7 +117,6 @@ import type { GateConfig, OrchestrationTask, ProviderConfig, TaskRun } from "../
 import { readOrchestrationSelectionMeta } from "../utils/orchestrationSelection";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useDebounce } from "../hooks/useDebounce";
@@ -2383,7 +2382,6 @@ export default function OrchestrationProjectDetailPage() {
         if (!templateSlug) return false;
         return !projectAgentProfiles.some((agent) => agent.parent_template_slug === templateSlug);
     });
-    const activeRuns = runs.filter((item) => ["queued", "in_progress"].includes(item.status));
     const brainstormParticipantProfiles = useMemo(
         () => allAgents.filter((agent) => brainstormForm.participant_agent_ids.includes(agent.id)),
         [allAgents, brainstormForm.participant_agent_ids],
@@ -2923,9 +2921,6 @@ export default function OrchestrationProjectDetailPage() {
     const pendingProjectApprovals = approvals.filter(
         (approval) => approval.project_id === projectId && approval.status === "pending",
     );
-    const headerTaskCount = projectLiveSnapshot?.task_counts.total ?? tasks.length;
-    const headerAgentCount = projectLiveSnapshot?.agent_counts.total ?? projectAgents.length;
-    const headerActiveRunCount = projectLiveSnapshot?.run_counts.active ?? activeRuns.length;
     const repositoryCount = projectLiveSnapshot?.resource_counts.repositories ?? projectRepositories.length;
     const documentCount = projectLiveSnapshot?.resource_counts.documents ?? docs.length;
     const decisionCount = projectLiveSnapshot?.resource_counts.decisions ?? decisions.length;
@@ -3044,30 +3039,6 @@ export default function OrchestrationProjectDetailPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Agent Project"
-                title={project.name}
-                description={project.description || "No project description yet."}
-                meta={
-                    <Typography variant="body2" color="text.secondary">
-                        {headerTaskCount} tasks • {headerAgentCount} agents • {headerActiveRunCount} active runs
-                    </Typography>
-                }
-                actions={
-                    <Stack direction="row" spacing={1}>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => navigate(`/agent-projects/${projectId}/memory`)}
-                        >
-                            Memory
-                        </Button>
-                        <Button variant="outlined" size="small" onClick={() => navigate(`/agent-projects/${projectId}/benchmark`)}>
-                            Benchmarks
-                        </Button>
-                    </Stack>
-                }
-            />
 
             <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
                 <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">

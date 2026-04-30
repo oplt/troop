@@ -572,6 +572,83 @@ export type ProjectRepositoryIndexStatus = {
     }>;
 };
 
+export type LocalRepoWorkspaceStatus = {
+    valid: boolean;
+    blocked_reasons: string[];
+    workspace: Record<string, unknown>;
+    branch: string | null;
+    dirty: boolean | null;
+    status: string | null;
+    remotes: string | null;
+    last_commit: string | null;
+    diff_bytes: number | null;
+    inspected_at: string | null;
+};
+
+export type LocalRepoCommandResult = {
+    command: string;
+    cwd: string;
+    exit_code: number;
+    stdout: string;
+    stderr: string;
+    duration_ms: number;
+    timed_out: boolean;
+};
+
+export type LocalRepoReadFileResult = {
+    path: string;
+    content: string;
+    truncated: boolean;
+};
+
+export type LocalRepoWorktree = {
+    branch: string;
+    path: string;
+    base_repo_path: string;
+    created_at: string;
+};
+
+export type LocalRepoContextPack = {
+    repo: Record<string, unknown>;
+    issue_text: string;
+    acceptance_criteria: string | null;
+    tree: string[];
+    files: Array<Record<string, unknown>>;
+    constraints: Record<string, unknown>;
+    created_at: string;
+};
+
+export type AgentWorkSession = {
+    status: string;
+    agent_id: string | null;
+    repository_link_id: string | null;
+    local_repo: Record<string, unknown>;
+    acceptance_criteria: string | null;
+    risk_level: string;
+    required_tests: string[];
+    planning_gate_required: boolean;
+    plan_status: string | null;
+    plan?: string | null;
+    blocker?: string | null;
+    summary?: string | null;
+    quality_score: Record<string, unknown> | null;
+    artifacts: Array<Record<string, unknown>>;
+    created_by_user_id: string | null;
+    updated_by_user_id: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type AgentQualityScore = {
+    correctness: number;
+    test_coverage: number;
+    diff_size: number;
+    blast_radius: number;
+    confidence: number;
+    security_risk: number;
+    ux_impact: number;
+};
+
 export type Approval = {
     id: string;
     project_id: string | null;
@@ -1572,8 +1649,16 @@ export async function updateProvider(providerId: string, payload: Record<string,
     return apiFetch(`/orchestration/providers/${providerId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+export async function deleteProvider(providerId: string): Promise<void> {
+    await apiFetch(`/orchestration/providers/${providerId}`, { method: "DELETE" });
+}
+
 export async function testProvider(providerId: string): Promise<Record<string, unknown>> {
     return apiFetch(`/orchestration/providers/${providerId}/test`, { method: "POST" });
+}
+
+export async function startProviderRuntime(providerId: string): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/providers/${providerId}/runtime/start`, { method: "POST" });
 }
 
 export async function listProviderModels(providerId: string): Promise<ProviderModelList> {
@@ -1742,6 +1827,87 @@ export async function updateProjectRepository(
 
 export async function getProjectRepositoryIndexStatus(projectId: string): Promise<ProjectRepositoryIndexStatus[]> {
     return apiFetch(`/orchestration/projects/${projectId}/repositories/index-status`);
+}
+
+export async function inspectLocalRepoWorkspace(projectId: string): Promise<LocalRepoWorkspaceStatus> {
+    return apiFetch(`/orchestration/projects/${projectId}/local-repo`);
+}
+
+export async function validateLocalRepoWorkspace(payload: Record<string, unknown>): Promise<LocalRepoWorkspaceStatus> {
+    return apiFetch("/orchestration/local-repo/validate", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateLocalRepoWorkspace(
+    projectId: string,
+    payload: Record<string, unknown>
+): Promise<LocalRepoWorkspaceStatus> {
+    return apiFetch(`/orchestration/projects/${projectId}/local-repo`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function runLocalRepoCommand(
+    projectId: string,
+    payload: { command: string; cwd?: string | null; timeout_seconds?: number }
+): Promise<LocalRepoCommandResult> {
+    return apiFetch(`/orchestration/projects/${projectId}/local-repo/commands`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function readLocalRepoFile(projectId: string, path: string): Promise<LocalRepoReadFileResult> {
+    return apiFetch(`/orchestration/projects/${projectId}/local-repo/files?path=${encodeURIComponent(path)}`);
+}
+
+export async function startAgentWorkSession(
+    projectId: string,
+    taskId: string,
+    payload: {
+        agent_id?: string | null;
+        repository_link_id?: string | null;
+        acceptance_criteria?: string | null;
+        risk_level?: "low" | "medium" | "high";
+        required_tests?: string[];
+    }
+): Promise<AgentWorkSession> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/agent-session`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateAgentWorkSession(
+    projectId: string,
+    taskId: string,
+    payload: Record<string, unknown>
+): Promise<AgentWorkSession> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/agent-session`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function createLocalRepoWorktree(projectId: string, taskId: string): Promise<LocalRepoWorktree> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/agent-session/worktree`, {
+        method: "POST",
+    });
+}
+
+export async function buildLocalRepoContextPack(projectId: string, taskId: string): Promise<LocalRepoContextPack> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/agent-session/context-pack`, {
+        method: "POST",
+    });
+}
+
+export async function scoreAgentWorkSession(projectId: string, taskId: string): Promise<AgentQualityScore> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/agent-session/quality-score`, {
+        method: "POST",
+    });
 }
 
 export type MemoryIngestJob = {

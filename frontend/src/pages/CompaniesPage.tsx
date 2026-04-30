@@ -21,7 +21,6 @@ import {
 } from "../api/companies";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -112,11 +111,6 @@ export default function CompaniesPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Workspace"
-                title="Companies"
-                description="Company-scoped memory: policies, standards, glossary, briefs loaded into every run."
-            />
 
             <Box
                 sx={{

@@ -104,7 +104,6 @@ import type {
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { AgentTemplateImportReviewDrawer } from "../features/agentTemplateImport/AgentTemplateImportReviewDrawer";
@@ -2813,11 +2812,6 @@ export default function AgentLibraryPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Control plane"
-                title="Team Builder"
-                description="Production-grade orchestration builder for templates, agents, and multi-agent team graphs."
-            />
 
             <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
                 <Tabs value={activeTab} onChange={(_, value: BuilderTab) => setManualTab(value)} variant="scrollable" scrollButtons="auto">

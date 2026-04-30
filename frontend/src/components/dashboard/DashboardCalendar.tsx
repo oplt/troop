@@ -24,9 +24,14 @@ import {
 import { alpha } from "@mui/material/styles";
 import { DateCalendar, PickersDay, type PickersDayProps } from "@mui/x-date-pickers";
 import type {} from "@mui/x-date-pickers/AdapterDayjs";
-import { createCalendarItem, listCalendarItems, type CalendarItem, type CalendarItemType } from "../../api/calendar";
+import {
+    createCalendarItem,
+    listCalendarItems,
+    type CalendarItem,
+    type CalendarItemType,
+    type CalendarTaskPriority,
+} from "../../api/calendar";
 import type { OrchestrationProject, OrchestrationTask, ProjectMilestone } from "../../api/orchestration";
-import type { Project, ProjectTaskPriority } from "../../api/projects";
 import { useSnackbar } from "../../app/snackbarContext";
 import { formatDateOnly, humanizeKey } from "../../utils/formatters";
 import { EmptyState } from "../ui/EmptyState";
@@ -35,9 +40,6 @@ import { SectionCard } from "../ui/SectionCard";
 type CalendarViewMode = "day" | "week" | "month" | "twelve_month";
 
 type DashboardCalendarProps = {
-    projects: Project[];
-    projectsLoading: boolean;
-    onOpenProjects: () => void;
     allowedViews?: CalendarViewMode[];
     initialView?: CalendarViewMode;
     /** Agent-project tasks (due_date) and milestones merged into the grid for the visible range */
@@ -48,14 +50,14 @@ type DashboardCalendarProps = {
     };
 };
 
+type CalendarDraftType = Exclude<CalendarItemType, "task">;
+
 type CalendarDraft = {
-    type: CalendarItemType;
+    type: CalendarDraftType;
     title: string;
     description: string;
     start_time: string;
     end_time: string;
-    project_id: string;
-    priority: ProjectTaskPriority;
 };
 
 const VIEW_OPTIONS: Array<{ value: CalendarViewMode; label: string }> = [
@@ -64,22 +66,18 @@ const VIEW_OPTIONS: Array<{ value: CalendarViewMode; label: string }> = [
     { value: "month", label: "Month" },
     { value: "twelve_month", label: "12M" },
 ];
-const ITEM_TYPE_OPTIONS: Array<{ value: CalendarItemType; label: string }> = [
+const ITEM_TYPE_OPTIONS: Array<{ value: CalendarDraftType; label: string }> = [
     { value: "event", label: "Event" },
     { value: "appointment", label: "Appointment" },
-    { value: "task", label: "Task" },
 ];
-const TASK_PRIORITY_OPTIONS: ProjectTaskPriority[] = ["low", "medium", "high", "urgent"];
 
-function buildEmptyDraft(projects: Project[], type: CalendarItemType = "event"): CalendarDraft {
+function buildEmptyDraft(type: CalendarDraftType = "event"): CalendarDraft {
     return {
         type,
         title: "",
         description: "",
         start_time: "",
         end_time: "",
-        project_id: projects[0]?.id ?? "",
-        priority: "medium",
     };
 }
 
@@ -294,9 +292,6 @@ function DayItems({
 }
 
 export function DashboardCalendar({
-    projects,
-    projectsLoading,
-    onOpenProjects,
     allowedViews = ["month"],
     initialView = "month",
     orchestrationCalendar,
@@ -307,7 +302,7 @@ export function DashboardCalendar({
     const [anchorDate, setAnchorDate] = useState(dayjs().startOf("day"));
     const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [draft, setDraft] = useState<CalendarDraft>(buildEmptyDraft(projects));
+    const [draft, setDraft] = useState<CalendarDraft>(buildEmptyDraft());
     const [formError, setFormError] = useState("");
 
     const { start, end } = getQueryRange(viewMode, anchorDate);
@@ -345,7 +340,7 @@ export function DashboardCalendar({
                 end_time: null,
                 project_id: task.project_id,
                 project_name: nameById[task.project_id] ?? null,
-                priority: task.priority as ProjectTaskPriority,
+                priority: task.priority as CalendarTaskPriority,
                 status: task.status,
                 created_at: task.updated_at,
             });
@@ -398,23 +393,15 @@ export function DashboardCalendar({
                 title: draft.title.trim(),
                 description: draft.description.trim() || null,
                 date: selectedDateKey ?? anchorDate.format("YYYY-MM-DD"),
-                start_time: draft.type === "task" ? null : draft.start_time || null,
-                end_time: draft.type === "task" ? null : draft.end_time || null,
-                project_id: draft.type === "task" ? draft.project_id || null : null,
-                priority: draft.type === "task" ? draft.priority : null,
+                start_time: draft.start_time || null,
+                end_time: draft.end_time || null,
             }),
         onSuccess: async (item) => {
             await queryClient.invalidateQueries({ queryKey: ["calendar", "items"] });
-            if (item.type === "task") {
-                await queryClient.invalidateQueries({ queryKey: ["projects"] });
-            }
-            setDraft(buildEmptyDraft(projects, draft.type));
+            setDraft(buildEmptyDraft(draft.type));
             setFormError("");
             showToast({
-                message:
-                    item.type === "task"
-                        ? "Task scheduled on the calendar."
-                        : `${humanizeKey(item.type)} saved.`,
+                message: `${humanizeKey(item.type)} saved.`,
                 severity: "success",
             });
         },
@@ -431,10 +418,6 @@ export function DashboardCalendar({
         setAnchorDate(nextDate);
         setDrawerOpen(true);
         setFormError("");
-        setDraft((current) => ({
-            ...current,
-            project_id: current.project_id || projects[0]?.id || "",
-        }));
     }
 
     function submitDraft() {
@@ -446,16 +429,11 @@ export function DashboardCalendar({
             setFormError("Title must be at least 2 characters.");
             return;
         }
-        if (draft.type === "task" && !draft.project_id) {
-            setFormError("Select a project for this task.");
-            return;
-        }
-        if (draft.type !== "task" && draft.end_time && !draft.start_time) {
+        if (draft.end_time && !draft.start_time) {
             setFormError("Start time is required when end time is set.");
             return;
         }
         if (
-            draft.type !== "task" &&
             draft.start_time &&
             draft.end_time &&
             draft.end_time <= draft.start_time
@@ -1257,13 +1235,10 @@ export function DashboardCalendar({
                             select
                             value={draft.type}
                             onChange={(event) => {
-                                const nextType = event.target.value as CalendarItemType;
+                                const nextType = event.target.value as CalendarDraftType;
                                 setDraft((current) => ({
                                     ...current,
                                     type: nextType,
-                                    start_time: nextType === "task" ? "" : current.start_time,
-                                    end_time: nextType === "task" ? "" : current.end_time,
-                                    project_id: current.project_id || projects[0]?.id || "",
                                 }));
                                 setFormError("");
                             }}
@@ -1295,77 +1270,28 @@ export function DashboardCalendar({
                             minRows={3}
                         />
 
-                        {draft.type === "task" ? (
-                            <>
-                                <TextField
-                                    label="Project"
-                                    select
-                                    value={draft.project_id}
-                                    onChange={(event) =>
-                                        setDraft((current) => ({ ...current, project_id: event.target.value }))
-                                    }
-                                    fullWidth
-                                    disabled={projectsLoading}
-                                    helperText={
-                                        projects.length > 0
-                                            ? "Task will be created in Todo with this date as its due date."
-                                            : "Create a project first before scheduling tasks from the calendar."
-                                    }
-                                >
-                                    {projects.map((project) => (
-                                        <MenuItem key={project.id} value={project.id}>
-                                            {project.name}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                                <TextField
-                                    label="Priority"
-                                    select
-                                    value={draft.priority}
-                                    onChange={(event) =>
-                                        setDraft((current) => ({
-                                            ...current,
-                                            priority: event.target.value as ProjectTaskPriority,
-                                        }))
-                                    }
-                                    fullWidth
-                                >
-                                    {TASK_PRIORITY_OPTIONS.map((priority) => (
-                                        <MenuItem key={priority} value={priority}>
-                                            {humanizeKey(priority)}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                                {projects.length === 0 && (
-                                    <Button variant="outlined" onClick={onOpenProjects}>
-                                        Create a project
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
-                                <TextField
-                                    label="Start time"
-                                    type="time"
-                                    value={draft.start_time}
-                                    onChange={(event) =>
-                                        setDraft((current) => ({ ...current, start_time: event.target.value }))
-                                    }
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                                <TextField
-                                    label="End time"
-                                    type="time"
-                                    value={draft.end_time}
-                                    onChange={(event) =>
-                                        setDraft((current) => ({ ...current, end_time: event.target.value }))
-                                    }
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                            </Stack>
-                        )}
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                            <TextField
+                                label="Start time"
+                                type="time"
+                                value={draft.start_time}
+                                onChange={(event) =>
+                                    setDraft((current) => ({ ...current, start_time: event.target.value }))
+                                }
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                label="End time"
+                                type="time"
+                                value={draft.end_time}
+                                onChange={(event) =>
+                                    setDraft((current) => ({ ...current, end_time: event.target.value }))
+                                }
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Stack>
 
                         {formError && <Alert severity="error">{formError}</Alert>}
 
@@ -1376,10 +1302,7 @@ export function DashboardCalendar({
                             <Button
                                 variant="contained"
                                 onClick={submitDraft}
-                                disabled={
-                                    createItemMutation.isPending ||
-                                    (draft.type === "task" && projects.length === 0)
-                                }
+                                disabled={createItemMutation.isPending}
                                 fullWidth
                             >
                                 {createItemMutation.isPending ? "Saving..." : "Save"}

@@ -15,7 +15,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { Forum as BrainstormIcon, Add as AddIcon } from "@mui/icons-material";
+import { Forum as BrainstormIcon } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import {
     createBrainstorm,
@@ -27,7 +27,6 @@ import {
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
@@ -248,20 +247,8 @@ export default function BrainstormsPage() {
         });
     }, [brainstorms, projectFilter, statusFilter, search]);
 
-    const stats = useMemo(() => ({
-        running: brainstorms.filter((item) => item.status === "running").length,
-        completed: brainstorms.filter((item) => item.status === "completed").length,
-    }), [brainstorms]);
-
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Discussion"
-                title="Brainstorms"
-                description="Structured multi-agent rooms for exploration, design, incident response, and review workflows."
-                actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>New brainstorm</Button>}
-                meta={<Typography variant="body2" color="text.secondary">{brainstorms.length} total • {stats.running} running • {stats.completed} completed</Typography>}
-            />
             <Paper sx={{ p: 2, borderRadius: 3, mb: 2 }}>
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                     <TextField

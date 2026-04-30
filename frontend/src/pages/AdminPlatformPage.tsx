@@ -37,7 +37,6 @@ import {
     type SubscriptionPlan,
 } from "../api/platform";
 import { useSnackbar } from "../app/snackbarContext";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -273,18 +272,6 @@ function AdminPlatformContent({
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Administration"
-                title="Platform admin"
-                description="Configure clone defaults, module packs, plans, feature flags, and reusable email templates with clearer grouping and operational feedback."
-                meta={
-                    <>
-                        <Chip label={`${moduleCatalog.length} modules`} variant="outlined" />
-                        <Chip label={`${plans.length} plans`} variant="outlined" />
-                        <Chip label={`${flags.length} feature flags`} variant="outlined" />
-                    </>
-                }
-            />
 
             <Box
                 sx={{

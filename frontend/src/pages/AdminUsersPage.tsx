@@ -5,7 +5,6 @@ import {
     Box,
     Chip,
     CircularProgress,
-    InputAdornment,
     Skeleton,
     Stack,
     Switch,
@@ -16,16 +15,14 @@ import {
     TableHead,
     TablePagination,
     TableRow,
-    TextField,
     Tooltip,
     Typography,
     useMediaQuery,
 } from "@mui/material";
-import { Search as SearchIcon, PeopleAlt as PeopleAltIcon } from "@mui/icons-material";
+import { PeopleAlt as PeopleAltIcon } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 import { listAdminUsers, updateUserStatus } from "../api/admin";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -36,7 +33,7 @@ export default function AdminUsersPage() {
     const queryClient = useQueryClient();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-    const [search, setSearch] = useState("");
+    const [search] = useState("");
     const [page, setPage] = useState(0);
     const pageSize = 20;
     const debouncedSearch = useDebounce(search, 300);
@@ -63,31 +60,6 @@ export default function AdminUsersPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Administration"
-                title="Users"
-                description="Search the full user base, verify status at a glance, and activate or deactivate accounts with a cleaner operational view."
-                actions={
-                    <TextField
-                        size="small"
-                        placeholder="Search users..."
-                        value={search}
-                        onChange={(event) => {
-                            setSearch(event.target.value);
-                            setPage(0);
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ width: { xs: "100%", sm: 320 } }}
-                    />
-                }
-                meta={<Chip label={`${data?.total ?? 0} total users`} variant="outlined" />}
-            />
 
             <Box
                 sx={{

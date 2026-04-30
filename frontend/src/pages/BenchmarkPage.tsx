@@ -32,7 +32,6 @@ import {
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -280,12 +279,6 @@ export default function BenchmarkPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Evaluation"
-                title="Benchmark"
-                description="Run the same task through two agents or models side-by-side. Score by acceptance criteria, cost, and latency."
-                meta={<Chip label={`${evals.length} evals`} variant="outlined" />}
-            />
 
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "340px minmax(0, 1fr)" } }}>
                 {/* New eval form */}

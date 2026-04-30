@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Chip, Divider, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { getExecutionInsights } from "../api/orchestration";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -19,11 +18,6 @@ export default function ExecutionInsightsPage() {
 
     return (
         <PageShell maxWidth="lg">
-            <PageHeader
-                eyebrow="Analytics"
-                title="Run quality & events"
-                description="Aggregated run event types across your orchestration projects (tool failures, fallbacks, LLM responses, etc.)."
-            />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }} alignItems={{ sm: "center" }}>
                 <TextField

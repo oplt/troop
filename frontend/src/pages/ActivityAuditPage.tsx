@@ -32,7 +32,6 @@ import {
     listRuns,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
@@ -322,11 +321,7 @@ export default function ActivityAuditPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Observability"
-                title="Activity & Approvals"
-                description="Approvals queue and history, plus a run ledger and GitHub sync trail. Filter by date range, agent project, and agent identity."
-            />
+
 
             <Paper sx={{ p: 2, borderRadius: 3, mb: 2 }}>
                 <Stack spacing={2}>

@@ -4,11 +4,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.projects.schemas import TaskPriority
 
 CalendarEntryType = Literal["event", "appointment"]
 CalendarItemType = Literal["event", "appointment", "task"]
 CalendarItemSource = Literal["planner", "task", "orchestration"]
+TaskPriority = Literal["low", "medium", "high", "urgent"]
 
 
 class CalendarItemUpdate(RequestModel):

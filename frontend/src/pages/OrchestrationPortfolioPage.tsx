@@ -13,7 +13,6 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getOrchestrationPortfolioControlPlane, updatePortfolioExecutionPolicy } from "../api/orchestration";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
@@ -75,11 +74,6 @@ export default function OrchestrationPortfolioPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Orchestration"
-                title="Portfolio Control Plane"
-                description="Cross-project supervisor view for manager coverage, repo health, blocked work, queue depth, cost, and escalations."
-            />
 
             {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>

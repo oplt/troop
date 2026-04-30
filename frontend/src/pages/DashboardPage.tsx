@@ -14,7 +14,6 @@ import {
     Typography,
 } from "@mui/material";
 import {
-    ArrowForward as ArrowForwardIcon,
     DoneAll as DoneAllIcon,
     FolderOpen as ProjectsIcon,
     MailOutline as MailOutlineIcon,
@@ -23,8 +22,6 @@ import {
     PlayCircleOutline as RunsIcon,
     PendingActions as ApprovalsIcon,
     SmartToy as AgentsIcon,
-    Security as SecurityIcon,
-    VerifiedUser as VerifiedUserIcon,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
@@ -34,26 +31,18 @@ import {
     listOrchestrationProjects,
 } from "../api/orchestration";
 import { getNotifications, markAllRead, markRead } from "../api/notifications";
-import { getMe } from "../api/users";
 import { DashboardCalendar } from "../components/dashboard/DashboardCalendar";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { EmptyState } from "../components/ui/EmptyState";
-import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
-import { formatDateTime, getFirstName, humanizeKey } from "../utils/formatters";
+import { formatDateTime, humanizeKey } from "../utils/formatters";
 
 export default function DashboardPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { data: platformMetadata } = usePlatformMetadata();
-    const { data: user, isLoading: userLoading } = useQuery({
-        queryKey: ["me"],
-        queryFn: getMe,
-    });
     const { data: projects, isLoading: projectsLoading } = useQuery({
-        queryKey: ["projects"],
+        queryKey: ["orchestration", "projects"],
         queryFn: listOrchestrationProjects,
     });
     const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
@@ -82,7 +71,6 @@ export default function DashboardPage() {
 
     const canonicalProjectLabel = "Agent Projects";
     const canonicalProjectLower = canonicalProjectLabel.toLowerCase();
-    const firstName = getFirstName(user?.full_name) || "there";
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
     const totalNotifications = notifications?.length ?? 0;
     const eventRows = useMemo(() => executionInsights?.by_event_type ?? [], [executionInsights]);
@@ -92,49 +80,6 @@ export default function DashboardPage() {
     );
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Overview"
-                title={`Welcome back, ${firstName}`}
-                description="Projects, agents, and run signals at a glance."
-                actions={
-                    <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate("/agent-projects")}>
-                        Open {canonicalProjectLabel}
-                    </Button>
-                }
-                meta={
-                    <>
-                        <Chip
-                            label={platformMetadata?.module_pack ?? "Standard workspace"}
-                            variant="outlined"
-                            size="small"
-                        />
-                        <Chip
-                            label={
-                                userLoading
-                                    ? "Checking security"
-                                    : user?.is_verified && user?.mfa_enabled
-                                        ? "Account secured"
-                                        : "Action needed"
-                            }
-                            color={user?.is_verified && user?.mfa_enabled ? "success" : "warning"}
-                            variant="outlined"
-                            size="small"
-                        />
-                        <Chip
-                            icon={<VerifiedUserIcon />}
-                            label={user?.is_verified ? "Email verified" : "Email pending"}
-                            color={user?.is_verified ? "success" : "warning"}
-                            size="small"
-                        />
-                        <Chip
-                            icon={<SecurityIcon />}
-                            label={user?.mfa_enabled ? "MFA on" : "MFA off"}
-                            color={user?.mfa_enabled ? "success" : "secondary"}
-                            size="small"
-                        />
-                    </>
-                }
-            />
 
             <Box
                 sx={{
@@ -207,9 +152,6 @@ export default function DashboardPage() {
                     defaultExpanded
                 >
                     <DashboardCalendar
-                        projects={projects ?? []}
-                        projectsLoading={projectsLoading}
-                        onOpenProjects={() => navigate("/agent-projects")}
                         allowedViews={["month"]}
                         initialView="month"
                     />

@@ -13,6 +13,7 @@ from backend.modules.identity_access.models import User
 from backend.modules.orchestration.schemas import (
     ActiveRunSummary,
     AgentCreate,
+    AgentQualityScoreResponse,
     AgentFromTemplateRequest,
     AgentInheritancePreview,
     AgentLintSummary,
@@ -27,6 +28,9 @@ from backend.modules.orchestration.schemas import (
     AgentTestRunResponse,
     AgentUpdate,
     AgentVersionResponse,
+    AgentWorkSessionCreate,
+    AgentWorkSessionResponse,
+    AgentWorkSessionUpdate,
     ApprovalDecision,
     ApprovalResponse,
     BrainstormCreate,
@@ -52,6 +56,13 @@ from backend.modules.orchestration.schemas import (
     KnowledgeGraphEdgeCreate,
     KnowledgeGraphEdgeResponse,
     KnowledgeSearchResultResponse,
+    LocalRepoCommandRequest,
+    LocalRepoCommandResponse,
+    LocalRepoContextPackResponse,
+    LocalRepoReadFileResponse,
+    LocalRepoWorkspacePayload,
+    LocalRepoWorkspaceResponse,
+    LocalRepoWorktreeResponse,
     MemorySettingsPatch,
     MemorySettingsResponse,
     PendingSemanticWriteResponse,
@@ -1186,6 +1197,68 @@ async def update_project(
     return _project(await OrchestrationService(db).update_project(current_user, project_id, payload.model_dump(exclude_unset=True)))
 
 
+@router.post("/local-repo/validate", response_model=LocalRepoWorkspaceResponse)
+async def validate_local_repo_workspace(
+    payload: LocalRepoWorkspacePayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoWorkspaceResponse(
+        **await OrchestrationService(db).validate_local_repo_workspace(current_user, payload.model_dump())
+    )
+
+
+@router.get("/projects/{project_id}/local-repo", response_model=LocalRepoWorkspaceResponse)
+async def inspect_local_repo_workspace(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoWorkspaceResponse(
+        **await OrchestrationService(db).inspect_local_repo_workspace(current_user, project_id)
+    )
+
+
+@router.put("/projects/{project_id}/local-repo", response_model=LocalRepoWorkspaceResponse)
+async def update_local_repo_workspace(
+    project_id: str,
+    payload: LocalRepoWorkspacePayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoWorkspaceResponse(
+        **await OrchestrationService(db).update_local_repo_workspace(
+            current_user, project_id, payload.model_dump()
+        )
+    )
+
+
+@router.post("/projects/{project_id}/local-repo/commands", response_model=LocalRepoCommandResponse)
+async def run_local_repo_command(
+    project_id: str,
+    payload: LocalRepoCommandRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoCommandResponse(
+        **await OrchestrationService(db).run_local_repo_command(
+            current_user, project_id, payload.model_dump()
+        )
+    )
+
+
+@router.get("/projects/{project_id}/local-repo/files", response_model=LocalRepoReadFileResponse)
+async def read_local_repo_file(
+    project_id: str,
+    path: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoReadFileResponse(
+        **await OrchestrationService(db).read_local_repo_file(current_user, project_id, path)
+    )
+
+
 @router.delete("/projects/{project_id}", status_code=204)
 async def delete_project(
     project_id: str,
@@ -1873,6 +1946,88 @@ async def get_task(
         item,
         [dep.depends_on_task_id for dep in dependencies if dep.task_id == task_id],
         gh.get(item.github_issue_link_id) if item.github_issue_link_id else None,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/agent-session",
+    response_model=AgentWorkSessionResponse,
+    status_code=201,
+)
+async def start_agent_work_session(
+    project_id: str,
+    task_id: str,
+    payload: AgentWorkSessionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return AgentWorkSessionResponse(
+        **await OrchestrationService(db).start_agent_work_session(
+            current_user, project_id, task_id, payload.model_dump()
+        )
+    )
+
+
+@router.patch(
+    "/projects/{project_id}/tasks/{task_id}/agent-session",
+    response_model=AgentWorkSessionResponse,
+)
+async def update_agent_work_session(
+    project_id: str,
+    task_id: str,
+    payload: AgentWorkSessionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return AgentWorkSessionResponse(
+        **await OrchestrationService(db).update_agent_work_session(
+            current_user, project_id, task_id, payload.model_dump(exclude_unset=True)
+        )
+    )
+
+
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/agent-session/worktree",
+    response_model=LocalRepoWorktreeResponse,
+)
+async def create_local_repo_worktree(
+    project_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoWorktreeResponse(
+        **await OrchestrationService(db).create_local_repo_worktree(current_user, project_id, task_id)
+    )
+
+
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/agent-session/context-pack",
+    response_model=LocalRepoContextPackResponse,
+)
+async def build_local_repo_context_pack(
+    project_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return LocalRepoContextPackResponse(
+        **await OrchestrationService(db).build_local_repo_context_pack(current_user, project_id, task_id)
+    )
+
+
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/agent-session/quality-score",
+    response_model=AgentQualityScoreResponse,
+)
+async def score_agent_work_session(
+    project_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return AgentQualityScoreResponse(
+        **await OrchestrationService(db).score_agent_work_session(current_user, project_id, task_id)
     )
 
 

@@ -16,6 +16,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.identity_access.models import User
 from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.memory.settings import merge_memory_settings
+from backend.modules.orchestration.local_repo import (
+    LocalRepoError,
+    build_context_pack,
+    create_isolated_worktree,
+    inspect_workspace,
+    normalize_workspace,
+    read_repo_file,
+    run_safe_command,
+)
 from backend.modules.projects.models import Project, ProjectTask
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
@@ -648,6 +657,149 @@ class OrchestrationProjectsServiceMixin:
     async def list_project_repositories(self, user: User, project_id: str):
         await self.get_project(user, project_id)
         return await self.repo.list_project_repositories(project_id)
+
+    async def get_local_repo_workspace(self, user: User, project_id: str) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        settings = dict(project.settings_json or {})
+        return normalize_workspace(settings.get("local_repo"))
+
+    async def validate_local_repo_workspace(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
+        _ = user
+        workspace = normalize_workspace(payload)
+        try:
+            return inspect_workspace(workspace)
+        except LocalRepoError as exc:
+            return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
+
+    async def update_local_repo_workspace(
+        self,
+        user: User,
+        project_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        workspace = normalize_workspace(payload)
+        try:
+            status = inspect_workspace(workspace)
+        except LocalRepoError as exc:
+            if workspace["enabled"]:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            status = {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
+        settings = dict(project.settings_json or {})
+        settings["local_repo"] = {**workspace, "last_validation": status}
+        project.settings_json = self._normalize_project_settings(settings)
+        await self.db.commit()
+        await self.db.refresh(project)
+        return status
+
+    async def inspect_local_repo_workspace(self, user: User, project_id: str) -> dict[str, Any]:
+        workspace = await self.get_local_repo_workspace(user, project_id)
+        try:
+            return inspect_workspace(workspace)
+        except LocalRepoError as exc:
+            return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
+
+    async def create_local_repo_worktree(
+        self,
+        user: User,
+        project_id: str,
+        task_id: str,
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        task = await self.repo.get_task(project.id, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        workspace = normalize_workspace((project.settings_json or {}).get("local_repo"))
+        try:
+            worktree = create_isolated_worktree(workspace, task_id=task.id, title=task.title)
+        except LocalRepoError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        metadata = dict(task.metadata_json or {})
+        session = dict(metadata.get("local_repo_session") or {})
+        session.update(
+            {
+                "status": "preparing_workspace",
+                "worktree": worktree,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        metadata["local_repo_session"] = session
+        task.metadata_json = metadata
+        await self.db.commit()
+        return worktree
+
+    async def build_local_repo_context_pack(
+        self,
+        user: User,
+        project_id: str,
+        task_id: str,
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        task = await self.repo.get_task(project.id, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        issue_text = "\n\n".join(part for part in [task.title, task.description or ""] if part)
+        try:
+            context = build_context_pack(
+                (project.settings_json or {}).get("local_repo"),
+                issue_text=issue_text,
+                acceptance_criteria=task.acceptance_criteria,
+            )
+        except LocalRepoError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        await self.repo.create_task_artifact(
+            task_id=task.id,
+            run_id=None,
+            kind="local_repo_context_pack",
+            title="Local repo context pack",
+            content=None,
+            metadata_json=context,
+        )
+        metadata = dict(task.metadata_json or {})
+        session = dict(metadata.get("local_repo_session") or {})
+        session.update({"status": "analyzing", "context_pack_created_at": context["created_at"]})
+        metadata["local_repo_session"] = session
+        task.metadata_json = metadata
+        await self.db.commit()
+        return context
+
+    async def run_local_repo_command(
+        self,
+        user: User,
+        project_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        try:
+            result = run_safe_command(
+                (project.settings_json or {}).get("local_repo"),
+                command=str(payload.get("command") or ""),
+                cwd=payload.get("cwd"),
+                timeout_seconds=int(payload.get("timeout_seconds") or 60),
+            )
+        except LocalRepoError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "command": result.command,
+            "cwd": result.cwd,
+            "exit_code": result.exit_code,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "duration_ms": result.duration_ms,
+            "timed_out": result.timed_out,
+        }
+
+    async def read_local_repo_file(
+        self,
+        user: User,
+        project_id: str,
+        path: str,
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        try:
+            return read_repo_file((project.settings_json or {}).get("local_repo"), path)
+        except LocalRepoError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     async def update_project_repository(
         self, user: User, project_id: str, repository_link_id: str, updates: dict[str, Any]

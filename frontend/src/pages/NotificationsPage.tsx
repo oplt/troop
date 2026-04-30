@@ -11,7 +11,6 @@ import {
     Typography,
 } from "@mui/material";
 import {
-    DoneAll as DoneAllIcon,
     MailOutline as MailOutlineIcon,
     NotificationsActive as NotificationsActiveIcon,
     Campaign as CampaignIcon,
@@ -20,12 +19,10 @@ import { alpha } from "@mui/material/styles";
 import {
     getNotifications,
     getPreferences,
-    markAllRead,
     markRead,
     updatePreferences,
 } from "../api/notifications";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -90,10 +87,6 @@ export default function NotificationsPage() {
         mutationFn: markRead,
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
-    const markAllMutation = useMutation({
-        mutationFn: markAllRead,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-    });
     const prefsMutation = useMutation({
         mutationFn: updatePreferences,
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
@@ -109,29 +102,6 @@ export default function NotificationsPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Signal center"
-                title="Notifications"
-                description="Stay on top of product activity, account events, and delivery preferences with a clearer inbox and faster controls."
-                actions={
-                    unreadCount > 0 ? (
-                        <Button
-                            variant="contained"
-                            startIcon={<DoneAllIcon />}
-                            disabled={markAllMutation.isPending}
-                            onClick={() => markAllMutation.mutate()}
-                        >
-                            {markAllMutation.isPending ? "Updating..." : "Mark all read"}
-                        </Button>
-                    ) : undefined
-                }
-                meta={
-                    <>
-                        <Chip label={`${unreadCount} unread`} color={unreadCount > 0 ? "primary" : "default"} variant="outlined" />
-                        <Chip label={`${totalCount} total`} variant="outlined" />
-                    </>
-                }
-            />
 
             <Box
                 sx={{

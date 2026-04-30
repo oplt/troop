@@ -1,6 +1,34 @@
-export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
+function defaultApiBase() {
+    if (typeof window === "undefined") return "http://localhost:8000/api/v1";
+    return `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
+}
+
+export const API_BASE = import.meta.env.VITE_API_BASE ?? defaultApiBase();
 
 let refreshPromise: Promise<boolean> | null = null;
+let authStateVersion = 0;
+const AUTH_EXPIRED_EVENT = "troop:auth-expired";
+
+export class SessionExpiredError extends Error {
+    constructor() {
+        super("Session expired. Please sign in again.");
+        this.name = "SessionExpiredError";
+    }
+}
+
+export function markAuthStateChanged() {
+    authStateVersion += 1;
+}
+
+function notifyAuthExpired(observedAuthStateVersion: number) {
+    if (observedAuthStateVersion !== authStateVersion) return;
+    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+}
+
+export function onAuthExpired(listener: () => void): () => void {
+    window.addEventListener(AUTH_EXPIRED_EVENT, listener);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, listener);
+}
 
 export function readCookie(name: string): string | null {
     const match = document.cookie.match(
@@ -27,6 +55,11 @@ function buildCsrfHeaders(): HeadersInit {
     return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
 }
 
+function shouldRefreshOnUnauthorized(path: string): boolean {
+    if (path === "/auth/me") return true;
+    return !path.startsWith("/auth/");
+}
+
 export async function apiFetch<T>(
     path: string,
     options: RequestInit = {},
@@ -51,7 +84,8 @@ export async function apiFetch<T>(
         credentials: "include",
     });
 
-    if (response.status === 401 && retry) {
+    if (response.status === 401 && retry && shouldRefreshOnUnauthorized(path)) {
+        const observedAuthStateVersion = authStateVersion;
         // Deduplicate concurrent refresh attempts
         if (!refreshPromise) {
             refreshPromise = refreshAccessToken().finally(() => {
@@ -60,9 +94,15 @@ export async function apiFetch<T>(
         }
         const refreshed = await refreshPromise;
         if (!refreshed) {
-            throw new Error("Session expired. Please sign in again.");
+            notifyAuthExpired(observedAuthStateVersion);
+            throw new SessionExpiredError();
         }
         return apiFetch<T>(path, options, false);
+    }
+
+    if (response.status === 401 && !retry && shouldRefreshOnUnauthorized(path)) {
+        notifyAuthExpired(authStateVersion);
+        throw new SessionExpiredError();
     }
 
     if (!response.ok) {

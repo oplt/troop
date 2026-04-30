@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -6,8 +6,11 @@ import {
     Button,
     Chip,
     Divider,
+    FormControlLabel,
     MenuItem,
     Paper,
+    Radio,
+    RadioGroup,
     Stack,
     TextField,
     Typography,
@@ -15,26 +18,30 @@ import {
 import {
     compareProviders,
     createProvider,
+    deleteProvider,
     listModelCapabilities,
     listProviderModels,
     listProviders,
+    startProviderRuntime,
     testProvider,
     updateProvider,
     type ProviderConfig,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
 
-const PROVIDER_TYPE_OPTIONS = [
+const CLOUD_PROVIDER_OPTIONS = [
     { value: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
     { value: "anthropic", label: "Anthropic / Claude", baseUrl: "https://api.anthropic.com" },
     { value: "qwen", label: "Qwen", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" },
-    { value: "openai_compatible", label: "OpenAI-compatible", baseUrl: "https://api.openai.com/v1" },
+    { value: "openai_compatible", label: "OpenAI-compatible API", baseUrl: "https://api.openai.com/v1" },
+] as const;
+
+const LOCAL_PROVIDER_OPTIONS = [
     { value: "ollama", label: "Ollama", baseUrl: "http://localhost:11434" },
-    { value: "local", label: "Local heuristic", baseUrl: "" },
+    { value: "openai_compatible", label: "llama.cpp", baseUrl: "http://localhost:8080/v1" },
 ] as const;
 
 const HEALTH_COLORS: Record<string, "success" | "warning" | "error" | "default"> = {
@@ -43,13 +50,104 @@ const HEALTH_COLORS: Record<string, "success" | "warning" | "error" | "default">
     never: "default",
 };
 
+type ProviderForm = {
+    provider_category: "cloud" | "local";
+    name: string;
+    provider_type: string;
+    base_url: string;
+    api_key: string;
+    default_model: string;
+    fallback_model: string;
+    timeout_seconds: number;
+    local_runtime_command: string;
+    local_runtime_working_dir: string;
+    local_runtime_health_url: string;
+};
+
+const INITIAL_PROVIDER_FORM: ProviderForm = {
+    provider_category: "cloud",
+    name: "",
+    provider_type: "openai",
+    base_url: "https://api.openai.com/v1",
+    api_key: "",
+    default_model: "gpt-4.1-mini",
+    fallback_model: "",
+    timeout_seconds: 600,
+    local_runtime_command: "",
+    local_runtime_working_dir: "",
+    local_runtime_health_url: "",
+};
+
+function buildProviderCreatePayload(form: ProviderForm) {
+    const timeout = Math.min(3600, Math.max(5, Math.floor(form.timeout_seconds) || INITIAL_PROVIDER_FORM.timeout_seconds));
+    const localRuntime = {
+        mode: form.provider_category === "local" ? "managed" : "external",
+        auto_start: false,
+        command: form.local_runtime_command.trim(),
+        working_dir: form.local_runtime_working_dir.trim() || null,
+        health_url: form.local_runtime_health_url.trim() || null,
+    };
+    return {
+        name: form.name.trim(),
+        provider_type: form.provider_type,
+        base_url: form.base_url.trim() || null,
+        api_key: form.api_key.trim() || null,
+        default_model: form.default_model.trim(),
+        fallback_model: form.fallback_model.trim() || null,
+        timeout_seconds: timeout,
+        metadata: { local_runtime: localRuntime },
+    };
+}
+
+function defaultLocalRuntimeCommand(providerType: string) {
+    if (providerType === "ollama") return "ollama serve";
+    if (providerType === "openai_compatible") {
+        return [
+            "/home/polat/Desktop/Projects/llama.cpp/build/bin/llama-server",
+            "  -m /home/polat/Desktop/Projects/llama.cpp/models/qwen2.5-14b-instruct-q4_k_m.gguf",
+            "  --host 127.0.0.1",
+            "  --port 8081",
+            "  -c 8192",
+            "  -ngl 999",
+        ].join("\n");
+    }
+    return "";
+}
+
+function defaultLocalRuntimeHealthUrl(providerType: string, baseUrl: string) {
+    const normalizedBaseUrl = baseUrl.trim().replace(/\/$/, "");
+    if (providerType === "ollama") return `${normalizedBaseUrl || "http://localhost:11434"}/api/tags`;
+    if (providerType === "openai_compatible" && normalizedBaseUrl) return `${normalizedBaseUrl}/models`;
+    return "";
+}
+
+function parseLlamaCppCommand(command: string) {
+    const normalized = command.replace(/\\\s*\n/g, " ");
+    const host = normalized.match(/(?:^|\s)--host\s+(\S+)/)?.[1] ?? "127.0.0.1";
+    const port = normalized.match(/(?:^|\s)--port\s+(\S+)/)?.[1] ?? "8080";
+    const modelPath = normalized.match(/(?:^|\s)-m\s+(\S+)/)?.[1] ?? "";
+    const modelSlug = modelPath.split("/").pop()?.replace(/\.gguf$/i, "") || "local";
+    const baseUrl = `http://${host}:${port}/v1`;
+    return { baseUrl, healthUrl: `${baseUrl}/models`, modelSlug };
+}
+
+function providerOptionsFor(category: ProviderForm["provider_category"]) {
+    return category === "local" ? LOCAL_PROVIDER_OPTIONS : CLOUD_PROVIDER_OPTIONS;
+}
+
+function localRuntimeMetadata(provider: ProviderConfig) {
+    const value = provider.metadata?.local_runtime;
+    return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function isLocalRuntimeProvider(provider: ProviderConfig, runtime: Record<string, unknown> | null) {
+    return provider.provider_type === "ollama" || runtime?.mode === "managed";
+}
+
 function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const [draft, setDraft] = useState(String(provider.timeout_seconds));
-    useEffect(() => {
-        setDraft(String(provider.timeout_seconds));
-    }, [provider.id, provider.timeout_seconds]);
     const saveMutation = useMutation({
         mutationFn: (next: number) => updateProvider(provider.id, { timeout_seconds: next }),
         onSuccess: async () => {
@@ -109,15 +207,8 @@ function defaultModelForProviderType(providerType: string, capabilityMap: Record
 export function ProviderSettingsPanel() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const [form, setForm] = useState({
-        name: "",
-        provider_type: "openai",
-        base_url: "https://api.openai.com/v1",
-        api_key: "",
-        default_model: "gpt-4.1-mini",
-        fallback_model: "",
-        timeout_seconds: 600,
-    });
+    const [form, setForm] = useState<ProviderForm>(INITIAL_PROVIDER_FORM);
+    const [createAttempted, setCreateAttempted] = useState(false);
     const [compareForm, setCompareForm] = useState({
         provider_a_id: "",
         provider_b_id: "",
@@ -197,19 +288,16 @@ export function ProviderSettingsPanel() {
         );
         return rows;
     }, [modelCapabilities, providers]);
+    const providerPayload = useMemo(() => buildProviderCreatePayload(form), [form]);
+    const nameError = createAttempted && providerPayload.name.length < 2;
+    const defaultModelError = createAttempted && providerPayload.default_model.length === 0;
+    const canCreateProvider = providerPayload.name.length >= 2 && providerPayload.default_model.length > 0;
 
     const createMutation = useMutation({
         mutationFn: createProvider,
         onSuccess: async () => {
-            setForm({
-                name: "",
-                provider_type: "openai",
-                base_url: "https://api.openai.com/v1",
-                api_key: "",
-                default_model: "gpt-4.1-mini",
-                fallback_model: "",
-                timeout_seconds: 600,
-            });
+            setForm(INITIAL_PROVIDER_FORM);
+            setCreateAttempted(false);
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
             showToast({ message: "Provider saved.", severity: "success" });
@@ -217,10 +305,15 @@ export function ProviderSettingsPanel() {
     });
     const testMutation = useMutation({
         mutationFn: testProvider,
-        onSuccess: async () => {
+        onSuccess: async (result) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
-            showToast({ message: "Provider health check completed.", severity: "success" });
+            const status = String(result.status ?? "unknown");
+            const error = typeof result.error === "string" ? result.error : "";
+            showToast({
+                message: status === "healthy" ? "Provider health check completed." : `Provider unhealthy${error ? `: ${error}` : "."}`,
+                severity: status === "healthy" ? "success" : "warning",
+            });
         },
     });
     const discoverMutation = useMutation({
@@ -233,6 +326,39 @@ export function ProviderSettingsPanel() {
                 ...current,
                 provider_a_id: current.provider_a_id || providerId,
             }));
+        },
+    });
+    const startRuntimeMutation = useMutation({
+        mutationFn: startProviderRuntime,
+        onSuccess: async (result) => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            const status = String(result.status ?? "unknown");
+            const detail = typeof result.detail === "string" ? result.detail : "";
+            showToast({
+                message: `Local server ${status}${detail ? `: ${detail}` : "."}`,
+                severity: status === "running" || status === "already_running" ? "success" : "warning",
+            });
+        },
+        onError: () => {
+            showToast({ message: "Could not start local server.", severity: "error" });
+        },
+    });
+    const deleteMutation = useMutation({
+        mutationFn: deleteProvider,
+        onSuccess: async (_, providerId) => {
+            setCompareForm((current) => ({
+                ...current,
+                provider_a_id: current.provider_a_id === providerId ? "" : current.provider_a_id,
+                provider_b_id: current.provider_b_id === providerId ? "" : current.provider_b_id,
+                model_a: current.provider_a_id === providerId ? "" : current.model_a,
+                model_b: current.provider_b_id === providerId ? "" : current.model_b,
+            }));
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            showToast({ message: "Provider deleted.", severity: "success" });
+        },
+        onError: () => {
+            showToast({ message: "Could not delete provider.", severity: "error" });
         },
     });
     const compareMutation = useMutation({
@@ -254,26 +380,70 @@ export function ProviderSettingsPanel() {
                             label="Name"
                             value={form.name}
                             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                            error={nameError}
+                            helperText={nameError ? "Use at least 2 characters." : undefined}
                         />
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">
+                                Type
+                            </Typography>
+                            <RadioGroup
+                                row
+                                value={form.provider_category}
+                                onChange={(event) => {
+                                    const nextCategory = event.target.value as ProviderForm["provider_category"];
+                                    const nextOption = providerOptionsFor(nextCategory)[0];
+                                    const nextType = nextOption.value;
+                                    const suggestedModels = providerCapabilityMap[nextType] ?? [];
+                                    const runtimeCommand = defaultLocalRuntimeCommand(nextType);
+                                    const parsedLlamaCpp = nextCategory === "local" && nextType === "openai_compatible" ? parseLlamaCppCommand(runtimeCommand) : null;
+                                    const nextBaseUrl = parsedLlamaCpp?.baseUrl ?? nextOption.baseUrl;
+                                    setForm((current) => ({
+                                        ...current,
+                                        provider_category: nextCategory,
+                                        provider_type: nextType,
+                                        base_url: nextBaseUrl,
+                                        api_key: nextCategory === "local" ? "" : current.api_key,
+                                        default_model:
+                                            nextCategory === "local" && nextType === "openai_compatible"
+                                                ? parsedLlamaCpp?.modelSlug ?? "local"
+                                                : suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
+                                        fallback_model: nextCategory === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
+                                        local_runtime_command: runtimeCommand,
+                                        local_runtime_health_url: parsedLlamaCpp?.healthUrl ?? defaultLocalRuntimeHealthUrl(nextType, nextBaseUrl),
+                                    }));
+                                }}
+                            >
+                                <FormControlLabel value="cloud" control={<Radio size="small" />} label="Cloud" />
+                                <FormControlLabel value="local" control={<Radio size="small" />} label="Local server" />
+                            </RadioGroup>
+                        </Box>
                         <TextField
                             select
-                            label="Type"
+                            label={form.provider_category === "local" ? "Local server" : "Cloud provider"}
                             value={form.provider_type}
                             onChange={(event) => {
                                 const nextType = event.target.value;
-                                const nextOption = PROVIDER_TYPE_OPTIONS.find((option) => option.value === nextType);
+                                const nextOption = providerOptionsFor(form.provider_category).find((option) => option.value === nextType);
                                 const suggestedModels = providerCapabilityMap[nextType] ?? [];
+                                const runtimeCommand = defaultLocalRuntimeCommand(nextType);
+                                const parsedLlamaCpp = form.provider_category === "local" && nextType === "openai_compatible" ? parseLlamaCppCommand(runtimeCommand) : null;
                                 setForm((current) => ({
                                     ...current,
                                     provider_type: nextType,
-                                    base_url: nextOption?.baseUrl ?? current.base_url,
-                                    api_key: nextType === "local" || nextType === "ollama" ? "" : current.api_key,
-                                    default_model: suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
-                                    fallback_model: nextType === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
+                                    base_url: parsedLlamaCpp?.baseUrl ?? nextOption?.baseUrl ?? current.base_url,
+                                    api_key: form.provider_category === "local" ? "" : current.api_key,
+                                    default_model:
+                                        form.provider_category === "local" && nextType === "openai_compatible"
+                                            ? parsedLlamaCpp?.modelSlug ?? "local"
+                                            : suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
+                                    fallback_model: form.provider_category === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
+                                    local_runtime_command: runtimeCommand,
+                                    local_runtime_health_url: parsedLlamaCpp?.healthUrl ?? defaultLocalRuntimeHealthUrl(nextType, nextOption?.baseUrl ?? current.base_url),
                                 }));
                             }}
                         >
-                            {PROVIDER_TYPE_OPTIONS.map((option) => (
+                            {providerOptionsFor(form.provider_category).map((option) => (
                                 <MenuItem key={option.value} value={option.value}>
                                     {option.label}
                                 </MenuItem>
@@ -283,23 +453,24 @@ export function ProviderSettingsPanel() {
                             label="Base URL"
                             value={form.base_url}
                             onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))}
-                            helperText={form.provider_type === "local" ? "Local heuristic provider does not use a base URL." : undefined}
-                            disabled={form.provider_type === "local"}
+                            helperText={form.provider_category === "local" ? "Backend must be able to reach this URL." : undefined}
                         />
                         <TextField
                             label="API key"
                             type="password"
                             value={form.api_key}
                             onChange={(event) => setForm((current) => ({ ...current, api_key: event.target.value }))}
-                            helperText={form.provider_type === "ollama" ? "Leave blank for local Ollama." : form.provider_type === "local" ? "Not used for local heuristic provider." : undefined}
-                            disabled={form.provider_type === "local"}
+                            helperText={form.provider_category === "local" ? "Usually blank for local servers." : undefined}
                         />
                         <TextField
                             label="Default model"
                             value={form.default_model}
                             onChange={(event) => setForm((current) => ({ ...current, default_model: event.target.value }))}
+                            error={defaultModelError}
                             helperText={
-                                (providerCapabilityMap[form.provider_type]?.length ?? 0) > 0
+                                defaultModelError
+                                    ? "Default model is required."
+                                    : (providerCapabilityMap[form.provider_type]?.length ?? 0) > 0
                                     ? `Known: ${providerCapabilityMap[form.provider_type].join(", ")}`
                                     : "Type the model slug exactly as the provider expects (e.g. llama3.1:8b)."
                             }
@@ -324,16 +495,47 @@ export function ProviderSettingsPanel() {
                             inputProps={{ min: 5, max: 3600 }}
                             helperText="Per LLM request to this provider (backend default was 120s). Use 600–1800+ for slow CPU / Ollama."
                         />
+                        {form.provider_category === "local" && (
+                            <Stack spacing={1.5}>
+                                <TextField
+                                    label="Start command"
+                                    value={form.local_runtime_command}
+                                    onChange={(event) => {
+                                        const command = event.target.value;
+                                        const parsed = form.provider_type === "openai_compatible" ? parseLlamaCppCommand(command) : null;
+                                        setForm((current) => ({
+                                            ...current,
+                                            local_runtime_command: command,
+                                            base_url: parsed?.baseUrl ?? current.base_url,
+                                            default_model: parsed?.modelSlug ?? current.default_model,
+                                            local_runtime_health_url: parsed?.healthUrl ?? current.local_runtime_health_url,
+                                        }));
+                                    }}
+                                    helperText={
+                                        form.provider_type === "ollama"
+                                            ? "Default: ollama serve"
+                                            : "Paste the full llama-server command."
+                                    }
+                                    multiline
+                                    minRows={form.provider_type === "openai_compatible" ? 6 : 1}
+                                />
+                                <TextField
+                                    label="Health URL"
+                                    value={form.local_runtime_health_url}
+                                    onChange={(event) => setForm((current) => ({ ...current, local_runtime_health_url: event.target.value }))}
+                                    helperText="Used before starting to avoid duplicate servers."
+                                />
+                            </Stack>
+                        )}
 
                         <Button
                             variant="contained"
-                            onClick={() =>
-                                createMutation.mutate({
-                                    ...form,
-                                    fallback_model: form.fallback_model || null,
-                                    timeout_seconds: Math.min(3600, Math.max(5, Math.floor(form.timeout_seconds) || 600)),
-                                })
-                            }
+                            disabled={createMutation.isPending}
+                            onClick={() => {
+                                setCreateAttempted(true);
+                                if (!canCreateProvider) return;
+                                createMutation.mutate(providerPayload);
+                            }}
                         >
                             Save provider
                         </Button>
@@ -355,6 +557,10 @@ export function ProviderSettingsPanel() {
                                 ? provider.metadata.discovered_models.length
                                 : 0;
                             const statusLabel = provider.last_healthcheck_status ?? "never";
+                            const runtime = localRuntimeMetadata(provider);
+                            const isLocalRuntime = isLocalRuntimeProvider(provider, runtime);
+                            const runtimeMode = String(runtime?.mode ?? "external");
+                            const runtimeStatus = runtime?.status ? String(runtime.status) : null;
                             return (
                                 <Paper key={provider.id} sx={{ p: 2, borderRadius: 4 }}>
                                     <Stack spacing={1.5}>
@@ -374,12 +580,35 @@ export function ProviderSettingsPanel() {
                                                     {provider.fallback_model ? ` → ${provider.fallback_model}` : ""}
                                                 </Typography>
                                             </Box>
-                                        <Stack direction="row" spacing={1}>
+                                            <Stack direction="row" spacing={1}>
+                                                {isLocalRuntime && (
+                                                    <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        disabled={startRuntimeMutation.isPending}
+                                                        onClick={() => startRuntimeMutation.mutate(provider.id)}
+                                                    >
+                                                        Start server
+                                                    </Button>
+                                                )}
                                                 <Button size="small" onClick={() => testMutation.mutate(provider.id)}>
                                                     Test connection
                                                 </Button>
                                                 <Button size="small" onClick={() => discoverMutation.mutate(provider.id)}>
                                                     Refresh models
+                                                </Button>
+                                                <Button
+                                                    size="small"
+                                                    color="error"
+                                                    variant="outlined"
+                                                    disabled={deleteMutation.isPending}
+                                                    onClick={() => {
+                                                        if (window.confirm(`Delete provider "${provider.name}"?`)) {
+                                                            deleteMutation.mutate(provider.id);
+                                                        }
+                                                    }}
+                                                >
+                                                    Delete
                                                 </Button>
                                             </Stack>
                                         </Stack>
@@ -399,12 +628,19 @@ export function ProviderSettingsPanel() {
                                                 variant="outlined"
                                                 label={`Discovered models: ${discoveredCount}`}
                                             />
+                                            {isLocalRuntime && (
+                                                <Chip
+                                                    size="small"
+                                                    variant="outlined"
+                                                    label={`Runtime: ${runtimeMode}${runtimeStatus ? ` (${runtimeStatus})` : ""}`}
+                                                />
+                                            )}
                                         </Stack>
                                         <Typography variant="caption" color="text.secondary">
                                             {provider.api_key_hint || "No key stored"}
                                             {provider.metadata?.last_healthcheck_error ? ` • ${String(provider.metadata.last_healthcheck_error)}` : ""}
                                         </Typography>
-                                        <ProviderRequestTimeoutEditor provider={provider} />
+                                        <ProviderRequestTimeoutEditor key={`${provider.id}-${provider.timeout_seconds}`} provider={provider} />
                                     </Stack>
                                 </Paper>
                             );
@@ -610,11 +846,6 @@ export function ProviderSettingsPanel() {
 export default function OrchestrationSettingsPage() {
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Settings"
-                title="Provider Settings"
-                description="Manage hosted and local model providers, health status, routing, and side-by-side model comparisons."
-            />
             <ProviderSettingsPanel />
         </PageShell>
     );

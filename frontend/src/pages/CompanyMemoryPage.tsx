@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Box, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { listCompanies, type Company } from "../api/companies";
+import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { listCompanySemanticMemory, type SemanticMemoryEntry } from "../api/orchestration";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -13,12 +11,6 @@ export default function CompanyMemoryPage() {
     const { companyId } = useParams<{ companyId: string }>();
     const [q, setQ] = useState("");
     const [prefix, setPrefix] = useState("");
-
-    const { data: companies = [] } = useQuery({
-        queryKey: ["companies"],
-        queryFn: listCompanies,
-    });
-    const company: Company | undefined = companies.find((c) => c.id === companyId);
 
     const { data: entries = [], isLoading } = useQuery({
         queryKey: ["orchestration", "company-semantic", companyId, q, prefix],
@@ -35,18 +27,6 @@ export default function CompanyMemoryPage() {
 
     return (
         <PageShell maxWidth="lg">
-            <PageHeader
-                eyebrow="Company memory"
-                title={company ? `${company.name} · semantic` : "Semantic (company scope)"}
-                description={
-                    <>
-                        Entries with <code>project_id = null</code> for this company.{" "}
-                        <Link component={RouterLink} to="/companies">
-                            Companies
-                        </Link>
-                    </>
-                }
-            />
 
             <SectionCard title="Browse" sx={{ mb: 3 }}>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>

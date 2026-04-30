@@ -38,7 +38,6 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { GithubSyncPanel } from "./GithubSyncPage";
 import { ProviderSettingsPanel } from "./OrchestrationSettingsPage";
 import { PlatformPanel } from "./PlatformPage";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -401,7 +400,6 @@ function AdminSettingsContent({
         activeTab === "database" || activeTab === "providers" || activeTab === "github_sync" || activeTab === "platform"
             ? null
             : configGroups.find((group) => group.id === activeTab) ?? configGroups[0] ?? null;
-    const customConfigCount = configData.items.filter((item) => item.is_custom).length;
     const changedConfigCount = configData.items.filter(
         (item) => (configDrafts[item.key] ?? item.value) !== item.value
     ).length;
@@ -436,20 +434,6 @@ function AdminSettingsContent({
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="System control"
-                title="Settings"
-                description="Edit environment-backed variables in grouped tabs and keep runtime parameters separate from file-based config."
-                meta={
-                    <>
-                        <Chip label={`${configGroups.length} config groups`} variant="outlined" />
-                        <Chip label={`${customConfigCount} custom values`} variant="outlined" />
-                        <Chip label={`${databaseSettings.length} parameters`} variant="outlined" />
-                        <Chip label={`${providers.length} AI providers`} variant="outlined" />
-                        <Chip label={`${githubConnections.length} GitHub connections`} variant="outlined" />
-                    </>
-                }
-            />
 
             {hasConfigError && <Alert severity="error">{configErrorMessage}</Alert>}
             {hasDatabaseError && <Alert severity="error">{databaseErrorMessage}</Alert>}

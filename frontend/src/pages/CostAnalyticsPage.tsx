@@ -5,7 +5,6 @@ import {
     Box,
     Button,
     Chip,
-    MenuItem,
     Skeleton,
     Stack,
     Table,
@@ -13,7 +12,6 @@ import {
     TableCell,
     TableHead,
     TableRow,
-    TextField,
     Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
@@ -23,7 +21,6 @@ import {
     EmojiEvents as LeaderboardIcon,
 } from "@mui/icons-material";
 import { getCostAnalytics } from "../api/orchestration";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -56,7 +53,7 @@ function BarRow({ label, value, max, color = "primary" }: { label: string; value
 
 export default function CostAnalyticsPage() {
     const navigate = useNavigate();
-    const [days, setDays] = useState(30);
+    const [days] = useState(30);
 
     const { data, isLoading } = useQuery({
         queryKey: ["orchestration", "analytics", "cost", days],
@@ -69,31 +66,6 @@ export default function CostAnalyticsPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Analytics"
-                title="Cost & Usage"
-                description="Token spend, model usage, and run cost broken down by project, agent, and provider."
-                actions={
-                    <TextField
-                        select
-                        size="small"
-                        label="Period"
-                        value={days}
-                        onChange={(e) => setDays(Number(e.target.value))}
-                        sx={{ minWidth: 140 }}
-                    >
-                        <MenuItem value={7}>Last 7 days</MenuItem>
-                        <MenuItem value={30}>Last 30 days</MenuItem>
-                        <MenuItem value={90}>Last 90 days</MenuItem>
-                    </TextField>
-                }
-                meta={data && (
-                    <>
-                        <Chip label={data.period} variant="outlined" />
-                        <Chip label={`${data.most_expensive_runs.length} runs`} variant="outlined" />
-                    </>
-                )}
-            />
 
             {/* Stat summary */}
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}>

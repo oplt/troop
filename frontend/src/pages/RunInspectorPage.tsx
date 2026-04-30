@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -29,13 +29,11 @@ import {
     PlayArrow as RunningIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
-    Replay as ReplayIcon,
     SmartToy as AgentIcon,
     Psychology as ModelIcon,
     Build as ToolIcon,
 } from "@mui/icons-material";
 import {
-    cancelRun,
     getRun,
     getRunCostSummary,
     getRunExecutionState,
@@ -43,8 +41,6 @@ import {
     getRunWorkingMemory,
     listRunEvents,
     patchRunWorkingMemory,
-    resumeRun,
-    replayRun,
     signalRunWorkflow,
     type RunCostSummary,
     type RunEvent,
@@ -61,7 +57,6 @@ import {
     RunOutputFriendly,
     ShallowKeyValueList,
 } from "../components/runInspector/RunInspectorDataViews";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
@@ -593,13 +588,11 @@ function WorkflowGraphView({ trace }: { trace: RunTraceStep[] }) {
 
 export default function RunInspectorPage() {
     const { runId } = useParams<{ runId: string }>();
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [events, setEvents] = useState<RunEvent[]>([]);
     const [streaming, setStreaming] = useState(false);
     const [streamError, setStreamError] = useState<string | null>(null);
     const [tab, setTab] = useState<"timeline" | "trace" | "graph" | "conversation">("timeline");
-    const [replayModelName, setReplayModelName] = useState("");
     const bottomRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
 
@@ -655,39 +648,6 @@ export default function RunInspectorPage() {
         },
     });
 
-    const cancelMutation = useMutation({
-        mutationFn: () => cancelRun(runId!),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId] });
-            await queryClient.invalidateQueries({
-                queryKey: ["orchestration", "run", runId, "execution-state"],
-            });
-            await queryClient.invalidateQueries({
-                queryKey: ["orchestration", "run", runId, "working-memory"],
-            });
-            abortRef.current?.abort();
-        },
-    });
-
-    const replayMutation = useMutation({
-        mutationFn: (fromIndex: number) => replayRun(runId!, {
-            from_event_index: fromIndex,
-            model_name: replayModelName.trim() || undefined,
-        }),
-        onSuccess: (newRun) => {
-            navigate(`/runs/${newRun.id}`);
-        },
-    });
-
-    const resumeMutation = useMutation({
-        mutationFn: () => resumeRun(runId!),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId] });
-            await queryClient.invalidateQueries({
-                queryKey: ["orchestration", "run", runId, "execution-state"],
-            });
-        },
-    });
     const signalMutation = useMutation({
         mutationFn: async () => {
             let parsedPayload: Record<string, unknown> = {};
@@ -798,77 +758,15 @@ export default function RunInspectorPage() {
     if (!run) return null;
 
     const isLive = !TERMINAL.has(run.status);
-    const isFailed = run.status === "failed";
-    const isBlocked = run.status === "blocked";
     const wmEditable = ["queued", "in_progress", "blocked"].includes(run.status);
     const selectionMeta = readOrchestrationSelectionMeta(run);
     const modelRationale = selectionMeta.model_rationale;
     const traceSteps = readTraceSteps(execSnapshot, events);
-    const canResume = Boolean(execSnapshot?.resumable) && (isFailed || isBlocked);
-
     // Build per-event timestamps for delta display
     const eventTimes = events.map((e) => new Date(e.created_at).getTime());
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Execution"
-                title="Run Inspector"
-                description={`Execution trace for run ${run.id.slice(0, 8)}…`}
-                actions={
-                    <Stack direction="row" spacing={1}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>Back</Button>
-                        <TextField
-                            size="small"
-                            label="Replay model override"
-                            value={replayModelName}
-                            onChange={(e) => setReplayModelName(e.target.value)}
-                            placeholder={run.model_name || "Use original model"}
-                            sx={{ minWidth: 220 }}
-                        />
-                        {isLive && (
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                onClick={() => cancelMutation.mutate()}
-                                disabled={cancelMutation.isPending}
-                            >
-                                Cancel run
-                            </Button>
-                        )}
-                        {isFailed && (
-                            <Button
-                                variant="contained"
-                                startIcon={replayMutation.isPending ? <CircularProgress size={16} /> : <ReplayIcon />}
-                                disabled={replayMutation.isPending}
-                                onClick={() => replayMutation.mutate(0)}
-                            >
-                                Replay from start
-                            </Button>
-                        )}
-                        {isFailed && events.length > 0 && (
-                            <Button
-                                variant="outlined"
-                                startIcon={<ReplayIcon />}
-                                disabled={replayMutation.isPending}
-                                onClick={() => replayMutation.mutate(Math.max(0, events.length - 3))}
-                            >
-                                Replay from checkpoint
-                            </Button>
-                        )}
-                        {canResume && (
-                            <Button
-                                variant="contained"
-                                color="warning"
-                                disabled={resumeMutation.isPending}
-                                onClick={() => resumeMutation.mutate()}
-                            >
-                                Resume from checkpoint
-                            </Button>
-                        )}
-                    </Stack>
-                }
-            />
 
             <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} />
             {runExplanation && (

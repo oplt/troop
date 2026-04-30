@@ -1,0 +1,6 @@
+redis: sh -c 'SOCK="${REDIS_SOCKET:-/tmp/troop-redis.sock}"; if [ "${MANAGE_REDIS:-1}" != "1" ]; then echo "Redis startup skipped"; tail -f /dev/null; elif redis-cli -s "$SOCK" ping >/dev/null 2>&1; then echo "Redis already running on $SOCK"; tail -f /dev/null; else rm -f "$SOCK"; exec redis-server --port 0 --unixsocket "$SOCK" --unixsocketperm 700 --save "" --appendonly no; fi'
+backend: uv run --project backend uvicorn backend.api.main:app --reload --reload-dir backend --port 8000
+frontend: cd frontend && pnpm dev --host 127.0.0.1
+worker: uv run --project backend celery -A backend.workers.celery_app:celery_app worker --loglevel=INFO --pool=threads -n worker1@%h --queues=default,email,github,model_gateway,observability,cpu
+beat: uv run --project backend celery -A backend.workers.celery_app:celery_app beat --loglevel=INFO --scheduler celery.beat.PersistentScheduler --schedule=/tmp/troop-celerybeat-schedule
+browser: sh -c 'sleep 4 && xdg-open http://127.0.0.1:5173 >/dev/null 2>&1 || true; tail -f /dev/null'

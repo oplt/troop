@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -6,34 +6,27 @@ import {
     Box,
     Button,
     Chip,
-    CircularProgress,
     Paper,
     Stack,
     Typography,
 } from "@mui/material";
 import {
-    AutoAwesome as SummaryIcon,
-    ArrowForward as NextRoundIcon,
     Assignment as TaskIcon,
     Description as DocumentIcon,
     Rule as AdrIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    forceBrainstormSummary,
     getBrainstorm,
     getBrainstormDiscourseInsights,
     listAgents,
     listBrainstormMessages,
     listBrainstormParticipants,
-    listRuns,
     promoteBrainstorm,
     promoteBrainstormAdr,
     promoteBrainstormDocument,
-    startBrainstormNextRound,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
@@ -77,18 +70,6 @@ export default function BrainstormDetailPage() {
         queryKey: ["orchestration", "agents"],
         queryFn: () => listAgents(),
     });
-    const { data: runs = [] } = useQuery({
-        queryKey: ["orchestration", "brainstorm", brainstorm?.project_id, "runs"],
-        queryFn: () => listRuns(brainstorm?.project_id),
-        enabled: Boolean(brainstorm?.project_id),
-    });
-
-    const roomRuns = useMemo(
-        () => runs.filter((item) => item.brainstorm_id === brainstormId),
-        [runs, brainstormId],
-    );
-    const totalCostUsd = roomRuns.reduce((sum, item) => sum + item.estimated_cost_micros / 1_000_000, 0);
-    const currentRound = brainstorm?.current_round ?? 0;
     const groupedMessages = useMemo(() => {
         const grouped = new Map<number, typeof messages>();
         messages.forEach((message) => {
@@ -115,45 +96,6 @@ export default function BrainstormDetailPage() {
         [brainstorm?.decision_log],
     );
 
-    const exportMarkdown = useCallback(() => {
-        if (!brainstorm) return;
-        const lines: string[] = [
-            `# Brainstorm: ${brainstorm.topic}`,
-            "",
-            `Status: ${brainstorm.status} · Mode: ${brainstorm.mode} · Output: ${brainstorm.output_type}`,
-            "",
-            "## Messages",
-            "",
-        ];
-        groupedMessages.forEach(([round, roundMessages]) => {
-            lines.push(`### Round ${round}`, "");
-            roundMessages.forEach((m) => {
-                lines.push(`- **${m.agent_id}** (${m.message_type}):`, "", m.content, "");
-            });
-        });
-        const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `brainstorm-${brainstormId}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }, [brainstorm, brainstormId, groupedMessages]);
-
-    const exportJson = useCallback(() => {
-        if (!brainstorm) return;
-        const blob = new Blob(
-            [JSON.stringify({ brainstorm, messages, participants, discourse }, null, 2)],
-            { type: "application/json;charset=utf-8" },
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `brainstorm-${brainstormId}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }, [brainstorm, brainstormId, discourse, messages, participants]);
-
     const refreshAll = async () => {
         await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["orchestration", "brainstorm", brainstormId] }),
@@ -167,20 +109,6 @@ export default function BrainstormDetailPage() {
         ]);
     };
 
-    const nextRoundMutation = useMutation({
-        mutationFn: () => startBrainstormNextRound(brainstormId),
-        onSuccess: async () => {
-            await refreshAll();
-            showToast({ message: "Next brainstorm round queued.", severity: "success" });
-        },
-    });
-    const forceSummaryMutation = useMutation({
-        mutationFn: () => forceBrainstormSummary(brainstormId),
-        onSuccess: async () => {
-            await refreshAll();
-            showToast({ message: "Final summary generated.", severity: "success" });
-        },
-    });
     const promoteTasksMutation = useMutation({
         mutationFn: () => promoteBrainstorm(brainstormId),
         onSuccess: async (tasks) => {
@@ -213,49 +141,6 @@ export default function BrainstormDetailPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Brainstorm Room"
-                title={brainstorm.topic}
-                description={brainstorm.latest_round_summary || brainstorm.summary || "Structured multi-agent discussion room."}
-                actions={(
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Button
-                            variant="contained"
-                            startIcon={nextRoundMutation.isPending ? <CircularProgress size={14} /> : <NextRoundIcon />}
-                            onClick={() => nextRoundMutation.mutate()}
-                            disabled={brainstorm.status === "completed" || currentRound >= brainstorm.max_rounds || nextRoundMutation.isPending}
-                        >
-                            Start next round
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            startIcon={<SummaryIcon />}
-                            onClick={() => forceSummaryMutation.mutate()}
-                            disabled={forceSummaryMutation.isPending}
-                        >
-                            Force summary
-                        </Button>
-                        <Button variant="text" onClick={exportMarkdown}>
-                            Export Markdown
-                        </Button>
-                        <Button variant="text" onClick={exportJson}>
-                            Export JSON
-                        </Button>
-                    </Stack>
-                )}
-                meta={(
-                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                        <Chip label={humanizeKey(brainstorm.mode)} size="small" color="secondary" variant="outlined" />
-                        <Chip label={humanizeKey(brainstorm.output_type)} size="small" variant="outlined" />
-                        <Chip label={`Round ${currentRound}/${brainstorm.max_rounds}`} size="small" variant="outlined" />
-                        <Chip label={`$${totalCostUsd.toFixed(4)}`} size="small" variant="outlined" />
-                        <Chip label={humanizeKey(brainstorm.consensus_status)} size="small" color={consensusColor} />
-                        {discourse?.conflict_signal ? (
-                            <Chip label="Conflict signal" size="small" color="warning" variant="outlined" />
-                        ) : null}
-                    </Stack>
-                )}
-            />
 
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1.6fr) 360px" }, alignItems: "start" }}>
                 <SectionCard title="Discussion thread" description="Chat-style transcript grouped by round.">

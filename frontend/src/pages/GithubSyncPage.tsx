@@ -30,7 +30,6 @@ import {
 import { Close as CloseIcon } from "@mui/icons-material";
 import { useSnackbar } from "../app/snackbarContext";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
@@ -448,11 +447,6 @@ export function GithubSyncPanel() {
 export default function GithubSyncPage() {
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Integration"
-                title="GitHub Sync"
-                description="Connect repositories, sync issue metadata, import work into the platform, and review outbound sync activity."
-            />
             <GithubSyncPanel />
         </PageShell>
     );

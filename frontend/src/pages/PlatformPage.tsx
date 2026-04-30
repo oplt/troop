@@ -37,7 +37,6 @@ import {
 import { useSnackbar } from "../app/snackbarContext";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { StatCard } from "../components/ui/StatCard";
 import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
@@ -641,22 +640,8 @@ export function PlatformPanel() {
 }
 
 export default function PlatformPage() {
-    const { data: metadata } = usePlatformMetadata();
-    const visibleUserModules =
-        metadata?.module_catalog.filter((item) => item.user_visible && item.enabled) ?? [];
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Platform services"
-                title="Platform"
-                description="Use the optional modules enabled by your current pack, including billing, developer access, event delivery, and feature access."
-                meta={
-                    <>
-                        <Chip label={`Pack: ${metadata?.module_pack ?? "n/a"}`} variant="outlined" />
-                        <Chip label={`${visibleUserModules.length} user modules`} variant="outlined" />
-                    </>
-                }
-            />
             <PlatformPanel />
         </PageShell>
     );

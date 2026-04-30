@@ -48,7 +48,6 @@ import {
     type SemanticMemoryEntry,
 } from "../api/orchestration";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
@@ -225,27 +224,6 @@ export default function SemanticMemoryPage() {
 
     return (
         <PageShell maxWidth="lg">
-            <PageHeader
-                eyebrow="Memory"
-                title="Semantic & episodic"
-                description={
-                    <>
-                        Typed semantic entries for this project. Episodic search scans run events, comments,
-                        and brainstorm messages.{" "}
-                        <Link component={RouterLink} to={`/agent-projects/${projectId}`}>
-                            Back to project
-                        </Link>
-                        {project?.company_id ? (
-                            <>
-                                {" · "}
-                                <Link component={RouterLink} to={`/companies/${project.company_id}/memory`}>
-                                    Company semantic
-                                </Link>
-                            </>
-                        ) : null}
-                    </>
-                }
-            />
 
             {notice && (
                 <Alert severity="info" onClose={() => setNotice(null)} sx={{ mb: 2 }}>

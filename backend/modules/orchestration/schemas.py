@@ -379,6 +379,70 @@ class ProjectRepositoryLinkResponse(BaseModel):
     metadata: dict[str, Any]
 
 
+class LocalRepoWorkspacePayload(RequestModel):
+    enabled: bool = True
+    repo_path: str = Field(default="", max_length=2000)
+    allowed_branches: list[str] = Field(default_factory=list)
+    dirty_worktree_policy: Literal["block", "warn", "allow"] = "block"
+    file_allowlist: list[str] = Field(default_factory=list)
+    file_denylist: list[str] = Field(default_factory=list)
+    max_diff_bytes: int = Field(default=200_000, ge=1_000, le=5_000_000)
+    command_allowlist: list[str] = Field(default_factory=list)
+    worktree_root: str | None = None
+
+
+class LocalRepoWorkspaceResponse(BaseModel):
+    valid: bool
+    blocked_reasons: list[str] = Field(default_factory=list)
+    workspace: dict[str, Any]
+    branch: str | None = None
+    dirty: bool | None = None
+    status: str | None = None
+    remotes: str | None = None
+    last_commit: str | None = None
+    diff_bytes: int | None = None
+    inspected_at: str | None = None
+
+
+class LocalRepoCommandRequest(RequestModel):
+    command: str = Field(min_length=1, max_length=1000)
+    cwd: str | None = None
+    timeout_seconds: int = Field(default=60, ge=1, le=600)
+
+
+class LocalRepoCommandResponse(BaseModel):
+    command: str
+    cwd: str
+    exit_code: int
+    stdout: str
+    stderr: str
+    duration_ms: int
+    timed_out: bool = False
+
+
+class LocalRepoReadFileResponse(BaseModel):
+    path: str
+    content: str
+    truncated: bool = False
+
+
+class LocalRepoWorktreeResponse(BaseModel):
+    branch: str
+    path: str
+    base_repo_path: str
+    created_at: str
+
+
+class LocalRepoContextPackResponse(BaseModel):
+    repo: dict[str, Any]
+    issue_text: str
+    acceptance_criteria: str | None = None
+    tree: list[str]
+    files: list[dict[str, Any]]
+    constraints: dict[str, Any]
+    created_at: str
+
+
 class TaskCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
     description: str | None = None
@@ -408,6 +472,65 @@ class TaskCreate(RequestModel):
     result_summary: str | None = None
     result_payload: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentWorkSessionCreate(RequestModel):
+    agent_id: str | None = None
+    repository_link_id: str | None = None
+    acceptance_criteria: str | None = None
+    risk_level: Literal["low", "medium", "high"] = "medium"
+    required_tests: list[str] = Field(default_factory=list)
+
+
+class AgentWorkSessionUpdate(RequestModel):
+    status: Literal[
+        "queued",
+        "preparing_workspace",
+        "analyzing",
+        "planning",
+        "editing",
+        "testing",
+        "review-ready",
+        "blocked",
+        "failed",
+        "done",
+    ]
+    plan: str | None = None
+    plan_status: str | None = None
+    blocker: str | None = None
+    summary: str | None = None
+    artifacts: list[dict[str, Any]] | None = None
+
+
+class AgentWorkSessionResponse(BaseModel):
+    status: str
+    agent_id: str | None = None
+    repository_link_id: str | None = None
+    local_repo: dict[str, Any] = Field(default_factory=dict)
+    acceptance_criteria: str | None = None
+    risk_level: str
+    required_tests: list[str] = Field(default_factory=list)
+    planning_gate_required: bool = False
+    plan_status: str | None = None
+    plan: str | None = None
+    blocker: str | None = None
+    summary: str | None = None
+    quality_score: dict[str, Any] | None = None
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    created_by_user_id: str | None = None
+    updated_by_user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class AgentQualityScoreResponse(BaseModel):
+    correctness: int
+    test_coverage: int
+    diff_size: int
+    blast_radius: int
+    confidence: int
+    security_risk: int
+    ux_impact: int
 
 
 class TaskUpdate(RequestModel):

@@ -8,7 +8,6 @@ import {
     Avatar,
     Box,
     Button,
-    Chip,
     CircularProgress,
     FormControlLabel,
     Link,
@@ -35,7 +34,6 @@ import { changePassword, getMe, getSessions, revokeSession, updateMe } from "../
 import { deleteAvatar, getProfile, updateProfile, uploadAvatar } from "../api/profile";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDate, formatDateTime, getInitials } from "../utils/formatters";
@@ -301,25 +299,6 @@ export default function ProfilePage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Personal settings"
-                title="Profile"
-                description="Manage identity, public details, active sessions, and password security from a single polished account hub."
-                meta={
-                    <>
-                        <Chip
-                            label={user?.is_verified ? "Email verified" : "Email verification needed"}
-                            color={user?.is_verified ? "success" : "warning"}
-                            variant="outlined"
-                        />
-                        <Chip
-                            label={user?.mfa_enabled ? "MFA enabled" : "MFA recommended"}
-                            color={user?.mfa_enabled ? "success" : "default"}
-                            variant="outlined"
-                        />
-                    </>
-                }
-            />
 
             <Box
                 sx={{

@@ -8,18 +8,12 @@ from backend.modules.calendar.repository import CalendarRepository
 from backend.modules.calendar.schemas import CalendarItemCreate, CalendarItemResponse, CalendarItemUpdate
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.identity_access.models import User
-from backend.modules.projects.models import Project, ProjectTask
-from backend.modules.projects.repository import ProjectsRepository
-from backend.modules.projects.schemas import ProjectTaskCreate
-from backend.modules.projects.service import ProjectsService
 
 
 class CalendarService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = CalendarRepository(db)
-        self.projects_repo = ProjectsRepository(db)
-        self.projects_service = ProjectsService(db)
 
     async def list_items(
         self,
@@ -31,11 +25,9 @@ class CalendarService:
             raise HTTPException(status_code=400, detail="Start date must be before end date")
 
         entries = await self.repo.list_entries_by_user_and_range(user.id, start_date, end_date)
-        tasks = await self.projects_repo.list_tasks_due_for_user(user.id, start_date, end_date)
         orch_tasks = await self.repo.list_orchestrator_tasks_due_for_owner(user.id, start_date, end_date)
 
         items = [self._entry_to_response(entry) for entry in entries]
-        items.extend(self._task_to_response(task, project) for task, project in tasks)
         items.extend(self._orchestrator_task_to_response(t, p) for t, p in orch_tasks)
         items.sort(
             key=lambda item: (
@@ -48,7 +40,10 @@ class CalendarService:
 
     async def create_item(self, user: User, payload: CalendarItemCreate) -> CalendarItemResponse:
         if payload.type == "task":
-            return await self._create_task_item(user, payload)
+            raise HTTPException(
+                status_code=400,
+                detail="Create tasks from agent projects; calendar task items are read-only.",
+            )
         return await self._create_entry_item(user, payload)
 
     async def _create_entry_item(
@@ -83,30 +78,6 @@ class CalendarService:
         await self.db.refresh(entry)
         return self._entry_to_response(entry)
 
-    async def _create_task_item(
-        self,
-        user: User,
-        payload: CalendarItemCreate,
-    ) -> CalendarItemResponse:
-        if not payload.project_id:
-            raise HTTPException(status_code=400, detail="Project is required when creating a task")
-
-        task, _ = await self.projects_service.create_task(
-            user.id,
-            user,
-            payload.project_id,
-            ProjectTaskCreate(
-                title=payload.title.strip(),
-                description=payload.description.strip() if payload.description else None,
-                status="todo",
-                priority=payload.priority or "medium",
-                due_date=payload.date,
-                assignee_id=payload.assignee_id or user.id,
-            ),
-        )
-        project = await self.projects_service.get_project(user.id, payload.project_id)
-        return self._task_to_response(task, project)
-
     @staticmethod
     def _entry_to_response(entry: CalendarEntry) -> CalendarItemResponse:
         return CalendarItemResponse(
@@ -119,25 +90,6 @@ class CalendarService:
             start_time=entry.start_time,
             end_time=entry.end_time,
             created_at=entry.created_at,
-        )
-
-    @staticmethod
-    def _task_to_response(task: ProjectTask, project: Project) -> CalendarItemResponse:
-        if not task.due_date:
-            raise HTTPException(status_code=500, detail="Task is missing a due date")
-
-        return CalendarItemResponse(
-            id=task.id,
-            source="task",
-            type="task",
-            title=task.title,
-            description=task.description,
-            date=task.due_date,
-            project_id=project.id,
-            project_name=project.name,
-            priority=task.priority,
-            status=str(task.status),
-            created_at=task.created_at,
         )
 
     @staticmethod

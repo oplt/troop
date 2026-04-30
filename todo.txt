@@ -1,6 +1,58 @@
+
 - [ ] Support multi-repo tasks:
   explicit primary repo, secondary repos, per-subtask repo linkage, cross-repo PR coordination.
 - [ ] Add timeline/audit trail for every GitHub side effect:
   inbound webhook, internal decision, approval request, outbound post, sync status, linked run/artifact.
 - [ ] Add targeted integration tests for:
   install flow, webhook signature/idempotency, issue mirror create/update, approval-gated comments, PR generation, PR review ingestion, repo-aware routing, timeline linkage.
+
+## Local repo agent execution
+
+- [x] Define local-repo workspace model:
+  repo path, allowed branches, dirty-worktree policy, file allow/deny lists, max diff size, command allowlist.
+- [x] Add project repo connection UI:
+  register local path, validate Git repo, show current branch, uncommitted changes, remotes, last commit.
+- [ ] Add issue-to-agent assignment flow:
+  select issue/task, choose agent, choose local repo, define acceptance criteria, risk level, required tests.
+- [x] Add agent work session lifecycle:
+  queued, preparing workspace, analyzing, planning, editing, testing, review-ready, blocked, failed, done.
+- [x] Create isolated agent worktrees:
+  one Git worktree per assigned issue, deterministic branch name, no direct edits to user's active branch.
+- [x] Build repo context packer:
+  include issue text, repo tree summary, relevant files, AGENTS.md, package commands, recent failures, constraints.
+- [ ] Implement agent planning gate:
+  require short plan before edits for medium/high-risk issues; user can approve, revise, or cancel.
+- [x] Implement safe tool runner:
+  command allowlist, timeout, stdout/stderr capture, working-dir lock, env redaction, no destructive git ops.
+- [ ] Add code search and file-edit tools:
+  `rg`, read file, apply patch, format touched files, inspect git diff, never overwrite user changes.
+- [ ] Add bug-fix workflow:
+  reproduce failure, identify root cause, patch minimal files, run targeted tests, report residual risk.
+- [ ] Add frontend UX workflow:
+  browser preview, responsive screenshots, accessibility checks, loading/error/empty states, visual diff notes.
+- [ ] Add backend workflow:
+  service-layer changes, targeted tests, migrations when needed, API contract checks, structured errors.
+- [ ] Add AI agent guardrails:
+  prompt-injection checks from repo files/issues, secret redaction, scoped repo permissions, human approval for risky ops.
+- [ ] Add session transcript and artifacts:
+  plan, commands run, files read, patches, test output, screenshots, final summary.
+- [ ] Add review dashboard:
+  show diff, test status, agent reasoning summary, risk badges, rollback button, approve/apply controls.
+- [ ] Add apply strategy:
+  open PR from worktree branch, cherry-pick patch, or export patch; never auto-merge without explicit approval.
+- [ ] Add conflict handling:
+  detect base branch drift, rebase worktree safely, surface conflicts with file-level guidance.
+- [ ] Add multi-agent coordination:
+  lock files per session, prevent overlapping edits, share findings, assign disjoint subtasks.
+- [ ] Add issue discovery:
+  scan local repo for failing tests, TODO/FIXME, lint errors, type errors, flaky tests, dependency warnings.
+- [x] Add quality scoring:
+  correctness, test coverage, diff size, blast radius, confidence, security risk, UX impact.
+- [ ] Add eval suite for agents:
+  seeded bugs, expected patches, command safety tests, prompt-injection fixtures, regression checks.
+- [ ] Add observability:
+  per-agent latency, token/cost, command failures, test pass rate, patch acceptance rate, rollback rate.
+- [ ] Add settings:
+  default model/provider per agent, max runtime, max files changed, test command templates, approval thresholds.
+- [ ] Add notifications:
+  blocked session, ready for review, tests failed, branch conflict, command denied, run completed.

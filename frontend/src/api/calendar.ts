@@ -1,7 +1,7 @@
 import { apiFetch } from "./client";
-import type { ProjectTaskPriority } from "./projects";
 
 export type CalendarItemType = "event" | "appointment" | "task";
+export type CalendarTaskPriority = "low" | "medium" | "high" | "urgent";
 /** `orchestration` = agent-project tasks/milestones (from API list and/or client overlay) */
 export type CalendarItemSource = "planner" | "task" | "orchestration";
 
@@ -16,7 +16,7 @@ export type CalendarItem = {
     end_time: string | null;
     project_id: string | null;
     project_name: string | null;
-    priority: ProjectTaskPriority | null;
+    priority: CalendarTaskPriority | null;
     /** Planner tasks use project task statuses; orchestration overlay uses orchestration task / milestone status strings */
     status: string | null;
     created_at: string;
@@ -65,7 +65,7 @@ export async function createCalendarItem(payload: {
     start_time?: string | null;
     end_time?: string | null;
     project_id?: string | null;
-    priority?: ProjectTaskPriority | null;
+    priority?: CalendarTaskPriority | null;
     assignee_id?: string | null;
 }): Promise<CalendarItem> {
     return apiFetch("/calendar/items", {

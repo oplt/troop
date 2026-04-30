@@ -1,0 +1,49 @@
+.PHONY: local-dev docker-dev prod-dev help check-env kill-dev kill-celery kill-ports
+
+check-env:
+	@echo "Checking development environment..."
+	@command -v honcho >/dev/null 2>&1 || { echo "❌ honcho not installed. Run: pip install honcho"; exit 1; }
+	@command -v uv >/dev/null 2>&1 || { echo "❌ uv not installed. Run: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
+	@command -v pnpm >/dev/null 2>&1 || { echo "⚠️  pnpm not installed. Frontend may fail to start."; }
+	@echo "✅ Environment check passed"
+
+help:
+	@echo "🐘 Troop Development Environment"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  local-dev   - Run development environment locally"
+	@echo "  docker-dev  - Run development environment in Docker containers"
+	@echo "  prod-dev    - Run production-like deployment locally"
+	@echo ""
+
+kill-celery:
+	@echo "Stopping Celery processes..."
+	-pgrep -f "[c]elery.*worker" | xargs -r kill
+	-pgrep -f "[c]elery.*beat" | xargs -r kill
+
+kill-ports:
+	@echo "Freeing ports 8000 and 5173..."
+	-fuser -k 8000/tcp 2>/dev/null || true
+	-fuser -k 5173/tcp 2>/dev/null || true
+
+kill-dev:
+	@echo "Stopping all development processes..."
+	-pgrep -f "[h]oncho" | xargs -r kill
+	-pgrep -f "[u]vicorn" | xargs -r kill
+	-pgrep -f "[c]elery" | xargs -r kill
+	-pgrep -f "[v]ite" | xargs -r kill
+	-pgrep -f "[n]pm" | xargs -r kill
+	-$(MAKE) -f Makefile.local kill-ports
+	@echo "All processes stopped"
+
+local-dev: kill-dev check-env
+	@echo "🚀 Starting development environment..."
+	honcho -f Procfile.dev start
+
+docker-dev:
+	@echo "🐳 Starting Docker development environment..."
+	$(MAKE) -f Makefile.docker docker-dev
+
+prod-dev:
+	@echo "🏭 Starting production-like environment..."
+	$(MAKE) -f Makefile.deploy prod-dev

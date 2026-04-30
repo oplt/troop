@@ -46,7 +46,23 @@ def _cookie_kwargs() -> dict:
     }
 
 
+def _delete_cookie(response: Response, key: str, path: str) -> None:
+    response.delete_cookie(
+        key,
+        path=path,
+        domain=settings.COOKIE_DOMAIN,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+    )
+
+
+def _clear_cookie_variants(response: Response, key: str, paths: tuple[str, ...]) -> None:
+    for path in paths:
+        _delete_cookie(response, key, path)
+
+
 def _set_refresh_cookie(response: Response, token: str) -> None:
+    _clear_cookie_variants(response, settings.REFRESH_COOKIE_NAME, ("/", "/api/v1"))
     response.set_cookie(
         key=settings.REFRESH_COOKIE_NAME,
         value=token,
@@ -58,6 +74,11 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 
 
 def _set_access_cookie(response: Response, token: str) -> None:
+    _clear_cookie_variants(
+        response,
+        settings.ACCESS_COOKIE_NAME,
+        ("/api/v1", "/api/v1/auth"),
+    )
     response.set_cookie(
         key=settings.ACCESS_COOKIE_NAME,
         value=token,
@@ -80,12 +101,10 @@ def _set_csrf_cookie(response: Response, token: str) -> None:
 
 
 def _clear_auth_cookies(response: Response) -> None:
-    for key, path in (
-        (settings.ACCESS_COOKIE_NAME, "/"),
-        (settings.REFRESH_COOKIE_NAME, "/api/v1/auth"),
-        (settings.CSRF_COOKIE_NAME, "/"),
-    ):
-        response.delete_cookie(key, path=path, domain=settings.COOKIE_DOMAIN)
+    paths = ("/", "/api/v1", "/api/v1/auth")
+    _clear_cookie_variants(response, settings.ACCESS_COOKIE_NAME, paths)
+    _clear_cookie_variants(response, settings.REFRESH_COOKIE_NAME, paths)
+    _clear_cookie_variants(response, settings.CSRF_COOKIE_NAME, paths)
 
 
 def _build_user(user: User) -> AuthUserResponse:

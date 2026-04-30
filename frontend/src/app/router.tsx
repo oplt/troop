@@ -8,8 +8,6 @@ import AuthHomePage from "../pages/AuthHomePage";
 
 const DashboardPage = lazy(() => import("../pages/DashboardPage"));
 const CalendarPage = lazy(() => import("../pages/CalendarPage"));
-const ProjectsPage = lazy(() => import("../pages/ProjectsPage"));
-const ProjectDetailPage = lazy(() => import("../pages/ProjectDetailPage"));
 const PlatformPage = lazy(() => import("../pages/PlatformPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
@@ -19,7 +17,7 @@ const AdminPlatformPage = lazy(() => import("../pages/AdminPlatformPage"));
 const AdminSettingsPage = lazy(() => import("../pages/AdminSettingsPage"));
 const AiStudioPage = lazy(() => import("../pages/AiStudioPage"));
 const HierarchyPage = lazy(() => import("../pages/HierarchyPage"));
-const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProjectsPage"));
+const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProjectsPage.tsx"));
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
 const BrainstormsPage = lazy(() => import("../pages/BrainstormsPage"));
 const BrainstormDetailPage = lazy(() => import("../pages/BrainstormDetailPage"));
@@ -79,8 +77,6 @@ export function AppRouter() {
                 >
                     <Route path="/dashboard" element={<SuspensePage><DashboardPage /></SuspensePage>} />
                     <Route path="/calendar" element={<SuspensePage><CalendarPage /></SuspensePage>} />
-                    <Route path="/projects" element={<SuspensePage><ProjectsPage /></SuspensePage>} />
-                    <Route path="/projects/:projectId" element={<SuspensePage><ProjectDetailPage /></SuspensePage>} />
                     <Route path="/platform" element={<SuspensePage><PlatformPage /></SuspensePage>} />
                     <Route path="/ai" element={<SuspensePage><AiStudioPage /></SuspensePage>} />
                     <Route path="/hierarchy" element={<Navigate to="/hierarchy-builder" replace />} />

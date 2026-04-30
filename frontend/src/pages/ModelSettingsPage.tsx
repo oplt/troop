@@ -1,7 +1,6 @@
 import { Alert, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { getOrchestrationRuntimeInfo } from "../api/orchestration";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { ProviderSettingsPanel } from "./OrchestrationSettingsPage";
@@ -14,20 +13,6 @@ export default function ModelSettingsPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="Orchestration"
-                title="Model settings"
-                description="Central place for provider credentials, health checks, model comparison, and deployment flags that affect routing."
-                meta={
-                    runtime ? (
-                        <Typography variant="body2" color="text.secondary">
-                            Failover: {runtime.orchestration_provider_failover ? "on" : "off"} · LangGraph router:{" "}
-                            {runtime.orchestration_use_langgraph ? "on" : "off"} · Durable queue:{" "}
-                            {runtime.orchestration_durable_queue_backend}
-                        </Typography>
-                    ) : null
-                }
-            />
 
             {runtime?.orchestration_use_langgraph && (
                 <Alert severity="info" sx={{ mb: 2 }}>

@@ -43,7 +43,6 @@ import {
 } from "../api/ai";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -316,18 +315,6 @@ export default function AiStudioPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <PageHeader
-                eyebrow="AI platform"
-                title="AI Studio"
-                description="Manage prompt versions, retrieval documents, review queues, evaluation datasets, and reusable AI run telemetry from one place."
-                meta={
-                    <>
-                        <Chip label={`${providers.length} providers`} variant="outlined" />
-                        <Chip label={`${recentRuns.length} recent runs`} variant="outlined" />
-                        <Chip label={`${documents.length} documents`} variant="outlined" />
-                    </>
-                }
-            />
 
             <Box
                 sx={{

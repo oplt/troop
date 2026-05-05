@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from typing import Annotated, Any, List, Optional
+from typing import Any
+
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
     ORCHESTRATION_USE_LANGGRAPH: bool = False
     # Durable enqueue backend label (future: temporal). Celery is the only implementation today.
     ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
-    ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: Optional[int] = None
+    ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: int | None = None
 
     JWT_SECRET: str
     JWT_ALGORITHM: str

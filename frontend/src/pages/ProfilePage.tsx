@@ -69,12 +69,12 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 type MfaCodeValues = z.infer<typeof mfaCodeSchema>;
 
 function PreferenceItem({
-    label,
-    description,
-    checked,
-    disabled,
-    onChange,
-}: {
+                            label,
+                            description,
+                            checked,
+                            disabled,
+                            onChange,
+                        }: {
     label: string;
     description: string;
     checked: boolean;
@@ -168,7 +168,7 @@ function MfaQrCode({ provisioningUri }: { provisioningUri: string }) {
     );
 }
 
-export default function ProfilePage() {
+export function ProfileContent() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
 
@@ -298,7 +298,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <PageShell maxWidth="xl">
+        <>
 
             <Box
                 sx={{
@@ -736,6 +736,15 @@ export default function ProfilePage() {
                     </SectionCard>
                 </Stack>
             </Box>
+        </>
+    );
+}
+
+
+export default function ProfilePage() {
+    return (
+        <PageShell maxWidth="xl">
+            <ProfileContent />
         </PageShell>
     );
 }

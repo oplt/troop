@@ -7,13 +7,11 @@ from typing import Any
 from fastapi import HTTPException
 
 from backend.core.config import settings
-from backend.modules.identity_access.models import User
-from backend.modules.orchestration._helpers import BlockedExecution, OPENAI_FAMILY_PROVIDER_TYPES
+from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.providers import execute_prompt
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
-
 
 logger = logging.getLogger(__name__)
 

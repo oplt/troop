@@ -3,9 +3,9 @@ import logging
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.db.session import get_db
 from backend.core.config import settings
 from backend.core.security import decode_token
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.identity_access.repository import IdentityRepository
 

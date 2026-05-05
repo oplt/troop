@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOrchestrationRuntimeInfo } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
-import { ProviderSettingsPanel } from "./OrchestrationSettingsPage";
+import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
 
 export default function ModelSettingsPage() {
     const { data: runtime } = useQuery({

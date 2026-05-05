@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.db.session import get_db
 from backend.core.config import settings
 from backend.core.storage import ObjectStorageError, StorageNotConfiguredError, object_storage
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.profile.schemas import ProfileResponse, ProfileUpdate
 from backend.modules.profile.service import ProfileService

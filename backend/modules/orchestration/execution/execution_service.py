@@ -1,36 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
-import hmac
 import json
 import logging
-import re
-import time
-from collections import Counter
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
-import httpx
-import jwt
-from fastapi import HTTPException, UploadFile
-from sqlalchemy import or_, select, update
-from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.cache import redis_client
 from backend.core.config import settings
-from backend.core.storage import StorageNotConfiguredError, object_storage
-from backend.modules.ai.providers import AiProviderRegistry
-from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
-from backend.modules.memory.classifier import classify_run_events
 from backend.modules.memory.working_memory import EXECUTION_THREAD_ID_KEY
 from backend.modules.orchestration._helpers import BlockedExecution
-from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
 from backend.modules.orchestration.execution.execution_state import (
     EXECUTION_SNAPSHOT_SCHEMA_VERSION,
     EXECUTION_TRUTH_DESCRIPTION,
@@ -54,14 +37,15 @@ from backend.modules.orchestration.execution.execution_workflow import (
     update_query_snapshot,
     workflow_state,
 )
-from backend.modules.orchestration._helpers import run_orchestration_job
-# from backend.modules.orchestration.model_utils import _model_capabilities
-from backend.modules.orchestration.models import ApprovalRequest, ProviderConfig, RunEvent, TaskRun
-from backend.modules.orchestration.providers import execute_prompt
-from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
-from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask, TaskArtifact
-from backend.modules.team.models import AgentProfile
 
+# from backend.modules.orchestration.model_utils import _model_capabilities
+from backend.modules.orchestration.models import ProviderConfig, TaskRun
+from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
+from backend.modules.projects.orchestration_models import (
+    OrchestratorProject,
+    OrchestratorTask,
+)
+from backend.modules.team.models import AgentProfile
 
 logger = logging.getLogger(__name__)
 
@@ -1032,7 +1016,9 @@ class OrchestrationExecutionServiceMixin:
                 payload={"warnings": startup_warnings},
             )
         await self.db.commit()
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(run.id)
         await self.db.refresh(run)
@@ -1108,7 +1094,9 @@ class OrchestrationExecutionServiceMixin:
                     payload={"parent_run_id": run.id},
                 )
         await self.db.commit()
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(run.id)
         await self.db.refresh(run)
@@ -1187,7 +1175,9 @@ class OrchestrationExecutionServiceMixin:
             payload={"parent_run_id": old.id, "from_event_index": from_event_index},
         )
         await self.db.commit()
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(new_run.id)
         await self.db.refresh(new_run)
@@ -1477,7 +1467,9 @@ class OrchestrationExecutionServiceMixin:
             payload={"previous_run_id": run.id},
         )
         await self.db.commit()
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(new_run.id)
         await self.db.refresh(new_run)
@@ -1559,7 +1551,9 @@ class OrchestrationExecutionServiceMixin:
             if task is not None and task.status in {"planned", "blocked"}:
                 await self._transition_task_status(task, "in_progress", run=run, reason="execution started")
             if settings.ORCHESTRATION_USE_LANGGRAPH:
-                from backend.modules.orchestration.execution.langgraph_runner import run_via_langgraph
+                from backend.modules.orchestration.execution.langgraph_runner import (
+                    run_via_langgraph,
+                )
 
                 await run_via_langgraph(self, run)
             elif run.run_mode == "brainstorm":

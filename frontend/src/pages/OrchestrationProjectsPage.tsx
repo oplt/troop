@@ -6,11 +6,13 @@ import {
     Alert,
     Box,
     Button,
+    CardActionArea,
     Chip,
     Collapse,
     Divider,
     Drawer,
     IconButton,
+    InputAdornment,
     LinearProgress,
     MenuItem,
     Paper,
@@ -27,7 +29,11 @@ import {
     ExpandLess as ExpandLessIcon,
     ExpandMore as ExpandMoreIcon,
     Hub as ProjectIcon,
+    PendingActions as PendingActionsIcon,
+    PlayArrow as PlayArrowIcon,
     Refresh as RefreshIcon,
+    Search as SearchIcon,
+    WarningAmber as WarningAmberIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -67,6 +73,7 @@ type ProjectForm = {
 };
 
 type SortKey = "last_active" | "name" | "created";
+type StatusFilter = "all" | "active" | "completed" | "archived" | "attention";
 
 function splitList(value: string) {
     return value
@@ -88,6 +95,7 @@ function buildLocalRepoPayload(
     >,
 ) {
     const repoPath = values.local_repo_path.trim();
+    const maxDiffBytes = Number(values.max_diff_bytes);
     return {
         enabled: Boolean(repoPath),
         repo_path: repoPath,
@@ -96,10 +104,7 @@ function buildLocalRepoPayload(
         file_allowlist: splitList(values.file_allowlist),
         file_denylist: splitList(values.file_denylist),
         command_allowlist: splitList(values.command_allowlist),
-        max_diff_bytes: Math.max(1, Math.floor(Number(values.max_diff_bytes) || 200000)),
-        task_branch_prefix: "troop",
-        auto_merge_on_success: true,
-        merge_target_branch: "main",
+        max_diff_bytes: Math.max(1_000, Math.min(5_000_000, Math.floor(Number.isFinite(maxDiffBytes) ? maxDiffBytes : 200_000))),
     };
 }
 
@@ -117,7 +122,7 @@ export default function OrchestrationProjectsPage() {
             team_profile_id: "",
             local_repo_path: "",
             dirty_worktree_policy: "block",
-            allowed_branches: "main, master, develop, troop/*",
+            allowed_branches: "main, master, develop",
             file_allowlist: "**/*",
             file_denylist: ".git/**, .env, .env.*, **/.env, **/.env.*, node_modules/**, **/node_modules/**",
             command_allowlist: "git status, git diff, rg, pnpm, uv, pytest",
@@ -143,6 +148,8 @@ export default function OrchestrationProjectsPage() {
         }
     }, [companies, selectedCompanyId, setValue]);
     const [sortKey, setSortKey] = useState<SortKey>("last_active");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [expandedGroups, setExpandedGroups] = useState({
         active: true,
         completed: true,
@@ -194,6 +201,15 @@ export default function OrchestrationProjectsPage() {
         return map;
     }, [runs]);
 
+    const failedRunCountByProject = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const run of runs) {
+            if (!["failed", "error", "cancelled"].includes(run.status)) continue;
+            map.set(run.project_id, (map.get(run.project_id) ?? 0) + 1);
+        }
+        return map;
+    }, [runs]);
+
     const lastRunAtByProject = useMemo(() => {
         const map = new Map<string, number>();
         for (const run of runs) {
@@ -204,8 +220,26 @@ export default function OrchestrationProjectsPage() {
         return map;
     }, [runs]);
 
+    const filteredProjects = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        return projects.filter((project) => {
+            const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+            const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
+            const matchesQuery =
+                !query ||
+                project.name.toLowerCase().includes(query) ||
+                String(project.description ?? "").toLowerCase().includes(query) ||
+                project.status.toLowerCase().includes(query);
+            const matchesStatus =
+                statusFilter === "all" ||
+                project.status === statusFilter ||
+                (statusFilter === "attention" && (activeRuns > 0 || failedRuns > 0));
+            return matchesQuery && matchesStatus;
+        });
+    }, [projects, searchQuery, statusFilter, activeRunCountByProject, failedRunCountByProject]);
+
     const sortedProjects = useMemo(() => {
-        const list = [...projects];
+        const list = [...filteredProjects];
         list.sort((a, b) => {
             if (sortKey === "name") return a.name.localeCompare(b.name);
             if (sortKey === "created") {
@@ -216,7 +250,8 @@ export default function OrchestrationProjectsPage() {
             return tb - ta;
         });
         return list;
-    }, [projects, sortKey, lastRunAtByProject]);
+    }, [filteredProjects, sortKey, lastRunAtByProject]);
+
     const groupedProjects = useMemo(
         () => ({
             active: sortedProjects.filter((project) => !["archived", "completed"].includes(project.status)),
@@ -224,6 +259,32 @@ export default function OrchestrationProjectsPage() {
             archived: sortedProjects.filter((project) => project.status === "archived"),
         }),
         [sortedProjects],
+    );
+
+    const dashboardStats = useMemo(() => {
+        const activeProjects = projects.filter((project) => !["archived", "completed"].includes(project.status)).length;
+        const runningRuns = runs.filter((run) => ["queued", "in_progress"].includes(run.status)).length;
+        const failedRuns = runs.filter((run) => ["failed", "error", "cancelled"].includes(run.status)).length;
+        const assignedAgents = projects.reduce((total, project) => total + (agentCountByProject.get(project.id) ?? 0), 0);
+        return { activeProjects, runningRuns, failedRuns, assignedAgents };
+    }, [projects, runs, agentCountByProject]);
+
+    const attentionProjects = useMemo(
+        () =>
+            projects.filter((project) => {
+                const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+                const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
+                return activeRuns > 0 || failedRuns > 0;
+            }),
+        [projects, activeRunCountByProject, failedRunCountByProject],
+    );
+
+    const recentRuns = useMemo(
+        () =>
+            [...runs]
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .slice(0, 6),
+        [runs],
     );
 
     const mutation = useMutation({
@@ -331,23 +392,91 @@ export default function OrchestrationProjectsPage() {
 
     return (
         <PageShell maxWidth="xl">
+            <Stack spacing={3}>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: { xs: 2, md: 3 },
+                        borderRadius: 4,
+                        border: 1,
+                        borderColor: "divider",
+                        bgcolor: "background.paper",
+                    }}
+                >
+                    <Stack spacing={2.5}>
+                        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: -0.4 }}>
+                                    Agent Projects
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                    Monitor project health, agent capacity, active runs, and repo-backed workspaces.
+                                </Typography>
+                            </Box>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                                <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => queryClient.invalidateQueries({ queryKey: ["orchestration"] })}>
+                                    Refresh
+                                </Button>
+                                <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => setDrawerOpen(true)}>
+                                    New project
+                                </Button>
+                            </Stack>
+                        </Stack>
 
+                        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
+                            {[
+                                { label: "Active projects", value: dashboardStats.activeProjects, icon: <ProjectIcon fontSize="small" /> },
+                                { label: "Running runs", value: dashboardStats.runningRuns, icon: <PlayArrowIcon fontSize="small" /> },
+                                { label: "Needs attention", value: dashboardStats.failedRuns, icon: <WarningAmberIcon fontSize="small" /> },
+                                { label: "Assigned agents", value: dashboardStats.assignedAgents, icon: <PendingActionsIcon fontSize="small" /> },
+                            ].map((item) => (
+                                <Paper key={item.label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                                    <Stack direction="row" spacing={1.25} alignItems="center">
+                                        <Box sx={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 2, bgcolor: "action.hover" }}>
+                                            {item.icon}
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>
+                                                {item.value}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {item.label}
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
+                                </Paper>
+                            ))}
+                        </Box>
 
-            <Box
-                sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: "1fr",
-                    alignItems: "start",
-                }}
-
-            >
-                <Stack spacing={2}>
-                    <Paper sx={{ p: 2, borderRadius: 3 }}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
-                            <Button variant="contained" color="primary" onClick={() => setDrawerOpen(true)} sx={{ mb: 3 }}>
-                                New project
-                            </Button>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+                            <TextField
+                                size="small"
+                                placeholder="Search projects, descriptions, status..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                sx={{ flex: 1 }}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                            <TextField
+                                select
+                                size="small"
+                                label="Status"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                                sx={{ minWidth: 170 }}
+                            >
+                                <MenuItem value="all">All projects</MenuItem>
+                                <MenuItem value="attention">Needs attention</MenuItem>
+                                <MenuItem value="active">Active</MenuItem>
+                                <MenuItem value="completed">Completed</MenuItem>
+                                <MenuItem value="archived">Archived</MenuItem>
+                            </TextField>
                             <TextField
                                 select
                                 size="small"
@@ -360,27 +489,28 @@ export default function OrchestrationProjectsPage() {
                                 <MenuItem value="name">Name</MenuItem>
                                 <MenuItem value="created">Recently created</MenuItem>
                             </TextField>
-                            <Typography variant="body2" color="text.secondary">
-                                {projects.length} {projects.length === 1 ? "project" : "projects"}
-                            </Typography>
-
-
                         </Stack>
+                    </Stack>
+                </Paper>
 
-                    </Paper>
 
+
+                <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 360px" }, alignItems: "start" }}>
                     <SectionCard>
                         {projects.length === 0 ? (
-                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Create your first project to assign agents and tasks." />
+                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Create your first orchestration project to assign agents, run tasks, and sync work with GitHub." />
+                        ) : sortedProjects.length === 0 ? (
+                            <EmptyState icon={<SearchIcon />} title="No matching projects" description="Clear the search or adjust filters to see more projects." />
                         ) : (
                             <Stack spacing={2}>
                                 {(["active", "completed", "archived"] as const).map((groupKey) => {
                                     const items = groupedProjects[groupKey];
                                     const isExpanded = expandedGroups[groupKey];
+                                    if (items.length === 0 && statusFilter !== "all") return null;
                                     return (
-                                        <Paper key={groupKey} sx={{ p: 1.5, borderRadius: 3, border: 1, borderColor: "divider" }}>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                <Typography variant="subtitle1">
+                                        <Paper key={groupKey} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>
+                                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                                     {humanizeKey(groupKey)} ({items.length})
                                                 </Typography>
                                                 <IconButton
@@ -392,77 +522,103 @@ export default function OrchestrationProjectsPage() {
                                             </Stack>
                                             <Collapse in={isExpanded}>
                                                 {items.length === 0 ? (
-                                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                                        No projects.
+                                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, px: 0.5 }}>
+                                                        No {groupKey} projects.
                                                     </Typography>
                                                 ) : (
-                                                    <Box sx={{ mt: 1.25, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
+                                                    <Box sx={{ mt: 1.25, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" } }}>
                                                         {items.map((project) => {
                                                             const agentCount = agentCountByProject.get(project.id) ?? 0;
                                                             const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+                                                            const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
                                                             const lastRunMs = lastRunAtByProject.get(project.id);
-                                                            const localRepo = project.settings.local_repo as { enabled?: boolean; repo_path?: string; dirty_worktree_policy?: string } | undefined;
+                                                            const localRepo = project.settings?.local_repo as { enabled?: boolean; repo_path?: string; dirty_worktree_policy?: string } | undefined;
+                                                            const progress = project.status === "completed" ? 100 : Math.min(92, 10 + agentCount * 8 + activeRuns * 12);
+                                                            const statusColor = failedRuns > 0 ? "error" : activeRuns > 0 ? "warning" : project.status === "active" ? "success" : "default";
                                                             return (
-                                                                <Paper key={project.id} sx={{ p: 2.25, borderRadius: 4 }}>
-                                                                    <Stack spacing={1.25}>
-                                                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                                                                            <Typography variant="subtitle1">{project.name}</Typography>
-                                                                            <Chip size="small" label={humanizeKey(project.status)} color={project.status === "active" ? "success" : "default"} variant="outlined" />
-                                                                        </Stack>
-                                                                        <Typography variant="body2" color="text.secondary">{project.description || "No description yet."}</Typography>
-                                                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                                            <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
-                                                                            <Chip size="small" variant="outlined" color={activeRuns > 0 ? "warning" : "default"} label={`${activeRuns} active runs`} />
-                                                                            <Chip size="small" variant="outlined" label={`Updated ${formatDate(project.updated_at)}`} />
-                                                                            {localRepo?.enabled ? (
-                                                                                <Chip size="small" variant="outlined" label={`Repo: ${localRepo.repo_path ?? "local"}`} />
-                                                                            ) : null}
-                                                                        </Stack>
-                                                                        {localRepo?.enabled ? (
-                                                                            <Typography variant="caption" color="text.secondary">
-                                                                                Dirty policy: {humanizeKey(String(localRepo.dirty_worktree_policy ?? "block"))}
+                                                                <Paper
+                                                                    key={project.id}
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        overflow: "hidden",
+                                                                        borderRadius: 4,
+                                                                        transition: "border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+                                                                        "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)", boxShadow: 3 },
+                                                                    }}
+                                                                >
+                                                                    <CardActionArea onClick={() => navigate(`/agent-projects/${project.id}`)} sx={{ p: 2.25, alignItems: "stretch" }}>
+                                                                        <Stack spacing={1.35}>
+                                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                                                                <Box sx={{ minWidth: 0 }}>
+                                                                                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
+                                                                                        {project.name}
+                                                                                    </Typography>
+                                                                                    <Typography variant="caption" color="text.secondary">
+                                                                                        Updated {formatDate(project.updated_at)}
+                                                                                    </Typography>
+                                                                                </Box>
+                                                                                <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} variant={activeRuns > 0 || failedRuns > 0 ? "filled" : "outlined"} />
+                                                                            </Stack>
+
+                                                                            <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+                                                                                {project.description || "No description yet. Add a short goal so agents and reviewers understand the workspace."}
                                                                             </Typography>
-                                                                        ) : null}
-                                                                        {lastRunMs != null ? (
-                                                                            <Typography variant="caption" color="text.secondary">
-                                                                                Last run {formatDateTime(new Date(lastRunMs).toISOString())}
-                                                                            </Typography>
-                                                                        ) : null}
-                                                                        <LinearProgress
-                                                                            variant="determinate"
-                                                                            value={Math.min(100, agentCount * 12 + activeRuns * 18)}
-                                                                            sx={{ height: 4, borderRadius: 2, opacity: 0.35 }}
-                                                                        />
-                                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                                                            <Button variant="text" sx={{ px: 0 }} onClick={() => navigate(`/agent-projects/${project.id}`)}>
-                                                                                Open project
-                                                                            </Button>
+
+                                                                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                                                <Chip size="small" variant="outlined" label={`${agentCount} agent${agentCount === 1 ? "" : "s"}`} />
+                                                                                <Chip size="small" variant="outlined" color={activeRuns > 0 ? "warning" : "default"} label={`${activeRuns} active run${activeRuns === 1 ? "" : "s"}`} />
+                                                                                {failedRuns > 0 ? <Chip size="small" color="error" variant="outlined" label={`${failedRuns} failed`} /> : null}
+                                                                                {localRepo?.enabled ? <Chip size="small" variant="outlined" label="Local repo" /> : null}
+                                                                            </Stack>
+
+                                                                            <Box>
+                                                                                <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                                                                                    <Typography variant="caption" color="text.secondary">Execution readiness</Typography>
+                                                                                    <Typography variant="caption" color="text.secondary">{progress}%</Typography>
+                                                                                </Stack>
+                                                                                <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 999 }} />
+                                                                            </Box>
+
+                                                                            <Stack spacing={0.4}>
+                                                                                {lastRunMs != null ? (
+                                                                                    <Typography variant="caption" color="text.secondary">
+                                                                                        Last run {formatDateTime(new Date(lastRunMs).toISOString())}
+                                                                                    </Typography>
+                                                                                ) : (
+                                                                                    <Typography variant="caption" color="text.secondary">No runs yet</Typography>
+                                                                                )}
+                                                                                {localRepo?.enabled ? (
+                                                                                    <Typography variant="caption" color="text.secondary" noWrap>
+                                                                                        Repo: {localRepo.repo_path ?? "local"} · dirty policy {humanizeKey(String(localRepo.dirty_worktree_policy ?? "block"))}
+                                                                                    </Typography>
+                                                                                ) : null}
+                                                                            </Stack>
+                                                                        </Stack>
+                                                                    </CardActionArea>
+                                                                    <Divider />
+                                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ p: 1.25, pl: 2 }}>
+                                                                        <Button size="small" variant={activeRuns > 0 ? "contained" : "text"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/agent-projects/${project.id}`)}>
+                                                                            {activeRuns > 0 ? "Resume" : "Open workspace"}
+                                                                        </Button>
+                                                                        <Stack direction="row" spacing={0.5}>
                                                                             {project.status !== "archived" ? (
                                                                                 <Tooltip title="Archive project">
-                                                                                    <Button
-                                                                                        size="small"
-                                                                                        variant="outlined"
-                                                                                        color="warning"
-                                                                                        startIcon={<ArchiveIcon />}
-                                                                                        onClick={() => archiveProjectMutation.mutate(project.id)}
-                                                                                    >
-                                                                                        Archive
-                                                                                    </Button>
+                                                                                    <IconButton size="small" color="warning" onClick={() => archiveProjectMutation.mutate(project.id)}>
+                                                                                        <ArchiveIcon fontSize="small" />
+                                                                                    </IconButton>
                                                                                 </Tooltip>
                                                                             ) : null}
                                                                             <Tooltip title="Delete project permanently">
-                                                                                <Button
+                                                                                <IconButton
                                                                                     size="small"
-                                                                                    variant="outlined"
                                                                                     color="error"
-                                                                                    startIcon={<DeleteIcon />}
                                                                                     onClick={() => {
                                                                                         if (!window.confirm(`Delete project "${project.name}" permanently?`)) return;
                                                                                         deleteProjectMutation.mutate(project.id);
                                                                                     }}
                                                                                 >
-                                                                                    Delete
-                                                                                </Button>
+                                                                                    <DeleteIcon fontSize="small" />
+                                                                                </IconButton>
                                                                             </Tooltip>
                                                                         </Stack>
                                                                     </Stack>
@@ -478,8 +634,50 @@ export default function OrchestrationProjectsPage() {
                             </Stack>
                         )}
                     </SectionCard>
-                </Stack>
-            </Box>
+
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, position: { xl: "sticky" }, top: { xl: 16 } }}>
+                        <Stack spacing={1.5}>
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                    Recent run activity
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Latest orchestration events across projects.
+                                </Typography>
+                            </Box>
+                            <Divider />
+                            {recentRuns.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">
+                                    No runs yet. Start a task from a project workspace to see live activity here.
+                                </Typography>
+                            ) : (
+                                <Stack spacing={1.25}>
+                                    {recentRuns.map((run) => {
+                                        const project = projects.find((item) => item.id === run.project_id);
+                                        const isRunning = ["queued", "in_progress"].includes(run.status);
+                                        const isFailed = ["failed", "error", "cancelled"].includes(run.status);
+                                        return (
+                                            <Paper key={run.id} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                                <Stack spacing={0.5}>
+                                                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                                                            {project?.name ?? "Unknown project"}
+                                                        </Typography>
+                                                        <Chip size="small" label={humanizeKey(run.status)} color={isFailed ? "error" : isRunning ? "warning" : "default"} />
+                                                    </Stack>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {formatDateTime(run.created_at)}
+                                                    </Typography>
+                                                </Stack>
+                                            </Paper>
+                                        );
+                                    })}
+                                </Stack>
+                            )}
+                        </Stack>
+                    </Paper>
+                </Box>
+            </Stack>
             <Drawer
                 anchor="right"
                 open={drawerOpen}
@@ -500,12 +698,7 @@ export default function OrchestrationProjectsPage() {
                         inputProps={{ minLength: 2, maxLength: 255 }}
                         {...register("name", { required: true, minLength: 2 })}
                     />
-                    <TextField
-                        label="Slug"
-                        helperText="Lowercase letters, numbers, dashes. Auto-generated from name if blank."
-                        inputProps={{ maxLength: 255, pattern: "[a-z0-9][a-z0-9\\-]*" }}
-                        {...register("slug", { pattern: /^[a-z0-9][a-z0-9-]*$/ })}
-                    />
+
                     <TextField
                         select
                         label="Company"
@@ -660,7 +853,8 @@ export default function OrchestrationProjectsPage() {
                     <TextField
                         label="Max diff bytes"
                         type="number"
-                        inputProps={{ min: 1 }}
+                        inputProps={{ min: 1000, max: 5000000 }}
+                        helperText="Allowed range: 1,000 to 5,000,000 bytes."
                         {...register("max_diff_bytes", { valueAsNumber: true })}
                     />
                     <TextField

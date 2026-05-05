@@ -1,163 +1,33 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import hmac
-import json
 import logging
-import uuid
-import re
 import time
-from collections import Counter
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import httpx
 import jwt
-from fastapi import HTTPException, UploadFile
-from sqlalchemy import or_, select, update
+from fastapi import HTTPException
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes as orm_attributes
 
-from backend.core.cache import redis_client
-from backend.core.storage import StorageNotConfiguredError, object_storage
 from backend.core.config import settings
-from backend.modules.ai.providers import AiProviderRegistry
-from backend.modules.audit.repository import AuditRepository
 from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
-from backend.modules.memory.classifier import (
-    ClassifierCandidate,
-    classify_run_events,
-)
-from backend.modules.memory.conflict_resolver import (
-    ConflictReport,
-    detect as detect_memory_conflicts,
-    summarize as summarize_memory_conflicts,
-)
-from backend.modules.memory.models import (
-    AgentMemoryEntry,
-    KnowledgeGraphEdge,
-    ProceduralPlaybook,
-    ProjectDocument,
-    SemanticMemoryEntry,
-    SemanticMemoryLink,
-    normalize_embedding_for_vector,
-)
-from backend.modules.memory.promotion_rules import (
-    PromotionCandidate,
-    PromotionEvaluation,
-    evaluate as evaluate_promotion,
-)
-from backend.modules.memory.provenance import (
-    DEFAULT_CONFIDENCE,
-    get_confidence as get_provenance_confidence,
-    normalize_provenance,
-)
-from backend.modules.memory.retrieval_scoping import (
-    staged_episodic_vector_retrieval,
-    staged_semantic_vector_retrieval,
-)
-from backend.modules.memory.service import OrchestrationMemoryServiceMixin
-from backend.modules.orchestration._helpers import (
-    BlockedExecution,
-    OPENAI_FAMILY_PROVIDER_TYPES,
-    _chunk_text,
-    _cosine_similarity,
-    _default_semantic_namespace,
-    _estimate_embedding_tokens,
-    _provider_type_aliases,
-    run_orchestration_job,
-)
 from backend.modules.orchestration.models import (
     ApprovalRequest,
-    Brainstorm,
-    EvalRecord,
-    ModelCapability,
-    ProviderConfig,
-    RunEvent,
     TaskRun,
 )
-from backend.modules.orchestration.providers import (
-    discover_provider_capabilities,
-    execute_prompt,
-    test_provider,
-)
-from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
-from backend.modules.orchestration.execution.execution_state import (
-    EXECUTION_SNAPSHOT_SCHEMA_VERSION,
-    EXECUTION_TRUTH_DESCRIPTION,
-    SNAPSHOT_SOURCES_RUN,
-    SNAPSHOT_SOURCES_TASK,
-    checkpoint_excerpt,
-    extract_execution_memory_details,
-    extract_execution_metadata_views,
-)
-from backend.modules.orchestration.execution.execution_workflow import (
-    WORKFLOW_STATE_KEY,
-    consume_signal_queue,
-    current_step,
-    durable_handle,
-    enqueue_signal,
-    ensure_workflow_state,
-    get_workflow_artifact,
-    increment_resume_count,
-    mark_step,
-    set_workflow_artifact,
-    summarize_trace,
-    update_query_snapshot,
-    workflow_state,
-)
-from backend.modules.memory.coordination import (
-    MEMORY_COORDINATION_KEY,
-    extract_blackboard_sections,
-)
-from backend.modules.memory.compaction import (
-    AGENT_MEMORY_TTL_SNAPSHOT_KIND,
-    PROJECT_DOCUMENT_TTL_SNAPSHOT_KIND,
-    TASK_CLOSE_SNAPSHOT_KIND,
-    build_task_close_snapshot_text,
-    prune_checkpoint_after_compaction,
-    snapshot_source_id,
-)
-from backend.modules.memory.episodic import (
-    build_episodic_archive_jsonl_gz,
-    episodic_object_key,
-)
-from backend.modules.orchestration.execution.execution_service import OrchestrationExecutionServiceMixin
-from backend.modules.orchestration.services.brainstorm_service import OrchestrationBrainstormServiceMixin
-from backend.modules.orchestration.services.providers_service import OrchestrationProvidersServiceMixin
-from backend.modules.orchestration.services.routing_service import OrchestrationRoutingServiceMixin
-from backend.modules.memory.metrics import increment_memory_metric
-from backend.modules.memory.settings import merge_memory_settings
-from backend.modules.orchestration.procedural_context import build_procedural_snippets
-from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.memory.working_memory import (
-    EXECUTION_THREAD_ID_KEY,
-    WORKING_MEMORY_KEY,
-    format_working_memory_for_prompt,
-    merge_working_memory_patch,
-    patch_allowed_for_run_status,
-    working_memory_from_checkpoint,
-)
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret, mask_secret
-from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
     OrchestratorTask,
-    ProjectDecision,
-    ProjectRepositoryLink,
     TaskArtifact,
 )
-from backend.modules.projects.service import OrchestrationProjectsServiceMixin
-from backend.modules.projects.tasks_service import OrchestrationTasksServiceMixin
-from backend.modules.team.models import AgentProfile
-from backend.modules.team.service import TeamServiceMixin
-
 
 logger = logging.getLogger(__name__)
 
@@ -178,13 +48,6 @@ TASK_TRANSITIONS: dict[str, set[str]] = {
 
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
-    validate_entry_metadata as _validate_semantic_entry_metadata,
-    validate_entry_type as _validate_semantic_entry_type,
-)
-from backend.modules.memory.namespaces import (
-    build_namespace as _build_memory_namespace,
-    coerce_legacy_namespace as _coerce_memory_namespace,
-    parse_namespace as _parse_memory_namespace,
 )
 
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
@@ -653,7 +516,7 @@ class OrchestrationGithubServiceMixin:
                     raise HTTPException(status_code=404, detail=f"Artifact {aid} not found for this task.")
                 body = (body + f"\n\n### {art.title}\n{art.content or ''}").strip()
         dedup_key = (idempotency_key or "").strip() or (
-            f"github-comment:{issue_link.id}:{hashlib.sha256(f'{body}|{close_issue}'.encode('utf-8')).hexdigest()[:48]}"
+            f"github-comment:{issue_link.id}:{hashlib.sha256(f'{body}|{close_issue}'.encode()).hexdigest()[:48]}"
         )
         existing_row = await self.repo.get_github_outbound_dedup_row(user.id, dedup_key)
         if existing_row is not None:
@@ -731,7 +594,7 @@ class OrchestrationGithubServiceMixin:
     def _github_field_write_source(
         self, project: OrchestratorProject | None, task_meta: dict[str, Any], field: str
     ) -> str:
-        locked = dict((self._project_github_settings(project).get("github_field_locks") or {}))
+        locked = dict(self._project_github_settings(project).get("github_field_locks") or {})
         if field in locked and str(locked[field]).lower() in {"app", "internal"}:
             return "app"
         prov = (task_meta or {}).get("github_sync_provenance") or {}
@@ -1187,7 +1050,7 @@ class OrchestrationGithubServiceMixin:
             "delivery_id": delivery_id,
             "signature_validated": signature_validated,
             "received_at": datetime.now(UTC).isoformat(),
-            "replay_history": list(((payload.get("_webhook_meta") or {}).get("replay_history") or [])),
+            "replay_history": list((payload.get("_webhook_meta") or {}).get("replay_history") or []),
             "event_name": event_name,
             "action": payload.get("action"),
             "payload_excerpt": payload_excerpt,
@@ -1611,7 +1474,7 @@ class OrchestrationGithubServiceMixin:
         if task is not None:
             project = await self.db.get(OrchestratorProject, task.project_id) if task.project_id else None
             meta = dict(task.metadata_json or {})
-            old_fs = dict(((meta.get("github_sync_provenance") or {}).get("field_sources") or {}))
+            old_fs = dict((meta.get("github_sync_provenance") or {}).get("field_sources") or {})
             new_fs = dict(old_fs)
             src_title = self._github_field_write_source(project, meta, "title")
             src_desc = self._github_field_write_source(project, meta, "description")
@@ -1691,7 +1554,9 @@ class OrchestrationGithubServiceMixin:
             payload={"trigger": "github_pr_review"},
         )
         await self.db.commit()
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(run.id)
 

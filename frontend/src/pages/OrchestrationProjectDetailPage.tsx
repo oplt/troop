@@ -1187,766 +1187,973 @@ function KanbanBoard({
 
     return (
         <Stack spacing={2}>
-            {exceptionTasks.some((group) => group.tasks.length > 0) ? (
-                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Off-path tasks</Typography>
+            <Paper
+                variant="outlined"
+                sx={(theme) => ({
+                    p: 2,
+                    borderRadius: 4,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.96)}, ${alpha(theme.palette.primary.main, 0.035)})`,
+                    borderColor: alpha(theme.palette.divider, 0.8),
+                })}
+            >
+                <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={1.5}
+                    alignItems={{ xs: "stretch", md: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.3 }}>
+                            Task flow
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Drag tasks across the execution pipeline. Invalid transitions and dependency violations are blocked.
+                        </Typography>
+                    </Box>
+
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {exceptionTasks.map((group) => group.tasks.length > 0 ? (
-                            <Chip key={group.status} label={`${group.label} · ${group.tasks.length}`} color={group.color} variant="outlined" />
-                        ) : null)}
+                        <Chip size="small" label={`${tasks.length} total`} />
+                        <Chip
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                            label={`${tasksByStatus.in_progress?.length ?? 0} running`}
+                        />
+                        <Chip
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            label={`${tasksByStatus.blocked?.length ?? 0} blocked`}
+                        />
+                        <Chip
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            label={`${tasksByStatus.completed?.length ?? 0} done`}
+                        />
+                        {exceptionTasks.some((group) => group.tasks.length > 0) ? (
+                            <Chip
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                label={`${exceptionTasks.reduce((sum, group) => sum + group.tasks.length, 0)} exceptions`}
+                            />
+                        ) : null}
+                    </Stack>
+                </Stack>
+            </Paper>
+
+            {exceptionTasks.some((group) => group.tasks.length > 0) ? (
+                <Paper
+                    variant="outlined"
+                    sx={(theme) => ({
+                        p: 1.5,
+                        borderRadius: 3,
+                        borderColor: alpha(theme.palette.error.main, 0.35),
+                        backgroundColor: alpha(theme.palette.error.main, 0.045),
+                    })}
+                >
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                            Exceptions
+                        </Typography>
+                        {exceptionTasks.map((group) =>
+                            group.tasks.length > 0 ? (
+                                <Chip
+                                    key={group.status}
+                                    label={`${group.label} · ${group.tasks.length}`}
+                                    color={group.color}
+                                    size="small"
+                                    variant="outlined"
+                                />
+                            ) : null,
+                        )}
                     </Stack>
                 </Paper>
             ) : null}
-            <Box sx={{ display: "flex", gap: 0.75, overflowX: "auto", pb: 1, minHeight: 400 }}>
-            {MAIN_KANBAN_COLUMNS.map((col) => (
-                <Box
-                    key={col.status}
-                    onDragOverCapture={(event) => handleKanbanColumnDragOverCapture(event, col.status)}
-                    onDrop={(event) => handleKanbanColumnDrop(event, col.status)}
-                    sx={(theme) => ({
-                        minWidth: 150,
-                        flex: "1 1 0",
-                        borderRadius: 2,
-                        p: 0.75,
-                        backgroundColor: alpha(theme.palette.background.paper, 0.6),
-                        border: `1px solid ${
-                            dropHoverColumn === col.status && draggingTaskId
-                                ? theme.palette.primary.main
-                                : theme.palette.divider
-                        }`,
-                        boxShadow:
-                            dropHoverColumn === col.status && draggingTaskId
-                                ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.28)}`
-                                : "none",
-                        transition: theme.transitions.create(["border-color", "box-shadow"], { duration: 120 }),
-                    })}
-                >
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.75 }}>
-                        <Chip label={col.label} color={col.color} size="small" sx={{ height: 20, fontSize: "0.7rem", "& .MuiChip-label": { px: 0.75 } }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>{tasksByStatus[col.status]?.length ?? 0}</Typography>
-                    </Stack>
-                    <Stack spacing={0.75}>
-                        {(tasksByStatus[col.status] ?? []).map((task) => {
-                            const agent = allAgents.find((a) => a.id === task.assigned_agent_id);
-                            const isExpanded = expandedTask === task.id;
-                            const lastRun = lastRunByTaskId[task.id];
-                            const runMeta = readOrchestrationSelectionMeta(lastRun);
-                            const acceptanceConfig = readAcceptanceCheckerConfig(task);
-                            const taskLinks = taskLinkDrafts[task.id] ?? readExternalLinks(task.metadata?.external_links);
-                            const evidenceDraft = evidenceDrafts[task.id] ?? readEvidenceBundle(task);
-                            const dependencyTasks = tasks.filter((candidate) => (task.dependency_ids ?? []).includes(candidate.id));
-                            const incompleteDependencies = dependencyTasks.filter((candidate) => !["approved", "completed", "synced_to_github", "archived"].includes(candidate.status));
-                            const acceptancePassed = Boolean(expandedExecSnapshot?.acceptance_summary?.passed);
-                            const acceptedArtifactsCount = evidenceDraft.accepted_artifact_ids.filter((artifactId) => expandedArtifacts.some((artifact) => artifact.id === artifactId)).length;
-                            const acceptedLinksCount = evidenceDraft.accepted_external_link_ids.filter((linkId) => taskLinks.some((link) => link.id === linkId)).length;
-                            const evidenceReadyForSync =
-                                acceptedArtifactsCount > 0 &&
-                                acceptedLinksCount > 0 &&
-                                Boolean(evidenceDraft.reviewer_decision_status) &&
-                                Boolean(evidenceDraft.sync_summary.trim());
-                            const evidenceReadyForArchive =
-                                (acceptedArtifactsCount > 0 &&
-                                    acceptedLinksCount > 0 &&
-                                    Boolean(evidenceDraft.reviewer_decision_status) &&
-                                    (Boolean(evidenceDraft.sync_summary.trim()) || task.status === "synced_to_github"))
-                                || task.status === "archived";
-                            const transitionOptions = buildTransitionOptions({
-                                task,
-                                acceptancePassed,
-                                evidenceReadyForSync,
-                                evidenceReadyForArchive,
-                                hasIncompleteDependencies: incompleteDependencies.length > 0,
-                            });
-                            const selectedNextStatus = nextStatusByTask[task.id] ?? transitionOptions[0]?.status ?? "";
-                            const workerTip =
-                                runMeta.worker_agent_rationale
-                                || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
-                            const isDraggingCard = draggingTaskId === task.id;
-                            const isStatusUpdatePending = taskUpdateMutation.isPending && taskUpdateMutation.variables?.taskId === task.id;
-                            return (
-                                <Paper
-                                    key={task.id}
-                                    draggable={!isStatusUpdatePending}
-                                    onDragStart={(event) => {
-                                        setDraggingTaskId(task.id);
-                                        const payload = JSON.stringify({ taskId: task.id, fromStatus: task.status });
-                                        event.dataTransfer.setData("application/json", payload);
-                                        event.dataTransfer.setData("text/plain", task.id);
-                                        event.dataTransfer.effectAllowed = "move";
-                                    }}
-                                    onDragEnd={clearKanbanDragState}
-                                    sx={(theme) => {
-                                        const priorityAccent = task.priority === "urgent"
-                                            ? theme.palette.error.main
-                                            : task.priority === "high"
-                                                ? theme.palette.warning.main
-                                                : task.priority === "low"
-                                                    ? theme.palette.divider
-                                                    : theme.palette.info.main;
-                                        return {
-                                            position: "relative",
-                                            p: 0.75,
-                                            pl: 1,
-                                            minHeight: 170,
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            borderRadius: 2,
-                                            border: `1px solid ${theme.palette.divider}`,
-                                            borderLeft: `3px solid ${priorityAccent}`,
-                                            "&:hover": { borderColor: theme.palette.primary.main, borderLeftColor: priorityAccent },
-                                            cursor: isStatusUpdatePending ? "default" : "grab",
-                                            opacity: isDraggingCard ? 0.88 : 1,
-                                            ...(isDraggingCard ? { boxShadow: theme.shadows[6] } : {}),
-                                        };
-                                    }}
-                                >
-                                    <IconButton
-                                        size="small"
-                                        aria-label={`Delete ${task.title}`}
-                                        onMouseDown={(event) => event.stopPropagation()}
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            handleDeleteTask(task.id, task.title);
-                                        }}
-                                        disabled={deleteTaskMutation.isPending && deleteTaskMutation.variables === task.id}
-                                        sx={{
-                                            position: "absolute",
-                                            top: 2,
-                                            right: 2,
-                                            p: 0.25,
-                                            color: "text.secondary",
-                                            "&:hover": { color: "error.main" },
-                                        }}
-                                    >
-                                        <CloseIcon sx={{ fontSize: 14 }} />
-                                    </IconButton>
-                                    <Typography
-                                        variant="subtitle2"
-                                        sx={{
-                                            wordBreak: "break-word",
-                                            pr: 2.5,
-                                            fontSize: "0.78rem",
-                                            lineHeight: 1.25,
-                                            mb: 0.5,
-                                            display: "-webkit-box",
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: "vertical",
-                                            overflow: "hidden",
-                                        }}
-                                    >
-                                        {task.title}
-                                    </Typography>
-                                    {(() => {
-                                        const priorityLetter = task.priority === "urgent" ? "U" : task.priority === "high" ? "H" : task.priority === "low" ? "L" : "N";
-                                        const priorityChipColor: "default" | "error" | "warning" | "info" = task.priority === "urgent" ? "error" : task.priority === "high" ? "warning" : task.priority === "low" ? "default" : "info";
-                                        const sourceRaw = (task.source || "manual").toLowerCase();
-                                        const sourceKind = sourceRaw === "github" || sourceRaw === "github_issue"
-                                            ? "github"
-                                            : sourceRaw === "manual"
-                                                ? "manual"
-                                                : "generated";
-                                        const SourceIcon = sourceKind === "github" ? GitHubIcon : sourceKind === "generated" ? GeneratedIcon : ManualIcon;
-                                        const runStatusRaw = lastRun?.status ?? "";
-                                        let runLabel = "idle";
-                                        let runDotColor = "text.disabled";
-                                        if (["running", "pending", "queued", "in_progress"].includes(runStatusRaw)) { runLabel = "running"; runDotColor = "info.main"; }
-                                        else if (["awaiting_approval", "needs_approval", "waiting_approval"].includes(runStatusRaw)) { runLabel = "waiting approval"; runDotColor = "warning.main"; }
-                                        else if (["failed", "error"].includes(runStatusRaw)) { runLabel = "failed"; runDotColor = "error.main"; }
-                                        else if (runStatusRaw === "cancelled") { runLabel = "cancelled"; runDotColor = "error.light"; }
-                                        else if (["completed", "succeeded", "done"].includes(runStatusRaw)) { runLabel = "idle"; runDotColor = "success.main"; }
-                                        const depCount = task.dependency_ids?.length ?? 0;
-                                        const prNumber = (task.result_payload.github_pr as Record<string, unknown> | undefined)?.number;
-                                        const dueMeta = task.due_date ? (() => {
-                                            const diffDays = Math.ceil((new Date(task.due_date as string).getTime() - Date.now()) / 86_400_000);
-                                            if (diffDays < 0) return { label: `${Math.abs(diffDays)}d late`, color: "error" as const };
-                                            if (diffDays === 0) return { label: "today", color: "warning" as const };
-                                            if (diffDays <= 3) return { label: `${diffDays}d`, color: "warning" as const };
-                                            return { label: `${diffDays}d`, color: "default" as const };
-                                        })() : null;
-                                        const chipSx = { height: 18, fontSize: "0.62rem", "& .MuiChip-label": { px: 0.6 } } as const;
-                                        const avatarSx = { width: 16, height: 16, fontSize: "0.58rem" } as const;
-                                        const ownerInitial = (agent?.name ?? "?").trim().charAt(0).toUpperCase() || "?";
-                                        const reviewerName = task.reviewer_agent_id ? getAgentLabel(task.reviewer_agent_id, allAgents) : "";
-                                        const reviewerInitial = reviewerName.trim().charAt(0).toUpperCase() || "?";
-                                        return (
-                                            <Stack spacing={0.5}>
-                                                <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                                                    <Tooltip title={`Priority: ${task.priority}`}>
-                                                        <Chip label={priorityLetter} size="small" color={priorityChipColor} sx={{ ...chipSx, width: 22, justifyContent: "center" }} />
-                                                    </Tooltip>
-                                                    <Tooltip title={`Source: ${sourceKind}`}>
-                                                        <Box sx={{ display: "inline-flex", alignItems: "center", color: sourceKind === "github" ? "info.main" : sourceKind === "generated" ? "secondary.main" : "text.secondary" }}>
-                                                            <SourceIcon sx={{ fontSize: 14 }} />
-                                                        </Box>
-                                                    </Tooltip>
-                                                    <Tooltip title={`Run: ${runLabel}${lastRun?.completed_at ? ` · ${new Date(lastRun.completed_at).toLocaleString()}` : ""}`}>
-                                                        <Stack direction="row" spacing={0.3} alignItems="center">
-                                                            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: runDotColor, flexShrink: 0 }} />
-                                                            <Typography variant="caption" sx={{ fontSize: "0.6rem", lineHeight: 1, color: "text.secondary" }}>
-                                                                {runLabel}
-                                                            </Typography>
-                                                        </Stack>
-                                                    </Tooltip>
-                                                    {prNumber != null && (
-                                                        <Tooltip title={`PR #${String(prNumber)}`}>
-                                                            <Chip label={`#${String(prNumber)}`} size="small" color="success" variant="outlined" sx={chipSx} />
-                                                        </Tooltip>
-                                                    )}
-                                                </Stack>
-                                                {(agent || task.reviewer_agent_id) && (
-                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
-                                                        {agent && (
-                                                            <Tooltip title={workerTip}>
-                                                                <Stack direction="row" spacing={0.4} alignItems="center" sx={{ maxWidth: "100%", minWidth: 0 }}>
-                                                                    <Avatar sx={{ ...avatarSx, bgcolor: "secondary.main" }}>{ownerInitial}</Avatar>
-                                                                    <Typography variant="caption" noWrap sx={{ fontSize: "0.62rem", lineHeight: 1, color: "text.primary" }}>
-                                                                        {agent.name}
-                                                                    </Typography>
-                                                                </Stack>
-                                                            </Tooltip>
-                                                        )}
-                                                        {task.reviewer_agent_id && (
-                                                            <Tooltip title={`Reviewer: ${reviewerName}`}>
-                                                                <Stack direction="row" spacing={0.4} alignItems="center" sx={{ maxWidth: "100%", minWidth: 0 }}>
-                                                                    <Avatar sx={{ ...avatarSx, bgcolor: "primary.main" }}>{reviewerInitial}</Avatar>
-                                                                    <Typography variant="caption" noWrap sx={{ fontSize: "0.62rem", lineHeight: 1, color: "text.secondary" }}>
-                                                                        {reviewerName}
-                                                                    </Typography>
-                                                                </Stack>
-                                                            </Tooltip>
-                                                        )}
-                                                    </Stack>
-                                                )}
-                                                {(dueMeta || depCount > 0) && (
-                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                                                        {dueMeta && (
-                                                            <Tooltip title={`Due ${new Date(task.due_date as string).toLocaleString()}`}>
-                                                                <Chip label={dueMeta.label} size="small" color={dueMeta.color} variant={dueMeta.color === "default" ? "outlined" : "filled"} sx={chipSx} />
-                                                            </Tooltip>
-                                                        )}
-                                                        {depCount > 0 && (
-                                                            <Tooltip title={`${incompleteDependencies.length} blocking · ${depCount} total`}>
-                                                                <Chip
-                                                                    label={`⛓ ${incompleteDependencies.length}/${depCount}`}
-                                                                    size="small"
-                                                                    color={incompleteDependencies.length > 0 ? "warning" : "success"}
-                                                                    variant="outlined"
-                                                                    sx={chipSx}
-                                                                />
-                                                            </Tooltip>
-                                                        )}
-                                                    </Stack>
-                                                )}
-                                            </Stack>
-                                        );
-                                    })()}
-                                    <Stack
-                                        direction="row"
-                                        spacing={0.25}
-                                        sx={{ mt: "auto", pt: 0.5, borderTop: 1, borderColor: "divider" }}
-                                        alignItems="center"
-                                    >
-                                        <Tooltip title="Run">
-                                            <span>
-                                                <IconButton
-                                                    size="small"
-                                                    disabled={isRunPending && selectedTaskId === task.id}
-                                                    onMouseDown={(event) => event.stopPropagation()}
-                                                    onClick={() => onRunTask(task.id, taskRunModes[task.id] ?? "single_agent", taskPrModes[task.id] ?? false)}
-                                                    sx={{ p: 0.25 }}
-                                                >
-                                                    <RunIcon sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                            </span>
-                                        </Tooltip>
-                                        <Tooltip title="Acceptance check">
-                                            <IconButton
-                                                size="small"
-                                                onMouseDown={(event) => event.stopPropagation()}
-                                                onClick={() => onAcceptanceCheck(task.id)}
-                                                sx={{ p: 0.25 }}
-                                            >
-                                                <CheckSimpleIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title={isExpanded ? "Collapse" : "More details"}>
-                                            <IconButton
-                                                size="small"
-                                                onMouseDown={(event) => event.stopPropagation()}
-                                                onClick={() => setExpandedTask(isExpanded ? null : task.id)}
-                                                sx={{ p: 0.25, ml: "auto" }}
-                                            >
-                                                <MoreIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+
+            <Box
+                sx={{
+                    display: "grid",
+                    gridAutoFlow: "column",
+                    gridAutoColumns: {
+                        xs: "minmax(260px, 82vw)",
+                        sm: "minmax(280px, 36vw)",
+                        lg: "minmax(285px, 1fr)",
+                    },
+                    gap: 1.5,
+                    overflowX: "auto",
+                    pb: 1,
+                    minHeight: 560,
+                }}
+            >
+                {MAIN_KANBAN_COLUMNS.map((col) => {
+                    const columnTasks = tasksByStatus[col.status] ?? [];
+                    const isDropTarget = dropHoverColumn === col.status && Boolean(draggingTaskId);
+
+                    return (
+                        <Paper
+                            key={col.status}
+                            variant="outlined"
+                            onDragOverCapture={(event) => handleKanbanColumnDragOverCapture(event, col.status)}
+                            onDragLeave={() => setDropHoverColumn(null)}
+                            onDrop={(event) => handleKanbanColumnDrop(event, col.status)}
+                            sx={(theme) => ({
+                                display: "flex",
+                                flexDirection: "column",
+                                minHeight: 540,
+                                maxHeight: "calc(100vh - 260px)",
+                                borderRadius: 4,
+                                overflow: "hidden",
+                                borderColor: isDropTarget
+                                    ? theme.palette.primary.main
+                                    : alpha(theme.palette.divider, 0.9),
+                                backgroundColor: alpha(theme.palette.background.paper, 0.78),
+                                boxShadow: isDropTarget
+                                    ? `0 0 0 3px ${alpha(theme.palette.primary.main, 0.18)}`
+                                    : `0 10px 28px ${alpha(theme.palette.common.black, 0.04)}`,
+                                transition: theme.transitions.create(["border-color", "box-shadow", "transform"], {
+                                    duration: 140,
+                                }),
+                            })}
+                        >
+                            <Box
+                                sx={(theme) => ({
+                                    position: "sticky",
+                                    top: 0,
+                                    zIndex: 1,
+                                    p: 1.25,
+                                    borderBottom: `1px solid ${theme.palette.divider}`,
+                                    backgroundColor: alpha(theme.palette.background.paper, 0.96),
+                                    backdropFilter: "blur(10px)",
+                                })}
+                            >
+                                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                        <Chip
+                                            label={col.label}
+                                            color={col.color}
+                                            size="small"
+                                            sx={{
+                                                fontWeight: 800,
+                                                borderRadius: 1.5,
+                                                "& .MuiChip-label": { px: 1 },
+                                            }}
+                                        />
+                                        <Typography variant="caption" color="text.secondary">
+                                            {columnTasks.length}
+                                        </Typography>
                                     </Stack>
-                                    {isExpanded && (
-                                        <Box sx={{ mt: 1.5 }}>
-                                            <Divider sx={{ mb: 1 }} />
-                                            <Stack spacing={1.25}>
-                                                <TextField
-                                                    select
-                                                    size="small"
-                                                    label="Owner agent"
-                                                    value={task.assigned_agent_id ?? ""}
-                                                    onChange={(event) => taskUpdateMutation.mutate({
-                                                        taskId: task.id,
-                                                        payload: { assigned_agent_id: event.target.value || null },
-                                                    })}
-                                                    fullWidth
-                                                >
-                                                    <MenuItem value="">Unassigned</MenuItem>
-                                                    {allAgents.map((currentAgent) => (
-                                                        <MenuItem key={currentAgent.id} value={currentAgent.id}>{currentAgent.name}</MenuItem>
-                                                    ))}
-                                                </TextField>
-                                                <TextField
-                                                    select
-                                                    size="small"
-                                                    label="Reviewer agent"
-                                                    value={task.reviewer_agent_id ?? ""}
-                                                    onChange={(event) => taskUpdateMutation.mutate({
-                                                        taskId: task.id,
-                                                        payload: { reviewer_agent_id: event.target.value || null },
-                                                    })}
-                                                    fullWidth
-                                                >
-                                                    <MenuItem value="">None</MenuItem>
-                                                    {allAgents.map((currentAgent) => (
-                                                        <MenuItem key={`review-${currentAgent.id}`} value={currentAgent.id}>{currentAgent.name}</MenuItem>
-                                                    ))}
-                                                </TextField>
-                                                <TextField
-                                                    select
-                                                    SelectProps={{ multiple: true }}
-                                                    size="small"
-                                                    label="Blocked by"
-                                                    value={task.dependency_ids ?? []}
-                                                    onChange={(event) => {
-                                                        const nextValue = event.target.value;
-                                                        taskUpdateMutation.mutate({
-                                                            taskId: task.id,
-                                                            payload: {
-                                                                dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
-                                                            },
-                                                        });
-                                                    }}
-                                                    helperText="Main task flow dependencies. DAG drawer no longer required for this."
-                                                    fullWidth
-                                                >
-                                                    {tasks.filter((candidate) => candidate.id !== task.id).map((candidate) => (
-                                                        <MenuItem key={`dep-${candidate.id}`} value={candidate.id}>
-                                                            {candidate.title} · {humanizeKey(candidate.status)}
-                                                        </MenuItem>
-                                                    ))}
-                                                </TextField>
-                                                {dependencyTasks.length > 0 ? (
-                                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                        {dependencyTasks.map((dependencyTask) => (
-                                                            <Chip
-                                                                key={dependencyTask.id}
-                                                                label={`${dependencyTask.title} · ${humanizeKey(dependencyTask.status)}`}
-                                                                size="small"
-                                                                color={incompleteDependencies.some((item) => item.id === dependencyTask.id) ? "warning" : "success"}
-                                                                variant="outlined"
-                                                            />
-                                                        ))}
-                                                    </Stack>
-                                                ) : null}
-                                                <TextField
-                                                    select
-                                                    size="small"
-                                                    label="Execution mode"
-                                                    value={taskRunModes[task.id] ?? "single_agent"}
-                                                    onChange={(event) => onModeChange(task.id, event.target.value as ExecutionMode)}
-                                                    fullWidth
-                                                >
-                                                    <MenuItem value="single_agent">Single agent: fast, cheap</MenuItem>
-                                                    <MenuItem value="manager_worker">Managed team: manager routes work</MenuItem>
-                                                    <MenuItem value="debate">Debate: two agents propose, moderator resolves</MenuItem>
-                                                </TextField>
-                                                <Button
-                                                    size="small"
-                                                    variant={taskPrModes[task.id] ? "contained" : "outlined"}
-                                                    onClick={() => onPrModeChange(task.id, !(taskPrModes[task.id] ?? false))}
-                                                >
-                                                    {taskPrModes[task.id] ? "PR generation on" : "Generate PR"}
-                                                </Button>
-                                            </Stack>
-                                            <TextField
-                                                size="small"
-                                                select
-                                                label="Next valid status"
-                                                value={selectedNextStatus}
-                                                onChange={(event) => setNextStatusByTask((current) => ({ ...current, [task.id]: event.target.value }))}
-                                                fullWidth
-                                                sx={{ mt: 1.25 }}
-                                            >
-                                                {transitionOptions.map((option) => (
-                                                    <MenuItem key={`${task.id}-${option.status}`} value={option.status} disabled={option.blocked}>
-                                                        {humanizeKey(option.status)}{option.reason ? ` — ${option.reason}` : ""}
-                                                    </MenuItem>
-                                                ))}
-                                            </TextField>
-                                            {transitionOptions.filter((option) => option.blocked).map((option) => (
-                                                <Alert key={`${task.id}-${option.status}-blocked`} severity="warning">
-                                                    {humanizeKey(option.status)} blocked: {option.reason}
-                                                </Alert>
-                                            ))}
-                                            <Button
-                                                size="small"
-                                                variant="contained"
-                                                disabled={!selectedNextStatus || transitionOptions.find((option) => option.status === selectedNextStatus)?.blocked}
-                                                onClick={() => taskUpdateMutation.mutate({
-                                                    taskId: task.id,
-                                                    payload: { status: selectedNextStatus },
-                                                })}
-                                            >
-                                                Apply transition
-                                            </Button>
-                                            <TaskMemoryInspector
-                                                projectId={projectId}
-                                                taskId={task.id}
-                                                lastRunId={lastRun?.id}
-                                            />
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                Task timeline (comments + approvals + GitHub sync)
-                                            </Typography>
-                                            <Stack spacing={0.75} sx={{ mb: 1.5, maxHeight: 220, overflow: "auto" }}>
-                                                {timeline.length === 0 ? (
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        No comments or GitHub sync events yet.
-                                                    </Typography>
-                                                ) : (
-                                                    timeline.map((row) => (
-                                                        <Paper key={`${row.kind}-${row.id}`} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {formatDateTime(row.created_at)} · {row.kind}
-                                                            </Typography>
-                                                            <Typography variant="body2">{row.title}</Typography>
-                                                            {row.body ? (
-                                                                <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
-                                                                    {row.body}
-                                                                </Typography>
-                                                            ) : null}
-                                                            {row.detail ? (
-                                                                <Typography variant="caption" color="text.secondary">{row.detail}</Typography>
-                                                            ) : null}
-                                                            {typeof row.payload.issue_number === "number" && task.github_repository_full_name && (
-                                                                <Link
-                                                                    href={`https://github.com/${task.github_repository_full_name}/issues/${String(row.payload.issue_number)}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    underline="hover"
-                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
-                                                                >
-                                                                    GitHub issue #{String(row.payload.issue_number)}
-                                                                </Link>
-                                                            )}
-                                                            {typeof row.payload.pr_number === "number" && task.github_repository_full_name && (
-                                                                <Link
-                                                                    href={`https://github.com/${task.github_repository_full_name}/pull/${String(row.payload.pr_number)}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    underline="hover"
-                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
-                                                                >
-                                                                    Pull request #{String(row.payload.pr_number)}
-                                                                </Link>
-                                                            )}
-                                                            {typeof row.payload.branch === "string" && task.github_repository_full_name && (
-                                                                <Link
-                                                                    href={`https://github.com/${task.github_repository_full_name}/tree/${encodeURIComponent(String(row.payload.branch))}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    underline="hover"
-                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
-                                                                >
-                                                                    Branch {String(row.payload.branch)}
-                                                                </Link>
-                                                            )}
-                                                            {(typeof row.payload.head_sha === "string" || typeof row.payload.merge_commit_sha === "string") && task.github_repository_full_name && (
-                                                                <Link
-                                                                    href={`https://github.com/${task.github_repository_full_name}/commit/${String(row.payload.merge_commit_sha || row.payload.head_sha)}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    underline="hover"
-                                                                    sx={{ display: "block", typography: "caption", mt: 0.5 }}
-                                                                >
-                                                                    Commit {String(row.payload.merge_commit_sha || row.payload.head_sha).slice(0, 12)}
-                                                                </Link>
-                                                            )}
-                                                        </Paper>
-                                                    ))
-                                                )}
-                                            </Stack>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                Routing explainability
-                                            </Typography>
-                                            <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mb: 1.5 }}>
-                                                <Typography variant="caption" color="text.secondary">Agent selection</Typography>
-                                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                                    {String(expandedExecSnapshot?.routing_explainability?.agent_selection_reason || workerTip)}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">Model selection</Typography>
-                                                <Typography variant="body2">
-                                                    {String(expandedExecSnapshot?.routing_explainability?.model_selection_reason || runMeta.model_rationale || "No explicit model explanation captured yet.")}
-                                                </Typography>
-                                                {expandedExecSnapshot?.routing_explainability?.routing_policy_snapshot ? (
-                                                    <Box
-                                                        component="pre"
-                                                        sx={{ m: 0, mt: 1, p: 1, typography: "caption", bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04), whiteSpace: "pre-wrap" }}
+
+                                    {taskUpdateMutation.isPending ? (
+                                        <CircularProgress size={14} />
+                                    ) : null}
+                                </Stack>
+                            </Box>
+
+                            <Stack
+                                spacing={1}
+                                sx={{
+                                    p: 1,
+                                    overflowY: "auto",
+                                    flex: 1,
+                                }}
+                            >
+                                {columnTasks.length === 0 ? (
+                                    <Box
+                                        sx={(theme) => ({
+                                            minHeight: 120,
+                                            borderRadius: 3,
+                                            border: `1px dashed ${alpha(theme.palette.text.secondary, 0.24)}`,
+                                            display: "grid",
+                                            placeItems: "center",
+                                            color: "text.secondary",
+                                            fontSize: 12,
+                                        })}
+                                    >
+                                        Drop task here
+                                    </Box>
+                                ) : null}
+
+                                {columnTasks.map((task) => {
+                                    const agent = allAgents.find((a) => a.id === task.assigned_agent_id);
+                                    const lastRun = lastRunByTaskId[task.id];
+                                    const runMeta = readOrchestrationSelectionMeta(lastRun);
+                                    const dependencyCount = task.dependency_ids?.length ?? 0;
+                                    const externalLinks = readExternalLinks(task.metadata?.external_links);
+                                    const priority = String(task.priority ?? "normal");
+                                    const isSelected = selectedTaskId === task.id;
+                                    const isUpdating =
+                                        taskUpdateMutation.isPending &&
+                                        taskUpdateMutation.variables?.taskId === task.id;
+
+                                    const priorityColor =
+                                        priority === "urgent" || priority === "high"
+                                            ? "error"
+                                            : priority === "normal"
+                                                ? "info"
+                                                : "default";
+
+                                    return (
+                                        <Paper
+                                            key={task.id}
+                                            draggable={!isUpdating}
+                                            onDragStart={(event) => {
+                                                setDraggingTaskId(task.id);
+                                                event.dataTransfer.effectAllowed = "move";
+                                                event.dataTransfer.setData(
+                                                    "application/json",
+                                                    JSON.stringify({ taskId: task.id }),
+                                                );
+                                            }}
+                                            onDragEnd={clearKanbanDragState}
+                                            variant="outlined"
+                                            sx={(theme) => ({
+                                                p: 1.25,
+                                                borderRadius: 3,
+                                                cursor: isUpdating ? "wait" : "grab",
+                                                borderColor: isSelected
+                                                    ? theme.palette.primary.main
+                                                    : alpha(theme.palette.divider, 0.9),
+                                                backgroundColor: alpha(theme.palette.background.paper, 0.96),
+                                                boxShadow: isSelected
+                                                    ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.16)}`
+                                                    : `0 8px 20px ${alpha(theme.palette.common.black, 0.05)}`,
+                                                transition: theme.transitions.create(
+                                                    ["box-shadow", "border-color", "transform"],
+                                                    { duration: 140 },
+                                                ),
+                                                "&:hover": {
+                                                    transform: "translateY(-1px)",
+                                                    boxShadow: `0 14px 30px ${alpha(theme.palette.common.black, 0.09)}`,
+                                                },
+                                            })}
+                                        >
+                                            <Stack spacing={1}>
+                                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                                    <Avatar
+                                                        sx={(theme) => ({
+                                                            width: 28,
+                                                            height: 28,
+                                                            fontSize: 12,
+                                                            fontWeight: 800,
+                                                            bgcolor: agent
+                                                                ? alpha(theme.palette.primary.main, 0.16)
+                                                                : alpha(theme.palette.text.secondary, 0.12),
+                                                            color: agent
+                                                                ? theme.palette.primary.main
+                                                                : theme.palette.text.secondary,
+                                                        })}
                                                     >
-                                                        {JSON.stringify(expandedExecSnapshot.routing_explainability.routing_policy_snapshot, null, 2)}
-                                                    </Box>
-                                                ) : null}
-                                            </Paper>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                Acceptance checker
-                                            </Typography>
-                                            <Stack spacing={1} sx={{ mb: 1.5 }}>
-                                                <TextField
-                                                    key={`${task.id}-acceptance-artifacts`}
-                                                    size="small"
-                                                    label="Required artifact kinds"
-                                                    defaultValue={acceptanceConfig.required_artifact_kinds.join(", ")}
-                                                    helperText="Comma-separated kinds enforced before approve/complete."
-                                                    onBlur={(event) => updateAcceptanceConfig(task, {
-                                                        required_artifact_kinds: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
-                                                    })}
-                                                    fullWidth
-                                                />
-                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                                    <FormControlLabel
-                                                        control={<Switch checked={acceptanceConfig.require_github_comment} onChange={(_, checked) => updateAcceptanceConfig(task, { require_github_comment: checked })} />}
-                                                        label="Need GitHub comment"
-                                                    />
-                                                    <FormControlLabel
-                                                        control={<Switch checked={acceptanceConfig.require_github_pr} onChange={(_, checked) => updateAcceptanceConfig(task, { require_github_pr: checked })} />}
-                                                        label="Need GitHub PR"
-                                                    />
-                                                    <FormControlLabel
-                                                        control={<Switch checked={acceptanceConfig.require_reviewer_approval} onChange={(_, checked) => updateAcceptanceConfig(task, { require_reviewer_approval: checked })} />}
-                                                        label="Need reviewer approval"
-                                                    />
-                                                </Stack>
-                                                {expandedExecSnapshot?.acceptance_summary ? (
-                                                    <Alert severity={expandedExecSnapshot.acceptance_summary.passed ? "success" : "warning"}>
-                                                        {expandedExecSnapshot.acceptance_summary.passed ? "Acceptance gate currently passes." : "Acceptance gate currently fails."}
-                                                    </Alert>
-                                                ) : null}
-                                                {Array.isArray(expandedExecSnapshot?.acceptance_summary?.checks) ? (
-                                                    expandedExecSnapshot.acceptance_summary.checks.map((check) => (
-                                                        <Typography key={`${task.id}-${String(check.name)}`} variant="caption" color="text.secondary">
-                                                            {String(check.name)}: {String(check.detail ?? check.passed)}
+                                                        {(agent?.name ?? "U").slice(0, 1).toUpperCase()}
+                                                    </Avatar>
+
+                                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                        <Typography
+                                                            variant="subtitle2"
+                                                            sx={{
+                                                                fontWeight: 800,
+                                                                lineHeight: 1.25,
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                display: "-webkit-box",
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: "vertical",
+                                                            }}
+                                                        >
+                                                            {task.title}
                                                         </Typography>
-                                                    ))
-                                                ) : null}
-                                            </Stack>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                External links
-                                            </Typography>
-                                            <ExternalLinksEditor
-                                                links={taskLinks}
-                                                onChange={(links) => setTaskLinkDrafts((current) => ({ ...current, [task.id]: links }))}
-                                                compact
-                                            />
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                sx={{ mt: 1 }}
-                                                onClick={() => taskUpdateMutation.mutate({
-                                                    taskId: task.id,
-                                                    payload: {
-                                                        metadata: {
-                                                            ...task.metadata,
-                                                            external_links: serializeExternalLinks(taskLinks),
-                                                            evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
-                                                        },
-                                                    },
-                                                })}
-                                            >
-                                                Save links
-                                            </Button>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, mt: 1 }}>
-                                                Final evidence bundle
-                                            </Typography>
-                                            <Stack spacing={1} sx={{ mb: 1.5 }}>
-                                                <TextField
-                                                    select
-                                                    SelectProps={{ multiple: true }}
-                                                    size="small"
-                                                    label="Accepted artifacts"
-                                                    value={evidenceDraft.accepted_artifact_ids}
-                                                    onChange={(event) => {
-                                                        const nextValue = event.target.value;
-                                                        setEvidenceDrafts((current) => ({
-                                                            ...current,
-                                                            [task.id]: {
-                                                                ...evidenceDraft,
-                                                                accepted_artifact_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
-                                                            },
-                                                        }));
-                                                    }}
-                                                    fullWidth
-                                                >
-                                                    {expandedArtifacts.map((artifact) => (
-                                                        <MenuItem key={artifact.id} value={artifact.id}>{artifact.title} · {artifact.kind}</MenuItem>
-                                                    ))}
-                                                </TextField>
-                                                <TextField
-                                                    select
-                                                    SelectProps={{ multiple: true }}
-                                                    size="small"
-                                                    label="Accepted external links"
-                                                    value={evidenceDraft.accepted_external_link_ids}
-                                                    onChange={(event) => {
-                                                        const nextValue = event.target.value;
-                                                        setEvidenceDrafts((current) => ({
-                                                            ...current,
-                                                            [task.id]: {
-                                                                ...evidenceDraft,
-                                                                accepted_external_link_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
-                                                            },
-                                                        }));
-                                                    }}
-                                                    fullWidth
-                                                >
-                                                    {taskLinks.map((link) => (
-                                                        <MenuItem key={`accepted-link-${link.id}`} value={link.id}>{link.label} · {humanizeKey(link.kind)}</MenuItem>
-                                                    ))}
-                                                </TextField>
-                                                <TextField
-                                                    select
-                                                    size="small"
-                                                    label="Reviewer decision"
-                                                    value={evidenceDraft.reviewer_decision_status}
-                                                    onChange={(event) => setEvidenceDrafts((current) => ({
-                                                        ...current,
-                                                        [task.id]: {
-                                                            ...evidenceDraft,
-                                                            reviewer_decision_status: event.target.value,
-                                                        },
-                                                    }))}
-                                                    fullWidth
-                                                >
-                                                    <MenuItem value="">Not recorded</MenuItem>
-                                                    <MenuItem value="approved">Approved</MenuItem>
-                                                    <MenuItem value="changes_requested">Changes requested</MenuItem>
-                                                    <MenuItem value="rejected">Rejected</MenuItem>
-                                                </TextField>
-                                                <TextField
-                                                    size="small"
-                                                    label="Reviewer notes"
-                                                    value={evidenceDraft.reviewer_decision_notes}
-                                                    onChange={(event) => setEvidenceDrafts((current) => ({
-                                                        ...current,
-                                                        [task.id]: {
-                                                            ...evidenceDraft,
-                                                            reviewer_decision_notes: event.target.value,
-                                                        },
-                                                    }))}
-                                                    multiline
-                                                    minRows={2}
-                                                    fullWidth
-                                                />
-                                                <TextField
-                                                    size="small"
-                                                    label="Sync summary"
-                                                    value={evidenceDraft.sync_summary}
-                                                    onChange={(event) => setEvidenceDrafts((current) => ({
-                                                        ...current,
-                                                        [task.id]: {
-                                                            ...evidenceDraft,
-                                                            sync_summary: event.target.value,
-                                                        },
-                                                    }))}
-                                                    multiline
-                                                    minRows={2}
-                                                    helperText="Required before `synced_to_github`; reused for archive notes."
-                                                    fullWidth
-                                                />
-                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                                    <Chip label={evidenceReadyForSync ? "Ready for sync" : "Sync evidence incomplete"} size="small" color={evidenceReadyForSync ? "success" : "warning"} />
-                                                    <Chip label={evidenceReadyForArchive ? "Ready for archive" : "Archive evidence incomplete"} size="small" color={evidenceReadyForArchive ? "success" : "warning"} />
+
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                            sx={{
+                                                                display: "block",
+                                                                mt: 0.25,
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
+                                                            {agent?.name ?? "Unassigned"}
+                                                        </Typography>
+                                                    </Box>
+
+                                                    <Tooltip title="Delete task">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handleDeleteTask(task.id, task.title);
+                                                            }}
+                                                        >
+                                                            <CloseIcon fontSize="inherit" />
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 </Stack>
-                                                <Button
-                                                    size="small"
-                                                    variant="outlined"
-                                                    onClick={() => taskUpdateMutation.mutate({
-                                                        taskId: task.id,
-                                                        payload: {
-                                                            metadata: {
-                                                                ...task.metadata,
-                                                                external_links: serializeExternalLinks(taskLinks),
-                                                                evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
-                                                            },
-                                                        },
+
+                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                    <Chip
+                                                        size="small"
+                                                        color={priorityColor}
+                                                        variant="outlined"
+                                                        label={priority}
+                                                        sx={{ height: 22, fontSize: 11 }}
+                                                    />
+                                                    {dependencyCount > 0 ? (
+                                                        <Chip
+                                                            size="small"
+                                                            variant="outlined"
+                                                            label={`${dependencyCount} deps`}
+                                                            sx={{ height: 22, fontSize: 11 }}
+                                                        />
+                                                    ) : null}
+                                                    {externalLinks.length > 0 ? (
+                                                        <Chip
+                                                            size="small"
+                                                            variant="outlined"
+                                                            label={`${externalLinks.length} links`}
+                                                            sx={{ height: 22, fontSize: 11 }}
+                                                        />
+                                                    ) : null}
+                                                    {lastRun ? (
+                                                        <Chip
+                                                            size="small"
+                                                            color={lastRun.status === "failed" ? "error" : "success"}
+                                                            variant="outlined"
+                                                            label={lastRun.status}
+                                                            sx={{ height: 22, fontSize: 11 }}
+                                                        />
+                                                    ) : null}
+                                                </Stack>
+
+                                                {lastRun?.status === "running" || lastRun?.status === "queued" ? (
+                                                    <LinearProgress sx={{ borderRadius: 999 }} />
+                                                ) : null}
+
+                                                {runMeta?.model_slug ? (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Model: {runMeta.model_slug}
+                                                    </Typography>
+                                                ) : null}
+
+                                                <Stack
+                                                    direction="row"
+                                                    spacing={0.5}
+                                                    alignItems="center"
+                                                    justifyContent="space-between"
+                                                    sx={(theme) => ({
+                                                        pt: 0.75,
+                                                        borderTop: `1px solid ${theme.palette.divider}`,
                                                     })}
                                                 >
-                                                    Save evidence bundle
-                                                </Button>
-                                            </Stack>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                What changed since last run
-                                            </Typography>
-                                            <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mb: 1.5 }}>
-                                                {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "").trim() ? (
-                                                    <Box component="pre" sx={{ m: 0, whiteSpace: "pre-wrap", typography: "caption" }}>
-                                                        {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "")}
-                                                    </Box>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        No diff captured yet.
-                                                    </Typography>
-                                                )}
-                                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                                    {expandedExecSnapshot?.last_run_id ? (
-                                                        <Link href={`/runs/${expandedExecSnapshot.last_run_id}`} underline="hover">Latest run</Link>
-                                                    ) : null}
-                                                    {typeof expandedExecSnapshot?.execution_memory?.last_run_id === "string" ? (
-                                                        <Link href={`/runs/${String(expandedExecSnapshot.execution_memory.last_run_id)}`} underline="hover">Execution memory source</Link>
-                                                    ) : null}
+                                                    <Stack direction="row" spacing={0.5}>
+                                                        <Tooltip title="Start task run">
+                                                            <span>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={isRunPending}
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        onRunTask(
+                                                                            task.id,
+                                                                            taskRunModes[task.id] ?? "single_agent",
+                                                                            taskPrModes[task.id] ?? false,
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <RunIcon fontSize="inherit" />
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="Run acceptance check">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    onAcceptanceCheck(task.id);
+                                                                }}
+                                                            >
+                                                                <CheckSimpleIcon fontSize="inherit" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Stack>
+
+                                                    <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setExpandedTask(task.id);
+                                                        }}
+                                                        sx={{ minWidth: 0 }}
+                                                    >
+                                                        Open
+                                                    </Button>
                                                 </Stack>
-                                            </Paper>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                                                Changed artifacts
-                                            </Typography>
-                                            <Stack spacing={0.75} sx={{ mb: 1.5 }}>
-                                                {(expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>> | undefined)?.length ? (
-                                                    (expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>>).map((artifact) => (
-                                                        <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
-                                                            <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {String(artifact.kind || "artifact")} • {artifact.created_at ? formatDateTime(String(artifact.created_at)) : "no timestamp"}
-                                                            </Typography>
-                                                        </Paper>
-                                                    ))
-                                                ) : expandedArtifacts.length > 0 ? (
-                                                    expandedArtifacts.slice(0, 4).map((artifact) => (
-                                                        <Paper key={artifact.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
-                                                            <Typography variant="body2">{artifact.title}</Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {artifact.kind} • {formatDateTime(artifact.created_at)}
-                                                            </Typography>
-                                                        </Paper>
-                                                    ))
-                                                ) : (
-                                                    <Typography variant="caption" color="text.secondary">No artifacts yet.</Typography>
-                                                )}
                                             </Stack>
-                                            <SubtaskPanel projectId={projectId} taskId={task.id} taskTitle={task.title} />
-                                            <Divider sx={{ my: 1 }} />
-                                            <ArtifactPanel taskId={task.id} />
-                                        </Box>
-                                    )}
-                                </Paper>
-                            );
-                        })}
-                    </Stack>
-                </Box>
-            ))}
+                                        </Paper>
+                                    );
+                                })}
+                            </Stack>
+                        </Paper>
+                    );
+                })}
             </Box>
+
+            <Drawer
+                anchor="right"
+                open={Boolean(expandedTask)}
+                onClose={() => setExpandedTask(null)}
+                slotProps={{ backdrop: { sx: { bgcolor: alpha("#000", 0.2) } } }}
+                sx={{ "& .MuiDrawer-paper": { width: { xs: "92vw", sm: 480, md: 540 }, p: 2.5 } }}
+            >
+                {(() => {
+                    const drawerTask = expandedTask ? tasks.find((t) => t.id === expandedTask) : null;
+                    if (!drawerTask) return null;
+
+                    const agent = allAgents.find((a) => a.id === drawerTask.assigned_agent_id);
+                    const lastRun = lastRunByTaskId[drawerTask.id];
+                    const runMeta = readOrchestrationSelectionMeta(lastRun);
+                    const acceptanceConfig = readAcceptanceCheckerConfig(drawerTask);
+                    const taskLinks = taskLinkDrafts[drawerTask.id] ?? readExternalLinks(drawerTask.metadata?.external_links);
+                    const evidenceDraft = evidenceDrafts[drawerTask.id] ?? readEvidenceBundle(drawerTask);
+                    const dependencyTasks = tasks.filter((candidate) => (drawerTask.dependency_ids ?? []).includes(candidate.id));
+                    const incompleteDependencies = dependencyTasks.filter((candidate) => !["approved", "completed", "synced_to_github", "archived"].includes(candidate.status));
+                    const acceptancePassed = Boolean(expandedExecSnapshot?.acceptance_summary?.passed);
+                    const acceptedArtifactsCount = evidenceDraft.accepted_artifact_ids.filter((artifactId) => expandedArtifacts.some((artifact) => artifact.id === artifactId)).length;
+                    const acceptedLinksCount = evidenceDraft.accepted_external_link_ids.filter((linkId) => taskLinks.some((link) => link.id === linkId)).length;
+                    const evidenceReadyForSync =
+                        acceptedArtifactsCount > 0 &&
+                        acceptedLinksCount > 0 &&
+                        Boolean(evidenceDraft.reviewer_decision_status) &&
+                        Boolean(evidenceDraft.sync_summary.trim());
+                    const evidenceReadyForArchive =
+                        (acceptedArtifactsCount > 0 &&
+                            acceptedLinksCount > 0 &&
+                            Boolean(evidenceDraft.reviewer_decision_status) &&
+                            (Boolean(evidenceDraft.sync_summary.trim()) || drawerTask.status === "synced_to_github"))
+                        || drawerTask.status === "archived";
+                    const transitionOptions = buildTransitionOptions({
+                        task: drawerTask,
+                        acceptancePassed,
+                        evidenceReadyForSync,
+                        evidenceReadyForArchive,
+                        hasIncompleteDependencies: incompleteDependencies.length > 0,
+                    });
+                    const selectedNextStatus = nextStatusByTask[drawerTask.id] ?? transitionOptions[0]?.status ?? "";
+                    const workerTip =
+                        runMeta.worker_agent_rationale
+                        || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
+                    const isUpdating = taskUpdateMutation.isPending && taskUpdateMutation.variables?.taskId === drawerTask.id;
+
+                    return (
+                        <>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
+                                        {drawerTask.title}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {humanizeKey(drawerTask.status)} · {agent?.name ?? "Unassigned"}
+                                    </Typography>
+                                </Box>
+                                <IconButton size="small" onClick={() => setExpandedTask(null)}>
+                                    <CloseIcon />
+                                </IconButton>
+                            </Stack>
+
+                            {drawerTask.description ? (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    {drawerTask.description}
+                                </Typography>
+                            ) : null}
+
+                            <Stack spacing={1.5} sx={{ overflowY: "auto", flex: 1, pb: 2 }}>
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Owner agent"
+                                    value={drawerTask.assigned_agent_id ?? ""}
+                                    onChange={(event) => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { assigned_agent_id: event.target.value || null },
+                                    })}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">Unassigned</MenuItem>
+                                    {allAgents.map((currentAgent) => (
+                                        <MenuItem key={currentAgent.id} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Reviewer agent"
+                                    value={drawerTask.reviewer_agent_id ?? ""}
+                                    onChange={(event) => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { reviewer_agent_id: event.target.value || null },
+                                    })}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {allAgents.map((currentAgent) => (
+                                        <MenuItem key={`review-${currentAgent.id}`} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    SelectProps={{ multiple: true }}
+                                    size="small"
+                                    label="Blocked by"
+                                    value={drawerTask.dependency_ids ?? []}
+                                    onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        taskUpdateMutation.mutate({
+                                            taskId: drawerTask.id,
+                                            payload: {
+                                                dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                            },
+                                        });
+                                    }}
+                                    helperText="Main task flow dependencies."
+                                    fullWidth
+                                >
+                                    {tasks.filter((candidate) => candidate.id !== drawerTask.id).map((candidate) => (
+                                        <MenuItem key={`dep-${candidate.id}`} value={candidate.id}>
+                                            {candidate.title} · {humanizeKey(candidate.status)}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                {dependencyTasks.length > 0 ? (
+                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                        {dependencyTasks.map((dependencyTask) => (
+                                            <Chip
+                                                key={dependencyTask.id}
+                                                label={`${dependencyTask.title} · ${humanizeKey(dependencyTask.status)}`}
+                                                size="small"
+                                                color={incompleteDependencies.some((item) => item.id === dependencyTask.id) ? "warning" : "success"}
+                                                variant="outlined"
+                                            />
+                                        ))}
+                                    </Stack>
+                                ) : null}
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Execution mode"
+                                    value={taskRunModes[drawerTask.id] ?? "single_agent"}
+                                    onChange={(event) => onModeChange(drawerTask.id, event.target.value as ExecutionMode)}
+                                    fullWidth
+                                >
+                                    <MenuItem value="single_agent">Single agent: fast, cheap</MenuItem>
+                                    <MenuItem value="manager_worker">Managed team: manager routes work</MenuItem>
+                                    <MenuItem value="debate">Debate: two agents propose, moderator resolves</MenuItem>
+                                </TextField>
+
+                                <Button
+                                    size="small"
+                                    variant={taskPrModes[drawerTask.id] ? "contained" : "outlined"}
+                                    onClick={() => onPrModeChange(drawerTask.id, !(taskPrModes[drawerTask.id] ?? false))}
+                                >
+                                    {taskPrModes[drawerTask.id] ? "PR generation on" : "Generate PR"}
+                                </Button>
+
+                                <Divider />
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Next valid status"
+                                    value={selectedNextStatus}
+                                    onChange={(event) => setNextStatusByTask((current) => ({ ...current, [drawerTask.id]: event.target.value }))}
+                                    fullWidth
+                                >
+                                    {transitionOptions.map((option) => (
+                                        <MenuItem key={`${drawerTask.id}-${option.status}`} value={option.status} disabled={option.blocked}>
+                                            {humanizeKey(option.status)}{option.reason ? ` — ${option.reason}` : ""}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                {transitionOptions.filter((option) => option.blocked).map((option) => (
+                                    <Alert key={`${drawerTask.id}-${option.status}-blocked`} severity="warning">
+                                        {humanizeKey(option.status)} blocked: {option.reason}
+                                    </Alert>
+                                ))}
+
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    disabled={!selectedNextStatus || Boolean(transitionOptions.find((option) => option.status === selectedNextStatus)?.blocked)}
+                                    onClick={() => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { status: selectedNextStatus },
+                                    })}
+                                >
+                                    Apply transition
+                                </Button>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Run & acceptance</Typography>
+
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<RunIcon />}
+                                        disabled={isRunPending}
+                                        onClick={() => onRunTask(
+                                            drawerTask.id,
+                                            taskRunModes[drawerTask.id] ?? "single_agent",
+                                            taskPrModes[drawerTask.id] ?? false,
+                                        )}
+                                    >
+                                        Run
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<CheckSimpleIcon />}
+                                        onClick={() => onAcceptanceCheck(drawerTask.id)}
+                                    >
+                                        Check acceptance
+                                    </Button>
+                                </Stack>
+
+                                <Typography variant="caption" color="text.secondary">
+                                    Model: {runMeta?.model_slug ?? "N/A"}
+                                </Typography>
+
+                                {lastRun ? (
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Typography variant="caption" color="text.secondary">
+                                            Last run:
+                                        </Typography>
+                                        <Chip
+                                            size="small"
+                                            color={lastRun.status === "failed" ? "error" : "success"}
+                                            variant="outlined"
+                                            label={lastRun.status}
+                                        />
+                                    </Stack>
+                                ) : null}
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Routing</Typography>
+
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Agent selection</Typography>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                        {String(expandedExecSnapshot?.routing_explainability?.agent_selection_reason || workerTip)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">Model selection</Typography>
+                                    <Typography variant="body2">
+                                        {String(expandedExecSnapshot?.routing_explainability?.model_selection_reason || runMeta.model_rationale || "No explicit model explanation captured yet.")}
+                                    </Typography>
+                                    {expandedExecSnapshot?.routing_explainability?.routing_policy_snapshot ? (
+                                        <Box
+                                            component="pre"
+                                            sx={{ m: 0, mt: 1, p: 1, typography: "caption", bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04), whiteSpace: "pre-wrap" }}
+                                        >
+                                            {JSON.stringify(expandedExecSnapshot.routing_explainability.routing_policy_snapshot, null, 2)}
+                                        </Box>
+                                    ) : null}
+                                </Paper>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Acceptance checker</Typography>
+
+                                <Stack spacing={1}>
+                                    <TextField
+                                        size="small"
+                                        label="Required artifact kinds"
+                                        defaultValue={acceptanceConfig.required_artifact_kinds.join(", ")}
+                                        helperText="Comma-separated kinds enforced before approve/complete."
+                                        onBlur={(event) => updateAcceptanceConfig(drawerTask, {
+                                            required_artifact_kinds: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
+                                        })}
+                                        fullWidth
+                                    />
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_github_comment} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_github_comment: checked })} />}
+                                            label="Need GitHub comment"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_github_pr} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_github_pr: checked })} />}
+                                            label="Need GitHub PR"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_reviewer_approval} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_reviewer_approval: checked })} />}
+                                            label="Need reviewer approval"
+                                        />
+                                    </Stack>
+                                    {expandedExecSnapshot?.acceptance_summary ? (
+                                        <Alert severity={expandedExecSnapshot.acceptance_summary.passed ? "success" : "warning"}>
+                                            {expandedExecSnapshot.acceptance_summary.passed ? "Acceptance gate currently passes." : "Acceptance gate currently fails."}
+                                        </Alert>
+                                    ) : null}
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">External links</Typography>
+
+                                <ExternalLinksEditor
+                                    links={taskLinks}
+                                    onChange={(links) => setTaskLinkDrafts((current) => ({ ...current, [drawerTask.id]: links }))}
+                                    compact
+                                />
+
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: {
+                                            metadata: {
+                                                ...drawerTask.metadata,
+                                                external_links: serializeExternalLinks(taskLinks),
+                                                evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                            },
+                                        },
+                                    })}
+                                >
+                                    Save links
+                                </Button>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Final evidence bundle</Typography>
+
+                                <Stack spacing={1}>
+                                    <TextField
+                                        select
+                                        SelectProps={{ multiple: true }}
+                                        size="small"
+                                        label="Accepted artifacts"
+                                        value={evidenceDraft.accepted_artifact_ids}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value;
+                                            setEvidenceDrafts((current) => ({
+                                                ...current,
+                                                [drawerTask.id]: {
+                                                    ...evidenceDraft,
+                                                    accepted_artifact_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                },
+                                            }));
+                                        }}
+                                        fullWidth
+                                    >
+                                        {expandedArtifacts.map((artifact) => (
+                                            <MenuItem key={artifact.id} value={artifact.id}>{artifact.title} · {artifact.kind}</MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        select
+                                        SelectProps={{ multiple: true }}
+                                        size="small"
+                                        label="Accepted external links"
+                                        value={evidenceDraft.accepted_external_link_ids}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value;
+                                            setEvidenceDrafts((current) => ({
+                                                ...current,
+                                                [drawerTask.id]: {
+                                                    ...evidenceDraft,
+                                                    accepted_external_link_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                },
+                                            }));
+                                        }}
+                                        fullWidth
+                                    >
+                                        {taskLinks.map((link) => (
+                                            <MenuItem key={`accepted-link-${link.id}`} value={link.id}>{link.label} · {humanizeKey(link.kind)}</MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Reviewer decision"
+                                        value={evidenceDraft.reviewer_decision_status}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                reviewer_decision_status: event.target.value,
+                                            },
+                                        }))}
+                                        fullWidth
+                                    >
+                                        <MenuItem value="">Not recorded</MenuItem>
+                                        <MenuItem value="approved">Approved</MenuItem>
+                                        <MenuItem value="changes_requested">Changes requested</MenuItem>
+                                        <MenuItem value="rejected">Rejected</MenuItem>
+                                    </TextField>
+
+                                    <TextField
+                                        size="small"
+                                        label="Reviewer notes"
+                                        value={evidenceDraft.reviewer_decision_notes}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                reviewer_decision_notes: event.target.value,
+                                            },
+                                        }))}
+                                        multiline
+                                        minRows={2}
+                                        fullWidth
+                                    />
+
+                                    <TextField
+                                        size="small"
+                                        label="Sync summary"
+                                        value={evidenceDraft.sync_summary}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                sync_summary: event.target.value,
+                                            },
+                                        }))}
+                                        multiline
+                                        minRows={2}
+                                        helperText="Required before `synced_to_github`; reused for archive notes."
+                                        fullWidth
+                                    />
+
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                        <Chip label={evidenceReadyForSync ? "Ready for sync" : "Sync evidence incomplete"} size="small" color={evidenceReadyForSync ? "success" : "warning"} />
+                                        <Chip label={evidenceReadyForArchive ? "Ready for archive" : "Archive evidence incomplete"} size="small" color={evidenceReadyForArchive ? "success" : "warning"} />
+                                    </Stack>
+
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => taskUpdateMutation.mutate({
+                                            taskId: drawerTask.id,
+                                            payload: {
+                                                metadata: {
+                                                    ...drawerTask.metadata,
+                                                    external_links: serializeExternalLinks(taskLinks),
+                                                    evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                                },
+                                            },
+                                        })}
+                                    >
+                                        Save evidence bundle
+                                    </Button>
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">What changed since last run</Typography>
+
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                    {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "").trim() ? (
+                                        <Box component="pre" sx={{ m: 0, whiteSpace: "pre-wrap", typography: "caption" }}>
+                                            {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "")}
+                                        </Box>
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            No diff captured yet.
+                                        </Typography>
+                                    )}
+                                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                        {expandedExecSnapshot?.last_run_id ? (
+                                            <Link href={`/runs/${expandedExecSnapshot.last_run_id}`} underline="hover">Latest run</Link>
+                                        ) : null}
+                                    </Stack>
+                                </Paper>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Changed artifacts</Typography>
+
+                                <Stack spacing={0.75}>
+                                    {(expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>> | undefined)?.length ? (
+                                        (expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>>).map((artifact) => (
+                                            <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {String(artifact.kind || "artifact")} · {artifact.created_at ? formatDateTime(String(artifact.created_at)) : "no timestamp"}
+                                                </Typography>
+                                            </Paper>
+                                        ))
+                                    ) : expandedArtifacts.length > 0 ? (
+                                        expandedArtifacts.slice(0, 4).map((artifact) => (
+                                            <Paper key={artifact.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Typography variant="body2">{artifact.title}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {artifact.kind} · {formatDateTime(artifact.created_at)}
+                                                </Typography>
+                                            </Paper>
+                                        ))
+                                    ) : (
+                                        <Typography variant="caption" color="text.secondary">No artifacts yet.</Typography>
+                                    )}
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Timeline</Typography>
+
+                                <Stack spacing={0.75} sx={{ maxHeight: 220, overflow: "auto" }}>
+                                    {timeline.length === 0 ? (
+                                        <Typography variant="caption" color="text.secondary">
+                                            No comments or GitHub sync events yet.
+                                        </Typography>
+                                    ) : (
+                                        timeline.map((row) => (
+                                            <Paper key={`${row.kind}-${row.id}`} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {formatDateTime(row.created_at)} · {row.kind}
+                                                </Typography>
+                                                <Typography variant="body2">{row.title}</Typography>
+                                                {row.body ? (
+                                                    <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
+                                                        {row.body}
+                                                    </Typography>
+                                                ) : null}
+                                            </Paper>
+                                        ))
+                                    )}
+                                </Stack>
+
+                                <Divider />
+
+                                <SubtaskPanel projectId={projectId} taskId={drawerTask.id} taskTitle={drawerTask.title} />
+
+                                <Divider />
+
+                                <ArtifactPanel taskId={drawerTask.id} />
+
+                                <Divider />
+
+                                <TaskMemoryInspector
+                                    projectId={projectId}
+                                    taskId={drawerTask.id}
+                                    lastRunId={lastRun?.id}
+                                />
+                            </Stack>
+                        </>
+                    );
+                })()}
+            </Drawer>
         </Stack>
     );
 }

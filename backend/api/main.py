@@ -10,10 +10,10 @@ from backend.core.logging import setup_logging
 from backend.core.storage import object_storage
 from backend.core.telemetry import setup_telemetry
 from backend.db.session import SessionLocal, engine
-from backend.modules.platform.service import PlatformService
 from backend.modules.github.router import public_router as github_public_router
 from backend.modules.orchestration.graphql_router import graphql_router
 from backend.modules.orchestration.router import public_router as orchestration_public_router
+from backend.modules.platform.service import PlatformService
 
 from .middleware.correlation_id import CorrelationIdMiddleware
 from .middleware.csrf import CSRFMiddleware

@@ -99,22 +99,8 @@ function buildProviderCreatePayload(form: ProviderForm) {
     };
 }
 
-function defaultLocalRuntimeCommand(providerType: string) {
-    if (providerType === "ollama") return "ollama serve";
-    if (providerType === "openai_compatible") {
-        return [
-            "/home/polat/Desktop/Projects/llama.cpp/build/bin/llama-server",
-            "  -m /home/polat/Desktop/Projects/llama.cpp/models/qwen2.5-14b-instruct-q4_k_m.gguf",
-            "  --host 127.0.0.1",
-            "  --port 8081",
-            "  -c 8192",
-            "  -ngl 999",
-        ].join("\n");
-    }
-    return "";
-}
 
-function defaultLocalRuntimeHealthUrl(providerType: string, baseUrl: string) {
+function getLocalRuntimeHealthUrl(providerType: string, baseUrl: string) {
     const normalizedBaseUrl = baseUrl.trim().replace(/\/$/, "");
     if (providerType === "ollama") return `${normalizedBaseUrl || "http://localhost:11434"}/api/tags`;
     if (providerType === "openai_compatible" && normalizedBaseUrl) return `${normalizedBaseUrl}/models`;
@@ -135,12 +121,13 @@ function providerOptionsFor(category: ProviderForm["provider_category"]) {
     return category === "local" ? LOCAL_PROVIDER_OPTIONS : CLOUD_PROVIDER_OPTIONS;
 }
 
-function localRuntimeMetadata(provider: ProviderConfig) {
+function getLocalRuntimeMetadata(provider: ProviderConfig) {
     const value = provider.metadata?.local_runtime;
     return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function isLocalRuntimeProvider(provider: ProviderConfig, runtime: Record<string, unknown> | null) {
+function isLocalRuntimeProvider(provider: ProviderConfig) {
+    const runtime = getLocalRuntimeMetadata(provider);
     return provider.provider_type === "ollama" || runtime?.mode === "managed";
 }
 
@@ -148,6 +135,7 @@ function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const [draft, setDraft] = useState(String(provider.timeout_seconds));
+
     const saveMutation = useMutation({
         mutationFn: (next: number) => updateProvider(provider.id, { timeout_seconds: next }),
         onSuccess: async () => {
@@ -158,9 +146,11 @@ function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }
             showToast({ message: "Could not update timeout.", severity: "error" });
         },
     });
+
     const parsed = parseInt(draft, 10);
     const clamped = Number.isFinite(parsed) ? Math.min(3600, Math.max(5, parsed)) : null;
     const unchanged = clamped !== null && clamped === provider.timeout_seconds;
+
     return (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "flex-start" }}>
             <TextField
@@ -186,7 +176,7 @@ function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }
     );
 }
 
-function providerModels(provider: ProviderConfig) {
+function getProviderModels(provider: ProviderConfig) {
     const discovered = Array.isArray(provider.metadata?.discovered_models)
         ? (provider.metadata.discovered_models as Array<Record<string, unknown>>)
         : [];
@@ -197,7 +187,7 @@ function providerModels(provider: ProviderConfig) {
     return Array.from(names);
 }
 
-function defaultModelForProviderType(providerType: string, capabilityMap: Record<string, string[]>) {
+function getDefaultModelForProviderType(providerType: string, capabilityMap: Record<string, string[]>) {
     if (providerType === "local") return "local-heuristic";
     if (providerType === "anthropic") return "claude-sonnet-4-20250514";
     if (providerType === "qwen") return "qwen-plus";
@@ -222,24 +212,28 @@ export function ProviderSettingsPanel() {
     const { data: providers = [] } = useQuery({
         queryKey: ["orchestration", "providers"],
         queryFn: () => listProviders(),
-        refetchInterval: 10_000,
+        refetchInterval: 10000,
     });
+
     const { data: modelCapabilities = [] } = useQuery({
         queryKey: ["orchestration", "provider-model-capabilities"],
         queryFn: listModelCapabilities,
     });
 
     const providerCapabilityMap = useMemo(() => {
-        return modelCapabilities.reduce<Record<string, string[]>>((accumulator, item) => {
-            accumulator[item.provider_type] = accumulator[item.provider_type] ?? [];
-            if (!accumulator[item.provider_type].includes(item.model_slug)) {
-                accumulator[item.provider_type].push(item.model_slug);
+        return modelCapabilities.reduce<Record<string, string[]>>((acc, item) => {
+            if (!acc[item.provider_type]) {
+                acc[item.provider_type] = [];
             }
-            return accumulator;
+            if (!acc[item.provider_type].includes(item.model_slug)) {
+                acc[item.provider_type].push(item.model_slug);
+            }
+            return acc;
         }, {});
     }, [modelCapabilities]);
+
     const capabilityMatrix = useMemo(() => {
-        const providerNameById = new Map(providers.map((provider) => [provider.id, provider.name]));
+        const providerNameById = new Map(providers.map((p) => [p.id, p.name]));
         const rows = modelCapabilities.map((item) => ({
             providerId: item.provider_id,
             providerLabel: item.provider_id ? providerNameById.get(item.provider_id) ?? item.provider_type : item.provider_type,
@@ -249,16 +243,17 @@ export function ProviderSettingsPanel() {
             supportsVision: item.supports_vision,
             contextTokens: item.context_window ?? item.max_context_tokens,
             maxOutputTokens: item.max_output_tokens,
-            inputCost: item.input_cost_per_1k ?? item.cost_per_1k_input,
-            outputCost: item.output_cost_per_1k ?? item.cost_per_1k_output,
+            inputCost: item.input_cost_per_1k ?? item.cost_per_1k_input ?? 0,
+            outputCost: item.output_cost_per_1k ?? item.cost_per_1k_output ?? 0,
             latencyP50: item.latency_p50,
             healthStatus: item.health_status ?? "unknown",
             source: String(item.metadata?.source ?? "provider"),
             lastVerifiedAt: item.last_verified_at,
             overrideReason: item.override_reason,
         }));
+
         for (const provider of providers) {
-            for (const model of providerModels(provider)) {
+            for (const model of getProviderModels(provider)) {
                 if (rows.some((item) => item.providerId === provider.id && item.modelSlug === model)) {
                     continue;
                 }
@@ -281,13 +276,17 @@ export function ProviderSettingsPanel() {
                 });
             }
         }
-        rows.sort((a, b) =>
-            a.providerType === b.providerType
-                ? a.modelSlug.localeCompare(b.modelSlug)
-                : `${a.providerLabel}`.localeCompare(`${b.providerLabel}`)
-        );
+
+        rows.sort((a, b) => {
+            if (a.providerType === b.providerType) {
+                return a.modelSlug.localeCompare(b.modelSlug);
+            }
+            return `${a.providerLabel}`.localeCompare(`${b.providerLabel}`);
+        });
+
         return rows;
     }, [modelCapabilities, providers]);
+
     const providerPayload = useMemo(() => buildProviderCreatePayload(form), [form]);
     const nameError = createAttempted && providerPayload.name.length < 2;
     const defaultModelError = createAttempted && providerPayload.default_model.length === 0;
@@ -303,6 +302,7 @@ export function ProviderSettingsPanel() {
             showToast({ message: "Provider saved.", severity: "success" });
         },
     });
+
     const testMutation = useMutation({
         mutationFn: testProvider,
         onSuccess: async (result) => {
@@ -316,6 +316,7 @@ export function ProviderSettingsPanel() {
             });
         },
     });
+
     const discoverMutation = useMutation({
         mutationFn: listProviderModels,
         onSuccess: async (_, providerId) => {
@@ -328,6 +329,7 @@ export function ProviderSettingsPanel() {
             }));
         },
     });
+
     const startRuntimeMutation = useMutation({
         mutationFn: startProviderRuntime,
         onSuccess: async (result) => {
@@ -343,6 +345,7 @@ export function ProviderSettingsPanel() {
             showToast({ message: "Could not start local server.", severity: "error" });
         },
     });
+
     const deleteMutation = useMutation({
         mutationFn: deleteProvider,
         onSuccess: async (_, providerId) => {
@@ -361,12 +364,65 @@ export function ProviderSettingsPanel() {
             showToast({ message: "Could not delete provider.", severity: "error" });
         },
     });
+
     const compareMutation = useMutation({
         mutationFn: compareProviders,
     });
 
-    const selectedCompareProviderA = providers.find((provider) => provider.id === compareForm.provider_a_id) ?? null;
-    const selectedCompareProviderB = providers.find((provider) => provider.id === compareForm.provider_b_id) ?? null;
+    const selectedCompareProviderA = providers.find((p) => p.id === compareForm.provider_a_id) ?? null;
+    const selectedCompareProviderB = providers.find((p) => p.id === compareForm.provider_b_id) ?? null;
+
+    const handleProviderCategoryChange = (nextCategory: ProviderForm["provider_category"]) => {
+        const nextOption = providerOptionsFor(nextCategory)[0];
+        const nextType = nextOption.value;
+        const suggestedModels = providerCapabilityMap[nextType] ?? [];
+
+        setForm((current) => ({
+            ...current,
+            provider_category: nextCategory,
+            provider_type: nextType,
+            base_url: nextOption.baseUrl,
+            api_key: nextCategory === "local" ? "" : current.api_key,
+            default_model:
+                suggestedModels[0] ??
+                getDefaultModelForProviderType(nextType, providerCapabilityMap) ??
+                (nextCategory === "local" ? "local" : current.default_model),
+            fallback_model: nextCategory === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
+            local_runtime_command: "",
+            local_runtime_health_url: getLocalRuntimeHealthUrl(nextType, nextOption.baseUrl),
+        }));
+    };
+
+    const handleProviderTypeChange = (nextType: string) => {
+        const nextOption = providerOptionsFor(form.provider_category).find((option) => option.value === nextType);
+        const suggestedModels = providerCapabilityMap[nextType] ?? [];
+        const nextBaseUrl = nextOption?.baseUrl ?? form.base_url;
+
+        setForm((current) => ({
+            ...current,
+            provider_type: nextType,
+            base_url: nextBaseUrl,
+            api_key: form.provider_category === "local" ? "" : current.api_key,
+            default_model:
+                suggestedModels[0] ??
+                getDefaultModelForProviderType(nextType, providerCapabilityMap) ??
+                (form.provider_category === "local" ? "local" : current.default_model),
+            fallback_model: form.provider_category === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
+            local_runtime_command: "",
+            local_runtime_health_url: getLocalRuntimeHealthUrl(nextType, nextBaseUrl),
+        }));
+    };
+
+    const handleRuntimeCommandChange = (command: string) => {
+        const parsed = form.provider_type === "openai_compatible" ? parseLlamaCppCommand(command) : null;
+        setForm((current) => ({
+            ...current,
+            local_runtime_command: command,
+            base_url: parsed?.baseUrl ?? current.base_url,
+            default_model: parsed?.modelSlug ?? current.default_model,
+            local_runtime_health_url: parsed?.healthUrl ?? current.local_runtime_health_url,
+        }));
+    };
 
     return (
         <Stack spacing={2.5}>
@@ -390,29 +446,7 @@ export function ProviderSettingsPanel() {
                             <RadioGroup
                                 row
                                 value={form.provider_category}
-                                onChange={(event) => {
-                                    const nextCategory = event.target.value as ProviderForm["provider_category"];
-                                    const nextOption = providerOptionsFor(nextCategory)[0];
-                                    const nextType = nextOption.value;
-                                    const suggestedModels = providerCapabilityMap[nextType] ?? [];
-                                    const runtimeCommand = defaultLocalRuntimeCommand(nextType);
-                                    const parsedLlamaCpp = nextCategory === "local" && nextType === "openai_compatible" ? parseLlamaCppCommand(runtimeCommand) : null;
-                                    const nextBaseUrl = parsedLlamaCpp?.baseUrl ?? nextOption.baseUrl;
-                                    setForm((current) => ({
-                                        ...current,
-                                        provider_category: nextCategory,
-                                        provider_type: nextType,
-                                        base_url: nextBaseUrl,
-                                        api_key: nextCategory === "local" ? "" : current.api_key,
-                                        default_model:
-                                            nextCategory === "local" && nextType === "openai_compatible"
-                                                ? parsedLlamaCpp?.modelSlug ?? "local"
-                                                : suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
-                                        fallback_model: nextCategory === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
-                                        local_runtime_command: runtimeCommand,
-                                        local_runtime_health_url: parsedLlamaCpp?.healthUrl ?? defaultLocalRuntimeHealthUrl(nextType, nextBaseUrl),
-                                    }));
-                                }}
+                                onChange={(event) => handleProviderCategoryChange(event.target.value as ProviderForm["provider_category"])}
                             >
                                 <FormControlLabel value="cloud" control={<Radio size="small" />} label="Cloud" />
                                 <FormControlLabel value="local" control={<Radio size="small" />} label="Local server" />
@@ -422,26 +456,7 @@ export function ProviderSettingsPanel() {
                             select
                             label={form.provider_category === "local" ? "Local server" : "Cloud provider"}
                             value={form.provider_type}
-                            onChange={(event) => {
-                                const nextType = event.target.value;
-                                const nextOption = providerOptionsFor(form.provider_category).find((option) => option.value === nextType);
-                                const suggestedModels = providerCapabilityMap[nextType] ?? [];
-                                const runtimeCommand = defaultLocalRuntimeCommand(nextType);
-                                const parsedLlamaCpp = form.provider_category === "local" && nextType === "openai_compatible" ? parseLlamaCppCommand(runtimeCommand) : null;
-                                setForm((current) => ({
-                                    ...current,
-                                    provider_type: nextType,
-                                    base_url: parsedLlamaCpp?.baseUrl ?? nextOption?.baseUrl ?? current.base_url,
-                                    api_key: form.provider_category === "local" ? "" : current.api_key,
-                                    default_model:
-                                        form.provider_category === "local" && nextType === "openai_compatible"
-                                            ? parsedLlamaCpp?.modelSlug ?? "local"
-                                            : suggestedModels[0] ?? defaultModelForProviderType(nextType, providerCapabilityMap) ?? current.default_model,
-                                    fallback_model: form.provider_category === "local" ? "" : suggestedModels[1] ?? current.fallback_model,
-                                    local_runtime_command: runtimeCommand,
-                                    local_runtime_health_url: parsedLlamaCpp?.healthUrl ?? defaultLocalRuntimeHealthUrl(nextType, nextOption?.baseUrl ?? current.base_url),
-                                }));
-                            }}
+                            onChange={(event) => handleProviderTypeChange(event.target.value)}
                         >
                             {providerOptionsFor(form.provider_category).map((option) => (
                                 <MenuItem key={option.value} value={option.value}>
@@ -471,8 +486,8 @@ export function ProviderSettingsPanel() {
                                 defaultModelError
                                     ? "Default model is required."
                                     : (providerCapabilityMap[form.provider_type]?.length ?? 0) > 0
-                                    ? `Known: ${providerCapabilityMap[form.provider_type].join(", ")}`
-                                    : "Type the model slug exactly as the provider expects (e.g. llama3.1:8b)."
+                                        ? `Known: ${providerCapabilityMap[form.provider_type].join(", ")}`
+                                        : "Type the model slug exactly as the provider expects (e.g. llama3.1:8b)."
                             }
                         />
                         <TextField
@@ -487,10 +502,9 @@ export function ProviderSettingsPanel() {
                             value={form.timeout_seconds}
                             onChange={(event) => {
                                 const next = Number(event.target.value);
-                                setForm((current) => ({
-                                    ...current,
-                                    timeout_seconds: Number.isFinite(next) ? next : current.timeout_seconds,
-                                }));
+                                if (Number.isFinite(next)) {
+                                    setForm((current) => ({ ...current, timeout_seconds: next }));
+                                }
                             }}
                             inputProps={{ min: 5, max: 3600 }}
                             helperText="Per LLM request to this provider (backend default was 120s). Use 600–1800+ for slow CPU / Ollama."
@@ -500,17 +514,7 @@ export function ProviderSettingsPanel() {
                                 <TextField
                                     label="Start command"
                                     value={form.local_runtime_command}
-                                    onChange={(event) => {
-                                        const command = event.target.value;
-                                        const parsed = form.provider_type === "openai_compatible" ? parseLlamaCppCommand(command) : null;
-                                        setForm((current) => ({
-                                            ...current,
-                                            local_runtime_command: command,
-                                            base_url: parsed?.baseUrl ?? current.base_url,
-                                            default_model: parsed?.modelSlug ?? current.default_model,
-                                            local_runtime_health_url: parsed?.healthUrl ?? current.local_runtime_health_url,
-                                        }));
-                                    }}
+                                    onChange={(event) => handleRuntimeCommandChange(event.target.value)}
                                     helperText={
                                         form.provider_type === "ollama"
                                             ? "Default: ollama serve"
@@ -527,14 +531,14 @@ export function ProviderSettingsPanel() {
                                 />
                             </Stack>
                         )}
-
                         <Button
                             variant="contained"
                             disabled={createMutation.isPending}
                             onClick={() => {
                                 setCreateAttempted(true);
-                                if (!canCreateProvider) return;
-                                createMutation.mutate(providerPayload);
+                                if (canCreateProvider) {
+                                    createMutation.mutate(providerPayload);
+                                }
                             }}
                         >
                             Save provider
@@ -557,10 +561,11 @@ export function ProviderSettingsPanel() {
                                 ? provider.metadata.discovered_models.length
                                 : 0;
                             const statusLabel = provider.last_healthcheck_status ?? "never";
-                            const runtime = localRuntimeMetadata(provider);
-                            const isLocalRuntime = isLocalRuntimeProvider(provider, runtime);
-                            const runtimeMode = String(runtime?.mode ?? "external");
-                            const runtimeStatus = runtime?.status ? String(runtime.status) : null;
+                            const isLocalRuntime = isLocalRuntimeProvider(provider);
+                            const runtimeMetadata = getLocalRuntimeMetadata(provider);
+                            const runtimeMode = String(runtimeMetadata?.mode ?? "external");
+                            const runtimeStatus = runtimeMetadata?.status ? String(runtimeMetadata.status) : null;
+
                             return (
                                 <Paper key={provider.id} sx={{ p: 2, borderRadius: 4 }}>
                                     <Stack spacing={1.5}>
@@ -660,7 +665,7 @@ export function ProviderSettingsPanel() {
                             label="Provider A"
                             value={compareForm.provider_a_id}
                             onChange={(event) => {
-                                const nextProvider = providers.find((provider) => provider.id === event.target.value);
+                                const nextProvider = providers.find((p) => p.id === event.target.value);
                                 setCompareForm((current) => ({
                                     ...current,
                                     provider_a_id: event.target.value,
@@ -680,11 +685,11 @@ export function ProviderSettingsPanel() {
                             value={compareForm.model_a}
                             onChange={(event) => setCompareForm((current) => ({ ...current, model_a: event.target.value }))}
                         >
-                            {providerModels(selectedCompareProviderA ?? ({
+                            {getProviderModels(selectedCompareProviderA ?? {
                                 default_model: compareForm.model_a,
                                 fallback_model: null,
                                 metadata: {},
-                            } as ProviderConfig)).map((model) => (
+                            } as ProviderConfig).map((model) => (
                                 <MenuItem key={model} value={model}>
                                     {model}
                                 </MenuItem>
@@ -695,7 +700,7 @@ export function ProviderSettingsPanel() {
                             label="Provider B"
                             value={compareForm.provider_b_id}
                             onChange={(event) => {
-                                const nextProvider = providers.find((provider) => provider.id === event.target.value);
+                                const nextProvider = providers.find((p) => p.id === event.target.value);
                                 setCompareForm((current) => ({
                                     ...current,
                                     provider_b_id: event.target.value,
@@ -715,11 +720,11 @@ export function ProviderSettingsPanel() {
                             value={compareForm.model_b}
                             onChange={(event) => setCompareForm((current) => ({ ...current, model_b: event.target.value }))}
                         >
-                            {providerModels(selectedCompareProviderB ?? ({
+                            {getProviderModels(selectedCompareProviderB ?? {
                                 default_model: compareForm.model_b,
                                 fallback_model: null,
                                 metadata: {},
-                            } as ProviderConfig)).map((model) => (
+                            } as ProviderConfig).map((model) => (
                                 <MenuItem key={model} value={model}>
                                     {model}
                                 </MenuItem>
@@ -766,8 +771,8 @@ export function ProviderSettingsPanel() {
                         <>
                             <Divider />
                             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "repeat(2, minmax(0, 1fr))" } }}>
-                                {[compareMutation.data.result_a, compareMutation.data.result_b].map((result) => (
-                                    <Paper key={`${result.provider_id}-${result.model_name}`} sx={{ p: 2.5, borderRadius: 4 }}>
+                                {[compareMutation.data.result_a, compareMutation.data.result_b].map((result, idx) => (
+                                    <Paper key={`${result.provider_id}-${result.model_name}-${idx}`} sx={{ p: 2.5, borderRadius: 4 }}>
                                         <Stack spacing={1.5}>
                                             <Stack direction="row" justifyContent="space-between" spacing={1.5}>
                                                 <Box>
@@ -802,13 +807,14 @@ export function ProviderSettingsPanel() {
                     )}
                 </Stack>
             </SectionCard>
+
             <SectionCard
                 title="Model capability matrix"
                 description="Provider × model × capabilities view used for policy routing and execution planning."
             >
                 <Stack spacing={1.25}>
-                    {capabilityMatrix.map((item) => (
-                        <Paper key={`${item.providerId ?? item.providerType}-${item.modelSlug}`} sx={{ p: 1.5, borderRadius: 3 }}>
+                    {capabilityMatrix.map((item, idx) => (
+                        <Paper key={`${item.providerId ?? item.providerType}-${item.modelSlug}-${idx}`} sx={{ p: 1.5, borderRadius: 3 }}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} justifyContent="space-between">
                                 <Typography variant="body2">
                                     <strong>{item.providerLabel}</strong> · {item.modelSlug}
@@ -843,7 +849,7 @@ export function ProviderSettingsPanel() {
     );
 }
 
-export default function OrchestrationSettingsPage() {
+export default function ProviderSettingsPage() {
     return (
         <PageShell maxWidth="xl">
             <ProviderSettingsPanel />

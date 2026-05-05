@@ -14,8 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.identity_access.models import User
-from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.memory.settings import merge_memory_settings
+from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.orchestration.local_repo import (
     LocalRepoError,
     build_context_pack,
@@ -40,7 +40,6 @@ from backend.modules.projects.schemas import (
 )
 from backend.modules.team.models import AgentProfile
 from backend.modules.users.repository import UsersRepository
-
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
 
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.markdown import parse_agent_markdown

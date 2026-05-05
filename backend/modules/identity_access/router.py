@@ -4,7 +4,6 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
-from backend.db.session import get_db
 from backend.core.config import settings
 from backend.core.rate_limit import (
     auth_rate_limit_key,
@@ -14,6 +13,7 @@ from backend.core.rate_limit import (
     increment_rate_limit,
 )
 from backend.core.security import create_access_token, generate_csrf_token
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.identity_access.schemas import (
     AuthSessionResponse,

@@ -1,13 +1,12 @@
 from datetime import datetime
+from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, ForeignKeyConstraint, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKeyConstraint
-from typing import Optional
+
 from backend.db.base import Base
 from backend.modules.orchestration.model_utils import utcnow
-
 
 
 class OrchestratorProject(Base):
@@ -98,7 +97,7 @@ class OrchestratorTask(Base):
     #     nullable=True,
     #     index=True,
     # )
-    github_issue_link_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    github_issue_link_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 

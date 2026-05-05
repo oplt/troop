@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import strawberry
 from fastapi import Depends
 from strawberry.fastapi import GraphQLRouter
-from strawberry.schema.config import StrawberryConfig
 from strawberry.scalars import JSON
+from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
 from backend.api.deps.auth import get_current_user
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.control_plane import (
-    ControlPlaneEvent,
     HierarchyControlPlaneService,
     control_plane_pubsub,
 )

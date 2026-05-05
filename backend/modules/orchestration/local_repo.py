@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import fnmatch
-import os
 import re
 import shlex
 import subprocess
@@ -9,7 +8,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
 
 DEFAULT_ALLOWED_BRANCHES = ["main", "master", "develop", "feature/*", "fix/*", "agent/*"]
 DEFAULT_COMMAND_ALLOWLIST = ["pnpm", "uv", "pytest", "ruff", "mypy", "git status", "git diff", "rg"]

@@ -5,9 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.calendar.models import CalendarEntry
 from backend.modules.calendar.repository import CalendarRepository
-from backend.modules.calendar.schemas import CalendarItemCreate, CalendarItemResponse, CalendarItemUpdate
-from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
+from backend.modules.calendar.schemas import (
+    CalendarItemCreate,
+    CalendarItemResponse,
+    CalendarItemUpdate,
+)
 from backend.modules.identity_access.models import User
+from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 
 
 class CalendarService:

@@ -14,7 +14,6 @@ from backend.modules.orchestration.models import (
     AgentProfile,
     AgentProfileVersion,
     AgentTemplateCatalog,
-    ModelCapability,
     ApprovalRequest,
     Brainstorm,
     BrainstormMessage,
@@ -27,14 +26,14 @@ from backend.modules.orchestration.models import (
     GithubRepository,
     GithubSyncEvent,
     MemoryIngestJob,
+    ModelCapability,
     OrchestratorProject,
     OrchestratorTask,
-    ProjectAgentMembership,
     ProceduralPlaybook,
+    ProjectAgentMembership,
     ProjectDecision,
     ProjectDocument,
     ProjectDocumentChunk,
-    normalize_embedding_for_vector,
     ProjectMilestone,
     ProjectRepositoryLink,
     ProviderConfig,
@@ -46,6 +45,7 @@ from backend.modules.orchestration.models import (
     TaskComment,
     TaskDependency,
     TaskRun,
+    normalize_embedding_for_vector,
 )
 from backend.modules.projects.orchestration_repository import OrchestrationProjectsRepositoryMixin
 from backend.modules.team.repository import TeamRepositoryMixin

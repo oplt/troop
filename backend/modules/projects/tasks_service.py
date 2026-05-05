@@ -4,10 +4,11 @@ import json
 import math
 import re
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from difflib import unified_diff
 from types import SimpleNamespace
-from typing import Any, Sequence
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import attributes as orm_attributes
@@ -22,7 +23,6 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorTask,
     TaskArtifact,
 )
-
 
 EXTERNAL_LINK_KINDS: frozenset[str] = frozenset(
     {"spec", "doc", "figma", "pr", "commit", "incident", "runbook", "issue", "other"}

@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.core.schemas import RequestModel
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES,
-    validate_entry_type,
 )
 from backend.modules.memory.namespaces import validate_namespace
 

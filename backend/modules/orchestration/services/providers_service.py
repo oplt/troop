@@ -9,12 +9,17 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from backend.modules.identity_access.models import User
-from backend.modules.orchestration._helpers import OPENAI_FAMILY_PROVIDER_TYPES, _provider_type_aliases
+from backend.modules.orchestration._helpers import (
+    _provider_type_aliases,
+)
 from backend.modules.orchestration.models import ModelCapability, ProviderConfig, TaskRun
-from backend.modules.orchestration.providers import discover_provider_capabilities, execute_prompt, test_provider
+from backend.modules.orchestration.providers import (
+    discover_provider_capabilities,
+    execute_prompt,
+    test_provider,
+)
 from backend.modules.orchestration.security import encrypt_secret, mask_secret
 from backend.modules.projects.orchestration_models import OrchestratorProject
-
 
 logger = logging.getLogger(__name__)
 

@@ -5,20 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core.schemas import RequestModel
 from backend.modules.github.schemas import (
-    GithubAppInstallResponse,
-    GithubCommentRequest,
-    GithubConnectionCreate,
-    GithubConnectionResponse,
-    GithubIssueImportRequest,
-    GithubIssueLinkResponse,
-    GithubRepositoryResponse,
     GithubSyncEventResponse,
-    GithubWebhookResponse,
-)
-from backend.modules.team.schemas import (
-    ProjectAgentMembershipCreate,
-    ProjectAgentMembershipResponse,
-    ProjectAgentMembershipUpdate,
 )
 
 TaskStatus = Literal[

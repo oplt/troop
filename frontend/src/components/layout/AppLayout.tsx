@@ -23,25 +23,18 @@ import {
     useMediaQuery,
 } from "@mui/material";
 import {
-    AdminPanelSettings as AdminIcon,
     Analytics as ActivityIcon,
     ArrowBack as ArrowBackIcon,
-    CalendarMonth as CalendarIcon,
     ChevronLeft as ChevronLeftIcon,
     ChevronRight as ChevronRightIcon,
     Dashboard as DashboardIcon,
     DarkMode as DarkModeIcon,
-    Extension as PlatformIcon,
     Hub as AgentProjectsIcon,
-    Business as CompaniesIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
-    AccountTree as HierarchyIcon,
     AttachMoney as CostAnalyticsIcon,
-    SmartToy as AiStudioIcon,
     ViewModule as PortfolioNavIcon,
-    Person as ProfileIcon,
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
 } from "@mui/icons-material";
@@ -269,7 +262,6 @@ export function AppLayout() {
     const navItems = useMemo<NavItem[]>(
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-            { label: "Companies", icon: <CompaniesIcon />, path: "/companies", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
             { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
@@ -288,10 +280,6 @@ export function AppLayout() {
                 ? [{ label: "AI Studio", icon: <AutoAwesomeIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
             { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
-            { label: "Calendar", icon: <CalendarIcon />, path: "/calendar", group: "workspace" },
-            { label: "Profile", icon: <ProfileIcon />, path: "/profile", group: "workspace" },
-            { label: "Users", icon: <AdminIcon />, path: "/admin/users", adminOnly: true, group: "admin" },
-            { label: "Platform Admin", icon: <PlatformIcon />, path: "/admin/platform", adminOnly: true, group: "admin" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
         [hasAiModule, pendingCount]
@@ -381,15 +369,10 @@ export function AppLayout() {
                         </Typography>
                     ) : (
                         <Box>
-                            <Typography variant="overline" sx={{ color: "primary.main" }}>
-                                Workspace
-                            </Typography>
                             <Typography variant="h6" sx={{ mt: 0.5 }}>
                                 {appName}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                                A sharper control center for your team, customers, and operations.
-                            </Typography>
+
                             {platformMetadata?.module_pack && (
                                 <Chip
                                     label={`Pack: ${platformMetadata.module_pack}`}
@@ -405,7 +388,6 @@ export function AppLayout() {
 
             <Stack spacing={drawerCollapsed ? 1 : 2}>
                 <NavBlock
-                    title="Product"
                     items={visibleNavItems.filter((item) => item.group === "workspace")}
                     currentPath={location.pathname}
                     onNavigate={handleNavigate}
@@ -414,7 +396,6 @@ export function AppLayout() {
                 {isAdmin && drawerCollapsed && <Divider sx={{ mx: 1.5 }} />}
                 {isAdmin && (
                     <NavBlock
-                        title="Administration"
                         items={visibleNavItems.filter((item) => item.group === "admin")}
                         currentPath={location.pathname}
                         onNavigate={handleNavigate}
@@ -479,9 +460,7 @@ export function AppLayout() {
                         </Stack>
                     ) : (
                         <Stack spacing={1}>
-                            <Button variant="outlined" fullWidth onClick={() => handleNavigate("/profile")}>
-                                Manage profile
-                            </Button>
+
                             <Button
                                 variant="text"
                                 color="inherit"

@@ -5,8 +5,8 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
-from backend.db.session import get_db
 from backend.core.config import settings
+from backend.db.session import get_db
 from backend.modules.github.schemas import (
     GithubAppInstallResponse,
     GithubCommentRequest,

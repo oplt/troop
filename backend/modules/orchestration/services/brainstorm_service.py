@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections import Counter
@@ -195,7 +194,9 @@ class OrchestrationBrainstormServiceMixin:
             event_type="brainstorm_queued",
             message=f"Brainstorm round {current_round + 1} queued.",
         )
-        from backend.modules.orchestration.execution.durable_execution import submit_orchestration_run
+        from backend.modules.orchestration.execution.durable_execution import (
+            submit_orchestration_run,
+        )
 
         submit_orchestration_run(run.id)
         return run

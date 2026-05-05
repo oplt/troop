@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-
 EMBEDDING_VECTOR_DIMENSIONS: int = 1536
 
 

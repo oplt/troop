@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Literal
+from typing import Any, Literal
 
 from backend.modules.memory.models import SemanticMemoryEntry
 

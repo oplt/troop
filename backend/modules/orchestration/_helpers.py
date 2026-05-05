@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any
 
 from backend.modules.memory.namespaces import build_namespace as _build_memory_namespace
-
 
 OPENAI_FAMILY_PROVIDER_TYPES = frozenset({"openai", "openai_compatible", "qwen"})
 

@@ -5,7 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.db.session import get_db
-from backend.modules.calendar.schemas import CalendarItemCreate, CalendarItemResponse, CalendarItemUpdate
+from backend.modules.calendar.schemas import (
+    CalendarItemCreate,
+    CalendarItemResponse,
+    CalendarItemUpdate,
+)
 from backend.modules.calendar.service import CalendarService
 from backend.modules.identity_access.models import User
 

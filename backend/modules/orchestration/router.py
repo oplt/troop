@@ -2790,6 +2790,16 @@ async def update_provider(
     return _provider(await OrchestrationService(db).update_provider(current_user, provider_id, payload.model_dump(exclude_unset=True)))
 
 
+@router.delete("/providers/{provider_id}", status_code=204)
+async def delete_provider(
+    provider_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).delete_provider(current_user, provider_id)
+    return Response(status_code=204)
+
+
 @router.post("/providers/{provider_id}/test")
 async def test_provider_connection(
     provider_id: str,

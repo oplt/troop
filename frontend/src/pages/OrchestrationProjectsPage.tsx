@@ -1,19 +1,20 @@
 import { useForm, useWatch } from "react-hook-form";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCompanies } from "../api/companies";
 import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
     Alert,
     Box,
     Button,
-    CardActionArea,
     Chip,
-    Collapse,
-    Divider,
     Drawer,
     IconButton,
     InputAdornment,
     LinearProgress,
+    Menu,
     MenuItem,
     Paper,
     Stack,
@@ -26,10 +27,9 @@ import {
     CheckCircle as CheckCircleIcon,
     Delete as DeleteIcon,
     ErrorOutline as ErrorOutlineIcon,
-    ExpandLess as ExpandLessIcon,
     ExpandMore as ExpandMoreIcon,
     Hub as ProjectIcon,
-    PendingActions as PendingActionsIcon,
+    MoreVert as MoreIcon,
     PlayArrow as PlayArrowIcon,
     Refresh as RefreshIcon,
     Search as SearchIcon,
@@ -73,7 +73,7 @@ type ProjectForm = {
 };
 
 type SortKey = "last_active" | "name" | "created";
-type StatusFilter = "all" | "active" | "completed" | "archived" | "attention";
+type StatusFilter = "all" | "active" | "running" | "completed" | "archived" | "attention";
 
 function splitList(value: string) {
     return value
@@ -149,14 +149,16 @@ export default function OrchestrationProjectsPage() {
     }, [companies, selectedCompanyId, setValue]);
     const [sortKey, setSortKey] = useState<SortKey>("last_active");
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-    const [expandedGroups, setExpandedGroups] = useState({
-        active: true,
-        completed: true,
-        archived: true,
-    });
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+    const [statusFilterTouched, setStatusFilterTouched] = useState(false);
     const [bootstrapPrompt, setBootstrapPrompt] = useState("");
     const [bootstrapDraft, setBootstrapDraft] = useState<Record<string, unknown> | null>(null);
+    const [createMode, setCreateMode] = useState<"manual" | "generate">("manual");
+    const [createStep, setCreateStep] = useState<1 | 2>(1);
+    const [showRepoDetails, setShowRepoDetails] = useState(false);
+    const [projectMenuAnchor, setProjectMenuAnchor] = useState<HTMLElement | null>(null);
+    const [projectMenuProjectId, setProjectMenuProjectId] = useState<string | null>(null);
+    const [advancedRepoOpen, setAdvancedRepoOpen] = useState(false);
 
     const { data: projects = [] } = useQuery({
         queryKey: ["orchestration", "projects"],
@@ -210,6 +212,17 @@ export default function OrchestrationProjectsPage() {
         return map;
     }, [runs]);
 
+    const latestRunByProject = useMemo(() => {
+        const map = new Map<string, typeof runs[number]>();
+        for (const run of runs) {
+            const prev = map.get(run.project_id);
+            if (!prev || new Date(run.created_at).getTime() > new Date(prev.created_at).getTime()) {
+                map.set(run.project_id, run);
+            }
+        }
+        return map;
+    }, [runs]);
+
     const lastRunAtByProject = useMemo(() => {
         const map = new Map<string, number>();
         for (const run of runs) {
@@ -219,6 +232,21 @@ export default function OrchestrationProjectsPage() {
         }
         return map;
     }, [runs]);
+
+    const attentionProjects = useMemo(
+        () =>
+            projects.filter((project) => {
+                const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
+                return failedRuns > 0;
+            }),
+        [projects, failedRunCountByProject],
+    );
+
+    const effectiveStatusFilter: StatusFilter = statusFilterTouched
+        ? statusFilter
+        : attentionProjects.length > 0
+            ? "attention"
+            : "active";
 
     const filteredProjects = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -231,12 +259,14 @@ export default function OrchestrationProjectsPage() {
                 String(project.description ?? "").toLowerCase().includes(query) ||
                 project.status.toLowerCase().includes(query);
             const matchesStatus =
-                statusFilter === "all" ||
-                project.status === statusFilter ||
-                (statusFilter === "attention" && (activeRuns > 0 || failedRuns > 0));
+                effectiveStatusFilter === "all" ||
+                (effectiveStatusFilter === "active" && !["archived", "completed"].includes(project.status)) ||
+                (effectiveStatusFilter === "running" && activeRuns > 0) ||
+                project.status === effectiveStatusFilter ||
+                (effectiveStatusFilter === "attention" && failedRuns > 0);
             return matchesQuery && matchesStatus;
         });
-    }, [projects, searchQuery, statusFilter, activeRunCountByProject, failedRunCountByProject]);
+    }, [projects, searchQuery, effectiveStatusFilter, activeRunCountByProject, failedRunCountByProject]);
 
     const sortedProjects = useMemo(() => {
         const list = [...filteredProjects];
@@ -252,40 +282,17 @@ export default function OrchestrationProjectsPage() {
         return list;
     }, [filteredProjects, sortKey, lastRunAtByProject]);
 
-    const groupedProjects = useMemo(
-        () => ({
-            active: sortedProjects.filter((project) => !["archived", "completed"].includes(project.status)),
-            completed: sortedProjects.filter((project) => project.status === "completed"),
-            archived: sortedProjects.filter((project) => project.status === "archived"),
-        }),
-        [sortedProjects],
-    );
-
     const dashboardStats = useMemo(() => {
         const activeProjects = projects.filter((project) => !["archived", "completed"].includes(project.status)).length;
         const runningRuns = runs.filter((run) => ["queued", "in_progress"].includes(run.status)).length;
         const failedRuns = runs.filter((run) => ["failed", "error", "cancelled"].includes(run.status)).length;
-        const assignedAgents = projects.reduce((total, project) => total + (agentCountByProject.get(project.id) ?? 0), 0);
-        return { activeProjects, runningRuns, failedRuns, assignedAgents };
-    }, [projects, runs, agentCountByProject]);
+        return { activeProjects, runningRuns, failedRuns };
+    }, [projects, runs]);
 
-    const attentionProjects = useMemo(
-        () =>
-            projects.filter((project) => {
-                const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
-                const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
-                return activeRuns > 0 || failedRuns > 0;
-            }),
-        [projects, activeRunCountByProject, failedRunCountByProject],
-    );
-
-    const recentRuns = useMemo(
-        () =>
-            [...runs]
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .slice(0, 6),
-        [runs],
-    );
+    function selectStatusFilter(nextFilter: StatusFilter) {
+        setStatusFilter(nextFilter);
+        setStatusFilterTouched(true);
+    }
 
     const mutation = useMutation({
         mutationFn: createOrchestrationProject,
@@ -410,7 +417,7 @@ export default function OrchestrationProjectsPage() {
                                     Agent Projects
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                    Monitor project health, agent capacity, active runs, and repo-backed workspaces.
+                                    Find active work, resume runs, and spot projects that need attention.
                                 </Typography>
                             </Box>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
@@ -423,20 +430,33 @@ export default function OrchestrationProjectsPage() {
                             </Stack>
                         </Stack>
 
-                        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
+                        <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" } }}>
                             {[
-                                { label: "Active projects", value: dashboardStats.activeProjects, icon: <ProjectIcon fontSize="small" /> },
-                                { label: "Running runs", value: dashboardStats.runningRuns, icon: <PlayArrowIcon fontSize="small" /> },
-                                { label: "Needs attention", value: dashboardStats.failedRuns, icon: <WarningAmberIcon fontSize="small" /> },
-                                { label: "Assigned agents", value: dashboardStats.assignedAgents, icon: <PendingActionsIcon fontSize="small" /> },
+                                { label: "Active", value: dashboardStats.activeProjects, icon: <ProjectIcon fontSize="small" />, filter: "active" as const },
+                                { label: "Running", value: dashboardStats.runningRuns, icon: <PlayArrowIcon fontSize="small" />, filter: "running" as const },
+                                { label: "Attention", value: dashboardStats.failedRuns, icon: <WarningAmberIcon fontSize="small" />, filter: "attention" as const },
                             ].map((item) => (
-                                <Paper key={item.label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                                <Paper
+                                    key={item.label}
+                                    component="button"
+                                    type="button"
+                                    variant="outlined"
+                                    onClick={() => selectStatusFilter(item.filter)}
+                                    sx={{
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        borderColor: effectiveStatusFilter === item.filter ? "primary.main" : "divider",
+                                        bgcolor: effectiveStatusFilter === item.filter ? "action.selected" : "background.paper",
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                    }}
+                                >
                                     <Stack direction="row" spacing={1.25} alignItems="center">
-                                        <Box sx={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 2, bgcolor: "action.hover" }}>
+                                        <Box sx={{ display: "grid", placeItems: "center", width: 32, height: 32, borderRadius: 1.5, bgcolor: "action.hover" }}>
                                             {item.icon}
                                         </Box>
                                         <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
                                                 {item.value}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
@@ -448,10 +468,10 @@ export default function OrchestrationProjectsPage() {
                             ))}
                         </Box>
 
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ md: "center" }}>
                             <TextField
                                 size="small"
-                                placeholder="Search projects, descriptions, status..."
+                                placeholder="Search projects"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 sx={{ flex: 1 }}
@@ -466,13 +486,14 @@ export default function OrchestrationProjectsPage() {
                             <TextField
                                 select
                                 size="small"
-                                label="Status"
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                                sx={{ minWidth: 170 }}
+                                label="View"
+                                value={effectiveStatusFilter}
+                                onChange={(e) => selectStatusFilter(e.target.value as StatusFilter)}
+                                sx={{ minWidth: 150 }}
                             >
                                 <MenuItem value="all">All projects</MenuItem>
                                 <MenuItem value="attention">Needs attention</MenuItem>
+                                <MenuItem value="running">Running</MenuItem>
                                 <MenuItem value="active">Active</MenuItem>
                                 <MenuItem value="completed">Completed</MenuItem>
                                 <MenuItem value="archived">Archived</MenuItem>
@@ -483,7 +504,7 @@ export default function OrchestrationProjectsPage() {
                                 label="Sort by"
                                 value={sortKey}
                                 onChange={(e) => setSortKey(e.target.value as SortKey)}
-                                sx={{ minWidth: 180 }}
+                                sx={{ minWidth: 170 }}
                             >
                                 <MenuItem value="last_active">Last activity</MenuItem>
                                 <MenuItem value="name">Name</MenuItem>
@@ -493,468 +514,481 @@ export default function OrchestrationProjectsPage() {
                     </Stack>
                 </Paper>
 
-
-
-                <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 360px" }, alignItems: "start" }}>
-                    <SectionCard>
-                        {projects.length === 0 ? (
-                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Create your first orchestration project to assign agents, run tasks, and sync work with GitHub." />
-                        ) : sortedProjects.length === 0 ? (
-                            <EmptyState icon={<SearchIcon />} title="No matching projects" description="Clear the search or adjust filters to see more projects." />
-                        ) : (
-                            <Stack spacing={2}>
-                                {(["active", "completed", "archived"] as const).map((groupKey) => {
-                                    const items = groupedProjects[groupKey];
-                                    const isExpanded = expandedGroups[groupKey];
-                                    if (items.length === 0 && statusFilter !== "all") return null;
-                                    return (
-                                        <Paper key={groupKey} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>
-                                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                                                    {humanizeKey(groupKey)} ({items.length})
+                <SectionCard>
+                    {projects.length === 0 ? (
+                        <Stack spacing={2} alignItems="center" sx={{ py: 6, textAlign: "center" }}>
+                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Start from a blank project or generate one from a short description." />
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => { setCreateMode("manual"); setDrawerOpen(true); }}>
+                                    New project
+                                </Button>
+                                <Button variant="outlined" onClick={() => { setCreateMode("generate"); setDrawerOpen(true); }}>
+                                    Generate from description
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    ) : sortedProjects.length === 0 ? (
+                        <EmptyState icon={<SearchIcon />} title="No matching projects" description="Clear search or adjust view." />
+                    ) : (
+                        <Stack spacing={1}>
+                            <Box
+                                sx={{
+                                    display: { xs: "none", md: "grid" },
+                                    gridTemplateColumns: "minmax(220px, 1.5fr) 130px 160px 160px minmax(120px, 1fr) 130px 44px",
+                                    gap: 1.5,
+                                    px: 2,
+                                    py: 1,
+                                }}
+                            >
+                                {["Project", "Status", "Active run", "Last activity", "Repo", "Action", ""].map((heading) => (
+                                    <Typography key={heading} variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                        {heading}
+                                    </Typography>
+                                ))}
+                            </Box>
+                            {sortedProjects.map((project) => {
+                                const agentCount = agentCountByProject.get(project.id) ?? 0;
+                                const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+                                const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
+                                const lastRun = latestRunByProject.get(project.id);
+                                const lastRunMs = lastRunAtByProject.get(project.id);
+                                const localRepo = project.settings?.local_repo as { enabled?: boolean; repo_path?: string } | undefined;
+                                const statusColor = failedRuns > 0 ? "error" : activeRuns > 0 ? "warning" : project.status === "active" ? "success" : "default";
+                                const actionLabel = activeRuns > 0 ? "Resume" : "Open";
+                                return (
+                                    <Paper
+                                        key={project.id}
+                                        variant="outlined"
+                                        sx={{
+                                            p: { xs: 1.5, md: 0 },
+                                            borderRadius: 2,
+                                            overflow: "hidden",
+                                            transition: "border-color 160ms ease, box-shadow 160ms ease",
+                                            "&:hover": { borderColor: "primary.main", boxShadow: 1 },
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: "grid",
+                                                gridTemplateColumns: { xs: "1fr", md: "minmax(220px, 1.5fr) 130px 160px 160px minmax(120px, 1fr) 130px 44px" },
+                                                gap: { xs: 1, md: 1.5 },
+                                                alignItems: "center",
+                                                px: { xs: 0, md: 2 },
+                                                py: { xs: 0, md: 1.5 },
+                                            }}
+                                        >
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
+                                                    {project.name}
                                                 </Typography>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {project.description || "No description"}
+                                                </Typography>
+                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75, display: { md: "none" } }}>
+                                                    <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} />
+                                                    <Chip size="small" variant="outlined" label={`${activeRuns} active`} />
+                                                    <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
+                                                </Stack>
+                                            </Box>
+
+                                            <Box sx={{ display: { xs: "none", md: "block" } }}>
+                                                <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"} />
+                                            </Box>
+
+                                            <Typography variant="body2" color={activeRuns > 0 ? "warning.main" : "text.secondary"}>
+                                                {activeRuns > 0 ? `${activeRuns} running` : lastRun ? humanizeKey(lastRun.status) : "No runs"}
+                                            </Typography>
+
+                                            <Typography variant="body2" color="text.secondary">
+                                                {lastRunMs != null ? formatDateTime(new Date(lastRunMs).toISOString()) : formatDate(project.updated_at)}
+                                            </Typography>
+
+                                            <Typography variant="body2" color="text.secondary" noWrap>
+                                                {localRepo?.enabled ? localRepo.repo_path ?? "Local repo" : "None"}
+                                            </Typography>
+
+                                            <Button size="small" variant={activeRuns > 0 ? "contained" : "outlined"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/agent-projects/${project.id}`)}>
+                                                {actionLabel}
+                                            </Button>
+
+                                            <Tooltip title="Project actions">
                                                 <IconButton
                                                     size="small"
-                                                    onClick={() => setExpandedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                                                    onClick={(event: MouseEvent<HTMLElement>) => {
+                                                        setProjectMenuAnchor(event.currentTarget);
+                                                        setProjectMenuProjectId(project.id);
+                                                    }}
                                                 >
-                                                    {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                                                    <MoreIcon fontSize="small" />
                                                 </IconButton>
-                                            </Stack>
-                                            <Collapse in={isExpanded}>
-                                                {items.length === 0 ? (
-                                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, px: 0.5 }}>
-                                                        No {groupKey} projects.
-                                                    </Typography>
-                                                ) : (
-                                                    <Box sx={{ mt: 1.25, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" } }}>
-                                                        {items.map((project) => {
-                                                            const agentCount = agentCountByProject.get(project.id) ?? 0;
-                                                            const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
-                                                            const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
-                                                            const lastRunMs = lastRunAtByProject.get(project.id);
-                                                            const localRepo = project.settings?.local_repo as { enabled?: boolean; repo_path?: string; dirty_worktree_policy?: string } | undefined;
-                                                            const progress = project.status === "completed" ? 100 : Math.min(92, 10 + agentCount * 8 + activeRuns * 12);
-                                                            const statusColor = failedRuns > 0 ? "error" : activeRuns > 0 ? "warning" : project.status === "active" ? "success" : "default";
-                                                            return (
-                                                                <Paper
-                                                                    key={project.id}
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        overflow: "hidden",
-                                                                        borderRadius: 4,
-                                                                        transition: "border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
-                                                                        "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)", boxShadow: 3 },
-                                                                    }}
-                                                                >
-                                                                    <CardActionArea onClick={() => navigate(`/agent-projects/${project.id}`)} sx={{ p: 2.25, alignItems: "stretch" }}>
-                                                                        <Stack spacing={1.35}>
-                                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                                                                                <Box sx={{ minWidth: 0 }}>
-                                                                                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
-                                                                                        {project.name}
-                                                                                    </Typography>
-                                                                                    <Typography variant="caption" color="text.secondary">
-                                                                                        Updated {formatDate(project.updated_at)}
-                                                                                    </Typography>
-                                                                                </Box>
-                                                                                <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} variant={activeRuns > 0 || failedRuns > 0 ? "filled" : "outlined"} />
-                                                                            </Stack>
-
-                                                                            <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
-                                                                                {project.description || "No description yet. Add a short goal so agents and reviewers understand the workspace."}
-                                                                            </Typography>
-
-                                                                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                                                <Chip size="small" variant="outlined" label={`${agentCount} agent${agentCount === 1 ? "" : "s"}`} />
-                                                                                <Chip size="small" variant="outlined" color={activeRuns > 0 ? "warning" : "default"} label={`${activeRuns} active run${activeRuns === 1 ? "" : "s"}`} />
-                                                                                {failedRuns > 0 ? <Chip size="small" color="error" variant="outlined" label={`${failedRuns} failed`} /> : null}
-                                                                                {localRepo?.enabled ? <Chip size="small" variant="outlined" label="Local repo" /> : null}
-                                                                            </Stack>
-
-                                                                            <Box>
-                                                                                <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                                                                                    <Typography variant="caption" color="text.secondary">Execution readiness</Typography>
-                                                                                    <Typography variant="caption" color="text.secondary">{progress}%</Typography>
-                                                                                </Stack>
-                                                                                <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 999 }} />
-                                                                            </Box>
-
-                                                                            <Stack spacing={0.4}>
-                                                                                {lastRunMs != null ? (
-                                                                                    <Typography variant="caption" color="text.secondary">
-                                                                                        Last run {formatDateTime(new Date(lastRunMs).toISOString())}
-                                                                                    </Typography>
-                                                                                ) : (
-                                                                                    <Typography variant="caption" color="text.secondary">No runs yet</Typography>
-                                                                                )}
-                                                                                {localRepo?.enabled ? (
-                                                                                    <Typography variant="caption" color="text.secondary" noWrap>
-                                                                                        Repo: {localRepo.repo_path ?? "local"} · dirty policy {humanizeKey(String(localRepo.dirty_worktree_policy ?? "block"))}
-                                                                                    </Typography>
-                                                                                ) : null}
-                                                                            </Stack>
-                                                                        </Stack>
-                                                                    </CardActionArea>
-                                                                    <Divider />
-                                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ p: 1.25, pl: 2 }}>
-                                                                        <Button size="small" variant={activeRuns > 0 ? "contained" : "text"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/agent-projects/${project.id}`)}>
-                                                                            {activeRuns > 0 ? "Resume" : "Open workspace"}
-                                                                        </Button>
-                                                                        <Stack direction="row" spacing={0.5}>
-                                                                            {project.status !== "archived" ? (
-                                                                                <Tooltip title="Archive project">
-                                                                                    <IconButton size="small" color="warning" onClick={() => archiveProjectMutation.mutate(project.id)}>
-                                                                                        <ArchiveIcon fontSize="small" />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                            ) : null}
-                                                                            <Tooltip title="Delete project permanently">
-                                                                                <IconButton
-                                                                                    size="small"
-                                                                                    color="error"
-                                                                                    onClick={() => {
-                                                                                        if (!window.confirm(`Delete project "${project.name}" permanently?`)) return;
-                                                                                        deleteProjectMutation.mutate(project.id);
-                                                                                    }}
-                                                                                >
-                                                                                    <DeleteIcon fontSize="small" />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                        </Stack>
-                                                                    </Stack>
-                                                                </Paper>
-                                                            );
-                                                        })}
-                                                    </Box>
-                                                )}
-                                            </Collapse>
-                                        </Paper>
-                                    );
-                                })}
-                            </Stack>
-                        )}
-                    </SectionCard>
-
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, position: { xl: "sticky" }, top: { xl: 16 } }}>
-                        <Stack spacing={1.5}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                                    Recent run activity
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Latest orchestration events across projects.
-                                </Typography>
-                            </Box>
-                            <Divider />
-                            {recentRuns.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    No runs yet. Start a task from a project workspace to see live activity here.
-                                </Typography>
-                            ) : (
-                                <Stack spacing={1.25}>
-                                    {recentRuns.map((run) => {
-                                        const project = projects.find((item) => item.id === run.project_id);
-                                        const isRunning = ["queued", "in_progress"].includes(run.status);
-                                        const isFailed = ["failed", "error", "cancelled"].includes(run.status);
-                                        return (
-                                            <Paper key={run.id} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
-                                                <Stack spacing={0.5}>
-                                                    <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-                                                            {project?.name ?? "Unknown project"}
-                                                        </Typography>
-                                                        <Chip size="small" label={humanizeKey(run.status)} color={isFailed ? "error" : isRunning ? "warning" : "default"} />
-                                                    </Stack>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {formatDateTime(run.created_at)}
-                                                    </Typography>
-                                                </Stack>
-                                            </Paper>
-                                        );
-                                    })}
-                                </Stack>
-                            )}
+                                            </Tooltip>
+                                        </Box>
+                                    </Paper>
+                                );
+                            })}
                         </Stack>
-                    </Paper>
-                </Box>
+                    )}
+                </SectionCard>
             </Stack>
+            <Menu
+                anchorEl={projectMenuAnchor}
+                open={Boolean(projectMenuAnchor)}
+                onClose={() => {
+                    setProjectMenuAnchor(null);
+                    setProjectMenuProjectId(null);
+                }}
+            >
+                {(() => {
+                    const project = projects.find((item) => item.id === projectMenuProjectId);
+                    if (!project) return null;
+                    return [
+                        project.status !== "archived" ? (
+                            <MenuItem
+                                key="archive"
+                                onClick={() => {
+                                    archiveProjectMutation.mutate(project.id);
+                                    setProjectMenuAnchor(null);
+                                    setProjectMenuProjectId(null);
+                                }}
+                            >
+                                <ArchiveIcon fontSize="small" sx={{ mr: 1 }} />
+                                Archive
+                            </MenuItem>
+                        ) : null,
+                        <MenuItem
+                            key="delete"
+                            sx={{ color: "error.main" }}
+                            onClick={() => {
+                                if (!window.confirm(`Delete project "${project.name}" permanently?`)) return;
+                                deleteProjectMutation.mutate(project.id);
+                                setProjectMenuAnchor(null);
+                                setProjectMenuProjectId(null);
+                            }}
+                        >
+                            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+                            Delete
+                        </MenuItem>,
+                    ];
+                })()}
+            </Menu>
             <Drawer
                 anchor="right"
                 open={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
                 PaperProps={{
                     sx: {
-                        width: 500,
-                        maxWidth: "90vw",
+                        width: 540,
+                        maxWidth: "100vw",
                         p: 3,
                     },
                 }}
             >
                 <Stack spacing={2} component="form" onSubmit={submitProject} sx={{ width: "100%" }}>
                     <input type="hidden" {...register("team_profile_id")} />
-                    <TextField
-                        label="Name"
-                        required
-                        inputProps={{ minLength: 2, maxLength: 255 }}
-                        {...register("name", { required: true, minLength: 2 })}
-                    />
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                            New project
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Start blank or generate a draft plan.
+                        </Typography>
+                    </Box>
 
-                    <TextField
-                        select
-                        label="Company"
-                        value={selectedCompanyId}
-                        onChange={(e) => setValue("company_id", e.target.value)}
-                        helperText={
-                            companies.length === 0
-                                ? "No companies yet - a default workspace will be created."
-                                : "Scopes company-level memory."
-                        }
-                    >
-                        {companies.map((c) => (
-                            <MenuItem key={c.id} value={c.id}>
-                                {c.name}
-                            </MenuItem>
-                        ))}
-                        {companies.length === 0 && <MenuItem value="">Default workspace</MenuItem>}
-                    </TextField>
-                    <TextField label="Description" {...register("description")} multiline minRows={3} />
-                    <TextField label="Goals" {...register("goals_markdown")} multiline minRows={5} />
-                    <Divider />
-                    <Typography variant="subtitle2">Local repo workspace</Typography>
-                    <TextField
-                        label="Local repo path"
-                        placeholder="/home/polat/Desktop/Projects/my-repo"
-                        helperText="Agents use this Git repo for code-change tasks. Leave blank for non-code projects."
-                        {...register("local_repo_path")}
-                    />
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                    <Stack direction="row" spacing={1}>
                         <Button
-                            variant="outlined"
-                            startIcon={<RefreshIcon />}
-                            disabled={!hasLocalRepoPath || validateRepoMutation.isPending}
-                            onClick={() => validateRepoMutation.mutate(currentRepoPayload)}
+                            variant={createMode === "manual" ? "contained" : "outlined"}
+                            onClick={() => setCreateMode("manual")}
+                            fullWidth
                         >
-                            Validate repo
+                            Blank project
                         </Button>
-                        {hasLocalRepoPath && repoValidation?.valid ? (
-                            <Chip
-                                icon={<CheckCircleIcon />}
-                                color="success"
-                                variant="outlined"
-                                label="Ready"
-                                sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
-                            />
-                        ) : null}
-                        {hasLocalRepoPath && repoValidation && !repoValidation.valid ? (
-                            <Chip
-                                icon={<ErrorOutlineIcon />}
-                                color="error"
-                                variant="outlined"
-                                label="Blocked"
-                                sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
-                            />
-                        ) : null}
+                        <Button
+                            variant={createMode === "generate" ? "contained" : "outlined"}
+                            onClick={() => setCreateMode("generate")}
+                            fullWidth
+                        >
+                            Generate
+                        </Button>
                     </Stack>
-                    {hasLocalRepoPath && validateRepoMutation.isPending ? <LinearProgress /> : null}
-                    {hasLocalRepoPath && !repoValidationIsCurrent && validateRepoMutation.data ? (
-                        <Alert severity="info">Repo settings changed. Validate again before saving.</Alert>
-                    ) : null}
-                    {validateRepoMutation.isError ? (
-                        <Alert severity="error">
-                            {validateRepoMutation.error instanceof Error
-                                ? validateRepoMutation.error.message
-                                : "Could not validate repo."}
-                        </Alert>
-                    ) : null}
-                    {repoValidation ? (
-                        <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: repoValidation.valid ? "success.main" : "error.main" }}>
-                            <Stack spacing={1}>
-                                {repoValidation.blocked_reasons.length > 0 ? (
-                                    <Alert severity="error">
-                                        {repoValidation.blocked_reasons.join(" ")}
-                                    </Alert>
-                                ) : null}
-                                <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary">Branch</Typography>
-                                        <Typography variant="body2">{repoValidation.branch || "unknown"}</Typography>
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary">Worktree</Typography>
-                                        <Typography variant="body2">{repoValidation.dirty ? "Uncommitted changes" : "Clean"}</Typography>
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary">Diff size</Typography>
-                                        <Typography variant="body2">{Number(repoValidation.diff_bytes ?? 0).toLocaleString()} bytes</Typography>
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary">Last commit</Typography>
-                                        <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-                                            {repoValidation.last_commit || "None"}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Remotes</Typography>
-                                    <Typography
-                                        component="pre"
-                                        variant="caption"
-                                        sx={{ m: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontFamily: "monospace" }}
-                                    >
-                                        {repoValidation.remotes || "No remotes configured"}
-                                    </Typography>
-                                </Box>
-                                {repoValidation.status ? (
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary">Uncommitted changes</Typography>
-                                        <Typography
-                                            component="pre"
-                                            variant="caption"
-                                            sx={{ m: 0, maxHeight: 160, overflow: "auto", whiteSpace: "pre-wrap", fontFamily: "monospace" }}
-                                        >
-                                            {repoValidation.status}
-                                        </Typography>
-                                    </Box>
-                                ) : null}
-                            </Stack>
-                        </Paper>
-                    ) : null}
-                    <TextField
-                        select
-                        label="Dirty worktree policy"
-                        defaultValue="block"
-                        helperText="Controls what agents do when the repo has uncommitted changes before creating a task branch."
-                        {...register("dirty_worktree_policy")}
-                    >
-                        <MenuItem value="block">Block agent work</MenuItem>
-                        <MenuItem value="warn">Warn on dirty worktree</MenuItem>
-                        <MenuItem value="allow">Allow dirty worktree</MenuItem>
-                    </TextField>
-                    <TextField
-                        label="Allowed branches"
-                        helperText="Comma-separated branch patterns agents may start from or merge into."
-                        {...register("allowed_branches")}
-                    />
-                    <TextField
-                        label="File allowlist"
-                        helperText="Comma-separated glob patterns agents may read/write."
-                        {...register("file_allowlist")}
-                    />
-                    <TextField
-                        label="File denylist"
-                        helperText="Comma-separated glob patterns always blocked."
-                        {...register("file_denylist")}
-                    />
-                    <TextField
-                        label="Command allowlist"
-                        helperText="Comma-separated executable names allowed via code execution."
-                        {...register("command_allowlist")}
-                    />
-                    <TextField
-                        label="Max diff bytes"
-                        type="number"
-                        inputProps={{ min: 1000, max: 5000000 }}
-                        helperText="Allowed range: 1,000 to 5,000,000 bytes."
-                        {...register("max_diff_bytes", { valueAsNumber: true })}
-                    />
-                    <TextField
-                        select
-                        label="Team"
-                        value={selectedTeamProfileId}
-                        onChange={(e) => setValue("team_profile_id", e.target.value)}
-                        helperText={
-                            teamProfiles.length > 0
-                                ? "Team profile saved from team template."
-                                : "No team profiles yet. Save one from a team template below."
-                        }
-                    >
-                        <MenuItem value="">None</MenuItem>
-                        {teamProfiles.map((profile) => (
-                            <MenuItem key={profile.id} value={profile.id}>
-                                {profile.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-                    {teamProfiles.length === 0 ? (
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+
+                    {createMode === "generate" ? (
+                        <Stack spacing={1.5}>
                             <TextField
-                                select
-                                label="Team template"
-                                value={selectedTeamTemplateId}
-                                onChange={(e) => setSelectedTeamTemplateId(e.target.value)}
-                                sx={{ minWidth: 220 }}
-                            >
-                                {teamTemplates.map((template) => (
-                                    <MenuItem key={template.id} value={template.id}>
-                                        {template.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
+                                label="Project description"
+                                placeholder='e.g. "Build a REST API for payments"'
+                                value={bootstrapPrompt}
+                                onChange={(e) => setBootstrapPrompt(e.target.value)}
+                                multiline
+                                minRows={4}
+                            />
                             <Button
                                 variant="outlined"
-                                disabled={!selectedTeamTemplateId}
-                                onClick={() => {
-                                    createTeamProfileFromTemplate({ template_id: selectedTeamTemplateId })
-                                        .then(async (profile) => {
-                                            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-profiles"] });
-                                            setValue("team_profile_id", profile.id);
-                                            showToast({ message: "Team profile saved from template.", severity: "success" });
-                                        })
-                                        .catch((error: unknown) => {
-                                            showToast({
-                                                message: error instanceof Error ? error.message : "Couldn't create team profile.",
-                                                severity: "error",
-                                            });
-                                        });
-                                }}
+                                disabled={!bootstrapPrompt.trim() || bootstrapMutation.isPending}
+                                onClick={() => bootstrapMutation.mutate()}
                             >
-                                Save team profile
+                                Generate draft plan
                             </Button>
+                            {bootstrapDraft && (
+                                <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Draft ready with goals, milestones, and starter tasks.
+                                    </Typography>
+                                    <Button
+                                        size="small"
+                                        sx={{ mt: 1 }}
+                                        variant="contained"
+                                        onClick={() => applyBootstrapMutation.mutate()}
+                                        disabled={applyBootstrapMutation.isPending}
+                                    >
+                                        Create from draft
+                                    </Button>
+                                </Paper>
+                            )}
                         </Stack>
-                    ) : null}
-                    {mutation.isError && (
-                        <Alert severity="error">
-                            {mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}
-                        </Alert>
+                    ) : (
+                        <>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <Chip size="small" color={createStep === 1 ? "primary" : "default"} label="1. Basics" />
+                                <Chip size="small" color={createStep === 2 ? "primary" : "default"} label="2. Optional setup" />
+                            </Stack>
+
+                            {createStep === 1 ? (
+                                <Stack spacing={2}>
+                                    <TextField
+                                        label="Name"
+                                        required
+                                        inputProps={{ minLength: 2, maxLength: 255 }}
+                                        {...register("name", { required: true, minLength: 2 })}
+                                    />
+
+                                    <TextField
+                                        select
+                                        label="Company"
+                                        value={selectedCompanyId}
+                                        onChange={(e) => setValue("company_id", e.target.value)}
+                                        helperText={companies.length === 0 ? "A default workspace will be created." : "Scopes company memory."}
+                                    >
+                                        {companies.map((c) => (
+                                            <MenuItem key={c.id} value={c.id}>
+                                                {c.name}
+                                            </MenuItem>
+                                        ))}
+                                        {companies.length === 0 && <MenuItem value="">Default workspace</MenuItem>}
+                                    </TextField>
+                                    <TextField label="Description" {...register("description")} multiline minRows={3} />
+                                    <TextField label="Goals" {...register("goals_markdown")} multiline minRows={4} />
+                                    <Button variant="contained" onClick={() => setCreateStep(2)}>
+                                        Continue
+                                    </Button>
+                                </Stack>
+                            ) : (
+                                <Stack spacing={2}>
+                                    <Box>
+                                        <Typography variant="subtitle2">Local repo</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Optional for code-change projects.
+                                        </Typography>
+                                    </Box>
+                                    <TextField
+                                        label="Local repo path"
+                                        placeholder="/home/polat/Desktop/Projects/my-repo"
+                                        helperText="Leave blank for planning or knowledge-only projects."
+                                        {...register("local_repo_path")}
+                                    />
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<RefreshIcon />}
+                                            disabled={!hasLocalRepoPath || validateRepoMutation.isPending}
+                                            onClick={() => validateRepoMutation.mutate(currentRepoPayload)}
+                                        >
+                                            Validate repo
+                                        </Button>
+                                        {hasLocalRepoPath && repoValidation?.valid ? (
+                                            <Chip icon={<CheckCircleIcon />} color="success" variant="outlined" label="Ready" />
+                                        ) : null}
+                                        {hasLocalRepoPath && repoValidation && !repoValidation.valid ? (
+                                            <Chip icon={<ErrorOutlineIcon />} color="error" variant="outlined" label="Blocked" />
+                                        ) : null}
+                                    </Stack>
+                                    {hasLocalRepoPath && validateRepoMutation.isPending ? <LinearProgress /> : null}
+                                    {hasLocalRepoPath && !repoValidationIsCurrent && validateRepoMutation.data ? (
+                                        <Alert severity="info">Repo settings changed. Validate again before saving.</Alert>
+                                    ) : null}
+                                    {validateRepoMutation.isError ? (
+                                        <Alert severity="error">
+                                            {validateRepoMutation.error instanceof Error
+                                                ? validateRepoMutation.error.message
+                                                : "Could not validate repo."}
+                                        </Alert>
+                                    ) : null}
+                                    {repoValidation ? (
+                                        <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: repoValidation.valid ? "success.main" : "error.main" }}>
+                                            <Stack spacing={1}>
+                                                {repoValidation.blocked_reasons.length > 0 ? (
+                                                    <Alert severity="error">
+                                                        {repoValidation.blocked_reasons.join(" ")}
+                                                    </Alert>
+                                                ) : null}
+                                                <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Branch</Typography>
+                                                        <Typography variant="body2">{repoValidation.branch || "unknown"}</Typography>
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Worktree</Typography>
+                                                        <Typography variant="body2">{repoValidation.dirty ? "Uncommitted" : "Clean"}</Typography>
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Diff size</Typography>
+                                                        <Typography variant="body2">{Number(repoValidation.diff_bytes ?? 0).toLocaleString()} bytes</Typography>
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Remotes</Typography>
+                                                        <Typography variant="body2">{repoValidation.remotes ? "Configured" : "None"}</Typography>
+                                                    </Box>
+                                                </Box>
+                                                <Button size="small" variant="text" onClick={() => setShowRepoDetails((value) => !value)}>
+                                                    {showRepoDetails ? "Hide details" : "View details"}
+                                                </Button>
+                                                {showRepoDetails ? (
+                                                    <Stack spacing={1}>
+                                                        <Typography variant="caption" color="text.secondary">Last commit</Typography>
+                                                        <Typography variant="caption" sx={{ overflowWrap: "anywhere" }}>
+                                                            {repoValidation.last_commit || "None"}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">Remotes</Typography>
+                                                        <Typography component="pre" variant="caption" sx={{ m: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontFamily: "monospace" }}>
+                                                            {repoValidation.remotes || "No remotes configured"}
+                                                        </Typography>
+                                                        {repoValidation.status ? (
+                                                            <>
+                                                                <Typography variant="caption" color="text.secondary">Uncommitted changes</Typography>
+                                                                <Typography component="pre" variant="caption" sx={{ m: 0, maxHeight: 160, overflow: "auto", whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
+                                                                    {repoValidation.status}
+                                                                </Typography>
+                                                            </>
+                                                        ) : null}
+                                                    </Stack>
+                                                ) : null}
+                                            </Stack>
+                                        </Paper>
+                                    ) : null}
+
+                                    <Accordion
+                                        expanded={advancedRepoOpen}
+                                        onChange={(_, expanded) => setAdvancedRepoOpen(expanded)}
+                                        disableGutters
+                                        elevation={0}
+                                        sx={{ border: 1, borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}
+                                    >
+                                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                            <Typography variant="subtitle2">Advanced repo safeguards</Typography>
+                                        </AccordionSummary>
+                                        <AccordionDetails>
+                                            <Stack spacing={2}>
+                                                <TextField
+                                                    select
+                                                    label="Dirty worktree policy"
+                                                    defaultValue="block"
+                                                    helperText="Controls agent work when the repo has uncommitted changes."
+                                                    {...register("dirty_worktree_policy")}
+                                                >
+                                                    <MenuItem value="block">Block agent work</MenuItem>
+                                                    <MenuItem value="warn">Warn on dirty worktree</MenuItem>
+                                                    <MenuItem value="allow">Allow dirty worktree</MenuItem>
+                                                </TextField>
+                                                <TextField label="Allowed branches" helperText="Comma-separated branch patterns." {...register("allowed_branches")} />
+                                                <TextField label="File allowlist" helperText="Comma-separated glob patterns agents may read/write." {...register("file_allowlist")} />
+                                                <TextField label="File denylist" helperText="Comma-separated glob patterns always blocked." {...register("file_denylist")} />
+                                                <TextField label="Command allowlist" helperText="Comma-separated executable names allowed via code execution." {...register("command_allowlist")} />
+                                                <TextField
+                                                    label="Max diff bytes"
+                                                    type="number"
+                                                    inputProps={{ min: 1000, max: 5000000 }}
+                                                    helperText="Allowed range: 1,000 to 5,000,000 bytes."
+                                                    {...register("max_diff_bytes", { valueAsNumber: true })}
+                                                />
+                                            </Stack>
+                                        </AccordionDetails>
+                                    </Accordion>
+
+                                    <TextField
+                                        select
+                                        label="Team"
+                                        value={selectedTeamProfileId}
+                                        onChange={(e) => setValue("team_profile_id", e.target.value)}
+                                        helperText={teamProfiles.length > 0 ? "Optional execution team." : "Save a team profile from a template if needed."}
+                                    >
+                                        <MenuItem value="">None</MenuItem>
+                                        {teamProfiles.map((profile) => (
+                                            <MenuItem key={profile.id} value={profile.id}>
+                                                {profile.name}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+                                    {teamProfiles.length === 0 ? (
+                                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                            <TextField
+                                                select
+                                                label="Team template"
+                                                value={selectedTeamTemplateId}
+                                                onChange={(e) => setSelectedTeamTemplateId(e.target.value)}
+                                                sx={{ minWidth: 220 }}
+                                            >
+                                                {teamTemplates.map((template) => (
+                                                    <MenuItem key={template.id} value={template.id}>
+                                                        {template.name}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                            <Button
+                                                variant="outlined"
+                                                disabled={!selectedTeamTemplateId}
+                                                onClick={() => {
+                                                    createTeamProfileFromTemplate({ template_id: selectedTeamTemplateId })
+                                                        .then(async (profile) => {
+                                                            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-profiles"] });
+                                                            setValue("team_profile_id", profile.id);
+                                                            showToast({ message: "Team profile saved from template.", severity: "success" });
+                                                        })
+                                                        .catch((error: unknown) => {
+                                                            showToast({
+                                                                message: error instanceof Error ? error.message : "Couldn't create team profile.",
+                                                                severity: "error",
+                                                            });
+                                                        });
+                                                }}
+                                            >
+                                                Save team profile
+                                            </Button>
+                                        </Stack>
+                                    ) : null}
+                                    {mutation.isError && (
+                                        <Alert severity="error">
+                                            {mutation.error instanceof Error ? mutation.error.message : "Couldn't create project. Try again."}
+                                        </Alert>
+                                    )}
+                                    <Stack direction="row" spacing={1}>
+                                        <Button variant="outlined" onClick={() => setCreateStep(1)} fullWidth>
+                                            Back
+                                        </Button>
+                                        <Button type="submit" variant="contained" disabled={mutation.isPending || validateRepoMutation.isPending || repoValidationBlocked} fullWidth>
+                                            Save project
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+                            )}
+                        </>
                     )}
-                    <Button type="submit" variant="contained" disabled={mutation.isPending || validateRepoMutation.isPending || repoValidationBlocked}>
-                        Save
-                    </Button>
-                    <Divider sx={{ my: 2 }} />
-                    <Stack spacing={1.5}>
-                        <Typography variant="subtitle2">Generate from description</Typography>
-                        <TextField
-                            label="Project description"
-                            placeholder='e.g. "Build a REST API for payments"'
-                            value={bootstrapPrompt}
-                            onChange={(e) => setBootstrapPrompt(e.target.value)}
-                            multiline
-                            minRows={2}
-                        />
-                        <Button
-                            variant="outlined"
-                            disabled={!bootstrapPrompt.trim() || bootstrapMutation.isPending}
-                            onClick={() => bootstrapMutation.mutate()}
-                        >
-                            Generate draft plan
-                        </Button>
-                        {bootstrapDraft && (
-                            <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
-                                <Typography variant="caption" color="text.secondary">
-                                    Draft ready. Apply to create the project with goals, milestones, and starter tasks.
-                                </Typography>
-                                <Button
-                                    size="small"
-                                    sx={{ mt: 1 }}
-                                    variant="contained"
-                                    onClick={() => applyBootstrapMutation.mutate()}
-                                    disabled={applyBootstrapMutation.isPending}
-                                >
-                                    Approve and create project
-                                </Button>
-                            </Paper>
-                        )}
-                    </Stack>
                 </Stack>
             </Drawer>
         </PageShell>

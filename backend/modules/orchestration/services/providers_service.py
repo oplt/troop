@@ -99,6 +99,35 @@ class OrchestrationProvidersServiceMixin:
         await self.db.refresh(provider)
         return provider
 
+    async def delete_provider(self, user: User, provider_id: str) -> None:
+        provider = await self.repo.get_provider(user.id, provider_id)
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+
+        connected_projects = await self.repo.list_projects_using_provider(user.id, provider_id)
+        if provider.project_id and all(project.id != provider.project_id for project in connected_projects):
+            project = await self.db.get(OrchestratorProject, provider.project_id)
+            if project and project.owner_id == user.id:
+                connected_projects.append(project)
+
+        if connected_projects:
+            project_names = [project.name for project in connected_projects]
+            project_list = ", ".join(project_names)
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": (
+                        "Provider is connected to project"
+                        f"{'s' if len(project_names) != 1 else ''}: {project_list}. "
+                        "Remove the project connection before deleting it."
+                    ),
+                    "projects": project_names,
+                },
+            )
+
+        await self.repo.delete_provider(provider)
+        await self.db.commit()
+
     async def test_provider(self, user: User, provider_id: str):
         provider = await self.repo.get_provider(user.id, provider_id)
         if not provider:

@@ -624,6 +624,36 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
+    async def list_projects_using_provider(self, owner_id: str, provider_id: str) -> list[OrchestratorProject]:
+        result = await self.db.execute(
+            select(OrchestratorProject).where(OrchestratorProject.owner_id == owner_id)
+        )
+        projects = list(result.scalars().all())
+        connected: list[OrchestratorProject] = []
+        connected_ids: set[str] = set()
+        for project in projects:
+            execution = (project.settings_json or {}).get("execution") or {}
+            if execution.get("provider_config_id") == provider_id:
+                connected.append(project)
+                connected_ids.add(project.id)
+        agent_result = await self.db.execute(
+            select(OrchestratorProject)
+            .join(AgentProfile, AgentProfile.project_id == OrchestratorProject.id)
+            .where(
+                OrchestratorProject.owner_id == owner_id,
+                AgentProfile.provider_config_id == provider_id,
+            )
+        )
+        for project in agent_result.scalars().all():
+            if project.id not in connected_ids:
+                connected.append(project)
+                connected_ids.add(project.id)
+        return connected
+
+    async def delete_provider(self, provider: ProviderConfig) -> None:
+        await self.db.delete(provider)
+        await self.db.flush()
+
     async def list_all_providers(self, *, enabled_only: bool = True) -> list[ProviderConfig]:
         stmt = select(ProviderConfig)
         if enabled_only:

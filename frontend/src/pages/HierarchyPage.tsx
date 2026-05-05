@@ -736,7 +736,7 @@ function buildDefaultTeamGraph(): { nodes: TeamGraphNode[]; edges: TeamGraphEdge
             slug: "planner",
             description: "Breaks goals into ordered subtasks with clear acceptance criteria.",
             capabilities: ["planning", "decomposition"],
-            model: "claude-sonnet-4-6",
+            model: "",
         },
         {
             id: "default-builder",
@@ -745,7 +745,7 @@ function buildDefaultTeamGraph(): { nodes: TeamGraphNode[]; edges: TeamGraphEdge
             slug: "builder",
             description: "Implements subtasks end-to-end, writes code and tests.",
             capabilities: ["code-write", "refactor"],
-            model: "claude-opus-4-7",
+            model: "",
         },
         {
             id: "default-reviewer",
@@ -754,7 +754,7 @@ function buildDefaultTeamGraph(): { nodes: TeamGraphNode[]; edges: TeamGraphEdge
             slug: "reviewer",
             description: "Audits output for correctness and policy compliance.",
             capabilities: ["qa", "review"],
-            model: "claude-haiku-4-5-20251001",
+            model: "",
         },
     ];
 
@@ -768,7 +768,7 @@ function buildDefaultTeamGraph(): { nodes: TeamGraphNode[]; edges: TeamGraphEdge
             "lead-manager",
             "Coordinates the team, routes tasks, and owns final delivery.",
             ["orchestration", "delegation"],
-            "claude-opus-4-7",
+            "",
         ),
     };
     const childNodes: TeamGraphNode[] = children.map((child) => ({
@@ -1535,6 +1535,7 @@ export default function AgentLibraryPage() {
     const [teamNodeDrawerOpen, setTeamNodeDrawerOpen] = useState(false);
     const [editingTeamNodeId, setEditingTeamNodeId] = useState<string | null>(null);
     const [teamNodeDraft, setTeamNodeDraft] = useState<TeamGraphNodeData | null>(null);
+    const [teamNodeSaving, setTeamNodeSaving] = useState(false);
 
     useEffect(() => {
         if (!isResizingInspector || !isWideHierarchyLayout) {
@@ -1962,6 +1963,8 @@ export default function AgentLibraryPage() {
                 };
                 const modelPolicy = {
                     ...(existingAgent?.model_policy ?? {}),
+                    model: node.data.model || null,
+                    fallback_model: node.data.fallbackModel || null,
                     escalation_path: node.data.escalationPath || null,
                     permissions: normalizedPermission,
                 };
@@ -2104,6 +2107,8 @@ export default function AgentLibraryPage() {
                     reviewer_agent_id: node.data.role === "reviewer" ? null : reviewerAgentId,
                     model_policy: {
                         ...(currentAgent.model_policy ?? {}),
+                        model: node.data.model || null,
+                        fallback_model: node.data.fallbackModel || null,
                         escalation_path: escalationSlug,
                         permissions: normalizePermission(node.data.permission),
                     },
@@ -2651,16 +2656,66 @@ export default function AgentLibraryPage() {
         });
     }
 
-    function saveTeamNode() {
+    async function saveTeamNode() {
         if (!editingTeamNodeId || !teamNodeDraft) {
             return;
         }
-        updateNodeData(editingTeamNodeId, {
+        const nextNodeData = {
             ...teamNodeDraft,
             subtitle: buildNodeSubtitle(teamNodeDraft),
-        });
-        closeTeamNodeDrawer();
-        showToast({ message: "Team graph agent updated.", severity: "success" });
+        };
+        const existingAgent = teamNodeDraft.linkedAgentId
+            ? hierarchyAgents.find((agent) => agent.id === teamNodeDraft.linkedAgentId) ?? agents.find((agent) => agent.id === teamNodeDraft.linkedAgentId) ?? null
+            : null;
+
+        setTeamNodeSaving(true);
+        try {
+            if (existingAgent) {
+                await updateAgent(existingAgent.id, {
+                    name: normalizeAgentName(teamNodeDraft.name, existingAgent.name),
+                    slug: normalizeAgentSlug(teamNodeDraft.slug, existingAgent.slug),
+                    description: teamNodeDraft.description.trim(),
+                    role: teamNodeDraft.role,
+                    parent_template_slug: teamNodeDraft.linkedTemplateSlug || null,
+                    capabilities: teamNodeDraft.capabilities,
+                    allowed_tools: sanitizeRuntimeTools(teamNodeDraft.allowedTools),
+                    tags: teamNodeDraft.tags,
+                    model_policy: {
+                        ...(existingAgent.model_policy ?? {}),
+                        model: teamNodeDraft.model || null,
+                        fallback_model: teamNodeDraft.fallbackModel || null,
+                        escalation_path: teamNodeDraft.escalationPath || null,
+                        permissions: normalizePermission(teamNodeDraft.permission),
+                    },
+                    memory_policy: {
+                        ...(existingAgent.memory_policy ?? {}),
+                        scope: normalizeMemoryScope(teamNodeDraft.memoryScope),
+                    },
+                    output_schema: {
+                        ...(existingAgent.output_schema ?? {}),
+                        format: normalizeOutputFormat(teamNodeDraft.outputFormat),
+                    },
+                    budget: {
+                        ...(existingAgent.budget ?? {}),
+                        token_budget: clamp(parsePositiveInteger(teamNodeDraft.tokenBudget, 8000), 1, 1_000_000),
+                        time_budget_seconds: clamp(parsePositiveInteger(teamNodeDraft.timeBudgetSeconds, 300), 10, 86_400),
+                        retry_budget: clamp(parsePositiveInteger(teamNodeDraft.retryBudget, 1), 0, 20),
+                    },
+                    timeout_seconds: clamp(parsePositiveInteger(teamNodeDraft.timeBudgetSeconds, existingAgent.timeout_seconds || 300), 10, 14400),
+                    retry_limit: clamp(parsePositiveInteger(teamNodeDraft.retryBudget, existingAgent.retry_limit || 1), 0, 10),
+                    task_filters: normalizeTaskFilters(teamNodeDraft.taskFilters),
+                });
+                await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
+                await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
+            }
+            updateNodeData(editingTeamNodeId, nextNodeData);
+            closeTeamNodeDrawer();
+            showToast({ message: existingAgent ? "Agent saved." : "Team graph agent updated.", severity: "success" });
+        } catch (error) {
+            showToast({ message: error instanceof Error ? error.message : "Could not save agent.", severity: "error" });
+        } finally {
+            setTeamNodeSaving(false);
+        }
     }
 
     function deleteNode(nodeId: string) {
@@ -3839,7 +3894,7 @@ export default function AgentLibraryPage() {
                         </Box>
                         <Stack direction="row" spacing={1}>
                             <Button onClick={closeTeamNodeDrawer}>Close</Button>
-                            <Button variant="contained" onClick={saveTeamNode} disabled={!teamNodeDraft}>
+                            <Button variant="contained" onClick={saveTeamNode} disabled={!teamNodeDraft || teamNodeSaving}>
                                 Save
                             </Button>
                         </Stack>

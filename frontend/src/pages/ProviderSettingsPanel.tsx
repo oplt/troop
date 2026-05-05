@@ -360,8 +360,11 @@ export function ProviderSettingsPanel() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
             showToast({ message: "Provider deleted.", severity: "success" });
         },
-        onError: () => {
-            showToast({ message: "Could not delete provider.", severity: "error" });
+        onError: (error) => {
+            showToast({
+                message: error instanceof Error ? error.message : "Could not delete provider.",
+                severity: "error",
+            });
         },
     });
 

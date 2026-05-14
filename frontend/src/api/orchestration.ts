@@ -175,6 +175,27 @@ export type RunEvent = {
     created_at: string;
 };
 
+export type ToolSpec = {
+    name: string;
+    description: string;
+    input_schema: Record<string, unknown>;
+    output_schema: Record<string, unknown>;
+    enabled: boolean;
+    risk_level: "low" | "medium" | "high";
+    requires_approval: boolean;
+};
+
+export type RunArtifact = {
+    id: string;
+    run_id: string | null;
+    task_id: string;
+    type: string;
+    name: string;
+    path_or_url: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+};
+
 export type ExecutionSnapshotMeta = {
     schema_version: string;
     execution_truth: string;
@@ -763,6 +784,11 @@ export async function listAgents(projectId?: string): Promise<Agent[]> {
     return apiFetch(`/orchestration/agents${suffix}`);
 }
 
+export async function listTools(): Promise<ToolSpec[]> {
+    const response = await apiFetch<{ tools: ToolSpec[] }>("/tools");
+    return response.tools;
+}
+
 export async function createAgent(payload: Record<string, unknown>): Promise<Agent> {
     return apiFetch("/orchestration/agents", { method: "POST", body: JSON.stringify(payload) });
 }
@@ -841,6 +867,10 @@ export async function listOrchestrationTasks(projectId: string): Promise<Orchest
     return apiFetch(`/orchestration/projects/${projectId}/tasks`);
 }
 
+export async function getOrchestrationTask(projectId: string, taskId: string): Promise<OrchestrationTask> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}`);
+}
+
 export async function createOrchestrationTask(projectId: string, payload: Record<string, unknown>): Promise<OrchestrationTask> {
     return apiFetch(`/orchestration/projects/${projectId}/tasks`, { method: "POST", body: JSON.stringify(payload) });
 }
@@ -855,6 +885,10 @@ export async function deleteOrchestrationTask(projectId: string, taskId: string)
 
 export async function startTaskRun(projectId: string, taskId: string, payload: Record<string, unknown>): Promise<TaskRun> {
     return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/runs`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function createPlannedTaskRun(taskId: string, payload: Record<string, unknown>): Promise<TaskRun> {
+    return apiFetch(`/tasks/${taskId}/runs`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function listDagReadyTasks(projectId: string): Promise<DagReadyTask[]> {
@@ -898,6 +932,26 @@ export async function listRuns(projectId?: string): Promise<TaskRun[]> {
 
 export async function getRun(runId: string): Promise<TaskRun> {
     return apiFetch(`/orchestration/runs/${runId}`);
+}
+
+export async function getAgentRun(runId: string): Promise<TaskRun> {
+    return apiFetch(`/runs/${runId}`);
+}
+
+export async function listAgentRunSteps(runId: string): Promise<RunEvent[]> {
+    return apiFetch(`/runs/${runId}/steps`);
+}
+
+export async function approveAgentRunPlan(runId: string): Promise<TaskRun> {
+    return apiFetch(`/runs/${runId}/approve-plan`, { method: "POST" });
+}
+
+export async function cancelAgentRun(runId: string): Promise<TaskRun> {
+    return apiFetch(`/runs/${runId}/cancel`, { method: "POST" });
+}
+
+export async function listAgentRunArtifacts(runId: string): Promise<RunArtifact[]> {
+    return apiFetch(`/runs/${runId}/artifacts`);
 }
 
 export type RunCostSummary = {

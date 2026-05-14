@@ -16,6 +16,8 @@ const AdminUsersPage = lazy(() => import("../pages/AdminUsersPage"));
 const AdminPlatformPage = lazy(() => import("../pages/AdminPlatformPage"));
 const AdminSettingsPage = lazy(() => import("../pages/AdminSettingsPage"));
 const AiStudioPage = lazy(() => import("../pages/AiStudioPage"));
+const AgentProfilesPage = lazy(() => import("../pages/AgentProfilesPage"));
+const AgentRunDetailPage = lazy(() => import("../pages/AgentRunDetailPage"));
 const HierarchyPage = lazy(() => import("../pages/HierarchyPage"));
 const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProjectsPage.tsx"));
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
@@ -35,13 +37,13 @@ function PageLoader() {
     return (
         <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
             <Stack spacing={3}>
-                <Skeleton variant="rounded" height={170} sx={{ borderRadius: 2 }} />
+                <Skeleton variant="rounded" height={156} sx={{ borderRadius: 2 }} />
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                    <Skeleton variant="rounded" height={168} sx={{ borderRadius: 2, flex: 1 }} />
-                    <Skeleton variant="rounded" height={168} sx={{ borderRadius: 2, flex: 1 }} />
-                    <Skeleton variant="rounded" height={168} sx={{ borderRadius: 2, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
                 </Stack>
-                <Skeleton variant="rounded" height={260} sx={{ borderRadius: 5 }} />
+                <Skeleton variant="rounded" height={260} sx={{ borderRadius: 2 }} />
             </Stack>
         </Box>
     );
@@ -79,6 +81,8 @@ export function AppRouter() {
                     <Route path="/calendar" element={<SuspensePage><CalendarPage /></SuspensePage>} />
                     <Route path="/platform" element={<SuspensePage><PlatformPage /></SuspensePage>} />
                     <Route path="/ai" element={<SuspensePage><AiStudioPage /></SuspensePage>} />
+                    <Route path="/agents" element={<SuspensePage><AgentProfilesPage /></SuspensePage>} />
+                    <Route path="/agent-runs/:runId" element={<SuspensePage><AgentRunDetailPage /></SuspensePage>} />
                     <Route path="/hierarchy" element={<Navigate to="/hierarchy-builder" replace />} />
                     <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />

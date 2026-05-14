@@ -32,10 +32,10 @@ export function StatCard({
             sx={{
                 position: "relative",
                 p: 2.5,
-                borderRadius: 3,
+                borderRadius: 2,
                 minHeight: "100%",
                 overflow: "hidden",
-                background: `linear-gradient(180deg, ${alpha(accent, theme.palette.mode === "dark" ? 0.14 : 0.06)} 0%, ${alpha(
+                background: `linear-gradient(180deg, ${alpha(accent, theme.palette.mode === "dark" ? 0.1 : 0.045)} 0%, ${alpha(
                     theme.palette.background.paper,
                     0.96
                 )} 100%)`,
@@ -81,7 +81,7 @@ export function StatCard({
                             height: 40,
                             display: "grid",
                             placeItems: "center",
-                            borderRadius: 2,
+                            borderRadius: 999,
                             color: accent,
                             backgroundColor: alpha(accent, theme.palette.mode === "dark" ? 0.22 : 0.14),
                         }}

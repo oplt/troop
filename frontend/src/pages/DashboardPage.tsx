@@ -73,6 +73,14 @@ export default function DashboardPage() {
     const canonicalProjectLower = canonicalProjectLabel.toLowerCase();
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
     const totalNotifications = notifications?.length ?? 0;
+    const visibleNotifications = useMemo(
+        () => notifications?.slice(0, 20) ?? [],
+        [notifications]
+    );
+    const visibleProjects = useMemo(
+        () => projects?.slice(0, 3) ?? [],
+        [projects]
+    );
     const eventRows = useMemo(() => executionInsights?.by_event_type ?? [], [executionInsights]);
     const toolFailures = useMemo(
         () => executionInsights?.tool_failures_by_tool ?? [],
@@ -80,6 +88,43 @@ export default function DashboardPage() {
     );
     return (
         <PageShell maxWidth="xl">
+            <Paper
+                sx={(theme) => ({
+                    p: { xs: 2.5, md: 4 },
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    position: "relative",
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: theme.palette.background.paper,
+                })}
+            >
+                <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={{ xs: 2.5, md: 4 }}
+                    alignItems={{ xs: "flex-start", md: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Box sx={{ maxWidth: 760 }}>
+                        <Typography variant="overline" color="text.secondary">
+                            Workspace
+                        </Typography>
+                        <Typography variant="h2" sx={{ mt: 0.5 }}>
+                            Command current work without losing context.
+                        </Typography>
+                        <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 660 }}>
+                            Projects, approvals, runs, and notifications stay visible so next action is clear.
+                        </Typography>
+                    </Box>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", md: "auto" } }}>
+                        <Button variant="contained" onClick={() => navigate("/agent-projects")}>
+                            Open projects
+                        </Button>
+                        <Button variant="outlined" onClick={() => navigate("/activity")}>
+                            Review activity
+                        </Button>
+                    </Stack>
+                </Stack>
+            </Paper>
 
             <Box
                 sx={{
@@ -159,8 +204,8 @@ export default function DashboardPage() {
 
                 <CollapsibleSectionCard
                     sx={{ gridColumn: { lg: "span 4" }, gridRow: { lg: "span 2" } }}
-                    title="All notifications"
-                    info="Full notification history. Mark individual items or all as read."
+                    title="Recent notifications"
+                    info="Most recent notification history. Mark individual items or all as read."
                     count={totalNotifications}
                     action={
                         unreadCount > 0 ? (
@@ -197,12 +242,12 @@ export default function DashboardPage() {
                     {notificationsLoading ? (
                         <Stack spacing={1.5}>
                             {Array.from({ length: 5 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 4 }} />
+                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 2 }} />
                             ))}
                         </Stack>
-                    ) : notifications && notifications.length > 0 ? (
+                    ) : visibleNotifications.length > 0 ? (
                         <Stack spacing={1.5}>
-                            {notifications.map((notification) => {
+                            {visibleNotifications.map((notification) => {
                                 const isUpdatingThisItem =
                                     markOneMutation.isPending &&
                                     markOneMutation.variables === notification.id;
@@ -211,7 +256,7 @@ export default function DashboardPage() {
                                         key={notification.id}
                                         sx={(theme) => ({
                                             p: 2.25,
-                                            borderRadius: 4,
+                                            borderRadius: 2,
                                             border: `1px solid ${theme.palette.divider}`,
                                             backgroundColor: notification.is_read
                                                 ? alpha(theme.palette.background.paper, 0.68)
@@ -379,7 +424,7 @@ export default function DashboardPage() {
                                 key={run.id}
                                 sx={(theme) => ({
                                     p: 1.5,
-                                    borderRadius: 3,
+                                    borderRadius: 2,
                                     border: `1px solid ${theme.palette.divider}`,
                                 })}
                             >
@@ -405,7 +450,7 @@ export default function DashboardPage() {
                                 <Box
                                     sx={(theme) => ({
                                         p: 2,
-                                        borderRadius: 3,
+                                        borderRadius: 2,
                                         border: `1px solid ${theme.palette.divider}`,
                                         backgroundColor: theme.palette.background.paper,
                                         cursor: "help",
@@ -437,17 +482,17 @@ export default function DashboardPage() {
                     {projectsLoading ? (
                         <Stack spacing={1.25}>
                             {Array.from({ length: 3 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={72} sx={{ borderRadius: 3 }} />
+                                <Skeleton key={index} variant="rounded" height={72} sx={{ borderRadius: 2 }} />
                             ))}
                         </Stack>
                     ) : projects && projects.length > 0 ? (
                         <Stack spacing={1.25}>
-                            {projects.slice(0, 3).map((project) => (
+                            {visibleProjects.map((project) => (
                                 <Box
                                     key={project.id}
                                     sx={(theme) => ({
                                         p: 2,
-                                        borderRadius: 3,
+                                        borderRadius: 2,
                                         border: `1px solid ${theme.palette.divider}`,
                                     })}
                                 >

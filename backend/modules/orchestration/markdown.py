@@ -31,7 +31,7 @@ def parse_agent_markdown(content: str) -> tuple[dict[str, Any] | None, list[str]
     role = str(frontmatter.get("role", "specialist")).strip() or "specialist"
     version = int(frontmatter.get("version", 1) or 1)
     capabilities = _normalize_string_list(frontmatter.get("capabilities"))
-    tools = _normalize_string_list(frontmatter.get("tools"))
+    tools = _normalize_string_list(frontmatter.get("tools", frontmatter.get("tools_allowed")))
     tags = _normalize_string_list(frontmatter.get("tags"))
     skills = _normalize_string_list(frontmatter.get("skills"))
     model = frontmatter.get("model")
@@ -94,14 +94,14 @@ def parse_agent_markdown(content: str) -> tuple[dict[str, Any] | None, list[str]
     mission = sections.get("Mission", "").strip()
     rules_markdown = sections.get("Rules", "").strip()
     output_contract = sections.get("Output Contract", "").strip()
+    if not sections:
+        mission = body.strip()
     description = str(frontmatter.get("description", "")).strip() or mission[:240] or None
 
+    # DeerFlow-style agent markdown can be one instruction body plus frontmatter.
+    # Preserve stricter sections when present, but do not require them for import.
     if not mission:
-        errors.append("A `# Mission` section is required.")
-    if not rules_markdown:
-        errors.append("A `# Rules` section is required.")
-    if not output_contract:
-        errors.append("A `# Output Contract` section is required.")
+        errors.append("Agent instructions are required after frontmatter.")
 
     if errors:
         return None, errors
@@ -125,7 +125,8 @@ def parse_agent_markdown(content: str) -> tuple[dict[str, Any] | None, list[str]
         "skills": skills,
         "parent_template_slug": parent_template_slug,
         "model_policy": {
-            "model": model,
+            "model": model.get("model") if isinstance(model, dict) else model,
+            "provider": model.get("provider") if isinstance(model, dict) else None,
             "fallback_model": fallback_model,
             "escalation_path": escalation_path,
             "manager_slug": manager,

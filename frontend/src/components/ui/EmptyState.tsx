@@ -13,7 +13,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         <Box
             sx={(theme) => ({
                 border: `1px dashed ${alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.18 : 0.16)}`,
-                borderRadius: 4,
+                borderRadius: 2,
                 px: 3,
                 py: 4,
                 textAlign: "center",
@@ -25,7 +25,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
                     sx={(theme) => ({
                         width: 52,
                         height: 52,
-                        borderRadius: 3,
+                        borderRadius: 2,
                         display: "grid",
                         placeItems: "center",
                         color: "primary.main",

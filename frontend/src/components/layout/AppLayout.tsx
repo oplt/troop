@@ -33,10 +33,12 @@ import {
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
+    AccountCircle as ProfileIcon,
     AttachMoney as CostAnalyticsIcon,
     ViewModule as PortfolioNavIcon,
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
+    SmartToy as AgentsIcon,
 } from "@mui/icons-material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
@@ -134,7 +136,7 @@ function NavBlock({
     onNavigate,
     collapsed,
 }: {
-    title: string;
+    title?: string;
     items: NavItem[];
     currentPath: string;
     onNavigate: (path: string) => void;
@@ -146,7 +148,7 @@ function NavBlock({
 
     return (
         <Stack spacing={1}>
-            {!collapsed && (
+            {!collapsed && title && (
                 <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>
                     {title}
                 </Typography>
@@ -263,6 +265,7 @@ export function AppLayout() {
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
+            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
             { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
             {
@@ -348,15 +351,16 @@ export function AppLayout() {
             >
                 <Box
                     sx={(currentTheme) => ({
-                        borderRadius: 4,
+                        borderRadius: 2,
                         px: drawerCollapsed ? 1 : 2,
                         py: drawerCollapsed ? 1.75 : 2.25,
                         mb: 2,
                         border: `1px solid ${currentTheme.palette.divider}`,
-                        background: `linear-gradient(155deg, ${alpha(currentTheme.palette.primary.main, currentTheme.palette.mode === "dark" ? 0.3 : 0.12)} 0%, ${alpha(
-                            currentTheme.palette.secondary.main,
-                            currentTheme.palette.mode === "dark" ? 0.18 : 0.08
-                        )} 100%)`,
+                        backgroundColor: currentTheme.palette.background.paper,
+                        boxShadow:
+                            currentTheme.palette.mode === "dark"
+                                ? "0 14px 34px rgba(0,0,0,0.18)"
+                                : "0 14px 34px rgba(41,37,36,0.045)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: drawerCollapsed ? "center" : "flex-start",
@@ -388,6 +392,7 @@ export function AppLayout() {
 
             <Stack spacing={drawerCollapsed ? 1 : 2}>
                 <NavBlock
+                    title="Workspace"
                     items={visibleNavItems.filter((item) => item.group === "workspace")}
                     currentPath={location.pathname}
                     onNavigate={handleNavigate}
@@ -396,6 +401,7 @@ export function AppLayout() {
                 {isAdmin && drawerCollapsed && <Divider sx={{ mx: 1.5 }} />}
                 {isAdmin && (
                     <NavBlock
+                        title="Admin"
                         items={visibleNavItems.filter((item) => item.group === "admin")}
                         currentPath={location.pathname}
                         onNavigate={handleNavigate}
@@ -409,7 +415,7 @@ export function AppLayout() {
             <Box
                 sx={(currentTheme) => ({
                     p: drawerCollapsed ? 1.25 : 2,
-                    borderRadius: 4,
+                    borderRadius: 2,
                     border: `1px solid ${currentTheme.palette.divider}`,
                     backgroundColor: alpha(currentTheme.palette.background.paper, 0.78),
                 })}
@@ -487,8 +493,9 @@ export function AppLayout() {
                     width: { md: `calc(100% - ${desktopDrawerWidth}px)` },
                     borderBottom: 1,
                     borderColor: "divider",
-                    backgroundColor: alpha(theme.palette.background.default, theme.palette.mode === "dark" ? 0.82 : 0.78),
+                    backgroundColor: alpha(theme.palette.background.default, theme.palette.mode === "dark" ? 0.88 : 0.92),
                     color: "text.primary",
+                    backdropFilter: "blur(14px)",
                     transition: theme.transitions.create(["left", "width"], {
                         duration: theme.transitions.duration.shorter,
                     }),

@@ -28,6 +28,8 @@ from backend.modules.memory.models import (
 from backend.modules.orchestration.model_utils import (
     EMBEDDING_VECTOR_DIMENSIONS,
     normalize_embedding_for_vector,
+)
+from backend.modules.orchestration.model_utils import (
     utcnow as _utcnow,
 )
 from backend.modules.projects.orchestration_models import (

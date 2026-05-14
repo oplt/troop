@@ -29,14 +29,14 @@ export function AuthMarketingPanel({
                 <Box>
                     <Typography
                         variant="overline"
-                        sx={{ color: alpha("#F6F6F6", 0.82), display: "block", mb: 1 }}
+                        sx={(theme) => ({ color: theme.palette.text.secondary, display: "block", mb: 1 })}
                     >
                         {eyebrow}
                     </Typography>
                     <Typography variant="h3" sx={{ mb: 1.25 }}>
                         {title}
                     </Typography>
-                    <Typography sx={{ color: alpha("#F6F6F6", 0.78), maxWidth: 620 }}>
+                    <Typography sx={{ color: "text.secondary", maxWidth: 620 }}>
                         {description}
                     </Typography>
                 </Box>
@@ -54,13 +54,13 @@ export function AuthMarketingPanel({
                                 key={item.label}
                                 sx={{
                                     p: 2,
-                                    borderRadius: 4,
-                                    backgroundColor: alpha("#F6F6F6", 0.12),
-                                    border: `1px solid ${alpha("#F6F6F6", 0.14)}`,
+                                    borderRadius: 2,
+                                    backgroundColor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.08 : 0.035),
+                                    border: (theme) => `1px solid ${theme.palette.divider}`,
                                 }}
                             >
                                 <Typography variant="h5">{item.value}</Typography>
-                                <Typography sx={{ color: alpha("#F6F6F6", 0.74), mt: 0.5 }}>
+                                <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
                                     {item.label}
                                 </Typography>
                             </Box>
@@ -70,7 +70,7 @@ export function AuthMarketingPanel({
             </Stack>
 
             <Stack spacing={1.25}>
-                <Typography variant="subtitle2" sx={{ color: alpha("#F6F6F6", 0.92) }}>
+                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>
                     {appName}
                 </Typography>
                 {points.map((point) => (
@@ -78,12 +78,12 @@ export function AuthMarketingPanel({
                         key={point}
                         sx={{
                             p: 1.5,
-                            borderRadius: 3,
-                            backgroundColor: alpha("#F6F6F6", 0.08),
-                            border: `1px solid ${alpha("#F6F6F6", 0.12)}`,
+                            borderRadius: 2,
+                            backgroundColor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.06 : 0.03),
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
                         }}
                     >
-                        <Typography sx={{ color: alpha("#F6F6F6", 0.78) }}>{point}</Typography>
+                        <Typography sx={{ color: "text.secondary" }}>{point}</Typography>
                     </Box>
                 ))}
             </Stack>

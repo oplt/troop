@@ -755,6 +755,7 @@ class TeamServiceMixin:
             "fs_write",
             "db_query",
             "repo_search",
+            "knowledge_search",
         }
         for tool in payload.get("allowed_tools", []):
             if tool not in allowed_tools:

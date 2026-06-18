@@ -33,7 +33,7 @@ export function SkillPackPicker({ form, setForm, skills }: SkillPackPickerProps)
             </TextField>
             <Stack spacing={1}>
                 {skills.filter((skill) => form.skills.includes(skill.slug)).map((skill) => (
-                    <Paper key={skill.slug} sx={{ p: 1.5, borderRadius: 3 }}>
+                    <Paper key={skill.slug} sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">{skill.name}</Typography>
                         <Typography variant="body2" color="text.secondary">
                             {skill.description}

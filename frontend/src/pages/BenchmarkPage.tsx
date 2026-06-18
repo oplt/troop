@@ -87,7 +87,7 @@ function EvalCard({ eval: ev, projectId }: { eval: EvalRecord; projectId: string
             <Stack spacing={1.5}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                     <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{ev.name}</Typography>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>{ev.name}</Typography>
                         <Typography variant="caption" color="text.secondary">{formatDateTime(ev.created_at)}</Typography>
                     </Box>
                     <Chip
@@ -113,7 +113,7 @@ function EvalCard({ eval: ev, projectId }: { eval: EvalRecord; projectId: string
                                 key={side}
                                 sx={(theme) => ({
                                     p: 1.5,
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     border: `1px solid ${isWinner ? theme.palette.success.main : theme.palette.divider}`,
                                     bgcolor: isWinner ? `${theme.palette.success.main}10` : undefined,
                                 })}
@@ -376,7 +376,7 @@ export default function BenchmarkPage() {
                     <SectionCard title="Leaderboard" description="Aggregate benchmark performance ranking by win rate, score, cost, and latency.">
                         <Stack spacing={1}>
                             {leaderboard.map((entry, index) => (
-                                <Paper key={entry.agent_id} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                <Paper key={entry.agent_id} sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider" }}>
                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Typography variant="subtitle2">#{index + 1} {entry.agent_name}</Typography>
                                         <Chip label={`${(entry.win_rate * 100).toFixed(1)}% win`} size="small" color="success" variant="outlined" />

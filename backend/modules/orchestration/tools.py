@@ -78,6 +78,8 @@ class OrchestrationToolbox:
             return await self._db_query(arguments)
         if tool_name == "repo_search":
             return await self._repo_search(arguments)
+        if tool_name == "knowledge_search":
+            return await self._knowledge_search(arguments)
         raise ToolExecutionError(f"Unsupported tool: {tool_name}")
 
     def _workspace_root(self) -> Path:
@@ -327,14 +329,21 @@ class OrchestrationToolbox:
                 args=[shell_cmd, str(cwd), timeout, use_shell_wrap],
                 queue=settings.CELERY_QUEUE_CPU,
             )
-            result = await asyncio.to_thread(
-                async_result.get,
-                timeout=max(timeout + 20, settings.ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS),
-                propagate=False,
-            )
+            wait_timeout = timeout + 20
+            configured = settings.ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS
+            if configured is not None:
+                wait_timeout = max(wait_timeout, configured)
+            try:
+                from backend.workers.celery_async import await_celery_result
+
+                result = await await_celery_result(async_result, timeout_seconds=float(wait_timeout))
+            except TimeoutError as exc:
+                raise ToolExecutionError(str(exc)) from exc
             if not isinstance(result, dict):
                 raise ToolExecutionError("CPU worker returned an invalid code execution payload")
         sandbox_mode = str(((self.project.settings_json or {}).get("hitl") or {}).get("sandbox_mode") or "allow_host_fallback")
+        if str(result.get("error") or "") == "docker_required_unavailable":
+            raise ToolExecutionError(str(result.get("stderr") or "Docker sandbox required but unavailable."))
         if sandbox_mode == "docker_required" and str(result.get("sandbox") or "host") != "docker":
             raise ToolExecutionError("Sandbox policy requires Docker isolation, but execution fell back to host.")
         return result
@@ -454,6 +463,36 @@ class OrchestrationToolbox:
         if not query:
             raise ToolExecutionError("repo_search requires a query")
         limit = max(1, min(int(arguments.get("limit", 5)), 20))
+
+        from backend.modules.rag.schemas import RagSearchFilters
+        from backend.modules.rag.service import RagService
+
+        rag = RagService(self.db)
+        vector_matches = await rag.retrieve(
+            query,
+            filters=RagSearchFilters(
+                project_id=self.project.id,
+                user_id=self.run.triggered_by_user_id,
+                source_kind="repo_index",
+            ),
+            limit=limit,
+        )
+        if vector_matches:
+            return {
+                "query": query,
+                "retrieval": "vector",
+                "items": [
+                    {
+                        "project_document_id": match.document_id,
+                        "chunk_index": match.chunk_index,
+                        "score": match.score,
+                        "content": match.content[:1000],
+                        "path": (match.metadata or {}).get("path"),
+                    }
+                    for match in vector_matches
+                ],
+            }
+
         rows = (
             await self.db.execute(
                 select(ProjectDocumentChunk)
@@ -485,7 +524,44 @@ class OrchestrationToolbox:
                 }
             )
         matches.sort(key=lambda item: item["score"], reverse=True)
-        return {"query": query, "items": matches[:limit]}
+        return {"query": query, "retrieval": "keyword", "items": matches[:limit]}
+
+    async def _knowledge_search(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            raise ToolExecutionError("knowledge_search requires a query")
+        limit = max(1, min(int(arguments.get("limit", 5)), 20))
+        include_decisions = bool(arguments.get("include_decisions", False))
+
+        from backend.modules.rag.schemas import RagSearchFilters
+        from backend.modules.rag.service import RagService
+
+        rag = RagService(self.db)
+        matches = await rag.retrieve(
+            query,
+            filters=RagSearchFilters(
+                project_id=self.project.id,
+                user_id=self.run.triggered_by_user_id,
+                include_decisions=include_decisions,
+            ),
+            limit=limit,
+        )
+        return {
+            "query": query,
+            "retrieval": "vector",
+            "items": [
+                {
+                    "document_id": match.document_id,
+                    "chunk_id": match.chunk_id,
+                    "chunk_index": match.chunk_index,
+                    "score": match.score,
+                    "title": match.title,
+                    "content": match.content[:1200],
+                    "hit_kind": match.hit_kind,
+                }
+                for match in matches
+            ],
+        }
 
 
 def sanitize_tool_result(result: dict[str, Any], *, max_chars: int = 4000) -> dict[str, Any]:

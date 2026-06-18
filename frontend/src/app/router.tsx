@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { Box, Skeleton, Stack } from "@mui/material";
 import { ProtectedRoute } from "../components/guards/ProtectedRoute";
+import { RouteErrorBoundary } from "../components/guards/RouteErrorBoundary";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useAuth } from "../hooks/useAuth";
 import AuthHomePage from "../pages/AuthHomePage";
@@ -32,25 +33,30 @@ const ModelSettingsPage = lazy(() => import("../pages/ModelSettingsPage"));
 const OrchestrationPortfolioPage = lazy(() => import("../pages/OrchestrationPortfolioPage"));
 const CompaniesPage = lazy(() => import("../pages/CompaniesPage"));
 const CompanyMemoryPage = lazy(() => import("../pages/CompanyMemoryPage"));
+const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 
 function PageLoader() {
     return (
         <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
             <Stack spacing={3}>
-                <Skeleton variant="rounded" height={156} sx={{ borderRadius: 2 }} />
+                <Skeleton variant="rounded" height={156} sx={{ borderRadius: 1 }} />
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 2, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
+                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
                 </Stack>
-                <Skeleton variant="rounded" height={260} sx={{ borderRadius: 2 }} />
+                <Skeleton variant="rounded" height={260} sx={{ borderRadius: 1 }} />
             </Stack>
         </Box>
     );
 }
 
 function SuspensePage({ children }: { children: React.ReactNode }) {
-    return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+    return (
+        <RouteErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{children}</Suspense>
+        </RouteErrorBoundary>
+    );
 }
 
 function RedirectToAdminSettingsTab({ tab }: { tab: string }) {
@@ -102,7 +108,7 @@ export function AppRouter() {
                     <Route path="/agent-projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
                     <Route path="/runs/:runId" element={<SuspensePage><RunInspectorPage /></SuspensePage>} />
                     <Route path="/profile" element={<SuspensePage><ProfilePage /></SuspensePage>} />
-                    <Route path="/notifications" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/notifications" element={<SuspensePage><NotificationsPage /></SuspensePage>} />
                     <Route
                         path="/admin/users"
                         element={

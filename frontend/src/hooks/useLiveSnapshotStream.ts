@@ -4,6 +4,7 @@ import { API_BASE, readCookie } from "../api/client";
 
 type UseLiveSnapshotStreamOptions = {
     enabled?: boolean;
+    /** Called with the parsed SSE `data:` payload for each snapshot event. */
     onSnapshot?: (payload: Record<string, unknown>) => void;
     onError?: () => void;
 };

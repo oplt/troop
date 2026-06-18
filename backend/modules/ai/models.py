@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.base import Base
+from backend.modules.orchestration.model_utils import EMBEDDING_VECTOR_DIMENSIONS
 
 
 class AiPromptTemplate(Base):
@@ -95,6 +97,10 @@ class AiDocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     token_count: Mapped[int] = mapped_column(Integer, default=0)
     embedding_json: Mapped[list[float]] = mapped_column(JSON, default=list)
+    embedding_vector: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_VECTOR_DIMENSIONS),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

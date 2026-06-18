@@ -150,7 +150,7 @@ function MfaQrCode({ provisioningUri }: { provisioningUri: string }) {
             sx={{
                 p: 2,
                 alignSelf: "flex-start",
-                borderRadius: 3,
+                borderRadius: 1,
                 bgcolor: "common.white",
             }}
         >

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -11,6 +12,12 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select, update
 from sqlalchemy.orm import attributes as orm_attributes
 
+from backend.core.cache import (
+    get_cached_memory_settings,
+    invalidate_project_knowledge_caches,
+    invalidate_project_memory_settings_cache,
+    set_cached_memory_settings,
+)
 from backend.core.config import settings
 from backend.core.storage import StorageNotConfiguredError, object_storage
 from backend.modules.identity_access.models import User
@@ -42,10 +49,18 @@ from backend.modules.memory.episodic import (
     build_episodic_archive_jsonl_gz,
     episodic_object_key,
 )
+from backend.modules.rag.config import resolve_rag_config
+from backend.modules.rag.prompt_builder import RagPromptBuilder
+from backend.modules.rag.retrieval import DocumentIngestionService, RetrieverService
+from backend.modules.rag.schemas import RagChunkMatch, RagSearchFilters
+from backend.modules.memory.layer.config import resolve_memory_config
+from backend.modules.memory.layer.schemas import MemoryFilters
+from backend.modules.memory.layer.service import MemoryService
 from backend.modules.memory.metrics import increment_memory_metric
 from backend.modules.memory.models import (
     AgentMemoryEntry,
     KnowledgeGraphEdge,
+    MemoryIngestJob,
     ProceduralPlaybook,
     ProjectDocument,
     SemanticMemoryEntry,
@@ -80,7 +95,7 @@ from backend.modules.orchestration._helpers import (
     _default_semantic_namespace,
     _estimate_embedding_tokens,
 )
-from backend.modules.orchestration.context_packet import ContextPacket, log_context_packet_telemetry
+from backend.modules.orchestration.context_packet import ContextPacket, dedupe_context_sections, log_context_packet_telemetry
 from backend.modules.orchestration.models import (
     ApprovalRequest,
     RunEvent,
@@ -97,21 +112,6 @@ from backend.modules.team.models import AgentProfile
 
 logger = logging.getLogger(__name__)
 
-
-TASK_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"queued", "archived"},
-    "queued": {"planned", "blocked", "failed", "archived"},
-    "planned": {"in_progress", "blocked", "archived", "failed"},
-    "in_progress": {"blocked", "needs_review", "completed", "failed", "planned"},
-    "blocked": {"planned", "in_progress", "failed", "archived"},
-    "needs_review": {"approved", "planned", "blocked", "failed"},
-    "approved": {"completed", "planned", "archived"},
-    "completed": {"synced_to_github", "planned", "archived"},
-    "failed": {"planned", "queued", "archived"},
-    "synced_to_github": {"archived", "planned"},
-    "archived": set(),
-}
-
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
 )
@@ -127,22 +127,96 @@ from backend.modules.memory.namespaces import (
 
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
 
-GITHUB_WEBHOOK_EVENT_ALLOWLIST = frozenset(
-    {
-        "installation",
-        "installation_repositories",
-        "issues",
-        "issue_comment",
-        "pull_request",
-        "pull_request_review",
-        "pull_request_review_comment",
-        "push",
-        "projects_v2_item",
-    }
-)
-
 
 class OrchestrationMemoryServiceMixin:
+    def _memory_layer_service(
+        self, project_settings_json: dict[str, Any] | None = None
+    ) -> MemoryService:
+        return MemoryService(self.db, config=resolve_memory_config(project_settings_json))
+
+    async def _build_memory_layer_context_for_run(
+        self,
+        run: TaskRun,
+        task: OrchestratorTask | None,
+        project: OrchestratorProject | None,
+    ) -> str:
+        if project is None:
+            return ""
+        ms = merge_memory_settings(project.settings_json)
+        layer = ms.get("layer") if isinstance(ms.get("layer"), dict) else {}
+        if not layer.get("inject_context_before_llm", True):
+            return ""
+        memory_service = self._memory_layer_service(project.settings_json)
+        if not memory_service.enabled:
+            return ""
+        query_parts = []
+        if task:
+            query_parts.extend([task.title or "", (task.description or "")[:500]])
+        wm = format_working_memory_for_prompt(working_memory_from_checkpoint(run.checkpoint_json))
+        if wm:
+            query_parts.append(wm[:1200])
+        query = "\n".join(p for p in query_parts if p).strip() or "project context"
+        agent_id = run.worker_agent_id or run.orchestrator_agent_id
+        if task and not agent_id:
+            agent_id = task.assigned_agent_id
+        return await memory_service.build_memory_context(
+            project.owner_id,
+            query,
+            filters=MemoryFilters(
+                user_id=project.owner_id,
+                project_id=project.id,
+                agent_id=agent_id,
+                session_id=run.id,
+            ),
+        )
+
+    async def _extract_memory_layer_from_run(
+        self,
+        run: TaskRun,
+        task: OrchestratorTask | None,
+        project: OrchestratorProject | None,
+    ) -> None:
+        if project is None or task is None:
+            return
+        memory_service = self._memory_layer_service(project.settings_json)
+        if not memory_service.enabled:
+            return
+        events = await self.repo.list_run_events_tail(run.id, limit=20)
+        messages: list[dict[str, str]] = []
+        for ev in events:
+            et = str(ev.event_type or "").lower()
+            if et not in {"log", "decision", "finding", "summary", "completed"}:
+                continue
+            text = str(ev.message or "").strip()
+            payload = ev.payload_json if isinstance(ev.payload_json, dict) else {}
+            if isinstance(payload, dict):
+                for key in ("text", "content", "summary", "final_output"):
+                    val = payload.get(key)
+                    if isinstance(val, str) and val.strip():
+                        text = f"{text}\n{val}".strip() if text else val.strip()
+                        break
+            if len(text) < 20:
+                continue
+            role = "assistant" if et in {"summary", "completed", "finding"} else "user"
+            messages.append({"role": role, "content": text[:4000]})
+        final_output = str(
+            (run.output_payload_json or {}).get("final_output")
+            or (run.output_payload_json or {}).get("summary")
+            or ""
+        ).strip()
+        if final_output:
+            messages.append({"role": "assistant", "content": final_output[:4000]})
+        if not messages:
+            return
+        agent_id = run.worker_agent_id or run.orchestrator_agent_id or task.assigned_agent_id
+        await memory_service.extract_and_store_from_interaction(
+            user_id=project.owner_id,
+            messages=messages,
+            project_id=project.id,
+            session_id=run.id,
+            agent_id=agent_id,
+        )
+
     async def get_working_memory(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
         return working_memory_from_checkpoint(run.checkpoint_json)
@@ -220,15 +294,14 @@ class OrchestrationMemoryServiceMixin:
                 limit=related_cap,
             )
             cross_any = False
-            for rid in rel:
-                rows = await self.repo.list_semantic_memory_entries(
+            if rel:
+                rows = await self.repo.list_semantic_memory_entries_for_projects(
                     project.owner_id,
-                    project_id=rid,
+                    rel,
                     search=title_q,
-                    limit=4,
+                    limit=max(4, related_cap * 4),
                 )
-                if rows:
-                    cross_any = True
+                cross_any = bool(rows)
                 _take(rows)
             if rel:
                 increment_memory_metric(
@@ -409,6 +482,8 @@ class OrchestrationMemoryServiceMixin:
         await self.db.commit()
         await self.db.refresh(entry)
         increment_memory_metric("semantic_entry_created")
+        if project_id:
+            await invalidate_project_knowledge_caches(project_id)
         return entry
 
     async def _detect_pre_write_conflicts(
@@ -600,6 +675,7 @@ class OrchestrationMemoryServiceMixin:
         await self.db.commit()
         await self.db.refresh(entry)
         self._schedule_semantic_embedding(entry.id)
+        await invalidate_project_knowledge_caches(project_id)
         return entry
 
     async def delete_semantic_memory_entry_for_project(
@@ -629,6 +705,7 @@ class OrchestrationMemoryServiceMixin:
             return approval
         await self.db.delete(entry)
         await self.db.commit()
+        await invalidate_project_knowledge_caches(project_id)
         return None
 
     async def promote_working_memory_to_semantic_entry(
@@ -974,8 +1051,8 @@ class OrchestrationMemoryServiceMixin:
                 try:
                     vec = (await self.ai_providers.embed_texts([snap[:8000]]))[0]
                     row.embedding_vector = normalize_embedding_for_vector(vec)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("task_close_snapshot_embed_failed source_id=%s error=%s", sid, exc)
         runs = await self.repo.list_task_runs_for_task(project.id, task.id, limit=80)
         for r in runs:
             r.checkpoint_json = prune_checkpoint_after_compaction(r.checkpoint_json or {})
@@ -1018,8 +1095,14 @@ class OrchestrationMemoryServiceMixin:
         return done
 
     async def get_project_memory_settings(self, user: User, project_id: str) -> dict[str, Any]:
+        cached = await get_cached_memory_settings(project_id)
+        if cached is not None:
+            await self.get_project(user, project_id)
+            return cached
         project = await self.get_project(user, project_id)
-        return merge_memory_settings(project.settings_json)
+        merged = merge_memory_settings(project.settings_json)
+        await set_cached_memory_settings(project_id, merged)
+        return merged
 
     async def update_project_memory_settings(
         self, user: User, project_id: str, patch: dict[str, Any]
@@ -1035,7 +1118,10 @@ class OrchestrationMemoryServiceMixin:
         project.settings_json = self._normalize_project_settings(settings)
         await self.db.commit()
         await self.db.refresh(project)
-        return merge_memory_settings(project.settings_json)
+        merged = merge_memory_settings(project.settings_json)
+        await set_cached_memory_settings(project_id, merged)
+        await invalidate_project_knowledge_caches(project_id)
+        return merged
 
     async def list_semantic_memory_conflicts(
         self, user: User, project_id: str
@@ -1722,8 +1808,8 @@ class OrchestrationMemoryServiceMixin:
             try:
                 vec = (await self.ai_providers.embed_texts([text[:8000]]))[0]
                 row.embedding_vector = normalize_embedding_for_vector(vec)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("episodic_index_embed_failed source_id=%s error=%s", ev.id, exc)
             n += 1
         await self.db.commit()
         increment_memory_metric("episodic_index_backfills")
@@ -1787,7 +1873,7 @@ class OrchestrationMemoryServiceMixin:
         owner = await self.db.get(User, owner_id)
         if owner is None:
             raise RuntimeError("classify job target owner missing")
-        events = await self.repo.list_run_events(run_id)
+        events = await self.repo.list_run_events_tail(run_id, limit=settings.RUN_EVENTS_CLASSIFIER_MAX)
         event_dicts: list[dict[str, Any]] = []
         for ev in events:
             event_dicts.append(
@@ -1865,53 +1951,102 @@ class OrchestrationMemoryServiceMixin:
             "skipped": skipped,
         }
 
-    async def process_memory_ingest_jobs_worker(self, *, limit: int = 15) -> dict[str, Any]:
-        jobs = await self.repo.list_pending_memory_ingest_jobs(limit=limit)
-        processed = 0
-        for job in jobs:
+    async def _execute_memory_ingest_job_body(self, job: MemoryIngestJob) -> None:
+        jt = job.job_type
+        payload = job.payload_json or {}
+        if jt == "semantic_embed":
+            await self.embed_semantic_memory_entry_worker(str(payload.get("entry_id")))
+        elif jt == "episodic_embed_index":
+            await self.process_episodic_index_embedding_batch(limit=5)
+        elif jt == "document_ingest":
+            document = await self.repo.get_document(
+                str(payload.get("project_id") or ""),
+                str(payload.get("document_id") or ""),
+            )
+            if document is None:
+                raise RuntimeError("document_ingest target not found")
+            await self._index_project_document(document)
+        elif jt == "ai_document_ingest":
+            from backend.modules.ai.service import AiService
+
+            await AiService(self.db).process_ai_document_ingest_job(
+                user_id=str(payload.get("user_id") or job.owner_id),
+                document_id=str(payload.get("document_id") or ""),
+            )
+        elif jt == "repo_index":
+            await self._run_repository_index_job(
+                owner_id=str(job.owner_id),
+                project_id=str(payload.get("project_id") or ""),
+                repository_link_id=str(payload.get("repository_link_id") or ""),
+                requested_by_user_id=str(payload.get("requested_by_user_id") or "") or None,
+                payload=payload,
+            )
+        elif jt == "classify":
+            await self._run_classifier_ingest_job(job, payload)
+        else:
+            raise RuntimeError(f"Unsupported memory ingest job type: {jt}")
+
+    async def _process_memory_ingest_job(self, job: MemoryIngestJob) -> bool:
+        await self.repo.update_memory_ingest_job(
+            job.id, status="running", started_at=datetime.now(UTC)
+        )
+        await self.db.commit()
+        try:
+            await self._execute_memory_ingest_job_body(job)
             await self.repo.update_memory_ingest_job(
-                job.id, status="running", started_at=datetime.now(UTC)
+                job.id, status="completed", finished_at=datetime.now(UTC)
             )
             await self.db.commit()
-            try:
-                jt = job.job_type
-                payload = job.payload_json or {}
-                if jt == "semantic_embed":
-                    await self.embed_semantic_memory_entry_worker(str(payload.get("entry_id")))
-                elif jt == "episodic_embed_index":
-                    await self.process_episodic_index_embedding_batch(limit=5)
-                elif jt == "document_ingest":
-                    document = await self.repo.get_document(
-                        str(payload.get("project_id") or ""),
-                        str(payload.get("document_id") or ""),
-                    )
-                    if document is None:
-                        raise RuntimeError("document_ingest target not found")
-                    await self._index_project_document(document)
-                elif jt == "repo_index":
-                    await self._run_repository_index_job(
-                        owner_id=str(job.owner_id),
-                        project_id=str(payload.get("project_id") or ""),
-                        repository_link_id=str(payload.get("repository_link_id") or ""),
-                        requested_by_user_id=str(payload.get("requested_by_user_id") or "") or None,
-                        payload=payload,
-                    )
-                elif jt == "classify":
-                    await self._run_classifier_ingest_job(job, payload)
-                elif jt == "classifier_stub":
-                    pass
-                await self.repo.update_memory_ingest_job(
-                    job.id, status="completed", finished_at=datetime.now(UTC)
-                )
-                processed += 1
-            except Exception as exc:
-                await self.repo.update_memory_ingest_job(
-                    job.id,
-                    status="failed",
-                    error_text=str(exc)[:2000],
-                    finished_at=datetime.now(UTC),
-                )
+            return True
+        except Exception as exc:
+            logger.error(
+                "memory_ingest_job failed job_id=%s job_type=%s error=%s",
+                job.id,
+                job.job_type,
+                exc,
+            )
+            increment_memory_metric("memory_ingest_jobs_failed")
+            await self.repo.update_memory_ingest_job(
+                job.id,
+                status="failed",
+                error_text=str(exc)[:2000],
+                finished_at=datetime.now(UTC),
+            )
             await self.db.commit()
+            return False
+
+    async def process_memory_ingest_job_by_id(self, job_id: str) -> bool:
+        job = await self.repo.get_memory_ingest_job(job_id)
+        if job is None or job.status != "pending":
+            return False
+        return await self._process_memory_ingest_job(job)
+
+    async def process_memory_ingest_jobs_worker(self, *, limit: int = 15) -> dict[str, Any]:
+        jobs = await self.repo.list_pending_memory_ingest_jobs(limit=limit)
+        if not jobs:
+            return {"processed": 0, "batch_size": 0}
+
+        concurrency = max(1, settings.MEMORY_INGEST_JOB_CONCURRENCY)
+        if concurrency <= 1 or len(jobs) == 1:
+            processed = sum(1 for job in jobs if await self._process_memory_ingest_job(job))
+        else:
+            from backend.db.session import SessionLocal
+            from backend.modules.orchestration.services.service import OrchestrationService
+
+            semaphore = asyncio.Semaphore(concurrency)
+
+            async def run_job(job_id: str) -> bool:
+                async with semaphore:
+                    async with SessionLocal() as session:
+                        service = OrchestrationService(session)
+                        return await service.process_memory_ingest_job_by_id(job_id)
+
+            results = await asyncio.gather(
+                *[run_job(job.id) for job in jobs],
+                return_exceptions=True,
+            )
+            processed = sum(1 for result in results if result is True)
+
         increment_memory_metric("memory_ingest_jobs_processed")
         return {"processed": processed, "batch_size": len(jobs)}
 
@@ -1944,8 +2079,8 @@ class OrchestrationMemoryServiceMixin:
         try:
             vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
             row.embedding_vector = normalize_embedding_for_vector(vec)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("document_ttl_snapshot_embed_failed document_id=%s error=%s", doc.id, exc)
         increment_memory_metric("memory_ttl_document_snapshots")
 
     async def _snapshot_expiring_agent_memory(self, mem: AgentMemoryEntry) -> None:
@@ -1976,8 +2111,8 @@ class OrchestrationMemoryServiceMixin:
         try:
             vec = (await self.ai_providers.embed_texts([body[:8000]]))[0]
             row.embedding_vector = normalize_embedding_for_vector(vec)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("agent_memory_ttl_snapshot_embed_failed memory_id=%s error=%s", mem.id, exc)
         increment_memory_metric("memory_ttl_agent_memory_snapshots")
 
     async def sweep_expired_memory_globally(self) -> dict[str, int]:
@@ -2106,7 +2241,6 @@ class OrchestrationMemoryServiceMixin:
 
     async def list_documents(self, user: User, project_id: str, task_id: str | None = None):
         await self.get_project(user, project_id)
-        await self._expire_project_memory(project_id)
         return await self.repo.list_documents(project_id, task_id)
 
     async def delete_document(self, user: User, project_id: str, document_id: str) -> None:
@@ -2117,6 +2251,7 @@ class OrchestrationMemoryServiceMixin:
         item.deleted_at = datetime.now(UTC)
         item.updated_at = datetime.now(UTC)
         await self.db.commit()
+        await invalidate_project_knowledge_caches(project_id)
 
     async def search_project_knowledge(
         self,
@@ -2137,6 +2272,7 @@ class OrchestrationMemoryServiceMixin:
             top_k=top_k,
             source_kind=source_kind,
             include_decisions=include_decisions,
+            owner_id=user.id,
         )
 
     async def _search_project_knowledge(
@@ -2148,6 +2284,7 @@ class OrchestrationMemoryServiceMixin:
         top_k: int = 5,
         source_kind: str | None = None,
         include_decisions: bool = False,
+        owner_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Semantic / RAG retrieval only.
 
@@ -2155,7 +2292,33 @@ class OrchestrationMemoryServiceMixin:
         transitions, or approval outcomes. Authoritative execution state is relational;
         see ``execution_state`` and the task/run execution-snapshot read APIs.
         """
-        await self._expire_project_memory(project_id)
+        if resolve_rag_config().enabled:
+            matches = await RetrieverService(self.db).retrieve(
+                query,
+                filters=RagSearchFilters(
+                    user_id=owner_id,
+                    project_id=project_id,
+                    task_id=task_id,
+                    source_kind=source_kind,
+                    include_decisions=include_decisions,
+                ),
+                limit=top_k,
+            )
+            return [
+                {
+                    "hit_kind": item.hit_kind,
+                    "document_id": item.document_id,
+                    "chunk_id": item.chunk_id,
+                    "filename": item.title,
+                    "chunk_index": item.chunk_index,
+                    "score": round(float(item.score), 4),
+                    "content": item.content,
+                    "metadata": item.metadata,
+                    "decision_id": item.chunk_id if item.hit_kind == "decision" else None,
+                }
+                for item in matches
+            ]
+
         cap = max(1, min(top_k, 20))
         query_embedding = (await self.ai_providers.embed_texts([query]))[0]
         try:
@@ -2185,11 +2348,21 @@ class OrchestrationMemoryServiceMixin:
                 for row in vector_hits[:cap]
             ]
         else:
-            chunks = await self.repo.list_document_chunks(project_id, task_id=task_id, source_kind=source_kind)
+            if settings.RAG_PYTHON_FALLBACK_ENABLED:
+                chunks = await self.repo.list_document_chunks(
+                    project_id,
+                    task_id=task_id,
+                    source_kind=source_kind,
+                    limit=settings.RAG_CHUNK_FALLBACK_MAX,
+                )
+            else:
+                chunks = []
             if not chunks and not include_decisions:
                 return []
-            documents = {item.id: item for item in await self.repo.list_documents(project_id, task_id)}
+            documents = {item.id: item for item in await self.repo.list_documents(project_id, task_id, limit=0)}
             for chunk in chunks:
+                if not chunk.embedding_json:
+                    continue
                 doc = documents.get(chunk.project_document_id)
                 if doc is None:
                     continue
@@ -2249,7 +2422,6 @@ class OrchestrationMemoryServiceMixin:
         status: str | None = None,
     ) -> list[AgentMemoryEntry]:
         await self.get_project(user, project_id)
-        await self._expire_project_memory(project_id)
         return await self.repo.list_agent_memory(
             user.id,
             project_id=project_id,
@@ -2277,6 +2449,9 @@ class OrchestrationMemoryServiceMixin:
         return len(q_tokens & t_tokens) / max(len(q_tokens), 1)
 
     async def _index_project_document(self, document: ProjectDocument) -> None:
+        if resolve_rag_config().enabled:
+            await DocumentIngestionService(self.db).index_project_document(document)
+            return
         chunks = _chunk_text(
             document.source_text,
             settings.AI_DOCUMENT_CHUNK_SIZE,
@@ -2300,23 +2475,7 @@ class OrchestrationMemoryServiceMixin:
         document.chunk_count = len(chunks)
         document.summary_text = (document.summary_text or document.source_text[:500])[:1000]
         document.updated_at = datetime.now(UTC)
-
-    async def _expire_project_memory(self, project_id: str) -> None:
-        now = datetime.now(UTC)
-        project = await self.db.get(OrchestratorProject, project_id)
-        if project is None:
-            return
-        for document in await self.repo.list_documents(project_id):
-            if document.expires_at and document.expires_at <= now and document.deleted_at is None:
-                document.deleted_at = now
-        result = await self.repo.list_agent_memory(
-            owner_id=project.owner_id,
-            project_id=project_id,
-        )
-        for item in result:
-            if item.expires_at and item.expires_at <= now and item.deleted_at is None:
-                item.deleted_at = now
-                item.status = "expired"
+        await invalidate_project_knowledge_caches(document.project_id)
 
     async def _build_company_brief_section(self, project: OrchestratorProject) -> str:
         company_id = await self._ensure_company_id_for_project(project)
@@ -2382,7 +2541,23 @@ class OrchestrationMemoryServiceMixin:
             task_id=task.id if task else None,
             top_k=4,
             include_decisions=True,
+            owner_id=run.triggered_by_user_id,
         )
+        if resolve_rag_config().enabled:
+            rag_matches = [
+                RagChunkMatch(
+                    chunk_id=str(item["chunk_id"]),
+                    document_id=str(item["document_id"]),
+                    title=str(item["filename"]),
+                    content=str(item["content"]),
+                    chunk_index=int(item["chunk_index"]),
+                    score=float(item["score"]),
+                    metadata=dict(item.get("metadata") or {}),
+                    hit_kind=str(item.get("hit_kind") or "chunk"),
+                )
+                for item in matches
+            ]
+            return RagPromptBuilder().build_context_block(rag_matches)
         return "\n\n".join(
             f"{item['filename']} [score={item['score']}]\n{item['content'][:500]}"
             for item in matches
@@ -2419,13 +2594,12 @@ class OrchestrationMemoryServiceMixin:
         return scratchpad, diff
 
     async def _refresh_run_scratchpad(self, run: TaskRun) -> None:
-        events = await self.repo.list_run_events(run.id)
-        recent = events[-8:]
-        summary = "\n".join(f"{item.event_type}: {item.message[:180]}" for item in recent)
+        events = await self.repo.list_run_events_tail(run.id, limit=8)
+        summary = "\n".join(f"{item.event_type}: {item.message[:180]}" for item in events)
         run.checkpoint_json = {
             **(run.checkpoint_json or {}),
             "scratchpad_summary": summary[:2000],
-            "last_event_count": len(events),
+            "last_event_count": await self.repo.count_run_events(run.id),
         }
 
     async def _persist_agent_memory_from_run(
@@ -2479,78 +2653,41 @@ class OrchestrationMemoryServiceMixin:
                     payload_json={"memory_entry_id": memory.id, "key": key, "value_text": value_text},
                 )
 
-    async def _assemble_user_context_packet(
+    async def _build_episodic_recall_sections(
         self,
         run: TaskRun,
+        task: OrchestratorTask,
+        project: OrchestratorProject,
         agent: AgentProfile | None,
-        *,
-        prefix: str | None = None,
-    ) -> ContextPacket:
-        task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
-        project: OrchestratorProject | None = None
-        project_name = ""
-        project_goals = ""
-        context_docs = ""
-        recent_comments = ""
-        recent_artifacts = ""
-        company_brief = ""
-        if task:
-            project = await self.db.get(OrchestratorProject, task.project_id)
-            if project:
-                project_name = project.name
-                project_goals = project.goals_markdown
-                company_brief = await self._build_company_brief_section(project)
-            context_docs = await self._build_project_knowledge_context(run, task)
-            comments = await self.repo.list_task_comments(task.id)
-            recent_comments = "\n".join(comment.body[:300] for comment in comments[-3:])
-            artifacts = await self.repo.list_task_artifacts(task.id)
-            recent_artifacts = "\n".join(
-                f"{artifact.title}: {(artifact.content or '')[:300]}" for artifact in artifacts[:3]
-            )
-        agent_memory = await self._build_agent_memory_context(agent, run.project_id) if agent else ""
-        scratchpad_summary, previous_run_diff = await self._build_run_scratchpad_context(run)
-        replay = (run.input_payload_json or {}).get("orchestration_replay") if run.input_payload_json else None
-        replay_block = ""
-        if isinstance(replay, dict) and replay.get("prior_transcript"):
-            replay_block = (
-                "Replay context (carry forward from a previous run; continue without repeating completed steps):\n"
-                f"{replay.get('prior_transcript')}"
-            )
-        wm_block = format_working_memory_for_prompt(working_memory_from_checkpoint(run.checkpoint_json))
-        playbook_ex = await self._procedural_playbook_excerpt(project, task)
-        proc_block = build_procedural_snippets(
-            agent, task, project_playbooks_excerpt=playbook_ex
-        )
-        semantic_block = ""
-        if task and project:
-            semantic_block = await self._semantic_context_snippets_for_prompt(task, project)
+        wm_block: str,
+    ) -> tuple[str, str]:
         episodic_recall_block = ""
         deep_recall_block = ""
-        if task and project:
-            ms = merge_memory_settings(project.settings_json)
-            depth = int(ms.get("episodic_retrieval_depth") or 8)
-            cand = int(ms.get("deep_recall_episodic_candidates") or 24)
-            q_title = (task.title or "")[:200]
-            if ms.get("deep_recall_mode"):
-                try:
-                    q_text = "\n".join(
-                        [
-                            task.title or "",
-                            (task.description or "")[:500],
-                            wm_block[:1200] if wm_block else "",
-                        ]
-                    ).strip()[:6000]
-                    qv = (await self.ai_providers.embed_texts([q_text or q_title]))[0]
-                    min_hits = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
-                    rel_cap = max(1, int(ms.get("retrieval_cross_project_limit") or 6))
-                    company_id_ctx = await self._ensure_company_id_for_project(project)
-                    run_agent_id = (
-                        run.worker_agent_id
-                        or run.orchestrator_agent_id
-                        or (task.assigned_agent_id if task else None)
-                    )
-                    per_sem = max(3, min(8, cand // 3))
-                    sem_vec, _smeta = await staged_semantic_vector_retrieval(
+        ms = merge_memory_settings(project.settings_json)
+        depth = int(ms.get("episodic_retrieval_depth") or 8)
+        cand = int(ms.get("deep_recall_episodic_candidates") or 24)
+        q_title = (task.title or "")[:200]
+        if ms.get("deep_recall_mode"):
+            try:
+                q_text = "\n".join(
+                    [
+                        task.title or "",
+                        (task.description or "")[:500],
+                        wm_block[:1200] if wm_block else "",
+                    ]
+                ).strip()[:6000]
+                qv = (await self.ai_providers.embed_texts([q_text or q_title]))[0]
+                min_hits = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
+                rel_cap = max(1, int(ms.get("retrieval_cross_project_limit") or 6))
+                company_id_ctx = await self._ensure_company_id_for_project(project)
+                run_agent_id = (
+                    run.worker_agent_id
+                    or run.orchestrator_agent_id
+                    or (task.assigned_agent_id if task else None)
+                )
+                per_sem = max(3, min(8, cand // 3))
+                (sem_vec, _smeta), (epi_vec, _emeta) = await asyncio.gather(
+                    staged_semantic_vector_retrieval(
                         self.repo,
                         owner_id=project.owner_id,
                         project_id=project.id,
@@ -2561,8 +2698,8 @@ class OrchestrationMemoryServiceMixin:
                         min_hits=min_hits,
                         per_stage_limit=per_sem,
                         related_project_limit=rel_cap,
-                    )
-                    epi_vec, _emeta = await staged_episodic_vector_retrieval(
+                    ),
+                    staged_episodic_vector_retrieval(
                         self.repo,
                         owner_id=project.owner_id,
                         project_id=project.id,
@@ -2572,54 +2709,139 @@ class OrchestrationMemoryServiceMixin:
                         min_hits=min_hits,
                         per_stage_limit=min(cand, 40),
                         related_project_limit=rel_cap,
+                    ),
+                )
+                lines_e = [f"- [episodic] {(r.text_content or '')[:320]}" for r in epi_vec[:cand]]
+                lines_s = [
+                    f"- [semantic:{e.entry_type}] {e.title}: {(e.body or '')[:240]}"
+                    for e in sem_vec[: max(8, per_sem)]
+                ]
+                if len(lines_e) + len(lines_s) < min_hits:
+                    manifests = await self.repo.list_episodic_archive_manifests(
+                        project.owner_id, project.id, limit=5
                     )
-                    lines_e = [f"- [episodic] {(r.text_content or '')[:320]}" for r in epi_vec[:cand]]
-                    lines_s = [
-                        f"- [semantic:{e.entry_type}] {e.title}: {(e.body or '')[:240]}"
-                        for e in sem_vec[: max(8, per_sem)]
-                    ]
-                    if len(lines_e) + len(lines_s) < min_hits:
-                        manifests = await self.repo.list_episodic_archive_manifests(
-                            project.owner_id, project.id, limit=5
-                        )
-                        for m in manifests:
-                            rc = int(getattr(m, "record_count", 0) or 0)
-                            ps = m.period_start.isoformat() if m.period_start else "?"
-                            pe = m.period_end.isoformat() if m.period_end else "?"
-                            lines_e.append(f"- [archive] {ps}..{pe} records={rc}")
-                    deep_recall_block = "\n".join(lines_e + lines_s)
-                except Exception as exc:
-                    logger.warning("deep_recall_mode assembly failed: %s", exc)
-            elif ms.get("second_stage_rag"):
-                min_h = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
-                hits = await self.repo.search_episodic_for_project(
+                    for m in manifests:
+                        rc = int(getattr(m, "record_count", 0) or 0)
+                        ps = m.period_start.isoformat() if m.period_start else "?"
+                        pe = m.period_end.isoformat() if m.period_end else "?"
+                        lines_e.append(f"- [archive] {ps}..{pe} records={rc}")
+                deep_recall_block = "\n".join(lines_e + lines_s)
+            except Exception as exc:
+                logger.warning("deep_recall_mode assembly failed: %s", exc)
+        elif ms.get("second_stage_rag"):
+            min_h = max(1, int(ms.get("retrieval_stage_min_hits") or 3))
+            hits = await self.repo.search_episodic_for_project(
+                project.id,
+                query=q_title or None,
+                limit=min(depth, 24),
+                task_id=task.id,
+            )
+            increment_memory_metric("retrieval_kw_episodic_task_hit" if hits else "retrieval_kw_episodic_task_miss")
+            increment_memory_metric("retrieval_scope_episodic_task_kw")
+            if len(hits) < min_h:
+                hits_proj = await self.repo.search_episodic_for_project(
                     project.id,
                     query=q_title or None,
                     limit=min(depth, 24),
-                    task_id=task.id,
+                    task_id=None,
                 )
-                increment_memory_metric("retrieval_kw_episodic_task_hit" if hits else "retrieval_kw_episodic_task_miss")
-                increment_memory_metric("retrieval_scope_episodic_task_kw")
-                if len(hits) < min_h:
-                    hits_proj = await self.repo.search_episodic_for_project(
-                        project.id,
-                        query=q_title or None,
-                        limit=min(depth, 24),
-                        task_id=None,
-                    )
-                    by_key = {(h["kind"], h["id"]): h for h in hits}
-                    for h in hits_proj:
-                        by_key.setdefault((h["kind"], h["id"]), h)
-                    hits = sorted(by_key.values(), key=lambda x: x["created_at"], reverse=True)[
-                        : min(depth, 24)
+                by_key = {(h["kind"], h["id"]): h for h in hits}
+                for h in hits_proj:
+                    by_key.setdefault((h["kind"], h["id"]), h)
+                hits = sorted(by_key.values(), key=lambda x: x["created_at"], reverse=True)[
+                    : min(depth, 24)
+                ]
+                increment_memory_metric(
+                    "retrieval_kw_episodic_project_hit" if hits_proj else "retrieval_kw_episodic_project_miss"
+                )
+                increment_memory_metric("retrieval_scope_episodic_project_kw")
+            if hits:
+                lines = [f"- [{h['kind']}] {h['snippet'][:280]}" for h in hits[:depth]]
+                episodic_recall_block = "\n".join(lines)
+        return episodic_recall_block, deep_recall_block
+
+    async def _assemble_user_context_packet(
+        self,
+        run: TaskRun,
+        agent: AgentProfile | None,
+        *,
+        prefix: str | None = None,
+    ) -> ContextPacket:
+        async def _none() -> None:
+            return None
+
+        task, project = await asyncio.gather(
+            self.db.get(OrchestratorTask, run.task_id) if run.task_id else _none(),
+            self.db.get(OrchestratorProject, run.project_id) if run.project_id else _none(),
+        )
+        if task and project is None and task.project_id:
+            project = await self.db.get(OrchestratorProject, task.project_id)
+
+        wm_block = format_working_memory_for_prompt(working_memory_from_checkpoint(run.checkpoint_json))
+        replay = (run.input_payload_json or {}).get("orchestration_replay") if run.input_payload_json else None
+        replay_block = ""
+        if isinstance(replay, dict) and replay.get("prior_transcript"):
+            replay_block = (
+                "Replay context (carry forward from a previous run; continue without repeating completed steps):\n"
+                f"{replay.get('prior_transcript')}"
+            )
+
+        load_keys: list[str] = ["scratchpad"]
+        load_coros: list[Any] = [self._build_run_scratchpad_context(run)]
+        if agent:
+            load_keys.extend(["agent_memory", "agent_prefs"])
+            load_coros.extend(
+                [
+                    self._build_agent_memory_context(agent, run.project_id),
+                    self._build_agent_preferences_section(agent),
+                ]
+            )
+        if task:
+            load_keys.extend(["context_docs", "comments", "artifacts"])
+            load_coros.extend(
+                [
+                    self._build_project_knowledge_context(run, task),
+                    self.repo.list_task_comments(task.id),
+                    self.repo.list_task_artifacts(task.id),
+                ]
+            )
+            if project:
+                load_keys.extend(["company_brief", "semantic", "memory_layer", "playbook", "episodic"])
+                load_coros.extend(
+                    [
+                        self._build_company_brief_section(project),
+                        self._semantic_context_snippets_for_prompt(task, project),
+                        self._build_memory_layer_context_for_run(run, task, project),
+                        self._procedural_playbook_excerpt(project, task),
+                        self._build_episodic_recall_sections(run, task, project, agent, wm_block),
                     ]
-                    increment_memory_metric(
-                        "retrieval_kw_episodic_project_hit" if hits_proj else "retrieval_kw_episodic_project_miss"
-                    )
-                    increment_memory_metric("retrieval_scope_episodic_project_kw")
-                if hits:
-                    lines = [f"- [{h['kind']}] {h['snippet'][:280]}" for h in hits[:depth]]
-                    episodic_recall_block = "\n".join(lines)
+                )
+
+        loaded = dict(zip(load_keys, await asyncio.gather(*load_coros), strict=True))
+
+        scratchpad_summary, previous_run_diff = loaded["scratchpad"]
+        agent_memory = loaded.get("agent_memory", "")
+        agent_prefs = loaded.get("agent_prefs", "")
+        context_docs = loaded.get("context_docs", "")
+        recent_comments = ""
+        recent_artifacts = ""
+        if task:
+            comments = loaded.get("comments", [])
+            recent_comments = "\n".join(comment.body[:300] for comment in comments[-3:])
+            artifacts = loaded.get("artifacts", [])
+            recent_artifacts = "\n".join(
+                f"{artifact.title}: {(artifact.content or '')[:300]}" for artifact in artifacts[:3]
+            )
+        company_brief = loaded.get("company_brief", "")
+        semantic_block = loaded.get("semantic", "")
+        memory_layer_block = loaded.get("memory_layer", "")
+        playbook_ex = loaded.get("playbook", "")
+        episodic_recall_block, deep_recall_block = loaded.get("episodic", ("", ""))
+        project_name = project.name if project else ""
+        project_goals = project.goals_markdown if project else ""
+        proc_block = build_procedural_snippets(
+            agent, task, project_playbooks_excerpt=playbook_ex
+        )
         shared_bb, priv_bb = "", ""
         if task:
             aid = agent.id if agent else None
@@ -2632,7 +2854,6 @@ class OrchestrationMemoryServiceMixin:
             sections["company_brief"] = f"Company brief:\n{company_brief}"
         if agent:
             sections["agent_label"] = f"Agent: {agent.name}"
-            agent_prefs = await self._build_agent_preferences_section(agent)
             if agent_prefs:
                 sections["agent_preferences"] = f"Agent preferences:\n{agent_prefs}"
         if task:
@@ -2647,6 +2868,8 @@ class OrchestrationMemoryServiceMixin:
             sections["project_goals"] = f"Project goals: {project_goals}"
         if semantic_block:
             sections["semantic_memory"] = semantic_block
+        if memory_layer_block:
+            sections["relevant_memory_context"] = memory_layer_block
         if episodic_recall_block:
             sections["episodic_recall"] = f"Episodic recall (second stage):\n{episodic_recall_block}"
         if deep_recall_block:
@@ -2676,6 +2899,7 @@ class OrchestrationMemoryServiceMixin:
         if run.input_payload_json:
             sections["input_payload"] = f"Run input payload:\n{json.dumps(run.input_payload_json, indent=2)}"
 
+        sections = dedupe_context_sections(sections)
         packet = ContextPacket(sections=sections)
         log_context_packet_telemetry(packet, run_id=run.id)
         return packet
@@ -2687,9 +2911,19 @@ class OrchestrationMemoryServiceMixin:
         *,
         prefix: str | None = None,
     ) -> str:
-        packet = await self._assemble_user_context_packet(run, agent, prefix=prefix)
         project = await self.db.get(OrchestratorProject, run.project_id) if run.project_id else None
         ms = merge_memory_settings(project.settings_json) if project else merge_memory_settings(None)
+        grounding_prefix = ""
+        if run.run_mode == "review" or ms.get("require_grounded_context"):
+            grounding_prefix = (
+                "Grounding requirement: Use only information from the context sections below. "
+                "If context is insufficient to complete the task, respond with INSUFFICIENT_CONTEXT "
+                "and do not invent facts or sources."
+            )
+        combined_prefix = "\n\n".join(
+            part for part in (grounding_prefix, prefix) if part and part.strip()
+        ) or None
+        packet = await self._assemble_user_context_packet(run, agent, prefix=combined_prefix)
         max_chars = int(ms.get("context_packet_max_chars") or 48000)
         max_tok = int(ms.get("context_packet_max_tokens") or 0)
         raw_budgets = ms.get("context_packet_section_token_budgets")
@@ -2699,10 +2933,18 @@ class OrchestrationMemoryServiceMixin:
             for k, v in raw_budgets.items():
                 if isinstance(k, str) and isinstance(v, (int, float)):
                     section_token_budgets[k] = max(0, int(v))
+        raw_scores = ms.get("context_packet_section_priority_scores")
+        section_priority_scores: dict[str, float] | None = None
+        if isinstance(raw_scores, dict) and raw_scores:
+            section_priority_scores = {}
+            for k, v in raw_scores.items():
+                if isinstance(k, str) and isinstance(v, (int, float)):
+                    section_priority_scores[k] = max(0.0, min(1.0, float(v)))
         if max_tok > 0:
             return packet.combined_user_prompt(
                 max_chars=max_chars,
                 max_tokens=max_tok,
                 section_token_budgets=section_token_budgets,
+                section_priority_scores=section_priority_scores,
             )
         return packet.combined_user_prompt(max_chars=max_chars)

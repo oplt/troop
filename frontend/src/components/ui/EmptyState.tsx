@@ -11,13 +11,16 @@ type EmptyStateProps = {
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
     return (
         <Box
+            role="status"
             sx={(theme) => ({
-                border: `1px dashed ${alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.18 : 0.16)}`,
-                borderRadius: 2,
+                border: `1px dashed ${alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.14 : 0.12)}`,
+                borderRadius: 1,
                 px: 3,
                 py: 4,
                 textAlign: "center",
-                backgroundColor: alpha(theme.palette.background.paper, 0.55),
+                backgroundColor: theme.palette.mode === "dark"
+                    ? alpha(theme.palette.background.paper, 0.5)
+                    : theme.palette.grey[50],
             })}
         >
             <Stack spacing={1.5} alignItems="center">
@@ -25,11 +28,11 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
                     sx={(theme) => ({
                         width: 52,
                         height: 52,
-                        borderRadius: 2,
+                        borderRadius: 1,
                         display: "grid",
                         placeItems: "center",
                         color: "primary.main",
-                        backgroundColor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.1),
+                        backgroundColor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.08),
                     })}
                 >
                     {icon}

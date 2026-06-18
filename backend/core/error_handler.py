@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from backend.core.error_payloads import error_payload
+
 logger = logging.getLogger("backend.error")
 
 
@@ -12,21 +14,24 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def request_validation_error_handler(request: Request, exc: RequestValidationError):
         return JSONResponse(
             status_code=422,
-            content={
-                "detail": "Request validation failed",
-                "errors": exc.errors(),
-                "correlation_id": getattr(request.state, "correlation_id", None),
-            },
+            content=error_payload(
+                code="REQUEST_VALIDATION_FAILED",
+                message="Request validation failed",
+                correlation_id=getattr(request.state, "correlation_id", None),
+                details={"errors": exc.errors()},
+            )
+            | {"errors": exc.errors()},
         )
 
     @app.exception_handler(ValueError)
     async def value_error_handler(request: Request, exc: ValueError):
         return JSONResponse(
             status_code=400,
-            content={
-                "detail": str(exc),
-                "correlation_id": getattr(request.state, "correlation_id", None),
-            },
+            content=error_payload(
+                code="BAD_REQUEST",
+                message=str(exc),
+                correlation_id=getattr(request.state, "correlation_id", None),
+            ),
         )
 
     @app.exception_handler(HTTPException)
@@ -38,12 +43,16 @@ def register_exception_handlers(app: FastAPI) -> None:
                 getattr(request.state, "correlation_id", None),
                 exc.detail,
             )
+        message = exc.detail if isinstance(exc.detail, str) else "HTTP error"
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "detail": exc.detail,
-                "correlation_id": getattr(request.state, "correlation_id", None),
-            },
+            content=error_payload(
+                code=f"HTTP_{exc.status_code}",
+                message=message,
+                correlation_id=getattr(request.state, "correlation_id", None),
+                details=exc.detail if not isinstance(exc.detail, str) else None,
+            )
+            | {"detail": exc.detail},
             headers=exc.headers,
         )
 
@@ -56,8 +65,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=500,
-            content={
-                "detail": "Internal server error",
-                "correlation_id": getattr(request.state, "correlation_id", None),
-            },
+            content=error_payload(
+                code="INTERNAL_SERVER_ERROR",
+                message="Internal server error",
+                correlation_id=getattr(request.state, "correlation_id", None),
+            ),
         )

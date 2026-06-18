@@ -127,7 +127,7 @@ export default function OrchestrationPortfolioPage() {
                                     status: String(operatorDashboard.stuck_runs.status ?? "healthy"),
                                 },
                             ].map((card) => (
-                                <Paper key={card.label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                                <Paper key={card.label} variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                         <Typography variant="caption" color="text.secondary">{card.label}</Typography>
                                         <Chip
@@ -143,7 +143,7 @@ export default function OrchestrationPortfolioPage() {
                         </Box>
                         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "repeat(5, 1fr)" }, gap: 2 }}>
                             {operatorDashboard.services.map((service) => (
-                                <Paper key={service.key} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper key={service.key} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                         <Typography variant="subtitle2">{service.label}</Typography>
                                         <Chip
@@ -274,7 +274,7 @@ export default function OrchestrationPortfolioPage() {
                                                         {project.blocked_work.length > 0 ? project.blocked_work.map((item) => {
                                                             const row = item as { task_id?: string; title?: string; priority?: string; updated_at?: string };
                                                             return (
-                                                                <Paper key={row.task_id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                                                <Paper key={row.task_id} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
                                                                     <Typography variant="body2">{row.title || "Blocked task"}</Typography>
                                                                     <Typography variant="caption" color="text.secondary">
                                                                         {row.priority || "normal"} {row.updated_at ? `• ${formatDateTime(row.updated_at)}` : ""}
@@ -304,7 +304,7 @@ export default function OrchestrationPortfolioPage() {
                                             </Stack>
                                         </Box>
                                         <Stack spacing={1} sx={{ width: { xs: "100%", xl: 240 } }}>
-                                            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+                                            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                                 <Typography variant="caption" color="text.secondary">Repo health</Typography>
                                                 <Typography variant="body2" sx={{ mt: 0.5 }}>
                                                     Sync failures {Number(health.repository_failures ?? 0)} • Index failures {Number(health.index_failures ?? 0)}
@@ -313,7 +313,7 @@ export default function OrchestrationPortfolioPage() {
                                                     Open blockers {Number(health.open_blockers ?? 0)}
                                                 </Typography>
                                             </Paper>
-                                            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+                                            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                                 <Typography variant="caption" color="text.secondary">Latest run</Typography>
                                                 <Typography variant="body2" sx={{ mt: 0.5 }}>
                                                     {latestRun?.run_id ? latestRun.status : "No runs yet"}

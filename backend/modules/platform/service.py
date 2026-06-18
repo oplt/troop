@@ -12,6 +12,11 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.cache import (
+    get_cached_platform_metadata,
+    invalidate_platform_metadata_cache,
+    set_cached_platform_metadata,
+)
 from backend.modules.identity_access.models import User
 from backend.modules.platform.models import (
     ApiKey,
@@ -259,8 +264,11 @@ class PlatformService:
             await self.db.commit()
 
     async def get_platform_metadata(self) -> PlatformMetadataResponse:
+        cached = await get_cached_platform_metadata()
+        if cached is not None:
+            return PlatformMetadataResponse(**cached)
         config = await self.get_platform_config()
-        return PlatformMetadataResponse(
+        response = PlatformMetadataResponse(
             app_name=config.app_name,
             core_domain_singular=config.core_domain_singular,
             core_domain_plural=config.core_domain_plural,
@@ -270,6 +278,8 @@ class PlatformService:
             available_module_packs=config.available_module_packs,
             mfa_enabled=config.mfa_enabled,
         )
+        await set_cached_platform_metadata(response.model_dump(mode="json"))
+        return response
 
     async def get_platform_config(self) -> PlatformConfigResponse:
         platform_settings = await self.settings_repo.list_by_prefix("platform.")
@@ -385,6 +395,7 @@ class PlatformService:
                     await self.settings_repo.delete(existing)
 
         await self.db.commit()
+        await invalidate_platform_metadata_cache()
         return await self.get_platform_config()
 
     async def list_plans(self) -> list[SubscriptionPlan]:

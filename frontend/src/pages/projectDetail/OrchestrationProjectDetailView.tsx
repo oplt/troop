@@ -1,0 +1,5591 @@
+import { useCallback, useEffect, useMemo, useRef, useState, memo, type DragEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    Alert,
+    Avatar,
+    Box,
+    Button,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Collapse,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    Drawer,
+    IconButton,
+    LinearProgress,
+    Link,
+    ListSubheader,
+    MenuItem,
+    Paper,
+    Stack,
+    Switch,
+    FormControlLabel,
+    Tab,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography,
+} from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+import {
+    AccountTree as DagIcon,
+    Check as CheckSimpleIcon,
+    CheckCircle as PassIcon,
+    Cancel as FailIcon,
+    CallSplit as DecomposeIcon,
+    Close as CloseIcon,
+    ExpandMore as ExpandMoreIcon,
+    ExpandLess as ExpandLessIcon,
+    ErrorOutline as ErrorOutlineIcon,
+    Hub as ProjectIcon,
+    MoreVert as MoreIcon,
+    PlayArrow as RunIcon,
+    Refresh as RefreshIcon,
+    Upload as UploadIcon,
+} from "@mui/icons-material";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import {
+    addProjectAgent,
+    checkTaskAcceptance,
+    createBrainstorm,
+    createAgentFromTemplate,
+    createOrchestrationTask,
+    createProjectDecision,
+    createProjectMilestone,
+    createTaskArtifact,
+    deleteAgent,
+    decideApproval,
+    deleteProjectDocument,
+    deleteProjectMemoryEntry,
+    decomposeTask,
+    getOrchestrationProject,
+    getProjectRepositoryIndexStatus,
+    listAgents,
+    listAgentTemplates,
+    listApprovals,
+    listBrainstorms,
+    listGithubIssueLinks,
+    listGithubSyncEvents,
+    listOrchestrationTasks,
+    listProjectAgents,
+    listProjectDecisions,
+    listProjectDocuments,
+    listProjectMemory,
+    listProjectMemoryIngestJobs,
+    listProjectRepositories,
+    listSemanticMemory,
+    listProjectMilestones,
+    getProjectMemorySettings,
+    patchProjectMemorySettings,
+    listProviders,
+    listRuns,
+    searchProjectKnowledge,
+    listSubtasks,
+    listTaskArtifacts,
+    startBrainstorm,
+    startTaskRun,
+    deleteOrchestrationTask,
+    updateOrchestrationTask,
+    updateOrchestrationProject,
+    updateAgent,
+    updateProjectAgent,
+    updateProjectMilestone,
+    uploadProjectDocument,
+    getGateConfig,
+    getTaskExecutionState,
+    getTaskTimeline,
+    listDagReadyTasks,
+    startDagParallelReady,
+    startMergeResolutionRun,
+    getMergeResolutionPreview,
+    getRunWorkingMemory,
+    getTaskMemoryCoordination,
+    patchTaskMemoryCoordination,
+    queueProjectRepositoryIndex,
+    removeProjectAgent,
+    searchEpisodicMemory,
+    updateGateConfig,
+    updateLocalRepoWorkspace,
+    updateProjectRepository,
+} from "../../api/orchestration";
+import type { GateConfig, OrchestrationTask, ProviderConfig, TaskRun } from "../../api/orchestration";
+import { readOrchestrationSelectionMeta } from "../../utils/orchestrationSelection";
+import { useSnackbar } from "../../app/snackbarContext";
+import { queryKeys } from "../../config/queryKeys";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { PageShell } from "../../components/ui/PageShell";
+import { SectionCard } from "../../components/ui/SectionCard";
+import { useDebounce } from "../../hooks/useDebounce";
+import { useProjectLiveSnapshotSync } from "../../hooks/projectLiveSnapshotSync";
+import { formatDateTime, humanizeKey } from "../../utils/formatters";
+import { extractApiErrorMessage } from "../../utils/apiErrors";
+import { MAIN_KANBAN_COLUMNS } from "./kanbanConstants";
+
+type DetailTab = "overview" | "work" | "team" | "knowledge" | "activity";
+type WorkView = "board" | "dependencies" | "brainstorms";
+type KnowledgeView = "search" | "sources" | "decisions" | "integrations" | "memory";
+type TeamView = "agents" | "settings";
+type ExecutionMode = "single_agent" | "manager_worker" | "debate";
+
+const BRAINSTORM_MODE_OPTIONS = [
+    { value: "exploration", label: "Exploration" },
+    { value: "solution_design", label: "Solution design" },
+    { value: "code_review", label: "Code review debate" },
+    { value: "incident_triage", label: "Incident triage" },
+    { value: "root_cause", label: "Root-cause analysis" },
+    { value: "architecture_proposal", label: "Architecture proposal" },
+] as const;
+
+const BRAINSTORM_OUTPUT_OPTIONS = [
+    { value: "implementation_plan", label: "Implementation plan" },
+    { value: "adr", label: "ADR" },
+    { value: "test_plan", label: "Test plan" },
+    { value: "risk_register", label: "Risk register" },
+] as const;
+
+const EXCEPTION_TASK_COLUMNS: { status: string; label: string; color: "default" | "warning" | "info" | "success" | "error" }[] = [
+    { status: "blocked", label: "Blocked", color: "warning" },
+    { status: "failed", label: "Failed", color: "error" },
+    { status: "archived", label: "Archived", color: "default" },
+];
+
+const TASK_TRANSITION_MAP: Record<string, string[]> = {
+    backlog: ["queued", "archived"],
+    queued: ["planned", "blocked", "failed", "archived"],
+    planned: ["in_progress", "blocked", "failed", "archived"],
+    in_progress: ["blocked", "needs_review", "completed", "failed", "planned"],
+    blocked: ["planned", "in_progress", "failed", "archived"],
+    needs_review: ["approved", "planned", "blocked", "failed"],
+    approved: ["completed", "planned", "archived"],
+    completed: ["synced_to_github", "planned", "archived"],
+    failed: ["planned", "queued", "archived"],
+    synced_to_github: ["archived", "planned"],
+    archived: [],
+};
+
+const EXTERNAL_LINK_KIND_OPTIONS = [
+    { value: "spec", label: "Spec" },
+    { value: "doc", label: "Doc" },
+    { value: "figma", label: "Figma" },
+    { value: "pr", label: "PR" },
+    { value: "commit", label: "Commit" },
+    { value: "incident", label: "Incident" },
+    { value: "runbook", label: "Runbook" },
+    { value: "issue", label: "Issue" },
+    { value: "other", label: "Other" },
+] as const;
+
+type ExternalLinkRecord = {
+    id: string;
+    kind: string;
+    label: string;
+    url: string;
+    notes: string;
+};
+
+type EvidenceBundleDraft = {
+    accepted_artifact_ids: string[];
+    accepted_external_link_ids: string[];
+    reviewer_decision_status: string;
+    reviewer_decision_notes: string;
+    sync_summary: string;
+};
+
+type WorkspaceOverviewDraft = {
+    executive_summary: string;
+    current_focus: string;
+    decision_focus: string;
+};
+
+type LocalRepoDraft = {
+    enabled: boolean;
+    repo_path: string;
+    dirty_worktree_policy: string;
+    allowed_branches: string;
+    file_allowlist: string;
+    file_denylist: string;
+    command_allowlist: string;
+    max_diff_bytes: string;
+};
+
+function csvFromUnknown(value: unknown, fallback = "") {
+    return Array.isArray(value) ? value.map((item) => String(item)).join(", ") : fallback;
+}
+
+function splitCsv(value: string) {
+    return value
+        .split(/[,\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+type TransitionOption = {
+    status: string;
+    reason?: string;
+    blocked?: boolean;
+};
+
+function createClientId(prefix: string) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function toastQueuedRunWithOptionalWarnings(
+    showToast: (opts: { message: string; severity: "success" | "error" | "warning" | "info" }) => void,
+    run: TaskRun,
+    successLine: string,
+) {
+    const w = run.startup_warnings ?? [];
+    if (w.length) {
+        showToast({ message: `${successLine} ${w.join(" ")}`, severity: "warning" });
+    } else {
+        showToast({ message: successLine, severity: "success" });
+    }
+}
+
+function readExternalLinks(raw: unknown): ExternalLinkRecord[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item) => {
+        if (typeof item !== "object" || item === null) return [];
+        const row = item as Record<string, unknown>;
+        const url = String(row.url ?? "").trim();
+        const label = String(row.label ?? "").trim();
+        if (!url || !label) return [];
+        return [{
+            id: String(row.id ?? createClientId("link")),
+            kind: String(row.kind ?? "other"),
+            label,
+            url,
+            notes: String(row.notes ?? ""),
+        }];
+    });
+}
+
+function serializeExternalLinks(links: ExternalLinkRecord[]) {
+    return links
+        .map((link) => ({
+            id: link.id,
+            kind: link.kind || "other",
+            label: link.label.trim(),
+            url: link.url.trim(),
+            notes: link.notes.trim(),
+        }))
+        .filter((link) => link.label && link.url);
+}
+
+function readEvidenceBundle(task: OrchestrationTask): EvidenceBundleDraft {
+    const raw = typeof task.metadata?.evidence_bundle === "object" && task.metadata.evidence_bundle !== null
+        ? task.metadata.evidence_bundle as Record<string, unknown>
+        : {};
+    const reviewerDecision = typeof raw.reviewer_decision === "object" && raw.reviewer_decision !== null
+        ? raw.reviewer_decision as Record<string, unknown>
+        : {};
+    return {
+        accepted_artifact_ids: Array.isArray(raw.accepted_artifact_ids)
+            ? raw.accepted_artifact_ids.map((item) => String(item)).filter(Boolean)
+            : [],
+        accepted_external_link_ids: Array.isArray(raw.accepted_external_link_ids)
+            ? raw.accepted_external_link_ids.map((item) => String(item)).filter(Boolean)
+            : [],
+        reviewer_decision_status: String(reviewerDecision.status ?? ""),
+        reviewer_decision_notes: String(reviewerDecision.notes ?? ""),
+        sync_summary: String(raw.sync_summary ?? ""),
+    };
+}
+
+function buildEvidenceBundlePayload(bundle: EvidenceBundleDraft) {
+    return {
+        accepted_artifact_ids: bundle.accepted_artifact_ids,
+        accepted_external_link_ids: bundle.accepted_external_link_ids,
+        reviewer_decision: {
+            status: bundle.reviewer_decision_status.trim(),
+            notes: bundle.reviewer_decision_notes.trim(),
+        },
+        sync_summary: bundle.sync_summary.trim(),
+    };
+}
+
+function readWorkspaceOverview(settings: Record<string, unknown> | undefined): WorkspaceOverviewDraft {
+    const raw = typeof settings?.workspace_overview === "object" && settings.workspace_overview !== null
+        ? settings.workspace_overview as Record<string, unknown>
+        : {};
+    return {
+        executive_summary: String(raw.executive_summary ?? ""),
+        current_focus: String(raw.current_focus ?? ""),
+        decision_focus: String(raw.decision_focus ?? ""),
+    };
+}
+
+function buildTransitionOptions(args: {
+    task: OrchestrationTask;
+    acceptancePassed: boolean;
+    evidenceReadyForSync: boolean;
+    evidenceReadyForArchive: boolean;
+    hasIncompleteDependencies: boolean;
+}): TransitionOption[] {
+    const allowed = TASK_TRANSITION_MAP[args.task.status] ?? [];
+    return allowed.map((status) => {
+        if (status === "approved" || status === "completed") {
+            return {
+                status,
+                blocked: !args.acceptancePassed,
+                reason: args.acceptancePassed ? undefined : "Acceptance gate must pass first.",
+            };
+        }
+        if (status === "synced_to_github") {
+            return {
+                status,
+                blocked: !args.evidenceReadyForSync,
+                reason: args.evidenceReadyForSync ? undefined : "Evidence bundle needs accepted artifacts, links, reviewer decision, sync summary.",
+            };
+        }
+        if (status === "archived") {
+            return {
+                status,
+                blocked: !args.evidenceReadyForArchive,
+                reason: args.evidenceReadyForArchive ? undefined : "Archive needs final evidence bundle or prior GitHub sync.",
+            };
+        }
+        if (status === "in_progress") {
+            return {
+                status,
+                blocked: args.hasIncompleteDependencies,
+                reason: args.hasIncompleteDependencies ? "Task still blocked by incomplete dependencies." : undefined,
+            };
+        }
+        return { status };
+    });
+}
+
+type PolicyRoutingRule = {
+    field?: string;
+    operator?: string;
+    value?: unknown;
+    route_to?: "cheap_model_slug" | "strong_model_slug" | "local_model_slug" | string;
+};
+
+function policyFieldValue(
+    field: string,
+    sample: { priority: string; taskType: string; labels: string[]; projectSensitive: boolean }
+): unknown {
+    if (field === "task.priority") return sample.priority;
+    if (field === "task.task_type") return sample.taskType;
+    if (field === "task.labels") return sample.labels;
+    if (field === "project.is_sensitive") return sample.projectSensitive;
+    return null;
+}
+
+function policyRuleMatches(actual: unknown, operator: string, expected: unknown): boolean {
+    if (operator === "equals") return actual === expected;
+    if (operator === "contains") {
+        if (Array.isArray(actual)) return actual.includes(expected);
+        if (typeof actual === "string") return String(actual).includes(String(expected ?? ""));
+    }
+    return false;
+}
+
+function milestoneStatusColor(status: string): "success" | "warning" | "default" {
+    if (status === "completed") return "success";
+    if (status === "in_progress" || status === "active") return "warning";
+    return "default";
+}
+
+function dueDateToTime(value: string | null) {
+    return value ? new Date(value).getTime() : null;
+}
+
+type AcceptanceCriterionItem = {
+    item: string;
+    passed: boolean;
+    evidence_excerpt?: string;
+};
+
+type AcceptanceCheckerConfig = {
+    required_artifact_kinds: string[];
+    require_github_comment: boolean;
+    require_github_pr: boolean;
+    require_reviewer_approval: boolean;
+};
+
+function getAcceptanceItems(check: { name: string } & Record<string, unknown>): AcceptanceCriterionItem[] {
+    if (check.name !== "acceptance_criteria" || !Array.isArray(check.items)) {
+        return [];
+    }
+    return check.items.filter((item): item is AcceptanceCriterionItem => {
+        if (typeof item !== "object" || item === null) {
+            return false;
+        }
+        const candidate = item as Partial<AcceptanceCriterionItem>;
+        return typeof candidate.item === "string" && typeof candidate.passed === "boolean";
+    });
+}
+
+function readAcceptanceCheckerConfig(task: OrchestrationTask): AcceptanceCheckerConfig {
+    const raw = task.metadata?.acceptance_checker;
+    const config = typeof raw === "object" && raw !== null ? raw as Record<string, unknown> : {};
+    return {
+        required_artifact_kinds: Array.isArray(config.required_artifact_kinds)
+            ? config.required_artifact_kinds.map((item) => String(item).trim()).filter(Boolean)
+            : [],
+        require_github_comment: Boolean(config.require_github_comment),
+        require_github_pr: Boolean(config.require_github_pr),
+        require_reviewer_approval: Boolean(config.require_reviewer_approval),
+    };
+}
+
+const MilestoneTimeline = memo(function MilestoneTimeline({ milestones }: { milestones: Array<{ id: string; title: string; due_date: string | null; status: string }> }) {
+    const theme = useTheme();
+    const sorted = useMemo(
+        () =>
+            [...milestones].sort(
+                (a, b) =>
+                    (a.due_date != null ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER) -
+                    (b.due_date != null ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER),
+            ),
+        [milestones],
+    );
+
+    if (sorted.length === 0) return null;
+
+    const dated = sorted.filter((item) => item.due_date);
+    const firstDue = dueDateToTime(dated[0]?.due_date ?? null);
+    const lastDue = dueDateToTime(dated[dated.length - 1]?.due_date ?? null);
+    const range = firstDue != null && lastDue != null ? Math.max(lastDue - firstDue, 1) : null;
+
+    return (
+        <Box sx={{ display: "grid", gap: 1.25 }}>
+            <Box sx={{ position: "relative", px: 1, pt: 1.5 }}>
+                <Box sx={{ position: "absolute", top: 14, left: 16, right: 16, height: 2, backgroundColor: theme.palette.divider }} />
+                <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 0.5 }}>
+                    {sorted.map((milestone) => {
+                        const due = milestone.due_date ? new Date(milestone.due_date) : null;
+                        const position = firstDue != null && range != null && due
+                            ? `${Math.min(100, Math.max(0, ((due.getTime() - firstDue) / range) * 100))}%`
+                            : "50%";
+                        return (
+                            <Paper
+                                key={milestone.id}
+                                variant="outlined"
+                                sx={{
+                                    position: "relative",
+                                    minWidth: 180,
+                                    p: 1.5,
+                                    borderRadius: 1,
+                                    borderColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.divider,
+                                    backgroundColor: alpha(
+                                        milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
+                                        0.06,
+                                    ),
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        position: "absolute",
+                                        top: -10,
+                                        left: `clamp(14px, ${position}, calc(100% - 14px))`,
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: "50%",
+                                        backgroundColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
+                                        border: `2px solid ${theme.palette.background.paper}`,
+                                        transform: "translateX(-50%)",
+                                    }}
+                                />
+                                <Chip label={humanizeKey(milestone.status)} size="small" color={milestoneStatusColor(milestone.status)} sx={{ mb: 1 }} />
+                                <Typography variant="subtitle2">{milestone.title}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {due ? `Due ${due.toLocaleDateString()}` : "No due date"}
+                                </Typography>
+                            </Paper>
+                        );
+                    })}
+                </Box>
+            </Box>
+        </Box>
+    );
+});
+
+function ExternalLinksEditor({
+    links,
+    onChange,
+    compact = false,
+}: {
+    links: ExternalLinkRecord[];
+    onChange: (links: ExternalLinkRecord[]) => void;
+    compact?: boolean;
+}) {
+    return (
+        <Stack spacing={1}>
+            {links.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                    No external links yet.
+                </Typography>
+            ) : null}
+            {links.map((link, index) => (
+                <Paper key={link.id} variant="outlined" sx={{ p: compact ? 1 : 1.25, borderRadius: 1 }}>
+                    <Stack spacing={1}>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+                            <TextField
+                                select
+                                size="small"
+                                label="Type"
+                                value={link.kind}
+                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, kind: event.target.value } : item))}
+                                sx={{ minWidth: 120 }}
+                            >
+                                {EXTERNAL_LINK_KIND_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                size="small"
+                                label="Label"
+                                value={link.label}
+                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
+                                fullWidth
+                            />
+                            <Button
+                                size="small"
+                                color="error"
+                                onClick={() => onChange(links.filter((item) => item.id !== link.id))}
+                            >
+                                Remove
+                            </Button>
+                        </Stack>
+                        <TextField
+                            size="small"
+                            label="URL"
+                            value={link.url}
+                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))}
+                            fullWidth
+                        />
+                        <TextField
+                            size="small"
+                            label="Notes"
+                            value={link.notes}
+                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item))}
+                            multiline
+                            minRows={compact ? 2 : 1}
+                            fullWidth
+                        />
+                    </Stack>
+                </Paper>
+            ))}
+            <Button
+                size="small"
+                variant="outlined"
+                onClick={() => onChange([...links, { id: createClientId("link"), kind: "doc", label: "", url: "", notes: "" }])}
+            >
+                Add link
+            </Button>
+        </Stack>
+    );
+}
+
+// ── Acceptance Check Dialog ──────────────────────────────────
+
+function AcceptanceDialog({
+    projectId,
+    taskId,
+    taskTitle,
+    onClose,
+}: {
+    projectId: string;
+    taskId: string;
+    taskTitle: string;
+    onClose: () => void;
+}) {
+    const { data, isLoading, error, refetch, isFetching } = useQuery({
+        queryKey: queryKeys.orchestration.acceptance(taskId),
+        queryFn: () => checkTaskAcceptance(projectId, taskId),
+    });
+
+    return (
+        <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+            <DialogTitle>Acceptance check — {taskTitle}</DialogTitle>
+            <DialogContent>
+                {isLoading && <CircularProgress size={24} />}
+                {error && (
+                    <Alert
+                        severity="error"
+                        sx={{ mt: isLoading ? 1 : 0 }}
+                        action={
+                            <Button
+                                color="inherit"
+                                size="small"
+                                disabled={isFetching}
+                                onClick={() => {
+                                    void refetch();
+                                }}
+                            >
+                                {isFetching ? "Retrying…" : "Retry"}
+                            </Button>
+                        }
+                    >
+                        {extractApiErrorMessage(error, "Acceptance check failed.")}
+                    </Alert>
+                )}
+                {data && (
+                    <Stack spacing={1.5} sx={{ mt: 1 }}>
+                        <Chip
+                            label={data.passed ? "All checks passed" : "Some checks failed"}
+                            color={data.passed ? "success" : "error"}
+                        />
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            {Array.isArray(data.config.required_artifact_kinds) && data.config.required_artifact_kinds.length > 0 ? (
+                                <Chip size="small" variant="outlined" label={`Artifacts: ${data.config.required_artifact_kinds.join(", ")}`} />
+                            ) : null}
+                            {data.config.require_github_comment ? <Chip size="small" variant="outlined" label="Needs GitHub comment" /> : null}
+                            {data.config.require_github_pr ? <Chip size="small" variant="outlined" label="Needs GitHub PR" /> : null}
+                            {data.config.require_reviewer_approval ? <Chip size="small" variant="outlined" label="Needs reviewer approval" /> : null}
+                        </Stack>
+                        {data.checks.map((check) => {
+                            const acceptanceItems = getAcceptanceItems(check as { name: string } & Record<string, unknown>);
+                            return (
+                            <Stack key={check.name} spacing={0.75}>
+                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                    {check.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
+                                    <Box>
+                                        <Typography variant="body2">{check.name}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{check.detail}</Typography>
+                                    </Box>
+                                </Stack>
+                                {acceptanceItems.length > 0 ? (
+                                    <Stack spacing={0.75} sx={{ ml: 3 }}>
+                                        {acceptanceItems.map((item) => (
+                                            <Paper key={item.item} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                                    {item.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
+                                                    <Box>
+                                                        <Typography variant="body2">{item.item}</Typography>
+                                                        {item.evidence_excerpt ? (
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Evidence: {item.evidence_excerpt}
+                                                            </Typography>
+                                                        ) : null}
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                ) : null}
+                            </Stack>
+                        );})}
+                    </Stack>
+                )}
+            </DialogContent>
+            <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
+        </Dialog>
+    );
+}
+
+// ── Subtask Panel ────────────────────────────────────────────
+
+function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; taskId: string; taskTitle: string }) {
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [maxSubtasks, setMaxSubtasks] = useState("4");
+    const [context, setContext] = useState("");
+
+    const { data: subtasks = [], isLoading } = useQuery({
+        queryKey: queryKeys.orchestration.subtasks(taskId),
+        queryFn: () => listSubtasks(projectId, taskId),
+    });
+
+    const decomposeMutation = useMutation({
+        mutationFn: () => {
+            const parsed = Number(maxSubtasks);
+            return decomposeTask(projectId, taskId, {
+                max_subtasks: Number.isFinite(parsed) && parsed > 0 ? Math.min(10, Math.max(1, parsed)) : 4,
+                context: context.trim() || undefined,
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.subtasks(taskId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            showToast({ message: "Task decomposed into subtasks.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't break task into subtasks. Try again."), severity: "error" });
+        },
+    });
+
+    return (
+        <Box>
+            <Stack spacing={1} sx={{ mb: 1.5 }}>
+                <Typography variant="caption" color="text.secondary">Subtasks of: {taskTitle}</Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <TextField
+                        size="small"
+                        label="Context"
+                        value={context}
+                        onChange={(e) => setContext(e.target.value)}
+                        placeholder="payments, onboarding, migration..."
+                        fullWidth
+                    />
+                    <TextField
+                        size="small"
+                        label="Max"
+                        type="number"
+                        value={maxSubtasks}
+                        onChange={(e) => setMaxSubtasks(e.target.value)}
+                        sx={{ width: { xs: "100%", sm: 96 } }}
+                    />
+                    <Button
+                        size="small"
+                        startIcon={decomposeMutation.isPending ? <CircularProgress size={12} /> : <DecomposeIcon />}
+                        disabled={decomposeMutation.isPending}
+                        onClick={() => decomposeMutation.mutate()}
+                    >
+                        Decompose
+                    </Button>
+                </Stack>
+            </Stack>
+            {isLoading ? (
+                <CircularProgress size={16} />
+            ) : subtasks.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">No subtasks yet.</Typography>
+            ) : (
+                <Stack spacing={0.5}>
+                    {subtasks.map((sub) => (
+                        <Stack key={sub.id} direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Chip label={sub.status} size="small" variant="outlined" />
+                            {sub.metadata.parallelizable ? <Chip label="parallel" size="small" color="info" variant="outlined" /> : null}
+                            {typeof sub.metadata.blueprint_kind === "string" ? <Chip label={String(sub.metadata.blueprint_kind)} size="small" variant="outlined" /> : null}
+                            <Typography variant="body2">{sub.title}</Typography>
+                        </Stack>
+                    ))}
+                </Stack>
+            )}
+        </Box>
+    );
+}
+
+// ── Artifact Panel ───────────────────────────────────────────
+
+function ArtifactPanel({ taskId }: { taskId: string }) {
+    const queryClient = useQueryClient();
+    const [title, setTitle] = useState("");
+    const [content, setContent] = useState("");
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const { data: artifacts = [] } = useQuery({
+        queryKey: queryKeys.orchestration.artifacts(taskId),
+        queryFn: () => listTaskArtifacts(taskId),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: () => createTaskArtifact(taskId, { title, content, kind: "summary" }),
+        onSuccess: async () => {
+            setTitle(""); setContent("");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.artifacts(taskId) });
+        },
+    });
+
+    async function handleFileUpload(file: File) {
+        const text = await file.text();
+        await createTaskArtifact(taskId, { title: file.name, content: text, kind: "file" });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.artifacts(taskId) });
+    }
+
+    return (
+        <Stack spacing={1.5}>
+            {artifacts.map((artifact) => (
+                <Paper key={artifact.id} sx={{ p: 1.5, borderRadius: 1 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <Chip label={artifact.kind} size="small" variant="outlined" />
+                        <Typography variant="subtitle2">{artifact.title}</Typography>
+                        <Typography variant="caption" color="text.secondary">{formatDateTime(artifact.created_at)}</Typography>
+                    </Stack>
+                    {artifact.content && (
+                        <Typography variant="caption" component="pre" sx={{ mt: 0.5, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 120, overflow: "auto" }}>
+                            {artifact.content.slice(0, 500)}
+                        </Typography>
+                    )}
+                </Paper>
+            ))}
+            <Stack spacing={1}>
+                <TextField size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <TextField size="small" label="Content" multiline minRows={2} value={content} onChange={(e) => setContent(e.target.value)} />
+                <Stack direction="row" spacing={1}>
+                    <Button size="small" variant="outlined" disabled={!title.trim()} onClick={() => createMutation.mutate()}>
+                        Add artifact
+                    </Button>
+                    <Button size="small" variant="outlined" startIcon={<UploadIcon />} component="label">
+                        Upload file
+                        <input hidden type="file" ref={fileRef} onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void handleFileUpload(file);
+                        }} />
+                    </Button>
+                </Stack>
+            </Stack>
+        </Stack>
+    );
+}
+
+function TaskMemoryInspector({
+    projectId,
+    taskId,
+    lastRunId,
+}: {
+    projectId: string;
+    taskId: string;
+    lastRunId?: string;
+}) {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [sharedDraft, setSharedDraft] = useState("");
+    const [privateJsonDraft, setPrivateJsonDraft] = useState("{}");
+
+    const { data: episodic } = useQuery({
+        queryKey: queryKeys.orchestration.taskEpisodic(projectId, taskId),
+        queryFn: () => searchEpisodicMemory(projectId, { task_id: taskId, limit: 40 }),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: semanticRows = [] } = useQuery({
+        queryKey: queryKeys.orchestration.taskSemantic(projectId, taskId),
+        queryFn: () => listSemanticMemory(projectId, { source_task_id: taskId, limit: 50 }),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: coord } = useQuery({
+        queryKey: queryKeys.orchestration.taskCoord(projectId, taskId),
+        queryFn: () => getTaskMemoryCoordination(projectId, taskId),
+        enabled: Boolean(projectId && taskId),
+    });
+    const { data: wm } = useQuery({
+        queryKey: queryKeys.orchestration.runWorkingMemory(lastRunId || ""),
+        queryFn: () => getRunWorkingMemory(lastRunId!),
+        enabled: Boolean(lastRunId),
+    });
+
+    useEffect(() => {
+        if (!coord) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSharedDraft(coord.shared ?? "");
+        try {
+            setPrivateJsonDraft(JSON.stringify(coord.private ?? {}, null, 2));
+        } catch {
+            setPrivateJsonDraft("{}");
+        }
+    }, [coord]);
+
+    const patchCoordMut = useMutation({
+        mutationFn: async () => {
+            let priv: Record<string, string> = {};
+            try {
+                const parsed = JSON.parse(privateJsonDraft) as unknown;
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    priv = Object.fromEntries(
+                        Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
+                    );
+                }
+            } catch {
+                throw new Error("INVALID_JSON");
+            }
+            return patchTaskMemoryCoordination(projectId, taskId, { shared: sharedDraft, private: priv });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.taskCoord(projectId, taskId) });
+            showToast({ message: "Task memory coordination saved.", severity: "success" });
+        },
+        onError: (error: unknown) => {
+            const msg =
+                error instanceof Error && error.message === "INVALID_JSON"
+                    ? "Private scratchpad JSON is invalid."
+                    : extractApiErrorMessage(error, "Could not save coordination.");
+            showToast({ message: msg, severity: "error" });
+        },
+    });
+
+    const hits = episodic?.hits ?? [];
+
+    return (
+        <Stack spacing={1.25} sx={{ mt: 1 }}>
+            <Typography variant="subtitle2">Task memory</Typography>
+            <Typography variant="caption" color="text.secondary">
+                Working snapshot from the latest run (if any). Blackboard = shared coordination; private JSON = per-agent
+                scratchpad keys.
+            </Typography>
+            {lastRunId ? (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Button size="small" variant="outlined" onClick={() => navigate(`/runs/${lastRunId}`)}>
+                        Open run {lastRunId.slice(0, 8)}…
+                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                        Updated {wm ? formatDateTime(wm.updated_at) : "…"}
+                    </Typography>
+                </Stack>
+            ) : (
+                <Typography variant="caption" color="text.secondary">
+                    No run yet — start a run to populate working memory.
+                </Typography>
+            )}
+            {wm ? (
+                <Paper variant="outlined" sx={{ p: 1, borderRadius: 1, maxHeight: 160, overflow: "auto" }}>
+                    <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
+                        {JSON.stringify(
+                            {
+                                objective: wm.objective,
+                                accepted_plan: wm.accepted_plan,
+                                latest_findings: wm.latest_findings,
+                                temp_notes: wm.temp_notes,
+                                open_questions: wm.open_questions,
+                            },
+                            null,
+                            2,
+                        )}
+                    </Typography>
+                </Paper>
+            ) : null}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Blackboard (shared)
+            </Typography>
+            <TextField
+                size="small"
+                multiline
+                minRows={2}
+                value={sharedDraft}
+                onChange={(e) => setSharedDraft(e.target.value)}
+                fullWidth
+                placeholder="Visible to all agents on this task…"
+            />
+            <Typography variant="caption" color="text.secondary">
+                Private scratchpad (JSON object: agent_id → text)
+            </Typography>
+            <TextField
+                size="small"
+                multiline
+                minRows={3}
+                value={privateJsonDraft}
+                onChange={(e) => setPrivateJsonDraft(e.target.value)}
+                fullWidth
+            />
+            <Button size="small" variant="contained" disabled={patchCoordMut.isPending} onClick={() => patchCoordMut.mutate()}>
+                Save blackboard / scratchpad
+            </Button>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="caption" color="text.secondary">
+                Episodic timeline (indexed rows for this task)
+            </Typography>
+            <Stack spacing={0.5} sx={{ maxHeight: 180, overflow: "auto" }}>
+                {hits.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                        No episodic hits yet.
+                    </Typography>
+                ) : (
+                    hits.slice(0, 20).map((hit, i) => (
+                        <Paper key={`${String(hit.kind)}-${String(hit.id)}-${i}`} variant="outlined" sx={{ p: 0.75, borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                                {String(hit.kind)} · {formatDateTime(String(hit.created_at))}
+                            </Typography>
+                            <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
+                                {String(hit.snippet ?? "").slice(0, 280)}
+                            </Typography>
+                        </Paper>
+                    ))
+                )}
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Promoted semantic entries (source_task_id)
+            </Typography>
+            <Stack spacing={0.5} sx={{ maxHeight: 140, overflow: "auto" }}>
+                {semanticRows.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                        None linked to this task.
+                    </Typography>
+                ) : (
+                    semanticRows.map((row) => (
+                        <Typography key={row.id} variant="caption" sx={{ display: "block" }}>
+                            <Link component={RouterLink} to={`/agent-projects/${projectId}/memory`} underline="hover">
+                                [{row.entry_type}]
+                            </Link>{" "}
+                            {row.title} · {(row.confidence * 100).toFixed(0)}%
+                        </Typography>
+                    ))
+                )}
+            </Stack>
+        </Stack>
+    );
+}
+
+// ── Kanban Board ─────────────────────────────────────────────
+
+const KanbanBoard = memo(function KanbanBoard({
+    projectId,
+    tasks,
+    allAgents,
+    lastRunByTaskId,
+    onRunTask,
+    onAcceptanceCheck,
+    isRunPending,
+    selectedTaskId,
+    taskRunModes,
+    taskPrModes,
+    onModeChange,
+    onPrModeChange,
+}: {
+    projectId: string;
+    tasks: OrchestrationTask[];
+    allAgents: Array<{ id: string; name: string }>;
+    lastRunByTaskId: Record<string, TaskRun>;
+    onRunTask: (taskId: string, mode: ExecutionMode, createPr: boolean) => void;
+    onAcceptanceCheck: (taskId: string) => void;
+    isRunPending: boolean;
+    selectedTaskId: string;
+    taskRunModes: Record<string, ExecutionMode>;
+    taskPrModes: Record<string, boolean>;
+    onModeChange: (taskId: string, mode: ExecutionMode) => void;
+    onPrModeChange: (taskId: string, enabled: boolean) => void;
+}) {
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [expandedTask, setExpandedTask] = useState<string | null>(null);
+    const [taskLinkDrafts, setTaskLinkDrafts] = useState<Record<string, ExternalLinkRecord[]>>({});
+    const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, EvidenceBundleDraft>>({});
+    const [nextStatusByTask, setNextStatusByTask] = useState<Record<string, string>>({});
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+    const [dropHoverColumn, setDropHoverColumn] = useState<string | null>(null);
+
+    const clearKanbanDragState = useCallback(() => {
+        setDraggingTaskId(null);
+        setDropHoverColumn(null);
+    }, []);
+
+    const handleKanbanColumnDragOverCapture = useCallback(
+        (event: DragEvent<HTMLDivElement>, columnStatus: string) => {
+            if (!draggingTaskId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDropHoverColumn(columnStatus);
+        },
+        [draggingTaskId],
+    );
+
+    const taskUpdateMutation = useMutation({
+        mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTaskExecution(projectId, expandedTask) });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Task update failed."), severity: "error" });
+        },
+    });
+
+    const handleKanbanColumnDrop = useCallback(
+        (event: DragEvent<HTMLDivElement>, columnStatus: string) => {
+            event.preventDefault();
+            const raw = event.dataTransfer.getData("application/json") || "";
+            let parsed: { taskId?: string };
+            try {
+                parsed = JSON.parse(raw || "{}") as { taskId?: string };
+            } catch {
+                clearKanbanDragState();
+                return;
+            }
+            const taskId = parsed.taskId;
+            if (!taskId) {
+                clearKanbanDragState();
+                return;
+            }
+            const task = tasks.find((t) => t.id === taskId);
+            if (!task) {
+                clearKanbanDragState();
+                return;
+            }
+            if (task.status === columnStatus) {
+                clearKanbanDragState();
+                return;
+            }
+            if (!TASK_TRANSITION_MAP[task.status]?.includes(columnStatus)) {
+                showToast({ message: "That column is not valid for this task.", severity: "warning" });
+                clearKanbanDragState();
+                return;
+            }
+            if (columnStatus === "in_progress") {
+                const incomplete = tasks.filter(
+                    (c) => (task.dependency_ids ?? []).includes(c.id)
+                        && !["approved", "completed", "synced_to_github", "archived"].includes(c.status),
+                );
+                if (incomplete.length) {
+                    showToast({ message: "Finish dependency tasks before moving to In Progress.", severity: "warning" });
+                    clearKanbanDragState();
+                    return;
+                }
+            }
+            if (taskUpdateMutation.isPending && taskUpdateMutation.variables?.taskId === taskId) {
+                clearKanbanDragState();
+                return;
+            }
+            taskUpdateMutation.mutate({ taskId, payload: { status: columnStatus } });
+            clearKanbanDragState();
+        },
+        [tasks, taskUpdateMutation, showToast, clearKanbanDragState],
+    );
+
+    const acceptanceConfigMutation = useMutation({
+        mutationFn: ({ taskId, metadata }: { taskId: string; metadata: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, { metadata }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTaskExecution(projectId, expandedTask) });
+            showToast({ message: "Acceptance checker updated.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't save acceptance checker. Try again."), severity: "error" });
+        },
+    });
+    const deleteTaskMutation = useMutation({
+        mutationFn: (taskId: string) => deleteOrchestrationTask(projectId, taskId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            showToast({ message: "Task deleted.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't delete task. Try again."), severity: "error" });
+        },
+    });
+
+    const { data: timeline = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectTaskTimeline(projectId, expandedTask || ""),
+        queryFn: () => (expandedTask ? getTaskTimeline(projectId, expandedTask) : Promise.resolve([])),
+        enabled: Boolean(expandedTask),
+    });
+    const { data: expandedExecSnapshot } = useQuery({
+        queryKey: queryKeys.orchestration.projectTaskExecution(projectId, expandedTask || ""),
+        queryFn: () => (expandedTask ? getTaskExecutionState(projectId, expandedTask) : Promise.resolve(null)),
+        enabled: Boolean(expandedTask),
+    });
+    const { data: expandedArtifacts = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectTaskArtifacts(projectId, expandedTask || ""),
+        queryFn: () => (expandedTask ? listTaskArtifacts(expandedTask) : Promise.resolve([])),
+        enabled: Boolean(expandedTask),
+    });
+
+    function updateAcceptanceConfig(task: OrchestrationTask, patch: Partial<AcceptanceCheckerConfig>) {
+        acceptanceConfigMutation.mutate({
+            taskId: task.id,
+            metadata: {
+                ...task.metadata,
+                acceptance_checker: {
+                    ...readAcceptanceCheckerConfig(task),
+                    ...patch,
+                },
+            },
+        });
+    }
+
+    const tasksByStatus = useMemo(() => {
+        const map: Record<string, OrchestrationTask[]> = {};
+        for (const col of MAIN_KANBAN_COLUMNS) map[col.status] = [];
+        for (const task of tasks) {
+            const col = MAIN_KANBAN_COLUMNS.find((c) => c.statuses.includes(task.status));
+            if (col) map[col.status].push(task);
+        }
+        return map;
+    }, [tasks]);
+
+    const exceptionTasks = useMemo(
+        () => EXCEPTION_TASK_COLUMNS.map((column) => ({ ...column, tasks: tasks.filter((task) => task.status === column.status) })),
+        [tasks],
+    );
+
+    return (
+        <Stack spacing={2}>
+            <Paper
+                variant="outlined"
+                sx={(theme) => ({
+                    p: 2,
+                    borderRadius: 1,
+                    backgroundColor: theme.palette.grey[50],
+                    borderColor: theme.palette.divider,
+                })}
+            >
+                <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={1.5}
+                    alignItems={{ xs: "stretch", md: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                            Task flow
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Move work through five lanes. Failed and blocked tasks stay in exceptions.
+                        </Typography>
+                    </Box>
+
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip size="small" label={`${tasks.length} total`} />
+                        <Chip
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                            label={`${tasksByStatus.in_progress?.length ?? 0} running`}
+                        />
+                        <Chip size="small" color="warning" variant="outlined" label={`${tasks.filter((task) => task.status === "blocked").length} blocked`} />
+                        <Chip
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            label={`${tasksByStatus.completed?.length ?? 0} done`}
+                        />
+                        {exceptionTasks.some((group) => group.tasks.length > 0) ? (
+                            <Chip
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                label={`${exceptionTasks.reduce((sum, group) => sum + group.tasks.length, 0)} exceptions`}
+                            />
+                        ) : null}
+                    </Stack>
+                </Stack>
+            </Paper>
+
+
+
+            <Box
+                sx={{
+                    display: "grid",
+                    gridAutoFlow: "column",
+                    gridAutoColumns: {
+                        xs: "minmax(260px, 82vw)",
+                        sm: "minmax(280px, 36vw)",
+                        lg: "minmax(285px, 1fr)",
+                    },
+                    gap: 1.5,
+                    overflowX: "auto",
+                    pb: 1,
+                    minHeight: 560,
+                }}
+            >
+                {MAIN_KANBAN_COLUMNS.map((col) => {
+                    const columnTasks = tasksByStatus[col.status] ?? [];
+                    const isDropTarget = dropHoverColumn === col.status && Boolean(draggingTaskId);
+
+                    return (
+                        <Paper
+                            key={col.status}
+                            variant="outlined"
+                            onDragOverCapture={(event) => handleKanbanColumnDragOverCapture(event, col.status)}
+                            onDragLeave={() => setDropHoverColumn(null)}
+                            onDrop={(event) => handleKanbanColumnDrop(event, col.status)}
+                            sx={(theme) => ({
+                                display: "flex",
+                                flexDirection: "column",
+                                minHeight: 540,
+                                maxHeight: "calc(100vh - 260px)",
+                                borderRadius: 1,
+                                overflow: "hidden",
+                                borderColor: isDropTarget
+                                    ? theme.palette.primary.main
+                                    : theme.palette.divider,
+                                backgroundColor: theme.palette.background.paper,
+                                boxShadow: "none",
+                                transition: theme.transitions.create(["border-color", "background-color"], {
+                                    duration: 330,
+                                }),
+                            })}
+                        >
+                            <Box
+                                sx={(theme) => ({
+                                    position: "sticky",
+                                    top: 0,
+                                    zIndex: 1,
+                                    p: 1.25,
+                                    borderBottom: `1px solid ${theme.palette.divider}`,
+                                    backgroundColor: alpha(theme.palette.background.paper, 0.96),
+                                    backdropFilter: "blur(10px)",
+                                })}
+                            >
+                                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                        <Chip
+                                            label={col.label}
+                                            color={col.color}
+                                            size="small"
+                                            sx={{
+                                                fontWeight: 500,
+                                                borderRadius: 1.5,
+                                                "& .MuiChip-label": { px: 1 },
+                                            }}
+                                        />
+                                        <Typography variant="caption" color="text.secondary">
+                                            {columnTasks.length}
+                                        </Typography>
+                                    </Stack>
+
+                                    {taskUpdateMutation.isPending ? (
+                                        <CircularProgress size={14} />
+                                    ) : null}
+                                </Stack>
+                            </Box>
+
+                            <Stack
+                                spacing={1}
+                                sx={{
+                                    p: 1,
+                                    overflowY: "auto",
+                                    flex: 1,
+                                }}
+                            >
+                                {columnTasks.length === 0 ? (
+                                    <Box
+                                        sx={(theme) => ({
+                                            minHeight: 120,
+                                            borderRadius: 1,
+                                            border: `1px dashed ${alpha(theme.palette.text.secondary, 0.24)}`,
+                                            display: "grid",
+                                            placeItems: "center",
+                                            color: "text.secondary",
+                                            fontSize: 12,
+                                        })}
+                                    >
+                                        Drop task here
+                                    </Box>
+                                ) : null}
+
+                                {columnTasks.map((task) => {
+                                    const agent = allAgents.find((a) => a.id === task.assigned_agent_id);
+                                    const lastRun = lastRunByTaskId[task.id];
+                                    const priority = String(task.priority ?? "normal");
+                                    const isSelected = selectedTaskId === task.id;
+                                    const isUpdating =
+                                        taskUpdateMutation.isPending &&
+                                        taskUpdateMutation.variables?.taskId === task.id;
+
+                                    const priorityColor =
+                                        priority === "urgent" || priority === "high"
+                                            ? "error"
+                                            : priority === "normal"
+                                                ? "info"
+                                                : "default";
+
+                                    return (
+                                        <Paper
+                                            key={task.id}
+                                            draggable={!isUpdating}
+                                            onDragStart={(event) => {
+                                                setDraggingTaskId(task.id);
+                                                event.dataTransfer.effectAllowed = "move";
+                                                event.dataTransfer.setData(
+                                                    "application/json",
+                                                    JSON.stringify({ taskId: task.id }),
+                                                );
+                                            }}
+                                            onDragEnd={clearKanbanDragState}
+                                            variant="outlined"
+                                            sx={(theme) => ({
+                                                p: 1.25,
+                                                borderRadius: 1,
+                                                cursor: isUpdating ? "wait" : "grab",
+                                                border: "2px solid",
+                                                borderColor: isSelected
+                                                    ? theme.palette.primary.main
+                                                    : theme.palette.divider,
+                                                backgroundColor: theme.palette.background.paper,
+                                                boxShadow: "none",
+                                                transition: theme.transitions.create(
+                                                    ["border-color", "background-color"],
+                                                    { duration: 330 },
+                                                ),
+                                                "&:hover": {
+                                                    backgroundColor: theme.palette.grey[50],
+                                                },
+                                            })}
+                                        >
+                                            <Stack spacing={1}>
+                                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                                    <Avatar
+                                                        sx={(theme) => ({
+                                                            width: 28,
+                                                            height: 28,
+                                                            fontSize: 12,
+                                                            fontWeight: 500,
+                                                            bgcolor: agent
+                                                                ? alpha(theme.palette.primary.main, 0.16)
+                                                                : alpha(theme.palette.text.secondary, 0.12),
+                                                            color: agent
+                                                                ? theme.palette.primary.main
+                                                                : theme.palette.text.secondary,
+                                                        })}
+                                                    >
+                                                        {(agent?.name ?? "U").slice(0, 1).toUpperCase()}
+                                                    </Avatar>
+
+                                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                        <Typography
+                                                            variant="subtitle2"
+                                                            sx={{
+                                                                fontWeight: 500,
+                                                                lineHeight: 1.25,
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                display: "-webkit-box",
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: "vertical",
+                                                            }}
+                                                        >
+                                                            {task.title}
+                                                        </Typography>
+
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                            sx={{
+                                                                display: "block",
+                                                                mt: 0.25,
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
+                                                            {agent?.name ?? "Unassigned"}
+                                                        </Typography>
+                                                    </Box>
+
+                                                    <Tooltip title="Task actions">
+                                                        <IconButton size="small" onClick={(event) => event.stopPropagation()}>
+                                                            <MoreIcon fontSize="inherit" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Stack>
+
+                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                    <Chip
+                                                        size="small"
+                                                        color={priorityColor}
+                                                        variant="outlined"
+                                                        label={priority}
+                                                        sx={{ height: 22, fontSize: 11 }}
+                                                    />
+                                                    {lastRun ? (
+                                                        <Chip
+                                                            size="small"
+                                                            color={lastRun.status === "failed" ? "error" : "success"}
+                                                            variant="outlined"
+                                                            label={lastRun.status}
+                                                            sx={{ height: 22, fontSize: 11 }}
+                                                        />
+                                                    ) : null}
+                                                </Stack>
+
+                                                {lastRun?.status === "running" || lastRun?.status === "queued" ? (
+                                                    <LinearProgress />
+                                                ) : null}
+
+                                                <Stack
+                                                    direction="row"
+                                                    spacing={0.5}
+                                                    alignItems="center"
+                                                    justifyContent="space-between"
+                                                    sx={(theme) => ({
+                                                        pt: 0.75,
+                                                        borderTop: `1px solid ${theme.palette.divider}`,
+                                                    })}
+                                                >
+                                                    <Stack direction="row" spacing={0.5}>
+                                                        <Tooltip title="Start task run">
+                                                            <span>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={isRunPending}
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        onRunTask(
+                                                                            task.id,
+                                                                            taskRunModes[task.id] ?? "single_agent",
+                                                                            taskPrModes[task.id] ?? false,
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <RunIcon fontSize="inherit" />
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="Run acceptance check">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    onAcceptanceCheck(task.id);
+                                                                }}
+                                                            >
+                                                                <CheckSimpleIcon fontSize="inherit" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Stack>
+
+                                                    <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setExpandedTask(task.id);
+                                                        }}
+                                                        sx={{ minWidth: 0 }}
+                                                    >
+                                                        Open
+                                                    </Button>
+                                                </Stack>
+                                            </Stack>
+                                        </Paper>
+                                    );
+                                })}
+                            </Stack>
+                        </Paper>
+                    );
+                })}
+            </Box>
+
+            <Drawer
+                anchor="right"
+                open={Boolean(expandedTask)}
+                onClose={() => setExpandedTask(null)}
+                slotProps={{ backdrop: { sx: { bgcolor: alpha("#000", 0.2) } } }}
+                sx={{ "& .MuiDrawer-paper": { width: { xs: "92vw", sm: 480, md: 540 }, p: 2.5 } }}
+            >
+                {(() => {
+                    const drawerTask = expandedTask ? tasks.find((t) => t.id === expandedTask) : null;
+                    if (!drawerTask) return null;
+
+                    const agent = allAgents.find((a) => a.id === drawerTask.assigned_agent_id);
+                    const lastRun = lastRunByTaskId[drawerTask.id];
+                    const runMeta = readOrchestrationSelectionMeta(lastRun);
+                    const acceptanceConfig = readAcceptanceCheckerConfig(drawerTask);
+                    const taskLinks = taskLinkDrafts[drawerTask.id] ?? readExternalLinks(drawerTask.metadata?.external_links);
+                    const evidenceDraft = evidenceDrafts[drawerTask.id] ?? readEvidenceBundle(drawerTask);
+                    const dependencyTasks = tasks.filter((candidate) => (drawerTask.dependency_ids ?? []).includes(candidate.id));
+                    const incompleteDependencies = dependencyTasks.filter((candidate) => !["approved", "completed", "synced_to_github", "archived"].includes(candidate.status));
+                    const acceptancePassed = Boolean(expandedExecSnapshot?.acceptance_summary?.passed);
+                    const acceptedArtifactsCount = evidenceDraft.accepted_artifact_ids.filter((artifactId) => expandedArtifacts.some((artifact) => artifact.id === artifactId)).length;
+                    const acceptedLinksCount = evidenceDraft.accepted_external_link_ids.filter((linkId) => taskLinks.some((link) => link.id === linkId)).length;
+                    const evidenceReadyForSync =
+                        acceptedArtifactsCount > 0 &&
+                        acceptedLinksCount > 0 &&
+                        Boolean(evidenceDraft.reviewer_decision_status) &&
+                        Boolean(evidenceDraft.sync_summary.trim());
+                    const evidenceReadyForArchive =
+                        (acceptedArtifactsCount > 0 &&
+                            acceptedLinksCount > 0 &&
+                            Boolean(evidenceDraft.reviewer_decision_status) &&
+                            (Boolean(evidenceDraft.sync_summary.trim()) || drawerTask.status === "synced_to_github"))
+                        || drawerTask.status === "archived";
+                    const transitionOptions = buildTransitionOptions({
+                        task: drawerTask,
+                        acceptancePassed,
+                        evidenceReadyForSync,
+                        evidenceReadyForArchive,
+                        hasIncompleteDependencies: incompleteDependencies.length > 0,
+                    });
+                    const selectedNextStatus = nextStatusByTask[drawerTask.id] ?? transitionOptions[0]?.status ?? "";
+                    const workerTip =
+                        runMeta.worker_agent_rationale
+                        || "The worker comes from the task assignment, an explicit run payload, or automatic routing. Run again to capture a fresh routing note.";
+                    return (
+                        <>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 500, wordBreak: "break-word" }}>
+                                        {drawerTask.title}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {humanizeKey(drawerTask.status)} · {agent?.name ?? "Unassigned"}
+                                    </Typography>
+                                </Box>
+                                <IconButton size="small" onClick={() => setExpandedTask(null)}>
+                                    <CloseIcon />
+                                </IconButton>
+                            </Stack>
+
+                            {drawerTask.description ? (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    {drawerTask.description}
+                                </Typography>
+                            ) : null}
+                            <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                onClick={() => {
+                                    if (!window.confirm(`Delete task "${drawerTask.title}"? This cannot be undone.`)) return;
+                                    deleteTaskMutation.mutate(drawerTask.id);
+                                    setExpandedTask(null);
+                                }}
+                                sx={{ mb: 2 }}
+                            >
+                                Delete task
+                            </Button>
+
+                            <Stack spacing={1.5} sx={{ overflowY: "auto", flex: 1, pb: 2 }}>
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Owner agent"
+                                    value={drawerTask.assigned_agent_id ?? ""}
+                                    onChange={(event) => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { assigned_agent_id: event.target.value || null },
+                                    })}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">Unassigned</MenuItem>
+                                    {allAgents.map((currentAgent) => (
+                                        <MenuItem key={currentAgent.id} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Reviewer agent"
+                                    value={drawerTask.reviewer_agent_id ?? ""}
+                                    onChange={(event) => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { reviewer_agent_id: event.target.value || null },
+                                    })}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {allAgents.map((currentAgent) => (
+                                        <MenuItem key={`review-${currentAgent.id}`} value={currentAgent.id}>{currentAgent.name}</MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    SelectProps={{ multiple: true }}
+                                    size="small"
+                                    label="Blocked by"
+                                    value={drawerTask.dependency_ids ?? []}
+                                    onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        taskUpdateMutation.mutate({
+                                            taskId: drawerTask.id,
+                                            payload: {
+                                                dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                            },
+                                        });
+                                    }}
+                                    helperText="Main task flow dependencies."
+                                    fullWidth
+                                >
+                                    {tasks.filter((candidate) => candidate.id !== drawerTask.id).map((candidate) => (
+                                        <MenuItem key={`dep-${candidate.id}`} value={candidate.id}>
+                                            {candidate.title} · {humanizeKey(candidate.status)}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                {dependencyTasks.length > 0 ? (
+                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                        {dependencyTasks.map((dependencyTask) => (
+                                            <Chip
+                                                key={dependencyTask.id}
+                                                label={`${dependencyTask.title} · ${humanizeKey(dependencyTask.status)}`}
+                                                size="small"
+                                                color={incompleteDependencies.some((item) => item.id === dependencyTask.id) ? "warning" : "success"}
+                                                variant="outlined"
+                                            />
+                                        ))}
+                                    </Stack>
+                                ) : null}
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Execution mode"
+                                    value={taskRunModes[drawerTask.id] ?? "single_agent"}
+                                    onChange={(event) => onModeChange(drawerTask.id, event.target.value as ExecutionMode)}
+                                    fullWidth
+                                >
+                                    <MenuItem value="single_agent">Single agent: fast, cheap</MenuItem>
+                                    <MenuItem value="manager_worker">Managed team: manager routes work</MenuItem>
+                                    <MenuItem value="debate">Debate: two agents propose, moderator resolves</MenuItem>
+                                </TextField>
+
+                                <Button
+                                    size="small"
+                                    variant={taskPrModes[drawerTask.id] ? "contained" : "outlined"}
+                                    onClick={() => onPrModeChange(drawerTask.id, !(taskPrModes[drawerTask.id] ?? false))}
+                                >
+                                    {taskPrModes[drawerTask.id] ? "PR generation on" : "Generate PR"}
+                                </Button>
+
+                                <Divider />
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Next valid status"
+                                    value={selectedNextStatus}
+                                    onChange={(event) => setNextStatusByTask((current) => ({ ...current, [drawerTask.id]: event.target.value }))}
+                                    fullWidth
+                                >
+                                    {transitionOptions.map((option) => (
+                                        <MenuItem key={`${drawerTask.id}-${option.status}`} value={option.status} disabled={option.blocked}>
+                                            {humanizeKey(option.status)}{option.reason ? ` — ${option.reason}` : ""}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                {transitionOptions.filter((option) => option.blocked).map((option) => (
+                                    <Alert key={`${drawerTask.id}-${option.status}-blocked`} severity="warning">
+                                        {humanizeKey(option.status)} blocked: {option.reason}
+                                    </Alert>
+                                ))}
+
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    disabled={!selectedNextStatus || Boolean(transitionOptions.find((option) => option.status === selectedNextStatus)?.blocked)}
+                                    onClick={() => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: { status: selectedNextStatus },
+                                    })}
+                                >
+                                    Apply transition
+                                </Button>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Run & acceptance</Typography>
+
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<RunIcon />}
+                                        disabled={isRunPending}
+                                        onClick={() => onRunTask(
+                                            drawerTask.id,
+                                            taskRunModes[drawerTask.id] ?? "single_agent",
+                                            taskPrModes[drawerTask.id] ?? false,
+                                        )}
+                                    >
+                                        Run
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<CheckSimpleIcon />}
+                                        onClick={() => onAcceptanceCheck(drawerTask.id)}
+                                    >
+                                        Check acceptance
+                                    </Button>
+                                </Stack>
+
+                                <Typography variant="caption" color="text.secondary">
+                                    Model source: {runMeta.model_source ?? "N/A"}
+                                </Typography>
+
+                                {lastRun ? (
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Typography variant="caption" color="text.secondary">
+                                            Last run:
+                                        </Typography>
+                                        <Chip
+                                            size="small"
+                                            color={lastRun.status === "failed" ? "error" : "success"}
+                                            variant="outlined"
+                                            label={lastRun.status}
+                                        />
+                                    </Stack>
+                                ) : null}
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Routing</Typography>
+
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Typography variant="caption" color="text.secondary">Agent selection</Typography>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                        {String(expandedExecSnapshot?.routing_explainability?.agent_selection_reason || workerTip)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">Model selection</Typography>
+                                    <Typography variant="body2">
+                                        {String(expandedExecSnapshot?.routing_explainability?.model_selection_reason || runMeta.model_rationale || "No explicit model explanation captured yet.")}
+                                    </Typography>
+                                    {expandedExecSnapshot?.routing_explainability?.routing_policy_snapshot ? (
+                                        <Box
+                                            component="pre"
+                                            sx={{ m: 0, mt: 1, p: 1, typography: "caption", bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04), whiteSpace: "pre-wrap" }}
+                                        >
+                                            {JSON.stringify(expandedExecSnapshot.routing_explainability.routing_policy_snapshot, null, 2)}
+                                        </Box>
+                                    ) : null}
+                                </Paper>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Acceptance checker</Typography>
+
+                                <Stack spacing={1}>
+                                    <TextField
+                                        size="small"
+                                        label="Required artifact kinds"
+                                        defaultValue={acceptanceConfig.required_artifact_kinds.join(", ")}
+                                        helperText="Comma-separated kinds enforced before approve/complete."
+                                        onBlur={(event) => updateAcceptanceConfig(drawerTask, {
+                                            required_artifact_kinds: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
+                                        })}
+                                        fullWidth
+                                    />
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_github_comment} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_github_comment: checked })} />}
+                                            label="Need GitHub comment"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_github_pr} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_github_pr: checked })} />}
+                                            label="Need GitHub PR"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={acceptanceConfig.require_reviewer_approval} onChange={(_, checked) => updateAcceptanceConfig(drawerTask, { require_reviewer_approval: checked })} />}
+                                            label="Need reviewer approval"
+                                        />
+                                    </Stack>
+                                    {expandedExecSnapshot?.acceptance_summary ? (
+                                        <Alert severity={expandedExecSnapshot.acceptance_summary.passed ? "success" : "warning"}>
+                                            {expandedExecSnapshot.acceptance_summary.passed ? "Acceptance gate currently passes." : "Acceptance gate currently fails."}
+                                        </Alert>
+                                    ) : null}
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">External links</Typography>
+
+                                <ExternalLinksEditor
+                                    links={taskLinks}
+                                    onChange={(links) => setTaskLinkDrafts((current) => ({ ...current, [drawerTask.id]: links }))}
+                                    compact
+                                />
+
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => taskUpdateMutation.mutate({
+                                        taskId: drawerTask.id,
+                                        payload: {
+                                            metadata: {
+                                                ...drawerTask.metadata,
+                                                external_links: serializeExternalLinks(taskLinks),
+                                                evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                            },
+                                        },
+                                    })}
+                                >
+                                    Save links
+                                </Button>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Final evidence bundle</Typography>
+
+                                <Stack spacing={1}>
+                                    <TextField
+                                        select
+                                        SelectProps={{ multiple: true }}
+                                        size="small"
+                                        label="Accepted artifacts"
+                                        value={evidenceDraft.accepted_artifact_ids}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value;
+                                            setEvidenceDrafts((current) => ({
+                                                ...current,
+                                                [drawerTask.id]: {
+                                                    ...evidenceDraft,
+                                                    accepted_artifact_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                },
+                                            }));
+                                        }}
+                                        fullWidth
+                                    >
+                                        {expandedArtifacts.map((artifact) => (
+                                            <MenuItem key={artifact.id} value={artifact.id}>{artifact.title} · {artifact.kind}</MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        select
+                                        SelectProps={{ multiple: true }}
+                                        size="small"
+                                        label="Accepted external links"
+                                        value={evidenceDraft.accepted_external_link_ids}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value;
+                                            setEvidenceDrafts((current) => ({
+                                                ...current,
+                                                [drawerTask.id]: {
+                                                    ...evidenceDraft,
+                                                    accepted_external_link_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                                },
+                                            }));
+                                        }}
+                                        fullWidth
+                                    >
+                                        {taskLinks.map((link) => (
+                                            <MenuItem key={`accepted-link-${link.id}`} value={link.id}>{link.label} · {humanizeKey(link.kind)}</MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Reviewer decision"
+                                        value={evidenceDraft.reviewer_decision_status}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                reviewer_decision_status: event.target.value,
+                                            },
+                                        }))}
+                                        fullWidth
+                                    >
+                                        <MenuItem value="">Not recorded</MenuItem>
+                                        <MenuItem value="approved">Approved</MenuItem>
+                                        <MenuItem value="changes_requested">Changes requested</MenuItem>
+                                        <MenuItem value="rejected">Rejected</MenuItem>
+                                    </TextField>
+
+                                    <TextField
+                                        size="small"
+                                        label="Reviewer notes"
+                                        value={evidenceDraft.reviewer_decision_notes}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                reviewer_decision_notes: event.target.value,
+                                            },
+                                        }))}
+                                        multiline
+                                        minRows={2}
+                                        fullWidth
+                                    />
+
+                                    <TextField
+                                        size="small"
+                                        label="Sync summary"
+                                        value={evidenceDraft.sync_summary}
+                                        onChange={(event) => setEvidenceDrafts((current) => ({
+                                            ...current,
+                                            [drawerTask.id]: {
+                                                ...evidenceDraft,
+                                                sync_summary: event.target.value,
+                                            },
+                                        }))}
+                                        multiline
+                                        minRows={2}
+                                        helperText="Required before `synced_to_github`; reused for archive notes."
+                                        fullWidth
+                                    />
+
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                        <Chip label={evidenceReadyForSync ? "Ready for sync" : "Sync evidence incomplete"} size="small" color={evidenceReadyForSync ? "success" : "warning"} />
+                                        <Chip label={evidenceReadyForArchive ? "Ready for archive" : "Archive evidence incomplete"} size="small" color={evidenceReadyForArchive ? "success" : "warning"} />
+                                    </Stack>
+
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => taskUpdateMutation.mutate({
+                                            taskId: drawerTask.id,
+                                            payload: {
+                                                metadata: {
+                                                    ...drawerTask.metadata,
+                                                    external_links: serializeExternalLinks(taskLinks),
+                                                    evidence_bundle: buildEvidenceBundlePayload(evidenceDraft),
+                                                },
+                                            },
+                                        })}
+                                    >
+                                        Save evidence bundle
+                                    </Button>
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">What changed since last run</Typography>
+
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "").trim() ? (
+                                        <Box component="pre" sx={{ m: 0, whiteSpace: "pre-wrap", typography: "caption" }}>
+                                            {String(expandedExecSnapshot?.execution_memory?.since_last_run_unified_diff || "")}
+                                        </Box>
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            No diff captured yet.
+                                        </Typography>
+                                    )}
+                                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                        {expandedExecSnapshot?.last_run_id ? (
+                                            <Link href={`/runs/${expandedExecSnapshot.last_run_id}`} underline="hover">Latest run</Link>
+                                        ) : null}
+                                    </Stack>
+                                </Paper>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Changed artifacts</Typography>
+
+                                <Stack spacing={0.75}>
+                                    {(expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>> | undefined)?.length ? (
+                                        (expandedExecSnapshot?.changed_artifacts as Array<Record<string, unknown>>).map((artifact) => (
+                                            <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                                                <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {String(artifact.kind || "artifact")} · {artifact.created_at ? formatDateTime(String(artifact.created_at)) : "no timestamp"}
+                                                </Typography>
+                                            </Paper>
+                                        ))
+                                    ) : expandedArtifacts.length > 0 ? (
+                                        expandedArtifacts.slice(0, 4).map((artifact) => (
+                                            <Paper key={artifact.id} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                                                <Typography variant="body2">{artifact.title}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {artifact.kind} · {formatDateTime(artifact.created_at)}
+                                                </Typography>
+                                            </Paper>
+                                        ))
+                                    ) : (
+                                        <Typography variant="caption" color="text.secondary">No artifacts yet.</Typography>
+                                    )}
+                                </Stack>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Timeline</Typography>
+
+                                <Stack spacing={0.75} sx={{ maxHeight: 220, overflow: "auto" }}>
+                                    {timeline.length === 0 ? (
+                                        <Typography variant="caption" color="text.secondary">
+                                            No comments or GitHub sync events yet.
+                                        </Typography>
+                                    ) : (
+                                        timeline.map((row) => (
+                                            <Paper key={`${row.kind}-${row.id}`} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {formatDateTime(row.created_at)} · {row.kind}
+                                                </Typography>
+                                                <Typography variant="body2">{row.title}</Typography>
+                                                {row.body ? (
+                                                    <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
+                                                        {row.body}
+                                                    </Typography>
+                                                ) : null}
+                                            </Paper>
+                                        ))
+                                    )}
+                                </Stack>
+
+                                <Divider />
+
+                                <SubtaskPanel projectId={projectId} taskId={drawerTask.id} taskTitle={drawerTask.title} />
+
+                                <Divider />
+
+                                <ArtifactPanel taskId={drawerTask.id} />
+
+                                <Divider />
+
+                                <TaskMemoryInspector
+                                    projectId={projectId}
+                                    taskId={drawerTask.id}
+                                    lastRunId={lastRun?.id}
+                                />
+                            </Stack>
+                        </>
+                    );
+                })()}
+            </Drawer>
+        </Stack>
+    );
+});
+
+// ── DAG View ─────────────────────────────────────────────────
+
+const DagView = memo(function DagView({
+    tasks,
+    selectedDagTaskId,
+    onSelectTask,
+}: {
+    tasks: OrchestrationTask[];
+    selectedDagTaskId: string | null;
+    onSelectTask: (taskId: string) => void;
+}) {
+    const theme = useTheme();
+    const STATUS_COLORS: Record<string, string> = {
+        completed: "#4caf50",
+        approved: "#2e7d32",
+        synced_to_github: "#4caf50",
+        failed: "#f44336",
+        in_progress: "#2196f3",
+        queued: "#ff9800",
+        planned: "#607d8b",
+        blocked: "#9c27b0",
+        backlog: "#9e9e9e",
+        needs_review: "#ff9800",
+    };
+
+    const taskIndex = useMemo(() => Object.fromEntries(tasks.map((t, i) => [t.id, i])), [tasks]);
+
+    const COLS = Math.min(4, tasks.length);
+    const NODE_W = 160;
+    const NODE_H = 50;
+    const GAP_X = 60;
+    const GAP_Y = 40;
+    const PADDING = 20;
+
+    const positions = useMemo(() => {
+        return tasks.map((_, i) => ({
+            x: PADDING + (i % COLS) * (NODE_W + GAP_X),
+            y: PADDING + Math.floor(i / COLS) * (NODE_H + GAP_Y),
+        }));
+    }, [tasks, COLS]);
+
+    const svgW = PADDING * 2 + COLS * (NODE_W + GAP_X) - GAP_X;
+    const svgH = PADDING * 2 + Math.ceil(tasks.length / COLS) * (NODE_H + GAP_Y) - GAP_Y;
+
+    const edges = useMemo(() => {
+        const result: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+        for (const task of tasks) {
+            for (const depId of task.dependency_ids ?? []) {
+                const srcIdx = taskIndex[depId];
+                const dstIdx = taskIndex[task.id];
+                if (srcIdx === undefined || dstIdx === undefined) continue;
+                const src = positions[srcIdx];
+                const dst = positions[dstIdx];
+                result.push({
+                    x1: src.x + NODE_W / 2,
+                    y1: src.y + NODE_H,
+                    x2: dst.x + NODE_W / 2,
+                    y2: dst.y,
+                });
+            }
+        }
+        return result;
+    }, [tasks, positions, taskIndex]);
+
+    if (tasks.length === 0) {
+        return <EmptyState icon={<DagIcon />} title="No tasks yet" description="Add tasks to see the dependency graph." />;
+    }
+
+    return (
+        <Box sx={{ overflow: "auto" }}>
+            <svg width={svgW} height={svgH} style={{ display: "block" }}>
+                <defs>
+                    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+                        <path d="M0,0 L0,8 L8,4 z" fill="#999" />
+                    </marker>
+                </defs>
+                {edges.map((edge, i) => (
+                    <line
+                        key={i}
+                        x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                        stroke="#999" strokeWidth={1.5} markerEnd="url(#arrow)"
+                    />
+                ))}
+                {tasks.map((task, i) => {
+                    const pos = positions[i];
+                    const color = STATUS_COLORS[task.status] ?? "#9e9e9e";
+                    const selected = task.id === selectedDagTaskId;
+                    return (
+                        <g
+                            key={task.id}
+                            role="button"
+                            tabIndex={0}
+                            style={{ cursor: "pointer" }}
+                            onClick={() => onSelectTask(task.id)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    onSelectTask(task.id);
+                                }
+                            }}
+                        >
+                            <rect
+                                x={pos.x} y={pos.y} width={NODE_W} height={NODE_H}
+                                rx={8} ry={8}
+                                fill={color + "22"}
+                                stroke={selected ? theme.palette.primary.main : color}
+                                strokeWidth={selected ? 3 : 1.5}
+                            />
+                            <text
+                                x={pos.x + NODE_W / 2} y={pos.y + 18}
+                                textAnchor="middle" fontSize={11} fontWeight="600" fill={color}
+                            >
+                                {task.title.length > 20 ? task.title.slice(0, 19) + "…" : task.title}
+                            </text>
+                            <text
+                                x={pos.x + NODE_W / 2} y={pos.y + 34}
+                                textAnchor="middle" fontSize={10} fill="#888"
+                            >
+                                {task.status}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </Box>
+    );
+});
+
+// ── Main Page ────────────────────────────────────────────────
+
+export default function OrchestrationProjectDetailView() {
+    const { projectId = "" } = useParams();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [tab, setTab] = useState<DetailTab>("overview");
+    const [workView, setWorkView] = useState<WorkView>("board");
+    const [knowledgeView, setKnowledgeView] = useState<KnowledgeView>("search");
+    const [teamView, setTeamView] = useState<TeamView>("agents");
+    const [overviewEditOpen, setOverviewEditOpen] = useState(false);
+    const [taskForm, setTaskForm] = useState({
+        title: "",
+        description: "",
+        priority: "normal",
+        status: "queued",
+        acceptance_criteria: "",
+        assigned_agent_id: "",
+        reviewer_agent_id: "",
+        dependency_ids: [] as string[],
+        due_date: "",
+        response_sla_hours: "",
+    });
+    const [projectOverviewForm, setProjectOverviewForm] = useState<WorkspaceOverviewDraft>({
+        executive_summary: "",
+        current_focus: "",
+        decision_focus: "",
+    });
+    const [projectOverviewTouched, setProjectOverviewTouched] = useState(false);
+    const [projectGoalsDraft, setProjectGoalsDraft] = useState("");
+    const [projectGoalsTouched, setProjectGoalsTouched] = useState(false);
+    const [projectExternalLinks, setProjectExternalLinks] = useState<ExternalLinkRecord[]>([]);
+    const [projectExternalLinksTouched, setProjectExternalLinksTouched] = useState(false);
+    const [taskOwnerTouched, setTaskOwnerTouched] = useState(false);
+    const [taskReviewerTouched, setTaskReviewerTouched] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+    const [selectedAgentId, setSelectedAgentId] = useState("");
+    const [brainstormForm, setBrainstormForm] = useState({
+        topic: "",
+        task_id: "",
+        moderator_agent_id: "",
+        participant_agent_ids: [] as string[],
+        mode: "exploration",
+        output_type: "implementation_plan",
+        max_rounds: "3",
+        max_cost_usd: "10",
+        max_repetition_score: "0.92",
+        soft_consensus_min_similarity: "0.72",
+        conflict_pairwise_max_similarity: "0.38",
+        stop_on_consensus: true,
+        accept_soft_consensus: true,
+        escalate_on_no_consensus: true,
+    });
+    const [brainstormAdvancedOpen, setBrainstormAdvancedOpen] = useState(false);
+    const [milestoneForm, setMilestoneForm] = useState({ title: "", description: "", due_date: "" });
+    const [decisionForm, setDecisionForm] = useState({ title: "", decision: "", rationale: "", author_label: "" });
+    const [knowledgeQuery, setKnowledgeQuery] = useState("");
+    const [includeDecisionRecall, setIncludeDecisionRecall] = useState(true);
+    const [documentTtlDays, setDocumentTtlDays] = useState("30");
+    const [expandedDocumentId, setExpandedDocumentId] = useState<string | null>(null);
+    const [githubForm, setGithubForm] = useState<Partial<{
+        branch_prefix: string;
+        enforce_branch_naming: boolean;
+        auto_post_progress: boolean;
+        auto_activate_review_on_pr_open: boolean;
+        auto_review_on_pr_review: boolean;
+        close_issue_with_manager_summary: boolean;
+        sync_labels_to_github: boolean;
+        sync_assignees_to_github: boolean;
+        sync_state_to_github: boolean;
+        sync_milestone_to_github: boolean;
+        repo_agent_pools_json: string;
+    }>>({});
+    const [localRepoForm, setLocalRepoForm] = useState<Partial<LocalRepoDraft>>({});
+    const [hitlForm, setHitlForm] = useState<Partial<{
+        sandbox_note: string;
+        secret_scope: string;
+        sandbox_mode: string;
+    }>>({});
+    const [approvalReasonById, setApprovalReasonById] = useState<Record<string, string>>({});
+    const [acceptanceTaskId, setAcceptanceTaskId] = useState<string | null>(null);
+    const [taskRunModes, setTaskRunModes] = useState<Record<string, ExecutionMode>>({});
+    const [taskPrModes, setTaskPrModes] = useState<Record<string, boolean>>({});
+    const [dagDrawerTaskId, setDagDrawerTaskId] = useState<string | null>(null);
+    const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+    const [taskAdditionalOpen, setTaskAdditionalOpen] = useState(false);
+    const [taskCriteriaList, setTaskCriteriaList] = useState<string[]>([]);
+    const [dagDependencyDrafts, setDagDependencyDrafts] = useState<Record<string, string[]>>({});
+    const [projectTeamSettings, setProjectTeamSettings] = useState<null | {
+        manager_agent_id: string;
+        reviewer_agent_ids: string[];
+        reviewer_chain_mode: string;
+        autonomy_level: string;
+        provider_config_id: string;
+        model_name: string;
+        fallback_model: string;
+        escalation_target_agent_id: string;
+        stuck_for_minutes: string;
+        cost_exceeds_usd: string;
+        no_consensus_after_rounds: string;
+        routing_mode: string;
+        sibling_load_balance: string;
+        skip_unhealthy_worker_providers: boolean;
+        offline_local_only_mode: boolean;
+        enforce_project_model_policy: boolean;
+        allowed_provider_types_csv: string;
+        allowed_model_slugs_csv: string;
+        blocked_handoff_mode: string;
+        blocked_handoff_target_agent_id: string;
+        blocked_handoff_fallback_to_manager: boolean;
+        sla_enabled: boolean;
+        sla_warn_hours: string;
+        sla_escalate_after_due_hours: string;
+    }>(null);
+    const [policyPreviewForm, setPolicyPreviewForm] = useState({
+        priority: "normal",
+        taskType: "general",
+        labelsCsv: "",
+        projectSensitive: false,
+    });
+    const [memorySettingsDraft, setMemorySettingsDraft] = useState<null | {
+        semantic_write_requires_approval: boolean;
+        episodic_retention_days: string;
+        deep_recall_mode: boolean;
+    }>(null);
+    const [mergeTaskId, setMergeTaskId] = useState<string | null>(null);
+    const [mergeNotes, setMergeNotes] = useState("");
+    const [repoIndexDrafts, setRepoIndexDrafts] = useState<Record<string, { scheduleLabel: string; pathPrefixes: string; autoEnabled: boolean }>>({});
+    const debouncedKnowledgeQuery = useDebounce(knowledgeQuery.trim(), 250);
+    const projectQueryEnabled = Boolean(projectId);
+    const isTabActive = (...tabs: Array<DetailTab | "board" | "dag" | "agents" | "brainstorms" | "decisions" | "github">) =>
+        tabs.some((candidate) =>
+            candidate === tab ||
+            (tab === "work" && ["board", "dag", "brainstorms"].includes(candidate)) ||
+            (tab === "team" && candidate === "agents") ||
+            (tab === "knowledge" && ["knowledge", "decisions", "github"].includes(candidate)),
+        );
+
+    const { data: project, isLoading: projectLoading, isError: projectLoadFailed, error: projectLoadError, refetch: refetchProject, isFetching: projectFetching } = useQuery({
+        queryKey: queryKeys.orchestration.project(projectId),
+        queryFn: () => getOrchestrationProject(projectId),
+        enabled: projectQueryEnabled,
+    });
+    const { data: tasks = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectTasks(projectId),
+        queryFn: () => listOrchestrationTasks(projectId),
+        enabled: projectQueryEnabled && isTabActive("board", "dag", "brainstorms"),
+    });
+    const { data: allAgents = [] } = useQuery({
+        queryKey: queryKeys.orchestration.agents(projectId),
+        queryFn: () => listAgents(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "board", "dag", "agents", "brainstorms"),
+    });
+    const { data: agentTemplates = [] } = useQuery({
+        queryKey: queryKeys.orchestration.agentTemplates,
+        queryFn: listAgentTemplates,
+        enabled: isTabActive("agents"),
+    });
+    const { data: providers = [] } = useQuery({
+        queryKey: queryKeys.orchestration.providers,
+        queryFn: () => listProviders(),
+        enabled: isTabActive("agents"),
+    });
+    const { data: projectAgents = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectAgents(projectId),
+        queryFn: () => listProjectAgents(projectId),
+        enabled: projectQueryEnabled && isTabActive("board", "agents"),
+    });
+    const { data: brainstorms = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectBrainstorms(projectId),
+        queryFn: () => listBrainstorms(projectId),
+        enabled: projectQueryEnabled && isTabActive("brainstorms"),
+    });
+    const { data: runs = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectRuns(projectId),
+        queryFn: () => listRuns(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "board", "dag", "activity"),
+    });
+    const lastRunByTaskId = useMemo(() => {
+        const m: Record<string, TaskRun> = {};
+        for (const r of runs) {
+            if (r.task_id && m[r.task_id] === undefined) {
+                m[r.task_id] = r;
+            }
+        }
+        return m;
+    }, [runs]);
+    const { data: docs = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectDocuments(projectId),
+        queryFn: () => listProjectDocuments(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
+    });
+    const { data: projectRepositories = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectRepositories(projectId),
+        queryFn: () => listProjectRepositories(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
+    });
+    const { data: repositoryIndexStatus = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId),
+        queryFn: () => getProjectRepositoryIndexStatus(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
+    });
+    const { data: knowledgeResults = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectKnowledge(projectId, debouncedKnowledgeQuery, includeDecisionRecall),
+        queryFn: () => searchProjectKnowledge(projectId, debouncedKnowledgeQuery, undefined, { includeDecisions: includeDecisionRecall }),
+        enabled: projectQueryEnabled && isTabActive("knowledge") && debouncedKnowledgeQuery.length >= 3,
+    });
+    const { data: semanticEntries = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectSemanticMemory(projectId, debouncedKnowledgeQuery),
+        queryFn: () => listSemanticMemory(projectId, debouncedKnowledgeQuery ? { q: debouncedKnowledgeQuery, limit: 25 } : { limit: 25 }),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
+    });
+    const { data: projectMemorySettings } = useQuery({
+        queryKey: queryKeys.orchestration.projectMemorySettings(projectId),
+        queryFn: () => getProjectMemorySettings(projectId),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
+    });
+    const { data: memoryIngestJobs = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectMemoryIngestJobs(projectId),
+        queryFn: () => listProjectMemoryIngestJobs(projectId, 80),
+        enabled: projectQueryEnabled && isTabActive("knowledge"),
+    });
+    const { data: memoryEntries = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectMemory(projectId),
+        queryFn: () => listProjectMemory(projectId),
+        enabled: projectQueryEnabled && (isTabActive("activity") || (tab === "knowledge" && knowledgeView === "memory")),
+    });
+    const { data: approvals = [] } = useQuery({
+        queryKey: queryKeys.orchestration.approvals,
+        queryFn: () => listApprovals(),
+        enabled: isTabActive("overview", "activity"),
+    });
+    const { data: issueLinks = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectIssues(projectId),
+        queryFn: () => listGithubIssueLinks(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
+    });
+    const { data: syncEvents = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectSyncEvents(projectId),
+        queryFn: () => listGithubSyncEvents(projectId),
+        enabled: projectQueryEnabled && isTabActive("github"),
+    });
+    const { data: milestones = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectMilestones(projectId),
+        queryFn: () => listProjectMilestones(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview"),
+    });
+    const { data: decisions = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectDecisions(projectId),
+        queryFn: () => listProjectDecisions(projectId),
+        enabled: projectQueryEnabled && isTabActive("decisions"),
+    });
+    const { data: gateConfig } = useQuery<GateConfig>({
+        queryKey: queryKeys.orchestration.projectGateConfig(projectId),
+        queryFn: () => getGateConfig(projectId),
+        enabled: projectQueryEnabled && isTabActive("overview", "agents"),
+    });
+    const { data: dagReadyList = [] } = useQuery({
+        queryKey: queryKeys.orchestration.projectDagReady(projectId),
+        queryFn: () => listDagReadyTasks(projectId),
+        enabled: projectQueryEnabled && tab === "work" && workView === "dependencies",
+    });
+    const { data: mergePreview } = useQuery({
+        queryKey: queryKeys.orchestration.projectMergePreview(projectId, mergeTaskId),
+        queryFn: () => getMergeResolutionPreview(projectId, mergeTaskId as string),
+        enabled: Boolean(projectId) && Boolean(mergeTaskId),
+    });
+
+    useProjectLiveSnapshotSync(projectId, { enabled: projectQueryEnabled });
+
+    const projectAgentMap = useMemo(() => new Set(projectAgents.map((item) => item.agent_id)), [projectAgents]);
+    const projectAgentProfiles = useMemo(
+        () => allAgents.filter((agent) => projectAgentMap.has(agent.id)),
+        [allAgents, projectAgentMap],
+    );
+    const availableAgents = allAgents.filter((agent) => !projectAgentMap.has(agent.id));
+    const assignableTemplates = agentTemplates.filter((template) => {
+        const templateSlug = String(template.slug || "").trim();
+        if (!templateSlug) return false;
+        return !projectAgentProfiles.some((agent) => agent.parent_template_slug === templateSlug);
+    });
+    const brainstormParticipantProfiles = useMemo(
+        () => allAgents.filter((agent) => brainstormForm.participant_agent_ids.includes(agent.id)),
+        [allAgents, brainstormForm.participant_agent_ids],
+    );
+    const brainstormSuggestedOutput = useMemo(() => {
+        const byMode: Record<string, string> = {
+            exploration: "implementation_plan",
+            solution_design: "implementation_plan",
+            code_review: "test_plan",
+            incident_triage: "risk_register",
+            root_cause: "risk_register",
+            architecture_proposal: "adr",
+        };
+        return byMode[brainstormForm.mode] ?? "implementation_plan";
+    }, [brainstormForm.mode]);
+    const dagTask = useMemo(
+        () => (dagDrawerTaskId ? tasks.find((t) => t.id === dagDrawerTaskId) ?? null : null),
+        [tasks, dagDrawerTaskId],
+    );
+    const dagTaskLatestRun = useMemo(() => {
+        if (!dagTask) return null;
+        const forTask = [...runs].filter((r) => r.task_id === dagTask.id);
+        forTask.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return forTask[0] ?? null;
+    }, [runs, dagTask]);
+    const dagTaskSubtasks = useMemo(() => {
+        if (!dagTask) return [];
+        return tasks.filter((t) => t.parent_task_id === dagTask.id);
+    }, [tasks, dagTask]);
+    const dagTaskDependents = useMemo(() => {
+        if (!dagTask) return [];
+        return tasks.filter((task) => (task.dependency_ids ?? []).includes(dagTask.id));
+    }, [tasks, dagTask]);
+    const dagBlockedSuggestion = useMemo(() => {
+        if (!dagTask) return null;
+        const targetId = typeof dagTask.metadata?.suggested_handoff_agent_id === "string" ? dagTask.metadata.suggested_handoff_agent_id : "";
+        if (!targetId) return null;
+        const targetAgent = allAgents.find((agent) => agent.id === targetId);
+        return {
+            agentName: targetAgent?.name || targetId,
+            via: String(dagTask.metadata?.handoff_suggested_via || "handoff rule"),
+            reason: String(dagTask.metadata?.handoff_blocked_reason || ""),
+        };
+    }, [allAgents, dagTask]);
+    const dagDescendantIds = useMemo(() => {
+        if (!dagTask) return new Set<string>();
+        const dependentsById = new Map<string, string[]>();
+        for (const task of tasks) {
+            for (const depId of task.dependency_ids ?? []) {
+                const current = dependentsById.get(depId) ?? [];
+                current.push(task.id);
+                dependentsById.set(depId, current);
+            }
+        }
+        const descendants = new Set<string>();
+        const stack = [...(dependentsById.get(dagTask.id) ?? [])];
+        while (stack.length > 0) {
+            const current = stack.pop();
+            if (!current || descendants.has(current)) continue;
+            descendants.add(current);
+            stack.push(...(dependentsById.get(current) ?? []));
+        }
+        return descendants;
+    }, [dagTask, tasks]);
+    const currentDagDependencySelection = dagTask ? (dagDependencyDrafts[dagTask.id] ?? dagTask.dependency_ids ?? []) : [];
+    const githubDefaults = useMemo(() => {
+        const gh = (project?.settings?.github as Record<string, unknown> | undefined) ?? {};
+        return {
+            branch_prefix: String(gh.branch_prefix ?? "troop/{task_id}-{slug}"),
+            enforce_branch_naming: Boolean(gh.enforce_branch_naming ?? true),
+            auto_post_progress: Boolean(gh.auto_post_progress),
+            auto_activate_review_on_pr_open: Boolean(gh.auto_activate_review_on_pr_open ?? true),
+            auto_review_on_pr_review: Boolean(gh.auto_review_on_pr_review),
+            close_issue_with_manager_summary: Boolean(gh.close_issue_with_manager_summary ?? true),
+            sync_labels_to_github: Boolean(gh.sync_labels_to_github ?? true),
+            sync_assignees_to_github: Boolean(gh.sync_assignees_to_github ?? true),
+            sync_state_to_github: Boolean(gh.sync_state_to_github ?? true),
+            sync_milestone_to_github: Boolean(gh.sync_milestone_to_github ?? true),
+            repo_agent_pools_json: JSON.stringify(gh.repo_agent_pools ?? {}, null, 2),
+        };
+    }, [project?.settings]);
+    const resolvedGithubForm = { ...githubDefaults, ...githubForm };
+    const localRepoDefaults = useMemo<LocalRepoDraft>(() => {
+        const repo = (project?.settings?.local_repo as Record<string, unknown> | undefined) ?? {};
+        return {
+            enabled: Boolean(repo.enabled),
+            repo_path: String(repo.repo_path ?? ""),
+            dirty_worktree_policy: String(repo.dirty_worktree_policy ?? "block"),
+            allowed_branches: csvFromUnknown(repo.allowed_branches, "main, master, develop"),
+            file_allowlist: csvFromUnknown(repo.file_allowlist, "**/*"),
+            file_denylist: csvFromUnknown(repo.file_denylist, ".git/**, .env, .env.*, **/.env, **/.env.*, node_modules/**, **/node_modules/**"),
+            command_allowlist: csvFromUnknown(repo.command_allowlist, "git status, git diff, rg, pnpm, uv, pytest"),
+            max_diff_bytes: String(repo.max_diff_bytes ?? 200000),
+        };
+    }, [project?.settings]);
+    const resolvedLocalRepoForm = { ...localRepoDefaults, ...localRepoForm };
+    const hitlDefaults = useMemo(() => {
+        const hitl = (project?.settings?.hitl as Record<string, unknown> | undefined) ?? {};
+        return {
+            sandbox_note: String(hitl.sandbox_note ?? ""),
+            secret_scope: String(hitl.secret_scope ?? "project_default"),
+            sandbox_mode: String(hitl.sandbox_mode ?? "allow_host_fallback"),
+        };
+    }, [project?.settings]);
+    const resolvedHitlForm = { ...hitlDefaults, ...hitlForm };
+    const executionSettings = ((project?.settings?.execution as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+    const resolvedProjectTeamSettings = projectTeamSettings ?? {
+        manager_agent_id: String((executionSettings.manager_agent_id as string | undefined) ?? ""),
+        reviewer_agent_ids: Array.isArray(executionSettings.reviewer_agent_ids) ? executionSettings.reviewer_agent_ids as string[] : [],
+        reviewer_chain_mode: String((executionSettings.reviewer_chain_mode as string | undefined) ?? "sequential"),
+        autonomy_level: String((executionSettings.autonomy_level as string | undefined) ?? "semi-autonomous"),
+        provider_config_id: String((executionSettings.provider_config_id as string | undefined) ?? ""),
+        model_name: String((executionSettings.model_name as string | undefined) ?? ""),
+        fallback_model: String((executionSettings.fallback_model as string | undefined) ?? ""),
+        escalation_target_agent_id: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? [])[0]?.escalate_to as string | undefined) ?? ""),
+        stuck_for_minutes: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "stuck_for_minutes")?.value as number | undefined) ?? 30),
+        cost_exceeds_usd: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "cost_exceeds_usd")?.value as number | undefined) ?? 10),
+        no_consensus_after_rounds: String((((executionSettings.escalation_rules as Array<Record<string, unknown>> | undefined) ?? []).find((item) => item.condition === "no_consensus_after_rounds")?.value as number | undefined) ?? 3),
+        routing_mode: String((executionSettings.routing_mode as string | undefined) ?? "capability_based"),
+        sibling_load_balance: String((executionSettings.sibling_load_balance as string | undefined) ?? "queue_depth"),
+        skip_unhealthy_worker_providers: executionSettings.skip_unhealthy_worker_providers !== false,
+        offline_local_only_mode: Boolean(executionSettings.offline_local_only_mode),
+        enforce_project_model_policy: Boolean(executionSettings.enforce_project_model_policy),
+        allowed_provider_types_csv: Array.isArray(executionSettings.allowed_provider_types)
+            ? (executionSettings.allowed_provider_types as string[]).join(", ")
+            : "",
+        allowed_model_slugs_csv: Array.isArray(executionSettings.allowed_model_slugs)
+            ? (executionSettings.allowed_model_slugs as string[]).join(", ")
+            : "",
+        blocked_handoff_mode: String(((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.mode as string | undefined) ?? "escalation_path"),
+        blocked_handoff_target_agent_id: String(((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.target_agent_id as string | undefined) ?? ""),
+        blocked_handoff_fallback_to_manager: ((executionSettings.blocked_handoff as Record<string, unknown> | undefined)?.fallback_to_manager as boolean | undefined) !== false,
+        sla_enabled: ((executionSettings.sla as Record<string, unknown> | undefined)?.enabled as boolean | undefined) !== false,
+        sla_warn_hours: String(((executionSettings.sla as Record<string, unknown> | undefined)?.warn_hours_before_due as number | undefined) ?? 24),
+        sla_escalate_after_due_hours: String(((executionSettings.sla as Record<string, unknown> | undefined)?.escalate_hours_after_due as number | undefined) ?? 0),
+    };
+    const policyRoutingPreview = useMemo(() => {
+        const policy = ((executionSettings.policy_routing as Record<string, unknown> | undefined) ?? {}) as {
+            cheap_model_slug?: string;
+            strong_model_slug?: string;
+            local_model_slug?: string;
+            rules?: PolicyRoutingRule[];
+        };
+        const labels = policyPreviewForm.labelsCsv
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+        const sample = {
+            priority: policyPreviewForm.priority,
+            taskType: policyPreviewForm.taskType,
+            labels,
+            projectSensitive: policyPreviewForm.projectSensitive,
+        };
+        const rules = Array.isArray(policy.rules) ? policy.rules : [];
+        let matchedRule: PolicyRoutingRule | null = null;
+        let routeKey = "";
+        for (const rule of rules) {
+            const field = String(rule.field ?? "");
+            const operator = String(rule.operator ?? "equals");
+            const actual = policyFieldValue(field, sample);
+            if (!policyRuleMatches(actual, operator, rule.value)) continue;
+            matchedRule = rule;
+            routeKey = String(rule.route_to ?? "");
+            break;
+        }
+        const fallbackModel =
+            resolvedProjectTeamSettings.model_name ||
+            providers.find((provider) => provider.id === resolvedProjectTeamSettings.provider_config_id)?.default_model ||
+            "provider/default";
+        const modelFromRoute = routeKey
+            ? String((policy as Record<string, unknown>)[routeKey] ?? "")
+            : "";
+        const selectedModel = modelFromRoute || fallbackModel;
+        const selectedProvider =
+            routeKey === "local_model_slug"
+                ? providers.find((provider) => provider.provider_type === "ollama" && provider.is_enabled) ?? null
+                : providers.find((provider) => provider.id === resolvedProjectTeamSettings.provider_config_id) ?? null;
+        return {
+            matchedRule,
+            routeKey,
+            selectedModel,
+            selectedProviderName: selectedProvider?.name ?? (routeKey === "local_model_slug" ? "local runtime fallback" : "project/default provider"),
+        };
+    }, [
+        executionSettings.policy_routing,
+        policyPreviewForm.labelsCsv,
+        policyPreviewForm.priority,
+        policyPreviewForm.projectSensitive,
+        policyPreviewForm.taskType,
+        providers,
+        resolvedProjectTeamSettings.model_name,
+        resolvedProjectTeamSettings.provider_config_id,
+    ]);
+    const resolvedMemorySettings = memorySettingsDraft ?? {
+        semantic_write_requires_approval: Boolean(projectMemorySettings?.semantic_write_requires_approval),
+        episodic_retention_days: String(projectMemorySettings?.episodic_retention_days ?? 90),
+        deep_recall_mode: Boolean(projectMemorySettings?.deep_recall_mode),
+    };
+    const workspaceOverviewBase = readWorkspaceOverview(project?.settings);
+    const effectiveWorkspaceOverview = projectOverviewTouched ? projectOverviewForm : workspaceOverviewBase;
+    const effectiveProjectGoals = projectGoalsTouched ? projectGoalsDraft : (project?.goals_markdown ?? "");
+    const effectiveProjectExternalLinks = projectExternalLinksTouched
+        ? projectExternalLinks
+        : readExternalLinks(project?.settings?.external_links);
+    const suggestedTaskOwnerId = useMemo(() => {
+        const reviewerIds = new Set(resolvedProjectTeamSettings.reviewer_agent_ids);
+        const candidateMembers = projectAgentProfiles.filter((agent) => !reviewerIds.has(agent.id));
+        const workerOnly = candidateMembers.filter((agent) => agent.id !== resolvedProjectTeamSettings.manager_agent_id);
+        if (workerOnly.length === 1) return workerOnly[0].id;
+        if (resolvedProjectTeamSettings.manager_agent_id) return resolvedProjectTeamSettings.manager_agent_id;
+        return workerOnly[0]?.id ?? candidateMembers[0]?.id ?? "";
+    }, [projectAgentProfiles, resolvedProjectTeamSettings.manager_agent_id, resolvedProjectTeamSettings.reviewer_agent_ids]);
+    const suggestedTaskReviewerId = useMemo(() => {
+        const owner = projectAgentProfiles.find((agent) => agent.id === (taskForm.assigned_agent_id || suggestedTaskOwnerId));
+        if (owner?.reviewer_agent_id) return owner.reviewer_agent_id;
+        return resolvedProjectTeamSettings.reviewer_agent_ids[0] ?? "";
+    }, [projectAgentProfiles, resolvedProjectTeamSettings.reviewer_agent_ids, suggestedTaskOwnerId, taskForm.assigned_agent_id]);
+    const effectiveTaskOwnerId = taskOwnerTouched ? taskForm.assigned_agent_id : (taskForm.assigned_agent_id || suggestedTaskOwnerId);
+    const effectiveTaskReviewerId = taskReviewerTouched ? taskForm.reviewer_agent_id : (taskForm.reviewer_agent_id || suggestedTaskReviewerId);
+    const memoryIngestCounts = useMemo(() => {
+        const counts = { pending: 0, running: 0, completed: 0, failed: 0 };
+        for (const job of memoryIngestJobs) {
+            const status = String(job.status);
+            if (status === "pending") counts.pending += 1;
+            else if (status === "running") counts.running += 1;
+            else if (status === "completed") counts.completed += 1;
+            else if (status === "failed") counts.failed += 1;
+        }
+        return counts;
+    }, [memoryIngestJobs]);
+
+    const milestoneProgress = milestones.length === 0 ? 0
+        : Math.round((milestones.filter((m) => m.status === "completed").length / milestones.length) * 100);
+
+    const addAgentMutation = useMutation({
+        mutationFn: async ({ selection }: { selection: string }) => {
+            if (selection.startsWith("agent:")) {
+                const agentId = selection.slice("agent:".length);
+                const membership = await addProjectAgent(projectId, { agent_id: agentId, role: "member" });
+                return { kind: "existing" as const, membership };
+            }
+            if (selection.startsWith("template:")) {
+                const templateSlug = selection.slice("template:".length);
+                const nextAgent = await createAgentFromTemplate(templateSlug, {
+                    project_id: projectId,
+                    slug: `${templateSlug}-${Date.now()}`,
+                });
+                const membership = await addProjectAgent(projectId, { agent_id: nextAgent.id, role: "member" });
+                return { kind: "from_template" as const, membership, createdAgent: nextAgent };
+            }
+            throw new Error("Pick an agent or template first.");
+        },
+        onSuccess: async (data) => {
+            setSelectedAgentId("");
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents(projectId) }),
+            ]);
+            const lintWarnings =
+                data.kind === "from_template"
+                    ? (data.createdAgent.lint?.warnings ?? []).filter((line): line is string => Boolean(line))
+                    : [];
+            if (lintWarnings.length > 0) {
+                showToast({
+                    message: `Agent assigned to project. ${lintWarnings.join(" ")}`,
+                    severity: "warning",
+                });
+            } else {
+                showToast({ message: "Agent assigned to project.", severity: "success" });
+            }
+        },
+    });
+    const deleteAgentMutation = useMutation({
+        mutationFn: (selection: string) => {
+            const agentId = selection.startsWith("agent:") ? selection.slice("agent:".length) : selection;
+            return deleteAgent(agentId);
+        },
+        onSuccess: async () => {
+            setSelectedAgentId("");
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) }),
+            ]);
+            showToast({ message: "Agent deleted from database.", severity: "success" });
+        },
+    });
+    const createTaskMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => createOrchestrationTask(projectId, payload),
+        onSuccess: async () => {
+            setTaskForm({
+                title: "",
+                description: "",
+                priority: "normal",
+                status: "queued",
+                acceptance_criteria: "",
+                assigned_agent_id: "",
+                reviewer_agent_id: "",
+                dependency_ids: [],
+                due_date: "",
+                response_sla_hours: "",
+            });
+            setTaskCriteriaList([]);
+            setTaskOwnerTouched(false);
+            setTaskReviewerTouched(false);
+            setTaskDrawerOpen(false);
+            setTaskAdditionalOpen(false);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            showToast({ message: "Task created.", severity: "success" });
+        },
+    });
+    const runMutation = useMutation({
+        mutationFn: ({ taskId, runMode, createPr }: { taskId: string; runMode: ExecutionMode; createPr: boolean }) =>
+            startTaskRun(projectId, taskId, { run_mode: runMode, input_payload: { create_pr: createPr, draft_pr: true } }),
+        onSuccess: async (run) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            toastQueuedRunWithOptionalWarnings(showToast, run, "Run queued.");
+            navigate(`/runs/${run.id}`);
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't start run. Try again."), severity: "error" });
+        },
+    });
+    const dagParallelMutation = useMutation({
+        mutationFn: () =>
+            startDagParallelReady(projectId, {
+                run_mode: "single_agent",
+                limit: 12,
+                input_payload: { dag_parallel_wave: true },
+            }),
+        onSuccess: async (res) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDagReady(projectId) });
+            showToast({
+                message: `Started ${res.started_run_ids.length} parallel run(s).${res.skipped_task_ids.length ? ` ${res.skipped_task_ids.length} skipped (see messages).` : ""}`,
+                severity: res.started_run_ids.length ? "success" : "warning",
+            });
+        },
+    });
+    const mergeResolutionMutation = useMutation({
+        mutationFn: ({ parentTaskId, notes }: { parentTaskId: string; notes: string }) =>
+            startMergeResolutionRun(projectId, parentTaskId, {
+                notes,
+                input_payload: {
+                    merge_resolution: {
+                        checklist_confirmed: true,
+                        notes,
+                    },
+                },
+            }),
+        onSuccess: async (run) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            toastQueuedRunWithOptionalWarnings(showToast, run, "Merge resolution run queued.");
+            setMergeTaskId(null);
+            setMergeNotes("");
+            navigate(`/runs/${run.id}`);
+        },
+    });
+    const queueRepositoryIndexMutation = useMutation({
+        mutationFn: ({ repositoryLinkId, mode, pathPrefixes, scheduleLabel, autoEnabled }: {
+            repositoryLinkId: string;
+            mode: "full" | "incremental";
+            pathPrefixes: string[];
+            scheduleLabel?: string | null;
+            autoEnabled?: boolean | null;
+        }) =>
+            queueProjectRepositoryIndex(projectId, repositoryLinkId, {
+                mode,
+                path_prefixes: pathPrefixes,
+                schedule_label: scheduleLabel,
+                auto_enabled: autoEnabled,
+            }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemoryIngestJobs(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId) });
+            showToast({ message: "Repository indexing queued.", severity: "success" });
+        },
+    });
+    const updateRepositoryMutation = useMutation({
+        mutationFn: ({ repositoryLinkId, defaultBranch, metadata }: {
+            repositoryLinkId: string;
+            defaultBranch?: string | null;
+            metadata?: Record<string, unknown>;
+        }) =>
+            updateProjectRepository(projectId, repositoryLinkId, {
+                default_branch: defaultBranch,
+                metadata,
+            }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositories(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId) });
+            showToast({ message: "Repository index settings saved.", severity: "success" });
+        },
+    });
+    const updateMembershipMutation = useMutation({
+        mutationFn: ({ membershipId, payload }: { membershipId: string; payload: Record<string, unknown> }) =>
+            updateProjectAgent(projectId, membershipId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) });
+            showToast({ message: "Project team updated.", severity: "success" });
+        },
+    });
+    const removeMembershipMutation = useMutation({
+        mutationFn: (membershipId: string) => removeProjectAgent(projectId, membershipId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) });
+            showToast({ message: "Agent removed from project team.", severity: "success" });
+        },
+    });
+    const updateHierarchyAgentMutation = useMutation({
+        mutationFn: ({ agentId, payload }: { agentId: string; payload: Record<string, unknown> }) =>
+            updateAgent(agentId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() });
+            showToast({ message: "Reporting line updated.", severity: "success" });
+        },
+    });
+    const saveProjectSettingsMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => updateOrchestrationProject(projectId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.project(projectId) });
+            showToast({ message: "Project execution settings saved.", severity: "success" });
+        },
+    });
+    const updateGateConfigMutation = useMutation({
+        mutationFn: (payload: Partial<GateConfig>) => updateGateConfig(projectId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectGateConfig(projectId) });
+            showToast({ message: "Gate configuration saved.", severity: "success" });
+        },
+    });
+    const brainstormMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => createBrainstorm(payload),
+        onSuccess: async (brainstorm) => {
+            setBrainstormForm({
+                topic: "",
+                task_id: "",
+                moderator_agent_id: "",
+                participant_agent_ids: [],
+                mode: "exploration",
+                output_type: "implementation_plan",
+                max_rounds: "3",
+                max_cost_usd: "10",
+                max_repetition_score: "0.92",
+                soft_consensus_min_similarity: "0.72",
+                conflict_pairwise_max_similarity: "0.38",
+                stop_on_consensus: true,
+                accept_soft_consensus: true,
+                escalate_on_no_consensus: true,
+            });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectBrainstorms(projectId) });
+            showToast({ message: "Brainstorm created.", severity: "success" });
+            await startBrainstorm(brainstorm.id);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't start brainstorm. Try again."), severity: "error" });
+        },
+    });
+    const milestoneMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => createProjectMilestone(projectId, payload),
+        onSuccess: async () => {
+            setMilestoneForm({ title: "", description: "", due_date: "" });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMilestones(projectId) });
+            showToast({ message: "Milestone created.", severity: "success" });
+        },
+    });
+    const toggleMilestoneMutation = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: string }) =>
+            updateProjectMilestone(projectId, id, { status }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMilestones(projectId) });
+        },
+    });
+    const updateDagTaskMutation = useMutation({
+        mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
+            updateOrchestrationTask(projectId, taskId, payload),
+        onSuccess: async (_, variables) => {
+            setDagDependencyDrafts((current) => {
+                const next = { ...current };
+                delete next[variables.taskId];
+                return next;
+            });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDagReady(projectId) });
+            showToast({ message: "Task graph updated.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Couldn't save task graph. Refresh and retry."), severity: "error" });
+        },
+    });
+    const decisionMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => createProjectDecision(projectId, payload),
+        onSuccess: async () => {
+            setDecisionForm({ title: "", decision: "", rationale: "", author_label: "" });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDecisions(projectId) });
+            showToast({ message: "Decision recorded.", severity: "success" });
+        },
+    });
+    const uploadDocumentMutation = useMutation({
+        mutationFn: (file: File) =>
+            uploadProjectDocument(
+                projectId,
+                file,
+                undefined,
+                Number(documentTtlDays || 0) || undefined,
+            ),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDocuments(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectKnowledge(projectId) });
+            showToast({ message: "Knowledge document uploaded.", severity: "success" });
+        },
+    });
+    const deleteDocumentMutation = useMutation({
+        mutationFn: (documentId: string) => deleteProjectDocument(projectId, documentId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDocuments(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectKnowledge(projectId) });
+            showToast({ message: "Knowledge document removed.", severity: "success" });
+        },
+    });
+    const deleteMemoryMutation = useMutation({
+        mutationFn: (memoryId: string) => deleteProjectMemoryEntry(projectId, memoryId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemory(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            showToast({ message: "Memory entry removed.", severity: "success" });
+        },
+    });
+    const memoryApprovalMutation = useMutation({
+        mutationFn: ({ approvalId, status, reason }: { approvalId: string; status: "approved" | "rejected"; reason?: string }) =>
+            decideApproval(approvalId, { status, reason }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemory(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            showToast({ message: "Memory review updated.", severity: "success" });
+        },
+    });
+    const memorySettingsMutation = useMutation({
+        mutationFn: (payload: Record<string, unknown>) => patchProjectMemorySettings(projectId, payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemorySettings(projectId) });
+            showToast({ message: "Memory rules updated.", severity: "success" });
+        },
+    });
+    const pendingMemoryApprovals = approvals.filter(
+        (approval) => approval.project_id === projectId && approval.approval_type === "agent_memory_write" && approval.status === "pending",
+    );
+    const pendingProjectApprovals = approvals.filter(
+        (approval) => approval.project_id === projectId && approval.status === "pending",
+    );
+    const activeRuns = runs.filter((run) => ["queued", "in_progress", "running"].includes(run.status));
+    const blockedTasks = tasks.filter((task) => ["blocked", "failed"].includes(task.status));
+    const readyTask = tasks.find((task) => ["queued", "planned", "backlog"].includes(task.status));
+    const latestDecision = decisions[0];
+    const nextAction =
+        pendingProjectApprovals.length > 0
+            ? { label: "Review approval", detail: `${pendingProjectApprovals.length} pending`, action: () => setTab("activity") }
+            : blockedTasks.length > 0
+                ? { label: "Unblock task", detail: blockedTasks[0]?.title ?? "Blocked work", action: () => { setTab("work"); setWorkView("board"); } }
+                : readyTask
+                    ? { label: "Run next task", detail: readyTask.title, action: () => { setTab("work"); setWorkView("board"); setSelectedTaskId(readyTask.id); } }
+                    : projectAgents.length === 0
+                        ? { label: "Add agent", detail: "No project team yet", action: () => { setTab("team"); setTeamView("agents"); } }
+                        : { label: "Add knowledge", detail: "Upload docs or connect repo", action: () => { setTab("knowledge"); setKnowledgeView("sources"); } };
+    const activityItems = [
+        ...runs.map((run) => ({
+            id: `run-${run.id}`,
+            kind: "Run",
+            title: `${humanizeKey(run.run_mode)} · ${humanizeKey(run.status)}`,
+            detail: `${run.token_total} tokens`,
+            at: run.created_at,
+            action: () => navigate(`/runs/${run.id}`),
+        })),
+        ...syncEvents.map((event) => ({
+            id: `sync-${event.id}`,
+            kind: "GitHub",
+            title: `${event.action} · ${event.status}`,
+            detail: event.detail || "No details",
+            at: event.created_at,
+            action: undefined,
+        })),
+        ...pendingProjectApprovals.map((approval) => ({
+            id: `approval-${approval.id}`,
+            kind: "Approval",
+            title: humanizeKey(approval.approval_type),
+            detail: "Pending review",
+            at: approval.created_at,
+            action: () => setTab("activity"),
+        })),
+        ...brainstorms.map((brainstorm) => ({
+            id: `brainstorm-${brainstorm.id}`,
+            kind: "Brainstorm",
+            title: brainstorm.topic,
+            detail: humanizeKey(brainstorm.status),
+            at: brainstorm.created_at,
+            action: () => navigate(`/brainstorms/${brainstorm.id}`),
+        })),
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    const providerOptions: ProviderConfig[] = providers;
+    const saveProjectExecutionSettings = () => {
+        const escalationRules = [
+            {
+                condition: "stuck_for_minutes",
+                value: Number(resolvedProjectTeamSettings.stuck_for_minutes || 0),
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
+            },
+            {
+                condition: "cost_exceeds_usd",
+                value: Number(resolvedProjectTeamSettings.cost_exceeds_usd || 0),
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
+            },
+            {
+                condition: "no_consensus_after_rounds",
+                value: Number(resolvedProjectTeamSettings.no_consensus_after_rounds || 0),
+                escalate_to: resolvedProjectTeamSettings.escalation_target_agent_id || resolvedProjectTeamSettings.manager_agent_id || null,
+            },
+        ];
+        saveProjectSettingsMutation.mutate({
+            settings: {
+                ...(project?.settings ?? {}),
+                execution: {
+                    ...executionSettings,
+                    manager_agent_id: resolvedProjectTeamSettings.manager_agent_id || null,
+                    reviewer_agent_ids: resolvedProjectTeamSettings.reviewer_agent_ids,
+                    reviewer_chain_mode: resolvedProjectTeamSettings.reviewer_chain_mode || "sequential",
+                    autonomy_level: resolvedProjectTeamSettings.autonomy_level,
+                    provider_config_id: resolvedProjectTeamSettings.provider_config_id || null,
+                    model_name: resolvedProjectTeamSettings.model_name || null,
+                    fallback_model: resolvedProjectTeamSettings.fallback_model || null,
+                    escalation_rules: escalationRules,
+                    routing_mode: resolvedProjectTeamSettings.routing_mode || "capability_based",
+                    sibling_load_balance: resolvedProjectTeamSettings.sibling_load_balance || "queue_depth",
+                    skip_unhealthy_worker_providers: resolvedProjectTeamSettings.skip_unhealthy_worker_providers,
+                    offline_local_only_mode: resolvedProjectTeamSettings.offline_local_only_mode,
+                    enforce_project_model_policy: resolvedProjectTeamSettings.enforce_project_model_policy,
+                    allowed_provider_types: resolvedProjectTeamSettings.allowed_provider_types_csv
+                        .split(",")
+                        .map((item) => item.trim().toLowerCase())
+                        .filter(Boolean),
+                    allowed_model_slugs: resolvedProjectTeamSettings.allowed_model_slugs_csv
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    blocked_handoff: {
+                        mode: resolvedProjectTeamSettings.blocked_handoff_mode || "escalation_path",
+                        target_agent_id: resolvedProjectTeamSettings.blocked_handoff_target_agent_id || null,
+                        fallback_to_manager: resolvedProjectTeamSettings.blocked_handoff_fallback_to_manager,
+                    },
+                    sla: {
+                        enabled: resolvedProjectTeamSettings.sla_enabled,
+                        warn_hours_before_due: Number(resolvedProjectTeamSettings.sla_warn_hours || 24),
+                        escalate_hours_after_due: Number(resolvedProjectTeamSettings.sla_escalate_after_due_hours || 0),
+                    },
+                },
+            },
+        });
+    };
+
+    const saveGithubIntegration = () => {
+        let repoAgentPools: Record<string, unknown> = {};
+        try {
+            repoAgentPools = JSON.parse(resolvedGithubForm.repo_agent_pools_json || "{}") as Record<string, unknown>;
+        } catch {
+            showToast({ message: "Repo agent pools must be valid JSON.", severity: "error" });
+            return;
+        }
+        saveProjectSettingsMutation.mutate({
+            settings: {
+                ...(project?.settings ?? {}),
+                github: {
+                    ...((project?.settings?.github as Record<string, unknown> | undefined) ?? {}),
+                    branch_prefix: resolvedGithubForm.branch_prefix,
+                    enforce_branch_naming: resolvedGithubForm.enforce_branch_naming,
+                    auto_post_progress: resolvedGithubForm.auto_post_progress,
+                    auto_activate_review_on_pr_open: resolvedGithubForm.auto_activate_review_on_pr_open,
+                    auto_review_on_pr_review: resolvedGithubForm.auto_review_on_pr_review,
+                    close_issue_with_manager_summary: resolvedGithubForm.close_issue_with_manager_summary,
+                    sync_labels_to_github: resolvedGithubForm.sync_labels_to_github,
+                    sync_assignees_to_github: resolvedGithubForm.sync_assignees_to_github,
+                    sync_state_to_github: resolvedGithubForm.sync_state_to_github,
+                    sync_milestone_to_github: resolvedGithubForm.sync_milestone_to_github,
+                    repo_agent_pools: repoAgentPools,
+                },
+            },
+        });
+    };
+
+    const saveLocalRepoSettingsMutation = useMutation({
+        mutationFn: () =>
+            updateLocalRepoWorkspace(projectId, {
+                enabled: resolvedLocalRepoForm.enabled && Boolean(resolvedLocalRepoForm.repo_path.trim()),
+                repo_path: resolvedLocalRepoForm.repo_path.trim(),
+                dirty_worktree_policy: resolvedLocalRepoForm.dirty_worktree_policy || "block",
+                allowed_branches: splitCsv(resolvedLocalRepoForm.allowed_branches),
+                file_allowlist: splitCsv(resolvedLocalRepoForm.file_allowlist),
+                file_denylist: splitCsv(resolvedLocalRepoForm.file_denylist),
+                command_allowlist: splitCsv(resolvedLocalRepoForm.command_allowlist),
+                max_diff_bytes: Math.max(
+                    1_000,
+                    Math.min(5_000_000, Math.floor(Number(resolvedLocalRepoForm.max_diff_bytes) || 200_000)),
+                ),
+            }),
+        onSuccess: async () => {
+            setLocalRepoForm({});
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.project(projectId) });
+            showToast({ message: "Local repo settings saved.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: extractApiErrorMessage(error, "Could not save local repo settings."), severity: "error" });
+        },
+    });
+
+    const saveHitlSettings = () => {
+        saveProjectSettingsMutation.mutate({
+            settings: {
+                ...(project?.settings ?? {}),
+                hitl: {
+                    ...((project?.settings?.hitl as Record<string, unknown> | undefined) ?? {}),
+                    sandbox_note: resolvedHitlForm.sandbox_note,
+                    secret_scope: resolvedHitlForm.secret_scope,
+                    sandbox_mode: resolvedHitlForm.sandbox_mode,
+                },
+            },
+        });
+    };
+
+    if (!projectId) {
+        return (
+            <PageShell maxWidth="xl">
+                <EmptyState
+                    icon={<ProjectIcon />}
+                    title="Project not found"
+                    description="This page needs a project id in the URL."
+                    action={
+                        <Button variant="contained" component={RouterLink} to="/agent-projects">
+                            Back to projects
+                        </Button>
+                    }
+                />
+            </PageShell>
+        );
+    }
+
+    if (projectLoading) {
+        return (
+            <PageShell maxWidth="xl">
+                <Stack spacing={2} alignItems="center" sx={{ py: 8 }} role="status" aria-live="polite" aria-busy="true">
+                    <CircularProgress size={32} aria-hidden />
+                    <Typography color="text.secondary">Loading project…</Typography>
+                </Stack>
+            </PageShell>
+        );
+    }
+
+    if (projectLoadFailed || !project) {
+        const message = extractApiErrorMessage(projectLoadError, "Couldn't load this project. Check your connection and try again.");
+        const notFound = /not found/i.test(message);
+        return (
+            <PageShell maxWidth="xl">
+                <EmptyState
+                    icon={<ErrorOutlineIcon />}
+                    title={notFound ? "Project not found" : "Couldn't load project"}
+                    description={message}
+                    action={
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} useFlexGap>
+                            <Button
+                                variant="contained"
+                                startIcon={<RefreshIcon />}
+                                disabled={projectFetching}
+                                onClick={() => {
+                                    void refetchProject();
+                                }}
+                            >
+                                {projectFetching ? "Retrying…" : "Try again"}
+                            </Button>
+                            <Button variant="outlined" component={RouterLink} to="/agent-projects">
+                                Back to projects
+                            </Button>
+                        </Stack>
+                    }
+                />
+            </PageShell>
+        );
+    }
+
+    return (
+        <PageShell maxWidth="xl">
+            <Paper sx={{ mb: 2, borderRadius: 4, p: { xs: 2, md: 2.5 }, border: 1, borderColor: "divider" }}>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Typography variant="h4" sx={{ fontWeight: 500 }} noWrap>
+                                {project.name}
+                            </Typography>
+                            <Chip size="small" label={humanizeKey(project.status)} color="primary" variant="outlined" />
+                            {activeRuns.length > 0 ? <Chip size="small" color="warning" label={`${activeRuns.length} running`} /> : null}
+                            {blockedTasks.length > 0 ? <Chip size="small" color="error" variant="outlined" label={`${blockedTasks.length} blocked`} /> : null}
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                            {effectiveWorkspaceOverview.current_focus || project.description || "No current focus set."}
+                        </Typography>
+                    </Box>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Button variant="contained" startIcon={<RunIcon />} onClick={nextAction.action}>
+                            {nextAction.label}
+                        </Button>
+                        <Button variant="outlined" onClick={() => setTaskDrawerOpen(true)}>
+                            Create task
+                        </Button>
+                        <Tooltip title="Project settings">
+                            <IconButton onClick={() => { setTab("team"); setTeamView("settings"); }}>
+                                <MoreIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </Stack>
+                </Stack>
+            </Paper>
+
+            <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
+                <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+                    <Tab label="Overview" value="overview" />
+                    <Tab label="Work" value="work" />
+                    <Tab label="Team" value="team" />
+                    <Tab label="Knowledge" value="knowledge" />
+                    <Tab label="Activity" value="activity" />
+                </Tabs>
+            </Paper>
+
+            {/* ── Overview ── */}
+            {tab === "overview" && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "repeat(3, minmax(0, 1fr))", }, alignItems: "start", }}>
+
+                        <SectionCard title="Workspace">
+                            <Stack spacing={1.5}>
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                    {effectiveWorkspaceOverview.executive_summary || project.description || "No summary yet."}
+                                </Typography>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Typography variant="caption" color="text.secondary">Current focus</Typography>
+                                    <Typography variant="body2">{effectiveWorkspaceOverview.current_focus || "Not set"}</Typography>
+                                </Paper>
+                                {effectiveProjectGoals ? (
+                                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">Goals</Typography>
+                                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                                            {effectiveProjectGoals}
+                                        </Typography>
+                                    </Paper>
+                                ) : null}
+                                <Button variant="outlined" onClick={() => setOverviewEditOpen(true)}>
+                                    Edit overview
+                                </Button>
+                            </Stack>
+                        </SectionCard>
+                        <SectionCard
+                            title={`Milestones ${milestones.length > 0 ? `(${milestoneProgress}% complete)` : ""}`}
+                            description="Track project milestones and overall progress."
+                        >
+                            {milestones.length > 0 && (
+                                <Stack spacing={2} sx={{ mb: 2 }}>
+                                    <Box>
+                                        <LinearProgress variant="determinate" value={milestoneProgress} sx={{ height: 6, borderRadius: 1 }} />
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                                            {milestones.filter((m) => m.status === "completed").length} / {milestones.length} completed
+                                        </Typography>
+                                    </Box>
+                                    <MilestoneTimeline milestones={milestones} />
+                                </Stack>
+                            )}
+                            <Stack spacing={1}>
+                                {milestones.map((m) => (
+                                    <Stack key={m.id} direction="row" spacing={1} alignItems="center">
+                                        <Chip
+                                            label={m.status}
+                                            color={m.status === "completed" ? "success" : "default"}
+                                            size="small"
+                                            onClick={() => toggleMilestoneMutation.mutate({
+                                                id: m.id,
+                                                status: m.status === "completed" ? "open" : "completed",
+                                            })}
+                                            sx={{ cursor: "pointer" }}
+                                        />
+                                        <Box flex={1}>
+                                            <Typography variant="body2">{m.title}</Typography>
+                                            {m.due_date && <Typography variant="caption" color="text.secondary">Due {new Date(m.due_date).toLocaleDateString()}</Typography>}
+                                        </Box>
+                                    </Stack>
+                                ))}
+                            </Stack>
+                            <Divider sx={{ my: 1.5 }} />
+                            <Stack spacing={1}>
+                                <TextField size="small" label="Milestone title" value={milestoneForm.title} onChange={(e) => setMilestoneForm((f) => ({ ...f, title: e.target.value }))} />
+                                <TextField size="small" label="Description" value={milestoneForm.description} onChange={(e) => setMilestoneForm((f) => ({ ...f, description: e.target.value }))} multiline minRows={2} />
+                                <TextField
+                                    size="small" type="date" label="Due date"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={milestoneForm.due_date}
+                                    onChange={(e) => setMilestoneForm((f) => ({ ...f, due_date: e.target.value }))}
+                                />
+                                <Button
+                                    size="small" variant="outlined"
+                                    disabled={!milestoneForm.title.trim()}
+                                    onClick={() => milestoneMutation.mutate({
+                                        title: milestoneForm.title,
+                                        description: milestoneForm.description || null,
+                                        due_date: milestoneForm.due_date || null,
+                                    })}
+                                >
+                                    Add milestone
+                                </Button>
+                            </Stack>
+                        </SectionCard>
+
+
+                        <SectionCard title="Project health">
+                            <Stack spacing={1.5}>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Typography variant="caption" color="text.secondary">Next best action</Typography>
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} justifyContent="space-between">
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography variant="subtitle2">{nextAction.label}</Typography>
+                                            <Typography variant="body2" color="text.secondary" noWrap>{nextAction.detail}</Typography>
+                                        </Box>
+                                        <Button size="small" variant="contained" onClick={nextAction.action}>Open</Button>
+                                    </Stack>
+                                </Paper>
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                    <Chip label={humanizeKey(project.status)} color="primary" variant="outlined" />
+                                    <Chip label={`${tasks.length} tasks`} size="small" variant="outlined" />
+                                    <Chip label={`${activeRuns.length} active runs`} size="small" color={activeRuns.length ? "warning" : "default"} variant="outlined" />
+                                    <Chip label={`${pendingProjectApprovals.length} approvals`} size="small" color={pendingProjectApprovals.length ? "warning" : "default"} variant="outlined" />
+                                    <Chip label={`${milestoneProgress}% milestones`} size="small" variant="outlined" />
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary">
+                                    {project.knowledge_summary || "No knowledge summary yet."}
+                                </Typography>
+                                {pendingProjectApprovals.length > 0 ? (
+                                    <Stack spacing={1}>
+                                        <Typography variant="subtitle2">Approvals</Typography>
+                                        {pendingProjectApprovals.slice(0, 3).map((approval) => (
+                                            <Paper key={approval.id} sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider" }}>
+                                                <Stack spacing={1}>
+                                                    <Typography variant="body2">{humanizeKey(approval.approval_type)}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">Requested {formatDateTime(approval.created_at)}</Typography>
+                                                    <TextField
+                                                        size="small"
+                                                        label="Reason"
+                                                        value={approvalReasonById[approval.id] ?? ""}
+                                                        onChange={(e) => setApprovalReasonById((current) => ({ ...current, [approval.id]: e.target.value }))}
+                                                        placeholder="Required when rejecting"
+                                                    />
+                                                    <Stack direction="row" spacing={1}>
+                                                        <Button size="small" variant="contained" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "approved", reason: approvalReasonById[approval.id] || undefined })}>
+                                                            Approve
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            color="error"
+                                                            onClick={() => {
+                                                                const reason = (approvalReasonById[approval.id] ?? "").trim();
+                                                                if (!reason) {
+                                                                    showToast({ message: "Rejection reason is required.", severity: "warning" });
+                                                                    return;
+                                                                }
+                                                                memoryApprovalMutation.mutate({ approvalId: approval.id, status: "rejected", reason });
+                                                            }}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                    </Stack>
+                                                </Stack>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                ) : null}
+                                {latestDecision ? (
+                                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">Latest decision</Typography>
+                                        <Typography variant="subtitle2">{latestDecision.title}</Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                            {latestDecision.decision}
+                                        </Typography>
+                                    </Paper>
+                                ) : null}
+                                <Divider />
+                                <Typography variant="subtitle2">Execution</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Autonomy {String(executionSettings.autonomy_level ?? "semi-autonomous")} · Gate {String(gateConfig?.autonomy_level ?? "assisted")}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Manager {allAgents.find((agent) => agent.id === executionSettings.manager_agent_id)?.name || "not configured"}
+                                </Typography>
+                            </Stack>
+                        </SectionCard>
+
+                </Box>
+            )}
+
+            {tab === "work" && (
+                <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
+                    <Tabs value={workView} onChange={(_, value) => setWorkView(value)} variant="scrollable" scrollButtons="auto">
+                        <Tab label="Board" value="board" />
+                        <Tab label="Dependencies" value="dependencies" />
+                        <Tab label="Brainstorms" value="brainstorms" />
+                    </Tabs>
+                </Paper>
+            )}
+
+            {tab === "team" && (
+                <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
+                    <Tabs value={teamView} onChange={(_, value) => setTeamView(value)} variant="scrollable" scrollButtons="auto">
+                        <Tab label="Agents" value="agents" />
+                        <Tab label="Settings" value="settings" />
+                    </Tabs>
+                </Paper>
+            )}
+
+            {tab === "knowledge" && (
+                <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
+                    <Tabs value={knowledgeView} onChange={(_, value) => setKnowledgeView(value)} variant="scrollable" scrollButtons="auto">
+                        <Tab label="Search" value="search" />
+                        <Tab label="Sources" value="sources" />
+                        <Tab label="Decisions" value="decisions" />
+                        <Tab label="Integrations" value="integrations" />
+                        <Tab label="Memory" value="memory" />
+                    </Tabs>
+                </Paper>
+            )}
+
+            {/* ── Board ── */}
+            {tab === "work" && workView === "board" && (
+                <Stack spacing={2}>
+
+                    <KanbanBoard
+                        projectId={projectId}
+                        tasks={tasks}
+                        allAgents={allAgents}
+                        lastRunByTaskId={lastRunByTaskId}
+                        onRunTask={(taskId, mode, createPr) => { setSelectedTaskId(taskId); runMutation.mutate({ taskId, runMode: mode, createPr }); }}
+                        onAcceptanceCheck={(taskId) => setAcceptanceTaskId(taskId)}
+                        isRunPending={runMutation.isPending}
+                        selectedTaskId={selectedTaskId}
+                        taskRunModes={taskRunModes}
+                        taskPrModes={taskPrModes}
+                        onModeChange={(taskId, mode) => setTaskRunModes((current) => ({ ...current, [taskId]: mode }))}
+                        onPrModeChange={(taskId, enabled) => setTaskPrModes((current) => ({ ...current, [taskId]: enabled }))}
+                    />
+                </Stack>
+            )}
+
+            <Drawer
+                anchor="right"
+                open={taskDrawerOpen}
+                onClose={() => {
+                    setTaskDrawerOpen(false);
+                    setTaskCriteriaList([]);
+                }}
+                PaperProps={{ sx: { width: { xs: "100%", sm: 440 } } }}
+            >
+                <Box sx={{ p: 2.5 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                        <Typography variant="h6">New task</Typography>
+                        <IconButton size="small" onClick={() => {
+                            setTaskDrawerOpen(false);
+                            setTaskCriteriaList([]);
+                        }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </Stack>
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Title"
+                            value={taskForm.title}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                        />
+                        <TextField
+                            label="Description"
+                            value={taskForm.description}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+                            multiline
+                            minRows={3}
+                        />
+                        <TextField
+                            select
+                            label="Priority"
+                            value={taskForm.priority}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value }))}
+                        >
+                            {["low", "normal", "high", "urgent"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                        </TextField>
+                        <TextField
+                            select
+                            label="Owner agent"
+                            helperText="Defaults to team manager."
+                            value={effectiveTaskOwnerId}
+                            onChange={(e) => {
+                                setTaskOwnerTouched(true);
+                                setTaskForm((f) => ({ ...f, assigned_agent_id: e.target.value }));
+                            }}
+                        >
+                            <MenuItem value="">Unassigned</MenuItem>
+                            {projectAgentProfiles.map((agent) => <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>)}
+                        </TextField>
+                        <TextField
+                            label="Due date (ISO)"
+                            helperText="Optional. Used with SLA scan and routing."
+                            value={taskForm.due_date}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
+                            placeholder="2026-12-31T17:00:00Z"
+                        />
+
+                        <Divider />
+
+                        <Button
+                            onClick={() => setTaskAdditionalOpen((v) => !v)}
+                            endIcon={taskAdditionalOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            sx={{ justifyContent: "space-between", textTransform: "none" }}
+                        >
+                            Additional
+                        </Button>
+                        <Collapse in={taskAdditionalOpen} unmountOnExit>
+                            <Stack spacing={2}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Initial status"
+                                    value={taskForm.status}
+                                    onChange={(e) => setTaskForm((f) => ({ ...f, status: e.target.value }))}
+                                    helperText="Matches the Work board stages."
+                                >
+                                    {MAIN_KANBAN_COLUMNS.map((column) => (
+                                        <MenuItem key={column.status} value={column.status}>
+                                            {column.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    SelectProps={{ multiple: true }}
+                                    label="Blocked by"
+                                    value={taskForm.dependency_ids}
+                                    onChange={(e) => {
+                                        const nextValue = e.target.value;
+                                        setTaskForm((f) => ({
+                                            ...f,
+                                            dependency_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                        }));
+                                    }}
+                                    helperText="Dependencies appear on cards and gate execution."
+                                >
+                                    {tasks.map((task) => <MenuItem key={`create-dep-${task.id}`} value={task.id}>{task.title} · {humanizeKey(task.status)}</MenuItem>)}
+                                </TextField>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Reviewer agent"
+                                    value={effectiveTaskReviewerId}
+                                    onChange={(e) => {
+                                        setTaskReviewerTouched(true);
+                                        setTaskForm((f) => ({ ...f, reviewer_agent_id: e.target.value }));
+                                    }}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {projectAgentProfiles.map((agent) => <MenuItem key={`reviewer-create-${agent.id}`} value={agent.id}>{agent.name}</MenuItem>)}
+                                </TextField>
+                                 <Box>
+                                     <Typography variant="subtitle2" sx={{ mb: 1 }}>Acceptance Criteria</Typography>
+                                     <Stack spacing={1} sx={{ mb: 1.5 }}>
+                                         {taskCriteriaList.length === 0 ? (
+                                             <Typography variant="caption" color="text.secondary">
+                                                 No criteria added yet.
+                                             </Typography>
+                                         ) : (
+                                             taskCriteriaList.map((criterion, index) => (
+                                                 <Paper
+                                                     key={index}
+                                                     variant="outlined"
+                                                     sx={{
+                                                         p: 1.5,
+                                                         borderRadius: 1,
+                                                         display: "flex",
+                                                         alignItems: "center",
+                                                         gap: 1,
+                                                     }}
+                                                 >
+                                                     <Checkbox
+                                                         size="small"
+                                                         checked={false}
+                                                         disabled
+                                                         sx={{ ml: -0.5 }}
+                                                     />
+                                                     <TextField
+                                                         size="small"
+                                                         fullWidth
+                                                         value={criterion}
+                                                         onChange={(e) => {
+                                                             const newList = [...taskCriteriaList];
+                                                             newList[index] = e.target.value;
+                                                             setTaskCriteriaList(newList);
+                                                         }}
+                                                         placeholder="Enter criterion"
+                                                         variant="standard"
+                                                     />
+                                                     <IconButton
+                                                         size="small"
+                                                         onClick={() => {
+                                                             setTaskCriteriaList(taskCriteriaList.filter((_, i) => i !== index));
+                                                         }}
+                                                         sx={{ color: "error.main" }}
+                                                     >
+                                                         <CloseIcon fontSize="small" />
+                                                     </IconButton>
+                                                 </Paper>
+                                             ))
+                                         )}
+                                     </Stack>
+                                     <Button
+                                         size="small"
+                                         variant="outlined"
+                                         onClick={() => setTaskCriteriaList([...taskCriteriaList, ""])}
+                                     >
+                                         Add criteria
+                                     </Button>
+                                 </Box>
+                                <TextField
+                                    fullWidth
+                                    label="Response SLA (hours)"
+                                    helperText="Optional. Counted from task creation if no due date; otherwise earliest of due date vs created + hours."
+                                    value={taskForm.response_sla_hours}
+                                    onChange={(e) => setTaskForm((f) => ({ ...f, response_sla_hours: e.target.value }))}
+                                    type="number"
+                                />
+                            </Stack>
+                        </Collapse>
+
+                        <Divider />
+
+                        <Button
+                            variant="contained"
+                            disabled={!taskForm.title.trim() || createTaskMutation.isPending}
+                            onClick={() => {
+                                const n = Number(taskForm.response_sla_hours);
+                                const acceptanceCriteriaText = taskCriteriaList
+                                    .filter((c) => c.trim())
+                                    .map((c) => `- ${c.trim()}`)
+                                    .join("\n");
+                                createTaskMutation.mutate({
+                                    title: taskForm.title,
+                                    description: taskForm.description,
+                                    status: taskForm.status,
+                                    priority: taskForm.priority,
+                                    acceptance_criteria: acceptanceCriteriaText || null,
+                                    assigned_agent_id: effectiveTaskOwnerId || null,
+                                    reviewer_agent_id: effectiveTaskReviewerId || null,
+                                    dependency_ids: taskForm.dependency_ids,
+                                    due_date: taskForm.due_date.trim() ? taskForm.due_date.trim() : null,
+                                    response_sla_hours: taskForm.response_sla_hours.trim() && !Number.isNaN(n) && n > 0 ? n : null,
+                                });
+                            }}
+                        >
+                            Save
+                        </Button>
+                        {createTaskMutation.isError && <Alert severity="error">Couldn't create task. Check fields and try again.</Alert>}
+                    </Stack>
+                </Box>
+            </Drawer>
+
+            {/* ── DAG ── */}
+            {tab === "work" && workView === "dependencies" && (
+                <Stack spacing={2}>
+                    <SectionCard
+                        title="Parallel DAG execution"
+                        description="Start a run for every task whose dependencies are satisfied (backlog or planned, no active run). Celery executes runs concurrently. Use merge when several subtasks under one parent finished with different assignees."
+                    >
+                        <Stack spacing={1.5}>
+                            <Typography variant="body2" color="text.secondary">
+                                Ready now: {dagReadyList.length} task{dagReadyList.length === 1 ? "" : "s"}
+                            </Typography>
+                            {dagParallelMutation.data?.messages?.length ? (
+                                <Alert severity="info">
+                                    {dagParallelMutation.data.messages.slice(0, 4).join(" · ")}
+                                </Alert>
+                            ) : null}
+                            <Button
+                                variant="contained"
+                                disabled={dagParallelMutation.isPending || dagReadyList.length === 0}
+                                onClick={() => dagParallelMutation.mutate()}
+                            >
+                                Start parallel runs for ready tasks
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Task dependency graph" description="Nodes represent tasks; click a node to edit dependencies, inspect downstream impact, and run or merge work. Arrows point from dependency → dependent. Drag tasks on the board tab to change status.">
+                        {dagReadyList.length > 0 ? (
+                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                                {dagReadyList.slice(0, 8).map((task) => (
+                                    <Chip key={task.id} label={`Ready: ${task.title}`} size="small" color="info" variant="outlined" />
+                                ))}
+                            </Stack>
+                        ) : null}
+                        <DagView
+                            tasks={tasks}
+                            selectedDagTaskId={dagDrawerTaskId}
+                            onSelectTask={(id) => setDagDrawerTaskId(id)}
+                        />
+                    </SectionCard>
+                </Stack>
+            )}
+
+            {/* ── Agents ── */}
+            {tab === "team" && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0, 1fr)" } }}>
+                    <SectionCard title="Assign agent" sx={{ display: teamView === "agents" ? "block" : "none" }}>
+                        <Stack spacing={2}>
+                            <TextField select label="Agent" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)}>
+                                {availableAgents.length > 0 ? <ListSubheader>Existing agents</ListSubheader> : null}
+                                {availableAgents.map((agent) => (
+                                    <MenuItem key={agent.id} value={`agent:${agent.id}`}>{agent.name}</MenuItem>
+                                ))}
+                                {assignableTemplates.length > 0 ? <ListSubheader>Agent templates</ListSubheader> : null}
+                                {assignableTemplates.map((template) => (
+                                    <MenuItem key={`tpl-${template.slug}`} value={`template:${template.slug}`}>
+                                        {template.name} (template)
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                            <Stack direction="row" spacing={1}>
+                                <Button variant="contained" onClick={() => addAgentMutation.mutate({ selection: selectedAgentId })} disabled={!selectedAgentId}>
+                                    Add agent
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => deleteAgentMutation.mutate(selectedAgentId)}
+                                    disabled={!selectedAgentId || deleteAgentMutation.isPending || !selectedAgentId.startsWith("agent:")}
+                                >
+                                    Delete selected
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    </SectionCard>
+                    <Stack spacing={2}>
+                        <SectionCard title="Project team" sx={{ display: teamView === "agents" ? "block" : "none" }}>
+                            <Stack spacing={1.5}>
+                                {projectAgents.map((membership) => {
+                                    const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                    return (
+                                        <Paper key={membership.id} sx={{ p: 2, borderRadius: 4 }}>
+                                            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+                                                <Tooltip title="Remove from project">
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() => removeMembershipMutation.mutate(membership.id)}
+                                                        disabled={removeMembershipMutation.isPending}
+                                                    >
+                                                        <CloseIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
+                                            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="subtitle2">{agent?.name || membership.agent_id}</Typography>
+                                                    <Typography variant="body2" color="text.secondary">{agent?.slug || membership.agent_id}</Typography>
+                                                </Box>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Role"
+                                                    value={membership.role}
+                                                    onChange={(event) => updateMembershipMutation.mutate({
+                                                        membershipId: membership.id,
+                                                        payload: { role: event.target.value },
+                                                    })}
+                                                    sx={{ minWidth: 170 }}
+                                                >
+                                                    <MenuItem value="member">Member</MenuItem>
+                                                    <MenuItem value="manager">Manager</MenuItem>
+                                                    <MenuItem value="reviewer">Reviewer</MenuItem>
+                                                    <MenuItem value="moderator">Moderator</MenuItem>
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reports to"
+                                                    value={agent?.parent_agent_id ?? ""}
+                                                    onChange={(event) => updateHierarchyAgentMutation.mutate({
+                                                        agentId: membership.agent_id,
+                                                        payload: { parent_agent_id: event.target.value || null },
+                                                    })}
+                                                    sx={{ minWidth: 180 }}
+                                                >
+                                                    <MenuItem value="">None</MenuItem>
+                                                    {projectAgentProfiles.filter((item) => item.id !== membership.agent_id).map((candidate) => (
+                                                        <MenuItem key={`parent-${candidate.id}`} value={candidate.id}>{candidate.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    label="Reviewer"
+                                                    value={agent?.reviewer_agent_id ?? ""}
+                                                    onChange={(event) => updateHierarchyAgentMutation.mutate({
+                                                        agentId: membership.agent_id,
+                                                        payload: { reviewer_agent_id: event.target.value || null },
+                                                    })}
+                                                    sx={{ minWidth: 180 }}
+                                                >
+                                                    <MenuItem value="">None</MenuItem>
+                                                    {projectAgentProfiles.filter((item) => item.id !== membership.agent_id).map((candidate) => (
+                                                        <MenuItem key={`reviewer-${candidate.id}`} value={candidate.id}>{candidate.name}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <Button
+                                                    size="small"
+                                                    variant={membership.is_default_manager ? "contained" : "outlined"}
+                                                    onClick={() => updateMembershipMutation.mutate({
+                                                        membershipId: membership.id,
+                                                        payload: { is_default_manager: !membership.is_default_manager },
+                                                    })}
+                                                >
+                                                    {membership.is_default_manager ? "Default manager" : "Make manager"}
+                                                </Button>
+                                            </Stack>
+                                        </Paper>
+                                    );
+                                })}
+                            </Stack>
+                        </SectionCard>
+                        <SectionCard title="Execution settings" sx={{ display: teamView === "settings" ? "block" : "none" }}>
+                            <Stack spacing={2}>
+                                <TextField
+                                    select
+                                    label="Manager agent"
+                                    value={resolvedProjectTeamSettings.manager_agent_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), manager_agent_id: event.target.value }))}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={membership.id} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
+                                <TextField
+                                    select
+                                    SelectProps={{ multiple: true }}
+                                    label="Reviewer chain"
+                                    value={resolvedProjectTeamSettings.reviewer_agent_ids}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        reviewer_agent_ids: typeof event.target.value === "string" ? [event.target.value] : event.target.value,
+                                    }))}
+                                    helperText="Ordered reviewers. Each approval hands off to the next reviewer before the task is finally approved."
+                                >
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={`reviewer-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Reviewer chain mode"
+                                    value={resolvedProjectTeamSettings.reviewer_chain_mode}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        reviewer_chain_mode: event.target.value,
+                                    }))}
+                                >
+                                    <MenuItem value="sequential">Sequential</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Autonomy level"
+                                    value={resolvedProjectTeamSettings.autonomy_level}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), autonomy_level: event.target.value }))}
+                                >
+                                    <MenuItem value="assisted">Assisted</MenuItem>
+                                    <MenuItem value="semi-autonomous">Semi-autonomous</MenuItem>
+                                    <MenuItem value="autonomous">Autonomous</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Provider override"
+                                    value={resolvedProjectTeamSettings.provider_config_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), provider_config_id: event.target.value }))}
+                                >
+                                    <MenuItem value="">Project default</MenuItem>
+                                    {providerOptions.map((provider) => (
+                                        <MenuItem key={provider.id} value={provider.id}>{provider.name} · {provider.default_model}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Model override"
+                                        value={resolvedProjectTeamSettings.model_name}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), model_name: event.target.value }))}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Fallback model"
+                                        value={resolvedProjectTeamSettings.fallback_model}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), fallback_model: event.target.value }))}
+                                        fullWidth
+                                    />
+                                </Stack>
+                                <Divider />
+                                <Typography variant="subtitle2">Worker routing</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Auto-assignment can optimize for capability match, deadlines, provider health, cost, or explicit pinning. User-pinned workers still win over auto-selection.
+                                </Typography>
+                                <TextField
+                                    select
+                                    label="Routing mode"
+                                    value={resolvedProjectTeamSettings.routing_mode}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), routing_mode: event.target.value }))}
+                                    helperText="Matches the Stage 2 routing modes. Pinned workers still override automatic routing."
+                                >
+                                    <MenuItem value="capability_based">Capability-based</MenuItem>
+                                    <MenuItem value="priority_sla">Priority / SLA aware</MenuItem>
+                                    <MenuItem value="cost_aware">Cost-aware</MenuItem>
+                                    <MenuItem value="model_availability">Model availability</MenuItem>
+                                    <MenuItem value="user_pinned">User-pinned fallback mode</MenuItem>
+                                    <MenuItem value="throughput">Throughput</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Sibling load balance"
+                                    value={resolvedProjectTeamSettings.sibling_load_balance}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), sibling_load_balance: event.target.value }))}
+                                    helperText="Among tied workers under the same manager, round_robin spreads work deterministically per task."
+                                >
+                                    <MenuItem value="queue_depth">Queue depth first</MenuItem>
+                                    <MenuItem value="round_robin">Round robin among siblings</MenuItem>
+                                </TextField>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.skip_unhealthy_worker_providers}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            skip_unhealthy_worker_providers: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Deprioritize workers whose provider failed the last health check</Typography>
+                                </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.offline_local_only_mode}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            offline_local_only_mode: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Offline/local-only mode (restrict execution to local providers)</Typography>
+                                </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.enforce_project_model_policy}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            enforce_project_model_policy: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Enforce project model policy allowlists</Typography>
+                                </Stack>
+                                <TextField
+                                    label="Allowed provider types (CSV)"
+                                    value={resolvedProjectTeamSettings.allowed_provider_types_csv}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        allowed_provider_types_csv: event.target.value,
+                                    }))}
+                                    helperText="Example: openai, openai_compatible, ollama"
+                                />
+                                <TextField
+                                    label="Allowed model slugs (CSV)"
+                                    value={resolvedProjectTeamSettings.allowed_model_slugs_csv}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        allowed_model_slugs_csv: event.target.value,
+                                    }))}
+                                    helperText="Optional strict allowlist for model names."
+                                />
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Stack spacing={1.25}>
+                                        <Typography variant="subtitle2">Policy routing preview</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Simulate routing for a sample task before starting a run.
+                                        </Typography>
+                                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25}>
+                                            <TextField
+                                                select
+                                                label="Sample priority"
+                                                value={policyPreviewForm.priority}
+                                                onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, priority: event.target.value }))}
+                                                fullWidth
+                                            >
+                                                <MenuItem value="low">low</MenuItem>
+                                                <MenuItem value="normal">normal</MenuItem>
+                                                <MenuItem value="high">high</MenuItem>
+                                                <MenuItem value="urgent">urgent</MenuItem>
+                                            </TextField>
+                                            <TextField
+                                                label="Sample task type"
+                                                value={policyPreviewForm.taskType}
+                                                onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, taskType: event.target.value }))}
+                                                fullWidth
+                                            />
+                                        </Stack>
+                                        <TextField
+                                            label="Sample labels (CSV)"
+                                            value={policyPreviewForm.labelsCsv}
+                                            onChange={(event) => setPolicyPreviewForm((current) => ({ ...current, labelsCsv: event.target.value }))}
+                                        />
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Switch
+                                                checked={policyPreviewForm.projectSensitive}
+                                                onChange={(_, checked) => setPolicyPreviewForm((current) => ({ ...current, projectSensitive: checked }))}
+                                            />
+                                            <Typography variant="body2">Project is sensitive</Typography>
+                                        </Stack>
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                            <Chip
+                                                size="small"
+                                                color={policyRoutingPreview.routeKey ? "info" : "default"}
+                                                label={
+                                                    policyRoutingPreview.routeKey
+                                                        ? `Matched route: ${policyRoutingPreview.routeKey}`
+                                                        : "No matching route rule"
+                                                }
+                                            />
+                                            <Chip size="small" color="success" label={`Model: ${policyRoutingPreview.selectedModel}`} />
+                                            <Chip size="small" variant="outlined" label={`Provider: ${policyRoutingPreview.selectedProviderName}`} />
+                                        </Stack>
+                                    </Stack>
+                                </Paper>
+                                <Divider />
+                                <Typography variant="subtitle2">Task SLA (deadline scan)</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Background job flags tasks approaching deadline and opens approvals when past due (plus grace hours). Uses each task due_date and/or response SLA hours from task creation.
+                                </Typography>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.sla_enabled}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            sla_enabled: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Enable SLA deadline scan</Typography>
+                                </Stack>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Warn within (hours before due)"
+                                        value={resolvedProjectTeamSettings.sla_warn_hours}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            sla_warn_hours: event.target.value,
+                                        }))}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Escalate after due (hours)"
+                                        value={resolvedProjectTeamSettings.sla_escalate_after_due_hours}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            sla_escalate_after_due_hours: event.target.value,
+                                        }))}
+                                        helperText="0 = escalate as soon as the effective deadline passes."
+                                        fullWidth
+                                    />
+                                </Stack>
+                                <Divider />
+                                <Typography variant="subtitle2">Escalation rules</Typography>
+                                <TextField
+                                    select
+                                    label="Escalation target"
+                                    value={resolvedProjectTeamSettings.escalation_target_agent_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        escalation_target_agent_id: event.target.value,
+                                    }))}
+                                    helperText="Default recipient for rule-based escalations."
+                                >
+                                    <MenuItem value="">Project manager</MenuItem>
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={`escalate-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Stuck for minutes"
+                                        value={resolvedProjectTeamSettings.stuck_for_minutes}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), stuck_for_minutes: event.target.value }))}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="Cost exceeds USD"
+                                        value={resolvedProjectTeamSettings.cost_exceeds_usd}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), cost_exceeds_usd: event.target.value }))}
+                                        fullWidth
+                                    />
+                                    <TextField
+                                        label="No consensus after rounds"
+                                        value={resolvedProjectTeamSettings.no_consensus_after_rounds}
+                                        onChange={(event) => setProjectTeamSettings((current) => ({ ...(current ?? resolvedProjectTeamSettings), no_consensus_after_rounds: event.target.value }))}
+                                        fullWidth
+                                    />
+                                </Stack>
+                                <Divider />
+                                <Typography variant="subtitle2">Blocked handoff</Typography>
+                                <TextField
+                                    select
+                                    label="Blocked-task handoff mode"
+                                    value={resolvedProjectTeamSettings.blocked_handoff_mode}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        blocked_handoff_mode: event.target.value,
+                                    }))}
+                                >
+                                    <MenuItem value="escalation_path">Worker escalation path</MenuItem>
+                                    <MenuItem value="configured_agent">Configured fallback agent</MenuItem>
+                                    <MenuItem value="sibling_with_capacity">Sibling with capacity</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label="Configured handoff agent"
+                                    value={resolvedProjectTeamSettings.blocked_handoff_target_agent_id}
+                                    onChange={(event) => setProjectTeamSettings((current) => ({
+                                        ...(current ?? resolvedProjectTeamSettings),
+                                        blocked_handoff_target_agent_id: event.target.value,
+                                    }))}
+                                    helperText="Used when blocked-task handoff mode is configured_agent."
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {projectAgents.map((membership) => {
+                                        const agent = allAgents.find((item) => item.id === membership.agent_id);
+                                        return <MenuItem key={`handoff-${membership.id}`} value={membership.agent_id}>{agent?.name || membership.agent_id}</MenuItem>;
+                                    })}
+                                </TextField>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Switch
+                                        checked={resolvedProjectTeamSettings.blocked_handoff_fallback_to_manager}
+                                        onChange={(_, checked) => setProjectTeamSettings((current) => ({
+                                            ...(current ?? resolvedProjectTeamSettings),
+                                            blocked_handoff_fallback_to_manager: checked,
+                                        }))}
+                                    />
+                                    <Typography variant="body2">Fall back to project manager when the selected handoff target is unavailable</Typography>
+                                </Stack>
+                                <Button variant="contained" onClick={saveProjectExecutionSettings} disabled={saveProjectSettingsMutation.isPending}>
+                                    Save execution settings
+                                </Button>
+                            </Stack>
+                        </SectionCard>
+
+                        {/* ── Gate config ── */}
+                        <SectionCard
+                            title="Approval gates"
+                            sx={{ display: teamView === "settings" ? "block" : "none" }}
+                        >
+                            <Stack spacing={2}>
+                                <TextField
+                                    select
+                                    label="Autonomy level"
+                                    value={gateConfig?.autonomy_level ?? "assisted"}
+                                    onChange={(e) => updateGateConfigMutation.mutate({ autonomy_level: e.target.value })}
+                                    disabled={updateGateConfigMutation.isPending}
+                                    helperText={
+                                        gateConfig?.autonomy_level === "autonomous"
+                                            ? "All gates are short-circuited — the agent acts without human approval."
+                                            : "Agent actions in the list below will pause for your review."
+                                    }
+                                >
+                                    <MenuItem value="assisted">Assisted — all gates active</MenuItem>
+                                    <MenuItem value="semi_autonomous">Semi-autonomous — critical gates only</MenuItem>
+                                    <MenuItem value="supervised">Supervised — everything gated</MenuItem>
+                                    <MenuItem value="autonomous">Autonomous — no gates</MenuItem>
+                                </TextField>
+                                {gateConfig?.autonomy_level !== "autonomous" && (
+                                    <>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Gated actions
+                                        </Typography>
+                                        {([
+                                            { key: "post_to_github", label: "Post to GitHub", description: "Post comments or results to a GitHub issue" },
+                                            { key: "open_pr", label: "Open pull request", description: "Create a PR from generated code" },
+                                            { key: "mark_complete", label: "Mark complete", description: "Transition a task to completed status" },
+                                            { key: "change_task_ownership", label: "Change task ownership", description: "Reassign task assignee/owner" },
+                                            { key: "write_memory", label: "Write to memory", description: "Persist information to project memory" },
+                                            { key: "use_expensive_model", label: "Use expensive model", description: "Switch to a higher-cost model mid-run" },
+                                            { key: "run_tool", label: "Run external tool", description: "Execute code or call an external tool" },
+                                        ] as const).map(({ key, label, description }) => {
+                                            const isGated = gateConfig?.approval_gates.includes(key) ?? true;
+                                            return (
+                                                <Paper key={key} sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider" }}>
+                                                    <FormControlLabel
+                                                        sx={{ m: 0, width: "100%", justifyContent: "space-between" }}
+                                                        labelPlacement="start"
+                                                        control={
+                                                            <Switch
+                                                                checked={isGated}
+                                                                disabled={updateGateConfigMutation.isPending}
+                                                                onChange={(e) => {
+                                                                    const current = gateConfig?.approval_gates ?? [];
+                                                                    const next = e.target.checked
+                                                                        ? [...current, key]
+                                                                        : current.filter((g) => g !== key);
+                                                                    updateGateConfigMutation.mutate({ approval_gates: next });
+                                                                }}
+                                                                size="small"
+                                                            />
+                                                        }
+                                                        label={
+                                                            <Box>
+                                                                <Typography variant="subtitle2">{label}</Typography>
+                                                                <Typography variant="caption" color="text.secondary">{description}</Typography>
+                                                            </Box>
+                                                        }
+                                                    />
+                                                </Paper>
+                                            );
+                                        })}
+                                    </>
+                                )}
+                            </Stack>
+                        </SectionCard>
+                    </Stack>
+                </Box>
+            )}
+
+            {/* ── Brainstorms ── */}
+            {tab === "work" && workView === "brainstorms" && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0, 1fr)" } }}>
+                    <SectionCard title="Start brainstorm">
+                        <Stack spacing={2}>
+                            <TextField label="Topic" value={brainstormForm.topic} onChange={(e) => setBrainstormForm((current) => ({ ...current, topic: e.target.value }))} />
+                            <TextField
+                                select
+                                label="Linked task"
+                                value={brainstormForm.task_id}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, task_id: e.target.value }))}
+                                helperText="Optional. Use this when the brainstorm should directly support a task."
+                            >
+                                <MenuItem value="">None</MenuItem>
+                                {tasks.map((task) => (
+                                    <MenuItem key={task.id} value={task.id}>{task.title}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                label="Moderator"
+                                value={brainstormForm.moderator_agent_id}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, moderator_agent_id: e.target.value }))}
+                                helperText="Leave empty to use the project manager automatically."
+                            >
+                                <MenuItem value="">Auto-select project manager</MenuItem>
+                                {projectAgentProfiles.map((agent) => (
+                                    <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                SelectProps={{ multiple: true }}
+                                label="Participants"
+                                value={brainstormForm.participant_agent_ids}
+                                onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    setBrainstormForm((current) => ({
+                                        ...current,
+                                        participant_agent_ids: Array.isArray(nextValue) ? nextValue : String(nextValue).split(",").filter(Boolean),
+                                    }));
+                                }}
+                                helperText="At least two agents are required."
+                            >
+                                {projectAgentProfiles.map((agent) => (
+                                    <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                ))}
+                            </TextField>
+                            {brainstormParticipantProfiles.length > 0 ? (
+                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                    {brainstormParticipantProfiles.map((agent) => (
+                                        <Chip key={agent.id} label={agent.name} size="small" variant="outlined" />
+                                    ))}
+                                </Stack>
+                            ) : null}
+                            <TextField
+                                select
+                                label="Mode"
+                                value={brainstormForm.mode}
+                                onChange={(e) => {
+                                    const mode = e.target.value;
+                                    setBrainstormForm((current) => ({
+                                        ...current,
+                                        mode,
+                                        output_type: current.output_type === brainstormSuggestedOutput ? mode === "code_review" ? "test_plan" : mode === "incident_triage" || mode === "root_cause" ? "risk_register" : mode === "architecture_proposal" ? "adr" : "implementation_plan" : current.output_type,
+                                    }));
+                                }}
+                            >
+                                {BRAINSTORM_MODE_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
+                                select
+                                label="Output"
+                                value={brainstormForm.output_type}
+                                onChange={(e) => setBrainstormForm((current) => ({ ...current, output_type: e.target.value }))}
+                                helperText={`Recommended for this mode: ${humanizeKey(brainstormSuggestedOutput)}`}
+                            >
+                                {BRAINSTORM_OUTPUT_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            <Button variant="text" endIcon={brainstormAdvancedOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />} onClick={() => setBrainstormAdvancedOpen((open) => !open)}>
+                                Advanced
+                            </Button>
+                            <Collapse in={brainstormAdvancedOpen}>
+                                <Stack spacing={1.5}>
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                        <TextField label="Max rounds" type="number" value={brainstormForm.max_rounds} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_rounds: e.target.value }))} fullWidth />
+                                        <TextField label="Cost cap (USD)" type="number" value={brainstormForm.max_cost_usd} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_cost_usd: e.target.value }))} fullWidth />
+                                    </Stack>
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                        <TextField label="Loop threshold" type="number" value={brainstormForm.max_repetition_score} onChange={(e) => setBrainstormForm((current) => ({ ...current, max_repetition_score: e.target.value }))} fullWidth />
+                                        <TextField label="Soft consensus similarity" type="number" value={brainstormForm.soft_consensus_min_similarity} onChange={(e) => setBrainstormForm((current) => ({ ...current, soft_consensus_min_similarity: e.target.value }))} fullWidth />
+                                    </Stack>
+                                    <TextField label="Conflict similarity ceiling" type="number" value={brainstormForm.conflict_pairwise_max_similarity} onChange={(e) => setBrainstormForm((current) => ({ ...current, conflict_pairwise_max_similarity: e.target.value }))} />
+                                    <FormControlLabel
+                                        control={<Switch checked={brainstormForm.stop_on_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, stop_on_consensus: checked }))} />}
+                                        label="Stop when consensus is reached"
+                                    />
+                                    <FormControlLabel
+                                        control={<Switch checked={brainstormForm.accept_soft_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, accept_soft_consensus: checked }))} />}
+                                        label="Accept soft consensus"
+                                    />
+                                    <FormControlLabel
+                                        control={<Switch checked={brainstormForm.escalate_on_no_consensus} onChange={(_, checked) => setBrainstormForm((current) => ({ ...current, escalate_on_no_consensus: checked }))} />}
+                                        label="Escalate if no consensus after the final round"
+                                    />
+                                </Stack>
+                            </Collapse>
+                            <Button
+                                variant="contained"
+                                disabled={!brainstormForm.topic.trim() || brainstormForm.participant_agent_ids.length < 2}
+                                onClick={() =>
+                                    brainstormMutation.mutate({
+                                        project_id: projectId,
+                                        task_id: brainstormForm.task_id || null,
+                                        moderator_agent_id: brainstormForm.moderator_agent_id || null,
+                                        topic: brainstormForm.topic,
+                                        participant_agent_ids: brainstormForm.participant_agent_ids,
+                                        mode: brainstormForm.mode,
+                                        output_type: brainstormForm.output_type,
+                                        max_rounds: Number(brainstormForm.max_rounds || 3),
+                                        max_cost_usd: Number(brainstormForm.max_cost_usd || 10),
+                                        max_repetition_score: Number(brainstormForm.max_repetition_score || 0.92),
+                                        stop_conditions: {
+                                            stop_on_consensus: brainstormForm.stop_on_consensus,
+                                            accept_soft_consensus: brainstormForm.accept_soft_consensus,
+                                            escalate_on_no_consensus: brainstormForm.escalate_on_no_consensus,
+                                            soft_consensus_min_similarity: Number(brainstormForm.soft_consensus_min_similarity || 0.72),
+                                            conflict_pairwise_max_similarity: Number(brainstormForm.conflict_pairwise_max_similarity || 0.38),
+                                        },
+                                    })
+                                }
+                            >
+                                Launch brainstorm
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Brainstorms">
+                        <Stack spacing={1.5}>
+                            {brainstorms.map((brainstorm) => (
+                                <Paper key={brainstorm.id} sx={{ p: 2, borderRadius: 4 }}>
+                                    <Stack spacing={1.25}>
+                                        <Box>
+                                            <Typography variant="subtitle2">{brainstorm.topic}</Typography>
+                                            <Typography variant="body2" color="text.secondary">{brainstorm.summary || brainstorm.final_recommendation || "Run pending or no summary yet."}</Typography>
+                                        </Box>
+                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                            <Chip label={humanizeKey(brainstorm.status)} size="small" />
+                                            <Chip label={humanizeKey(brainstorm.mode)} size="small" variant="outlined" />
+                                            <Chip label={humanizeKey(brainstorm.output_type)} size="small" variant="outlined" />
+                                            <Chip label={`Round ${brainstorm.current_round}/${brainstorm.max_rounds}`} size="small" variant="outlined" />
+                                            <Chip
+                                                label={humanizeKey(brainstorm.consensus_status)}
+                                                size="small"
+                                                color={brainstorm.consensus_status === "consensus" || brainstorm.consensus_status === "soft_consensus" ? "success" : brainstorm.consensus_status === "conflict" || brainstorm.consensus_status === "loop_detected" ? "warning" : "default"}
+                                            />
+                                        </Stack>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {brainstorm.participant_count} participants • updated {formatDateTime(brainstorm.updated_at)}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                            <Button size="small" variant="text" onClick={() => navigate(`/brainstorms/${brainstorm.id}`)}>
+                                                Open room
+                                            </Button>
+                                            {brainstorm.final_recommendation && (
+                                                <Button
+                                                    size="small" variant="text"
+                                                    onClick={() => decisionMutation.mutate({
+                                                        title: brainstorm.topic,
+                                                        decision: brainstorm.final_recommendation!,
+                                                        rationale: brainstorm.summary || "",
+                                                        author_label: "Brainstorm",
+                                                        brainstorm_id: brainstorm.id,
+                                                    })}
+                                                >
+                                                    Promote to decision
+                                                </Button>
+                                            )}
+                                        </Stack>
+                                    </Stack>
+                                </Paper>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+                </Box>
+            )}
+
+            {/* ── Decisions ── */}
+            {tab === "knowledge" && knowledgeView === "decisions" && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "380px minmax(0, 1fr)" } }}>
+                    <SectionCard title="Record decision">
+                        <Stack spacing={2}>
+                            <TextField label="Title" value={decisionForm.title} onChange={(e) => setDecisionForm((f) => ({ ...f, title: e.target.value }))} />
+                            <TextField label="Decision" multiline minRows={3} value={decisionForm.decision} onChange={(e) => setDecisionForm((f) => ({ ...f, decision: e.target.value }))} />
+                            <TextField label="Rationale" multiline minRows={2} value={decisionForm.rationale} onChange={(e) => setDecisionForm((f) => ({ ...f, rationale: e.target.value }))} />
+                            <TextField label="Author" value={decisionForm.author_label} onChange={(e) => setDecisionForm((f) => ({ ...f, author_label: e.target.value }))} />
+                            <Button
+                                variant="contained"
+                                disabled={!decisionForm.title.trim() || !decisionForm.decision.trim()}
+                                onClick={() => decisionMutation.mutate({ ...decisionForm })}
+                            >
+                                Record
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Decision log">
+                        {decisions.length === 0 ? (
+                            <Typography color="text.secondary">No decisions recorded yet.</Typography>
+                        ) : (
+                            <Stack spacing={1.5}>
+                                {decisions.map((d) => (
+                                    <Paper key={d.id} sx={{ p: 2, borderRadius: 4 }}>
+                                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                                            <Typography variant="subtitle2">{d.title}</Typography>
+                                            {d.author_label && <Chip label={d.author_label} size="small" variant="outlined" />}
+                                            {d.brainstorm_id && <Chip label="from brainstorm" size="small" color="secondary" variant="outlined" />}
+                                        </Stack>
+                                        <Typography variant="body2">{d.decision}</Typography>
+                                        {d.rationale && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{d.rationale}</Typography>}
+                                        <Typography variant="caption" color="text.secondary">{formatDateTime(d.created_at)}</Typography>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        )}
+                    </SectionCard>
+                </Box>
+            )}
+
+            {/* ── GitHub ── */}
+            {tab === "knowledge" && knowledgeView === "integrations" && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" } }}>
+                    <SectionCard title="Local repo workspace">
+                        <Stack spacing={2}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch
+                                    checked={resolvedLocalRepoForm.enabled}
+                                    onChange={(_, checked) => setLocalRepoForm((current) => ({ ...current, enabled: checked }))}
+                                />
+                                <Typography variant="body2">Enable local repo for code-change tasks</Typography>
+                            </Stack>
+                            <TextField
+                                label="Local repo path"
+                                value={resolvedLocalRepoForm.repo_path}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, repo_path: event.target.value }))}
+                                helperText="Agents use this Git repo for code-change tasks."
+                                fullWidth
+                            />
+                            <TextField
+                                select
+                                label="Dirty worktree policy"
+                                value={resolvedLocalRepoForm.dirty_worktree_policy}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, dirty_worktree_policy: event.target.value }))}
+                                helperText="Controls agent work when uncommitted changes exist."
+                                fullWidth
+                            >
+                                <MenuItem value="block">Block agent work</MenuItem>
+                                <MenuItem value="warn">Warn on dirty worktree</MenuItem>
+                                <MenuItem value="allow">Allow dirty worktree</MenuItem>
+                            </TextField>
+                            <TextField
+                                label="Allowed branches"
+                                value={resolvedLocalRepoForm.allowed_branches}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, allowed_branches: event.target.value }))}
+                                helperText="Comma-separated branch patterns agents may start from or merge into."
+                                fullWidth
+                            />
+                            <TextField
+                                label="File allowlist"
+                                value={resolvedLocalRepoForm.file_allowlist}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, file_allowlist: event.target.value }))}
+                                helperText="Comma-separated glob patterns agents may read/write."
+                                fullWidth
+                            />
+                            <TextField
+                                label="File denylist"
+                                value={resolvedLocalRepoForm.file_denylist}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, file_denylist: event.target.value }))}
+                                helperText="Comma-separated glob patterns always blocked."
+                                fullWidth
+                            />
+                            <TextField
+                                label="Command allowlist"
+                                value={resolvedLocalRepoForm.command_allowlist}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, command_allowlist: event.target.value }))}
+                                helperText="Comma-separated executable names allowed via code execution."
+                                fullWidth
+                            />
+                            <TextField
+                                label="Max diff bytes"
+                                type="number"
+                                value={resolvedLocalRepoForm.max_diff_bytes}
+                                onChange={(event) => setLocalRepoForm((current) => ({ ...current, max_diff_bytes: event.target.value }))}
+                                inputProps={{ min: 1000, max: 5000000 }}
+                                helperText="Allowed range: 1,000 to 5,000,000 bytes."
+                                fullWidth
+                            />
+                            {saveLocalRepoSettingsMutation.isError ? (
+                                <Alert severity="error">
+                                    {saveLocalRepoSettingsMutation.error instanceof Error
+                                        ? saveLocalRepoSettingsMutation.error.message
+                                        : "Could not save local repo settings."}
+                                </Alert>
+                            ) : null}
+                            <Button
+                                variant="contained"
+                                disabled={saveLocalRepoSettingsMutation.isPending || (resolvedLocalRepoForm.enabled && !resolvedLocalRepoForm.repo_path.trim())}
+                                onClick={() => saveLocalRepoSettingsMutation.mutate()}
+                            >
+                                Save local repo
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="GitHub integration">
+                        <Stack spacing={2}>
+                            <TextField
+                                label="Branch name template"
+                                size="small"
+                                fullWidth
+                                value={resolvedGithubForm.branch_prefix}
+                                onChange={(e) => setGithubForm((f) => ({ ...f, branch_prefix: e.target.value }))}
+                                helperText="Placeholders: {task_id}, {slug} (from task title). Used when generating PR branches."
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.enforce_branch_naming}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, enforce_branch_naming: checked }))}
+                                    />
+                                )}
+                                label="Enforce branch naming convention on GitHub PR open events"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.auto_post_progress}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_post_progress: checked }))}
+                                    />
+                                )}
+                                label="Draft agent progress notes for approval when runs complete"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.auto_activate_review_on_pr_open}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_activate_review_on_pr_open: checked }))}
+                                    />
+                                )}
+                                label="Queue a Troop review run as soon as a GitHub PR opens"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.auto_review_on_pr_review}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, auto_review_on_pr_review: checked }))}
+                                    />
+                                )}
+                                label="Queue a Troop review run when a GitHub PR review is submitted"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.close_issue_with_manager_summary}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, close_issue_with_manager_summary: checked }))}
+                                    />
+                                )}
+                                label="Draft a manager-authored issue closure summary for approval on managed runs"
+                            />
+                            <Divider />
+                            <Typography variant="subtitle2">Bidirectional sync</Typography>
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_labels_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_labels_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal labels back to GitHub issues"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_assignees_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_assignees_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal assignee changes back to GitHub issues"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_state_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_state_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync internal task completion state back to GitHub issue state"
+                            />
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={resolvedGithubForm.sync_milestone_to_github}
+                                        onChange={(_, checked) => setGithubForm((f) => ({ ...f, sync_milestone_to_github: checked }))}
+                                    />
+                                )}
+                                label="Sync `metadata.github_milestone_number` back to GitHub issue milestone"
+                            />
+                            <TextField
+                                label="Repo agent pools JSON"
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={8}
+                                value={resolvedGithubForm.repo_agent_pools_json}
+                                onChange={(e) => setGithubForm((f) => ({ ...f, repo_agent_pools_json: e.target.value }))}
+                                helperText='Map repository id or "owner/name" to routing config. Example: {"org/repo":{"worker_agent_ids":["agent-1"],"default_assignee_agent_id":"agent-1","default_reviewer_agent_id":"agent-2","github_assignee_map":{"octocat":"agent-1"}}}'
+                            />
+                            <Button variant="contained" onClick={saveGithubIntegration} disabled={saveProjectSettingsMutation.isPending}>
+                                Save GitHub settings
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Sandbox & secret scoping">
+                        <Stack spacing={2}>
+                            <TextField
+                                select
+                                label="Sandbox execution policy"
+                                size="small"
+                                value={resolvedHitlForm.sandbox_mode}
+                                onChange={(e) => setHitlForm((f) => ({ ...f, sandbox_mode: e.target.value }))}
+                                fullWidth
+                            >
+                                <MenuItem value="allow_host_fallback">Allow host fallback when Docker is unavailable</MenuItem>
+                                <MenuItem value="docker_required">Require Docker sandbox (block host fallback)</MenuItem>
+                            </TextField>
+                            <TextField
+                                select
+                                label="Secret scope posture"
+                                size="small"
+                                value={resolvedHitlForm.secret_scope}
+                                onChange={(e) => setHitlForm((f) => ({ ...f, secret_scope: e.target.value }))}
+                                fullWidth
+                            >
+                                <MenuItem value="project_default">Project default (env + provider keys)</MenuItem>
+                                <MenuItem value="repo_scoped">Prefer repository-scoped tokens when available</MenuItem>
+                                <MenuItem value="agent_scoped">Prefer per-agent secret slots (manual rotation)</MenuItem>
+                                <MenuItem value="deny_external">Deny external network + GitHub tools</MenuItem>
+                            </TextField>
+                            <TextField
+                                label="Sandbox / runner notes"
+                                size="small"
+                                multiline
+                                minRows={2}
+                                fullWidth
+                                value={resolvedHitlForm.sandbox_note}
+                                onChange={(e) => setHitlForm((f) => ({ ...f, sandbox_note: e.target.value }))}
+                                placeholder="e.g. Dedicated worker queue, CPU seconds cap, egress deny list…"
+                            />
+                            <Button variant="outlined" onClick={saveHitlSettings} disabled={saveProjectSettingsMutation.isPending}>
+                                Save HITL controls
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Imported issues">
+                        <Stack spacing={1.5}>
+                            {issueLinks.map((item) => (
+                                <Paper key={item.id} sx={{ p: 2, borderRadius: 4 }}>
+                                    <Typography variant="subtitle2">#{item.issue_number} {item.title}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{item.state} • {item.sync_status}</Typography>
+                                </Paper>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Sync events">
+                        <Stack spacing={1.5}>
+                            {syncEvents.map((event) => (
+                                <Box key={event.id}>
+                                    <Typography variant="body2">{event.action} • {event.status}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{event.detail || "No details"} • {formatDateTime(event.created_at)}</Typography>
+                                </Box>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+                </Box>
+            )}
+
+            {/* ── Knowledge base ── */}
+            {tab === "knowledge" && (knowledgeView === "search" || knowledgeView === "sources" || knowledgeView === "memory") && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 400px" }, alignItems: "start" }}>
+                    <Stack spacing={2}>
+                        <SectionCard title="Sources" sx={{ display: knowledgeView === "sources" ? "block" : "none" }}>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }} alignItems={{ sm: "center" }}>
+                                <TextField
+                                    label="TTL days"
+                                    value={documentTtlDays}
+                                    onChange={(event) => setDocumentTtlDays(event.target.value)}
+                                    sx={{ width: { xs: "100%", sm: 140 } }}
+                                />
+                                <Button variant="contained" component="label" startIcon={<UploadIcon />}>
+                                    Upload document
+                                    <input
+                                        hidden
+                                        type="file"
+                                        accept=".md,.txt,.json,.yml,.yaml,.toml"
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            if (file) uploadDocumentMutation.mutate(file);
+                                            event.currentTarget.value = "";
+                                        }}
+                                    />
+                                </Button>
+                            </Stack>
+                            {docs.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">No documents yet. Upload a file to seed the knowledge base.</Typography>
+                            ) : (
+                                <Stack spacing={1.5}>
+                                    {docs.map((doc) => (
+                                        <Paper key={doc.id} sx={{ p: 2, borderRadius: 4 }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                                <Box flex={1}>
+                                                    <Typography variant="subtitle2">{doc.filename}</Typography>
+                                                    <Typography variant="body2" color="text.secondary">{doc.summary_text || `${doc.source_text.slice(0, 200)}…`}</Typography>
+                                                </Box>
+                                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                                    <IconButton
+                                                        size="small"
+                                                        aria-label="Toggle chunk preview"
+                                                        onClick={() => setExpandedDocumentId((current) => (current === doc.id ? null : doc.id))}
+                                                    >
+                                                        {expandedDocumentId === doc.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                                    </IconButton>
+                                                    <Button size="small" color="error" onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                                                        Remove
+                                                    </Button>
+                                                </Stack>
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                                <Chip size="small" variant="outlined" label={`${doc.chunk_count} chunks`} />
+                                                <Chip size="small" variant="outlined" label={`${(doc.size_bytes / 1024).toFixed(1)} KB`} />
+                                                <Chip size="small" variant="outlined" label={`TTL ${doc.ttl_days ?? "none"}`} />
+                                                <Chip size="small" variant="outlined" label={doc.ingestion_status} />
+                                            </Stack>
+                                            <Collapse in={expandedDocumentId === doc.id}>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+                                                    Source preview (chunking splits this text for embedding)
+                                                </Typography>
+                                                <Paper
+                                                    variant="outlined"
+                                                    sx={{
+                                                        mt: 1,
+                                                        p: 1.5,
+                                                        maxHeight: 320,
+                                                        overflow: "auto",
+                                                        borderRadius: 1,
+                                                        fontFamily: "IBM Plex Mono, monospace",
+                                                        fontSize: "0.75rem",
+                                                        whiteSpace: "pre-wrap",
+                                                    }}
+                                                >
+                                                    {doc.source_text}
+                                                </Paper>
+                                            </Collapse>
+                                        </Paper>
+                                    ))}
+                                </Stack>
+                            )}
+                        </SectionCard>
+                        <SectionCard title="Connected repositories" sx={{ display: knowledgeView === "sources" ? "block" : "none" }}>
+                            <Stack spacing={1.5}>
+                                {repositoryIndexStatus.length === 0 && projectRepositories.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No connected repositories yet. Link a GitHub repository on the GitHub tab to index code knowledge here.
+                                    </Typography>
+                                ) : (
+                                    (repositoryIndexStatus.length > 0 ? repositoryIndexStatus : projectRepositories.map((repository) => ({
+                                        repository_link_id: repository.id,
+                                        github_repository_id: repository.github_repository_id,
+                                        full_name: repository.full_name,
+                                        default_branch: repository.default_branch,
+                                        repository_url: repository.repository_url,
+                                        index_settings: (repository.metadata.indexing as Record<string, unknown> | undefined) ?? {},
+                                        indexed_files: 0,
+                                        chunk_count: 0,
+                                        searchable_documents: 0,
+                                        last_indexed_at: null,
+                                        latest_job: null,
+                                        last_successful_job_id: null,
+                                        pending_jobs: 0,
+                                        running_jobs: 0,
+                                        recent_files: [],
+                                        recent_errors: [],
+                                    }))).map((repository) => {
+                                        const draft = repoIndexDrafts[repository.repository_link_id] ?? {
+                                            scheduleLabel: String((repository.index_settings as Record<string, unknown>).schedule_label ?? ""),
+                                            pathPrefixes: Array.isArray((repository.index_settings as Record<string, unknown>).path_prefixes)
+                                                ? ((repository.index_settings as Record<string, unknown>).path_prefixes as string[]).join(", ")
+                                                : "",
+                                            autoEnabled: Boolean((repository.index_settings as Record<string, unknown>).auto_enabled),
+                                        };
+                                        return (
+                                            <Paper key={repository.repository_link_id} sx={{ p: 2, borderRadius: 4 }}>
+                                                <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" spacing={2}>
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                            <Typography variant="subtitle2">{repository.full_name}</Typography>
+                                                            <Chip size="small" variant="outlined" label={repository.default_branch || "no branch"} />
+                                                            <Chip size="small" color="info" variant="outlined" label={`${repository.indexed_files} files`} />
+                                                            <Chip size="small" color="success" variant="outlined" label={`${repository.chunk_count} chunks`} />
+                                                            {repository.latest_job ? (
+                                                                <Chip size="small" color={repository.latest_job.status === "failed" ? "error" : repository.latest_job.status === "running" ? "info" : repository.latest_job.status === "pending" ? "warning" : "success"} label={`latest ${repository.latest_job.status}`} />
+                                                            ) : null}
+                                                        </Stack>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                                                            {repository.last_indexed_at ? `Last indexed ${formatDateTime(repository.last_indexed_at)}` : "Not indexed yet"}
+                                                            {repository.repository_url ? ` • ${repository.repository_url}` : ""}
+                                                        </Typography>
+                                                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ mt: 1.25 }}>
+                                                            <TextField
+                                                                size="small"
+                                                                label="Schedule label"
+                                                                value={draft.scheduleLabel}
+                                                                onChange={(event) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, scheduleLabel: event.target.value },
+                                                                }))}
+                                                                sx={{ minWidth: 180 }}
+                                                                helperText="Example: every 6h / daily / before review"
+                                                            />
+                                                            <TextField
+                                                                size="small"
+                                                                label="Incremental paths"
+                                                                value={draft.pathPrefixes}
+                                                                onChange={(event) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, pathPrefixes: event.target.value },
+                                                                }))}
+                                                                fullWidth
+                                                                helperText="Comma-separated path prefixes for focused reindex."
+                                                            />
+                                                        </Stack>
+                                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                                            <Switch
+                                                                checked={draft.autoEnabled}
+                                                                onChange={(_, checked) => setRepoIndexDrafts((current) => ({
+                                                                    ...current,
+                                                                    [repository.repository_link_id]: { ...draft, autoEnabled: checked },
+                                                                }))}
+                                                            />
+                                                            <Typography variant="body2">Auto queue scheduled index for this repo</Typography>
+                                                        </Stack>
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                onClick={() => queueRepositoryIndexMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    mode: "full",
+                                                                    pathPrefixes: [],
+                                                                    scheduleLabel: draft.scheduleLabel || null,
+                                                                    autoEnabled: draft.autoEnabled,
+                                                                })}
+                                                            >
+                                                                Full index
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => queueRepositoryIndexMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    mode: "incremental",
+                                                                    pathPrefixes: draft.pathPrefixes.split(",").map((item) => item.trim()).filter(Boolean),
+                                                                    scheduleLabel: draft.scheduleLabel || null,
+                                                                    autoEnabled: draft.autoEnabled,
+                                                                })}
+                                                            >
+                                                                Incremental reindex
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                onClick={() => updateRepositoryMutation.mutate({
+                                                                    repositoryLinkId: repository.repository_link_id,
+                                                                    metadata: {
+                                                                        indexing: {
+                                                                            schedule_label: draft.scheduleLabel || null,
+                                                                            path_prefixes: draft.pathPrefixes.split(",").map((item) => item.trim()).filter(Boolean),
+                                                                            auto_enabled: draft.autoEnabled,
+                                                                        },
+                                                                    },
+                                                                })}
+                                                            >
+                                                                Save schedule
+                                                            </Button>
+                                                        </Stack>
+                                                    </Box>
+                                                    <Stack spacing={1} sx={{ width: { xs: "100%", lg: 320 } }}>
+                                                        <Typography variant="caption" color="text.secondary">Recent indexed files</Typography>
+                                                        {repository.recent_files.length > 0 ? repository.recent_files.slice(0, 5).map((file) => (
+                                                            <Paper key={file.document_id} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                                                                <Typography variant="body2">{file.path}</Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {file.branch} • {file.chunk_count} chunks • {file.status}
+                                                                </Typography>
+                                                            </Paper>
+                                                        )) : (
+                                                            <Typography variant="body2" color="text.secondary">No indexed files yet.</Typography>
+                                                        )}
+                                                        {repository.recent_errors.length > 0 ? (
+                                                            <>
+                                                                <Typography variant="caption" color="error">Recent failures</Typography>
+                                                                {repository.recent_errors.map((error) => (
+                                                                    <Alert key={error.job_id} severity="error">
+                                                                        {error.error_text || "Unknown indexing failure"}
+                                                                    </Alert>
+                                                                ))}
+                                                            </>
+                                                        ) : null}
+                                                    </Stack>
+                                                </Stack>
+                                            </Paper>
+                                        );
+                                    })
+                                )}
+                            </Stack>
+                        </SectionCard>
+                    </Stack>
+                    <SectionCard title="Memory rules" sx={{ display: knowledgeView === "memory" ? "block" : "none" }}>
+                        <Stack spacing={1.25}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch
+                                    checked={resolvedMemorySettings.semantic_write_requires_approval}
+                                    onChange={(_, checked) =>
+                                        setMemorySettingsDraft((current) => ({
+                                            ...(current ?? resolvedMemorySettings),
+                                            semantic_write_requires_approval: checked,
+                                        }))
+                                    }
+                                />
+                                <Typography variant="body2">Require approval before long-term semantic memory writes</Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch
+                                    checked={resolvedMemorySettings.deep_recall_mode}
+                                    onChange={(_, checked) =>
+                                        setMemorySettingsDraft((current) => ({
+                                            ...(current ?? resolvedMemorySettings),
+                                            deep_recall_mode: checked,
+                                        }))
+                                    }
+                                />
+                                <Typography variant="body2">Enable deep recall mode for episodic retrieval</Typography>
+                            </Stack>
+                            <TextField
+                                label="Episodic retention days"
+                                value={resolvedMemorySettings.episodic_retention_days}
+                                onChange={(event) =>
+                                    setMemorySettingsDraft((current) => ({
+                                        ...(current ?? resolvedMemorySettings),
+                                        episodic_retention_days: event.target.value,
+                                    }))
+                                }
+                                helperText="Older episodic records are archived/expired by background jobs."
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={() =>
+                                    memorySettingsMutation.mutate({
+                                        semantic_write_requires_approval:
+                                            resolvedMemorySettings.semantic_write_requires_approval,
+                                        deep_recall_mode: resolvedMemorySettings.deep_recall_mode,
+                                        episodic_retention_days: Number(
+                                            resolvedMemorySettings.episodic_retention_days || 90
+                                        ),
+                                    })
+                                }
+                                disabled={memorySettingsMutation.isPending}
+                            >
+                                Save memory rules
+                            </Button>
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Ingestion jobs" sx={{ display: knowledgeView === "sources" || knowledgeView === "memory" ? "block" : "none" }}>
+                        <Stack spacing={1.25}>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Chip size="small" color="warning" label={`Pending ${memoryIngestCounts.pending}`} />
+                                <Chip size="small" color="info" label={`Running ${memoryIngestCounts.running}`} />
+                                <Chip size="small" color="success" label={`Completed ${memoryIngestCounts.completed}`} />
+                                <Chip size="small" color="error" label={`Failed ${memoryIngestCounts.failed}`} />
+                            </Stack>
+                            {memoryIngestJobs.slice(0, 12).map((job) => (
+                                <Paper key={job.id} sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
+                                        <Box>
+                                            <Typography variant="body2">{job.job_type}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatDateTime(job.created_at)}
+                                                {job.started_at ? ` • started ${formatDateTime(job.started_at)}` : ""}
+                                                {job.finished_at ? ` • finished ${formatDateTime(job.finished_at)}` : ""}
+                                            </Typography>
+                                        </Box>
+                                        <Chip size="small" label={job.status} color={job.status === "failed" ? "error" : job.status === "completed" ? "success" : job.status === "running" ? "info" : "warning"} />
+                                    </Stack>
+                                    {job.error_text ? (
+                                        <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                            {job.error_text}
+                                        </Typography>
+                                    ) : null}
+                                </Paper>
+                            ))}
+                            {memoryIngestJobs.length === 0 && (
+                                <Typography variant="body2" color="text.secondary">
+                                    No ingestion jobs yet.
+                                </Typography>
+                            )}
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Search" sx={{ display: knowledgeView === "search" ? "block" : "none" }}>
+                        <TextField
+                            label="Search knowledge"
+                            value={knowledgeQuery}
+                            onChange={(event) => setKnowledgeQuery(event.target.value)}
+                            helperText="Matches ranked by relevance; each row is a chunk used during agent runs."
+                            fullWidth
+                        />
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+                            <Switch checked={includeDecisionRecall} onChange={(_, checked) => setIncludeDecisionRecall(checked)} />
+                            <Typography variant="body2">Decision recall: include project decisions ("what did we decide about X?")</Typography>
+                        </Stack>
+                        {debouncedKnowledgeQuery.length >= 3 && (
+                            <Paper sx={{ p: 2, borderRadius: 4, mt: 2 }}>
+                                <Typography variant="subtitle2">Results</Typography>
+                                <Stack spacing={1.25} sx={{ mt: 1.25 }}>
+                                    {knowledgeResults.length > 0 ? knowledgeResults.map((match) => (
+                                        <Box key={match.chunk_id}>
+                                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                <Typography variant="body2">{match.filename}</Typography>
+                                                <Chip size="small" label={`chunk #${match.chunk_index}`} variant="outlined" />
+                                                <Chip size="small" label={`score ${match.score.toFixed(3)}`} variant="outlined" />
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap", display: "block", mt: 0.75 }}>
+                                                {match.content}
+                                            </Typography>
+                                        </Box>
+                                    )) : (
+                                        <Typography variant="body2" color="text.secondary">No relevant chunks found.</Typography>
+                                    )}
+                                </Stack>
+                            </Paper>
+                        )}
+                    </SectionCard>
+                    <SectionCard title="Semantic memory" sx={{ display: knowledgeView === "memory" ? "block" : "none" }}>
+                        <Stack spacing={1.25}>
+                            {semanticEntries.length > 0 ? semanticEntries.map((entry) => (
+                                <Paper key={entry.id} sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+                                        <Typography variant="body2">{entry.title}</Typography>
+                                        <Chip size="small" variant="outlined" label={entry.entry_type} />
+                                        <Chip size="small" variant="outlined" label={entry.namespace} />
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mt: 0.75, display: "block" }}>
+                                        {entry.body.slice(0, 400)}
+                                    </Typography>
+                                </Paper>
+                            )) : (
+                                <Typography variant="body2" color="text.secondary">No semantic memory entries yet.</Typography>
+                            )}
+                        </Stack>
+                    </SectionCard>
+                    <SectionCard title="Agent memory" sx={{ display: knowledgeView === "memory" ? "block" : "none" }}>
+                        <Stack spacing={1.5}>
+                            {memoryEntries.map((entry) => (
+                                <Paper key={entry.id} sx={{ p: 2, borderRadius: 4 }}>
+                                    <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+                                        <Box>
+                                            <Typography variant="body2">{entry.key}</Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                                {entry.value_text}
+                                            </Typography>
+                                        </Box>
+                                        <Button size="small" color="error" onClick={() => deleteMemoryMutation.mutate(entry.id)}>
+                                            Remove
+                                        </Button>
+                                    </Stack>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                        <Chip size="small" variant="outlined" label={entry.scope} />
+                                        <Chip size="small" variant="outlined" label={entry.status} />
+                                        <Chip size="small" variant="outlined" label={entry.expires_at ? `Expires ${formatDateTime(entry.expires_at)}` : "No expiry"} />
+                                    </Stack>
+                                </Paper>
+                            ))}
+                            {pendingMemoryApprovals.length > 0 ? (
+                                <>
+                                    <Divider />
+                                    <Typography variant="subtitle2">Pending memory writes</Typography>
+                                    {pendingMemoryApprovals.map((approval) => (
+                                        <Paper key={approval.id} sx={{ p: 2, borderRadius: 4 }}>
+                                            <Typography variant="body2">{String(approval.payload.key ?? "memory write")}</Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                                {String(approval.payload.value_text ?? "")}
+                                            </Typography>
+                                            <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                                                <Button size="small" variant="contained" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "approved" })}>
+                                                    Approve
+                                                </Button>
+                                                <Button size="small" variant="outlined" color="error" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "rejected", reason: "Rejected from memory panel" })}>
+                                                    Reject
+                                                </Button>
+                                            </Stack>
+                                        </Paper>
+                                    ))}
+                                </>
+                            ) : null}
+                            {memoryEntries.length === 0 && pendingMemoryApprovals.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">No memory entries yet.</Typography>
+                            ) : null}
+                        </Stack>
+                    </SectionCard>
+                </Box>
+            )}
+
+            {/* ── Activity ── */}
+            {tab === "activity" && (
+                <SectionCard title="Activity feed">
+                    <Stack spacing={1.25}>
+                        {activityItems.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">No activity yet.</Typography>
+                        ) : activityItems.map((item) => (
+                            <Paper key={item.id} sx={{ p: 1.5, borderRadius: 1 }}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                                            <Chip size="small" variant="outlined" label={item.kind} />
+                                            <Typography variant="subtitle2">{item.title}</Typography>
+                                        </Stack>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                            {formatDateTime(item.at)} · {item.detail}
+                                        </Typography>
+                                    </Box>
+                                    {item.action ? (
+                                        <Button size="small" variant="text" onClick={item.action}>Open</Button>
+                                    ) : null}
+                                </Stack>
+                            </Paper>
+                        ))}
+                    </Stack>
+                </SectionCard>
+            )}
+
+            <Drawer
+                anchor="right"
+                open={overviewEditOpen}
+                onClose={() => setOverviewEditOpen(false)}
+                PaperProps={{ sx: { width: { xs: "100%", sm: 520 }, p: 2.5, boxSizing: "border-box" } }}
+            >
+                <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 500 }}>Edit overview</Typography>
+                    <TextField
+                        label="Goals"
+                        value={effectiveProjectGoals}
+                        onChange={(event) => {
+                            setProjectGoalsTouched(true);
+                            setProjectGoalsDraft(event.target.value);
+                        }}
+                        multiline
+                        minRows={4}
+                    />
+                    <TextField
+                        label="Executive summary"
+                        value={effectiveWorkspaceOverview.executive_summary}
+                        onChange={(event) => {
+                            setProjectOverviewTouched(true);
+                            setProjectOverviewForm((current) => ({ ...current, executive_summary: event.target.value }));
+                        }}
+                        multiline
+                        minRows={3}
+                    />
+                    <TextField
+                        label="Current focus"
+                        value={effectiveWorkspaceOverview.current_focus}
+                        onChange={(event) => {
+                            setProjectOverviewTouched(true);
+                            setProjectOverviewForm((current) => ({ ...current, current_focus: event.target.value }));
+                        }}
+                        multiline
+                        minRows={2}
+                    />
+                    <TextField
+                        label="Decision / knowledge focus"
+                        value={effectiveWorkspaceOverview.decision_focus}
+                        onChange={(event) => {
+                            setProjectOverviewTouched(true);
+                            setProjectOverviewForm((current) => ({ ...current, decision_focus: event.target.value }));
+                        }}
+                        multiline
+                        minRows={2}
+                    />
+                    <ExternalLinksEditor
+                        links={effectiveProjectExternalLinks}
+                        onChange={(links) => {
+                            setProjectExternalLinksTouched(true);
+                            setProjectExternalLinks(links);
+                        }}
+                    />
+                    <Button
+                        variant="contained"
+                        onClick={() => {
+                            saveProjectSettingsMutation.mutate({
+                                goals_markdown: effectiveProjectGoals,
+                                settings: {
+                                    ...(project.settings ?? {}),
+                                    workspace_overview: effectiveWorkspaceOverview,
+                                    external_links: serializeExternalLinks(effectiveProjectExternalLinks),
+                                },
+                            });
+                            setOverviewEditOpen(false);
+                        }}
+                        disabled={saveProjectSettingsMutation.isPending}
+                    >
+                        Save overview
+                    </Button>
+                </Stack>
+            </Drawer>
+
+            <Drawer
+                anchor="right"
+                open={Boolean(dagDrawerTaskId)}
+                onClose={() => setDagDrawerTaskId(null)}
+                PaperProps={{ sx: { width: { xs: "100%", sm: 420 }, p: 2.5, boxSizing: "border-box" } }}
+            >
+                {dagTask && (
+                    <Stack spacing={2}>
+                        <Typography variant="overline" color="text.secondary">Task</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 500 }}>{dagTask.title}</Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Chip label={humanizeKey(dagTask.status)} size="small" />
+                            <Chip label={dagTask.priority} size="small" variant="outlined" />
+                        </Stack>
+                        {dagTask.description ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                                {dagTask.description}
+                            </Typography>
+                        ) : null}
+                        <TextField
+                            select
+                            SelectProps={{ multiple: true }}
+                            size="small"
+                            label="Dependencies"
+                            value={currentDagDependencySelection}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (!dagTask) return;
+                                setDagDependencyDrafts((current) => ({
+                                    ...current,
+                                    [dagTask.id]: Array.isArray(nextValue)
+                                        ? nextValue
+                                        : String(nextValue).split(",").filter(Boolean),
+                                }));
+                            }}
+                            helperText="Selected tasks must finish before this one can run."
+                            fullWidth
+                        >
+                            {tasks
+                                .filter((candidate) => candidate.id !== dagTask.id && !dagDescendantIds.has(candidate.id))
+                                .map((candidate) => (
+                                    <MenuItem key={candidate.id} value={candidate.id}>
+                                        {candidate.title} · {humanizeKey(candidate.status)}
+                                    </MenuItem>
+                                ))}
+                        </TextField>
+                        <Button
+                            variant="outlined"
+                            disabled={updateDagTaskMutation.isPending}
+                            onClick={() => updateDagTaskMutation.mutate({
+                                taskId: dagTask.id,
+                                payload: { dependency_ids: currentDagDependencySelection },
+                            })}
+                        >
+                            Save dependencies
+                        </Button>
+                        {dagTaskDependents.length > 0 ? (
+                            <Stack spacing={0.5}>
+                                <Typography variant="caption" color="text.secondary">Downstream tasks</Typography>
+                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                    {dagTaskDependents.map((dependent) => (
+                                        <Chip key={dependent.id} label={dependent.title} size="small" variant="outlined" />
+                                    ))}
+                                </Stack>
+                            </Stack>
+                        ) : null}
+                        {dagBlockedSuggestion ? (
+                            <Alert severity="warning">
+                                Suggested handoff: {dagBlockedSuggestion.agentName} via {humanizeKey(dagBlockedSuggestion.via)}.
+                                {dagBlockedSuggestion.reason ? ` ${dagBlockedSuggestion.reason}` : ""}
+                            </Alert>
+                        ) : null}
+                        <Stack spacing={1}>
+                            <Button variant="outlined" onClick={() => { setTab("work"); setWorkView("board"); setDagDrawerTaskId(null); }}>
+                                Open board tab
+                            </Button>
+                            {dagTaskLatestRun ? (
+                                <Button variant="outlined" onClick={() => navigate(`/runs/${dagTaskLatestRun.id}`)}>
+                                    Open latest run
+                                </Button>
+                            ) : null}
+                            <Button
+                                variant="contained"
+                                disabled={runMutation.isPending}
+                                onClick={() => {
+                                    setSelectedTaskId(dagTask.id);
+                                    runMutation.mutate({
+                                        taskId: dagTask.id,
+                                        runMode: taskRunModes[dagTask.id] ?? "single_agent",
+                                        createPr: taskPrModes[dagTask.id] ?? false,
+                                    });
+                                    setDagDrawerTaskId(null);
+                                }}
+                            >
+                                Run this task
+                            </Button>
+                            {dagTaskSubtasks.length >= 2 ? (
+                                <Button
+                                    variant="outlined"
+                                    disabled={mergeResolutionMutation.isPending}
+                                    onClick={() => {
+                                        const done = dagTaskSubtasks.filter((s) => s.status === "completed" || s.status === "approved");
+                                        if (done.length < 2) {
+                                            showToast({ message: "Need at least two completed subtasks to merge.", severity: "warning" });
+                                            return;
+                                        }
+                                        setMergeTaskId(dagTask.id);
+                                        setMergeNotes(`Synthesize the best branch outputs for "${dagTask.title}". Resolve conflicts, preserve accepted evidence, and promote one final artifact set.`);
+                                        setDagDrawerTaskId(null);
+                                    }}
+                                >
+                                    Merge completed subtasks (resolution run)
+                                </Button>
+                            ) : null}
+                            {dagTask.metadata?.latest_reopen ? (
+                                <Alert severity="warning">
+                                    Latest rework checklist recorded. Re-run after addressing reviewer items.
+                                </Alert>
+                            ) : null}
+                        </Stack>
+                    </Stack>
+                )}
+            </Drawer>
+
+            <Dialog open={Boolean(mergeTaskId)} onClose={() => setMergeTaskId(null)} fullWidth maxWidth="md">
+                <DialogTitle>Merge branch outputs</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            Review completed branch outputs, flag conflicts, then queue one synthesis run on the parent task.
+                        </Typography>
+                        {mergePreview ? (
+                            <>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                    <Typography variant="subtitle2">{String((mergePreview.parent as { title?: string } | undefined)?.title || "Parent task")}</Typography>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                        <Chip size="small" variant="outlined" label={`${Number(mergePreview.completed_branch_count || 0)} completed branches`} />
+                                        <Chip size="small" variant="outlined" label={`${Number(mergePreview.distinct_agents_on_completed || 0)} contributing agents`} />
+                                        <Chip
+                                            size="small"
+                                            color={mergePreview.needs_merge_agent ? "warning" : "success"}
+                                            label={mergePreview.needs_merge_agent ? "conflict review needed" : "low conflict"}
+                                        />
+                                    </Stack>
+                                </Paper>
+                                <Stack spacing={1}>
+                                    {Array.isArray(mergePreview.branches) ? mergePreview.branches.map((branch) => {
+                                        const branchRow = branch as { id: string; title?: string; status?: string; assigned_agent_id?: string | null; result_summary?: string | null };
+                                        return (
+                                            <Paper key={branchRow.id} sx={{ p: 1.5, borderRadius: 1 }}>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+                                                    <Typography variant="subtitle2">{branchRow.title || "Branch task"}</Typography>
+                                                    <Chip size="small" variant="outlined" label={branchRow.status || "unknown"} />
+                                                    {branchRow.assigned_agent_id ? <Chip size="small" variant="outlined" label={branchRow.assigned_agent_id.slice(0, 8)} /> : null}
+                                                </Stack>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75, whiteSpace: "pre-wrap" }}>
+                                                    {branchRow.result_summary || "No summary captured yet."}
+                                                </Typography>
+                                            </Paper>
+                                        );
+                                    }) : null}
+                                </Stack>
+                            </>
+                        ) : (
+                            <LinearProgress />
+                        )}
+                        <Alert severity="info">
+                            Checklist: compare branch evidence, reconcile conflicts, preserve accepted artifacts, and name the promoted final output in notes.
+                        </Alert>
+                        <TextField
+                            label="Synthesis notes"
+                            multiline
+                            minRows={5}
+                            value={mergeNotes}
+                            onChange={(event) => setMergeNotes(event.target.value)}
+                            helperText="These notes become merge context for the synthesis run."
+                            fullWidth
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setMergeTaskId(null)}>Cancel</Button>
+                    <Button
+                        variant="contained"
+                        disabled={!mergeTaskId || mergeResolutionMutation.isPending}
+                        onClick={() => {
+                            if (!mergeTaskId) return;
+                            mergeResolutionMutation.mutate({ parentTaskId: mergeTaskId, notes: mergeNotes.trim() || "Merge branches from project DAG." });
+                        }}
+                    >
+                        Queue merge resolution run
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* ── Acceptance Dialog ── */}
+            {acceptanceTaskId && (
+                <AcceptanceDialog
+                    projectId={projectId}
+                    taskId={acceptanceTaskId}
+                    taskTitle={tasks.find((t) => t.id === acceptanceTaskId)?.title ?? ""}
+                    onClose={() => setAcceptanceTaskId(null)}
+                />
+            )}
+        </PageShell>
+    );
+}

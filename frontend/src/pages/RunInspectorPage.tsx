@@ -135,7 +135,7 @@ function RunEventRow({
             sx={(theme) => ({
                 px: 2,
                 py: 1,
-                borderRadius: 2,
+                borderRadius: 1,
                 backgroundColor: alpha(
                     color === "error" ? theme.palette.error.main
                         : color === "warning" ? theme.palette.warning.main
@@ -223,7 +223,7 @@ function ToolCallPair({ call, response }: { call: RunEvent; response: RunEvent |
         <Paper
             sx={(theme) => ({
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: 1,
                 border: `1px solid ${theme.palette.divider}`,
                 ml: 4,
                 mr: 0,
@@ -353,7 +353,7 @@ function ConversationBubble({
         <Paper
             sx={(theme) => ({
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: 1,
                 border: `1px solid ${theme.palette.divider}`,
                 ml: isAgent ? 0 : isModel ? 2 : 4,
                 mr: isAgent ? 4 : 0,
@@ -514,7 +514,7 @@ function RunTraceView({ trace }: { trace: RunTraceStep[] }) {
                     variant="outlined"
                     sx={(theme) => ({
                         p: 1.5,
-                        borderRadius: 2,
+                        borderRadius: 1,
                         borderColor: step.is_current ? theme.palette.info.main : undefined,
                     })}
                 >
@@ -573,7 +573,7 @@ function WorkflowGraphView({ trace }: { trace: RunTraceStep[] }) {
     return (
         <Stack spacing={1}>
             {edges.map((edge, idx) => (
-                <Paper key={`${edge.from.step_id}-${edge.to.step_id}-${idx}`} sx={{ p: 1.25, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                <Paper key={`${edge.from.step_id}-${edge.to.step_id}-${idx}`} sx={{ p: 1.25, borderRadius: 1, border: 1, borderColor: "divider" }}>
                     <Typography variant="body2">
                         <strong>{humanizeKey(edge.from.step_id)}</strong> {" -> "} <strong>{humanizeKey(edge.to.step_id)}</strong>
                     </Typography>
@@ -784,7 +784,7 @@ export default function RunInspectorPage() {
                 }
             >
                 {execSnapshotLoading && !execSnapshot ? (
-                    <Skeleton variant="rounded" height={120} sx={{ borderRadius: 2 }} />
+                    <Skeleton variant="rounded" height={120} sx={{ borderRadius: 1 }} />
                 ) : execSnapshot ? (
                     <Stack spacing={1.5}>
                         <Typography variant="body2" color="text.secondary">
@@ -850,7 +850,7 @@ export default function RunInspectorPage() {
                     sx={{ mt: 2 }}
                 >
                     <Stack spacing={1.5}>
-                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                                 <Chip size="small" variant="outlined" label={String(execSnapshot.durable_workflow?.workflow_id || "no workflow id")} />
                                 <Chip size="small" variant="outlined" label={String(execSnapshot.durable_workflow?.backend || "unknown backend")} />
@@ -870,7 +870,7 @@ export default function RunInspectorPage() {
                                 {Array.isArray(execSnapshot.durable_workflow?.signal_queue) && execSnapshot.durable_workflow.signal_queue.length > 0 ? (
                                     <Stack spacing={0.75} sx={{ mt: 0.75 }}>
                                         {execSnapshot.durable_workflow.signal_queue.map((signal) => (
-                                            <Paper key={String(signal.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                            <Paper key={String(signal.id)} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
                                                 <Typography variant="body2">{String(signal.name || signal.id)}</Typography>
                                                 <Typography variant="caption" color="text.secondary">
                                                     {String(signal.created_at || "")}
@@ -884,7 +884,7 @@ export default function RunInspectorPage() {
                             </Box>
                             <Box sx={{ flex: 1 }}>
                                 <Typography variant="caption" color="text.secondary">Migration posture</Typography>
-                                <Paper variant="outlined" sx={{ p: 1, borderRadius: 2, mt: 0.75 }}>
+                                <Paper variant="outlined" sx={{ p: 1, borderRadius: 1, mt: 0.75 }}>
                                     <Typography variant="body2">
                                         {String((execSnapshot.durable_workflow?.migration as Record<string, unknown> | undefined)?.strategy || "checkpoint-first coexistence")}
                                     </Typography>
@@ -953,7 +953,7 @@ export default function RunInspectorPage() {
                             <Typography variant="caption" color="text.secondary">Child runs</Typography>
                             {execSnapshot.child_runs.length > 0 ? (
                                 execSnapshot.child_runs.map((child) => (
-                                    <Paper key={child.id} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Paper key={child.id} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between">
                                             <Box>
                                                 <Typography variant="body2">
@@ -991,7 +991,7 @@ export default function RunInspectorPage() {
                                 {execSnapshot.blocker_queue.length > 0 ? (
                                     <Stack spacing={0.75} sx={{ mt: 0.75 }}>
                                         {execSnapshot.blocker_queue.map((item, index) => (
-                                            <Paper key={`${String(item.branch_id || index)}`} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                            <Paper key={`${String(item.branch_id || index)}`} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
                                                 <Typography variant="body2">{String(item.title || item.branch_id || `Blocker ${index + 1}`)}</Typography>
                                                 <Typography variant="caption" color="text.secondary">
                                                     {String(item.blocker_reason || item.reason || "blocked")}
@@ -1005,7 +1005,7 @@ export default function RunInspectorPage() {
                             </Box>
                             <Box sx={{ flex: 1 }}>
                                 <Typography variant="caption" color="text.secondary">Review state</Typography>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mt: 0.75 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1, mt: 0.75 }}>
                                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
                                         <Chip size="small" label={String(execSnapshot.review_state?.decision || "pending")} color={execSnapshot.review_state?.decision === "approved" ? "success" : execSnapshot.review_state?.decision ? "warning" : "default"} />
                                         <Chip size="small" variant="outlined" label={`round ${String(execSnapshot.review_state?.round || 0)}`} />
@@ -1013,7 +1013,7 @@ export default function RunInspectorPage() {
                                     <Typography variant="body2">{String(execSnapshot.review_state?.summary || "No review summary yet.")}</Typography>
                                 </Paper>
                                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>GitHub action state</Typography>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mt: 0.75 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1, mt: 0.75 }}>
                                     <Typography variant="body2">
                                         {execSnapshot.github_action_state?.completed ? "completed" : "pending"}
                                     </Typography>
@@ -1034,7 +1034,7 @@ export default function RunInspectorPage() {
                     sx={{ mt: 2 }}
                 >
                     <Stack spacing={1.5}>
-                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                             <Typography variant="caption" color="text.secondary">Agent selection</Typography>
                             <Typography variant="body2" sx={{ mb: 1 }}>
                                 {String(execSnapshot.routing_explainability?.agent_selection_reason || selectionMeta.worker_agent_rationale || "No agent selection explanation stored.")}
@@ -1044,7 +1044,7 @@ export default function RunInspectorPage() {
                                 {String(execSnapshot.routing_explainability?.model_selection_reason || selectionMeta.model_rationale || "No model selection explanation stored.")}
                             </Typography>
                         </Paper>
-                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                             <Typography variant="caption" color="text.secondary">What changed since last run</Typography>
                             {String(execSnapshot.execution_memory?.since_last_run_unified_diff || "").trim() ? (
                                 <Box component="pre" sx={{ m: 0, mt: 1, whiteSpace: "pre-wrap", typography: "caption" }}>
@@ -1060,7 +1060,7 @@ export default function RunInspectorPage() {
                             <Typography variant="caption" color="text.secondary">Changed artifacts</Typography>
                             {execSnapshot.changed_artifacts.length > 0 ? (
                                 execSnapshot.changed_artifacts.map((artifact) => (
-                                    <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                    <Paper key={String(artifact.id)} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
                                         <Typography variant="body2">{String(artifact.title || artifact.id)}</Typography>
                                         <Typography variant="caption" color="text.secondary">
                                             {String(artifact.kind || "artifact")} {artifact.created_at ? `• ${formatDateTime(String(artifact.created_at))}` : ""}
@@ -1218,7 +1218,7 @@ export default function RunInspectorPage() {
                     <Paper
                         sx={(theme) => ({
                             p: 2,
-                            borderRadius: 2,
+                            borderRadius: 1,
                             backgroundColor: alpha(theme.palette.background.default, 0.45),
                             border: `1px solid ${theme.palette.divider}`,
                         })}

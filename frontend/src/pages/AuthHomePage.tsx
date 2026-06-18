@@ -304,7 +304,7 @@ export default function AuthHomePage() {
                 <Box
                     sx={(theme) => ({
                         p: 0.5,
-                        borderRadius: 999,
+                        borderRadius: 1,
                         display: "grid",
                         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                         gap: 0.75,

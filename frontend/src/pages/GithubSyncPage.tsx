@@ -256,7 +256,7 @@ export function GithubSyncPanel() {
                     </Button>
                     {connectionMutation.isError && <Alert severity="error">{connectionMutation.error instanceof Error ? connectionMutation.error.message : "Couldn't save GitHub connection. Verify token and retry."}</Alert>}
                     {connections.map((connection) => (
-                        <Paper key={connection.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                        <Paper key={connection.id} sx={{ p: 1.5, borderRadius: 1 }}>
                             {(() => {
                                 const health = (connection.metadata?.health as { status?: string; missing_permissions?: unknown[] } | undefined) ?? {};
                                 return (
@@ -325,7 +325,7 @@ export function GithubSyncPanel() {
                 >
                     <Stack spacing={1.25}>
                         {repositories.map((repository) => (
-                            <Paper key={repository.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                            <Paper key={repository.id} sx={{ p: 1.5, borderRadius: 1 }}>
                                 {(() => {
                                     const health = (repository.metadata?.health as { status?: string; archived?: boolean; disabled?: boolean } | undefined) ?? {};
                                     return (
@@ -356,7 +356,7 @@ export function GithubSyncPanel() {
                 >
                     <Stack spacing={1.25}>
                         {filteredIssueLinks.map((item) => (
-                            <Paper key={item.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                            <Paper key={item.id} sx={{ p: 1.5, borderRadius: 1 }}>
                                 <Typography variant="subtitle2">#{item.issue_number} {item.title}</Typography>
                                 <Typography variant="caption" color="text.secondary">
                                     {repositoryById.get(item.repository_id)?.full_name || item.repository_id} • {item.state} • sync {item.sync_status} • task {item.task_id || "pending"}
@@ -419,7 +419,7 @@ export function GithubSyncPanel() {
                             </Alert>
                         ))}
                         {issueHistoryRows.map((item) => (
-                            <Paper key={item.id} sx={{ p: 1.25, borderRadius: 3 }}>
+                            <Paper key={item.id} sx={{ p: 1.25, borderRadius: 1 }}>
                                 <Stack spacing={0.75}>
                                     <Typography variant="body2">
                                         #{item.issue_number} • {item.title} • {repositoryById.get(item.repository_id)?.full_name || item.repository_id}

@@ -57,6 +57,12 @@ export type AiDocument = {
     updated_at: string;
 };
 
+export type AiDocumentIngestResponse = {
+    document: AiDocument;
+    ingest_job_id: string | null;
+    queued: boolean;
+};
+
 export type AiRun = {
     id: string;
     prompt_template_id: string | null;
@@ -237,14 +243,18 @@ export async function createAiDocument(payload: {
     content: string;
     content_type?: string;
     metadata?: Record<string, unknown>;
-}): Promise<AiDocument> {
+}): Promise<AiDocumentIngestResponse> {
     return apiFetch("/ai/documents", {
         method: "POST",
         body: JSON.stringify(payload),
     });
 }
 
-export async function uploadAiDocument(file: File, description?: string): Promise<AiDocument> {
+export async function getAiDocument(documentId: string): Promise<AiDocument> {
+    return apiFetch(`/ai/documents/${documentId}`);
+}
+
+export async function uploadAiDocument(file: File, description?: string): Promise<AiDocumentIngestResponse> {
     const formData = new FormData();
     formData.append("file", file);
     if (description) {

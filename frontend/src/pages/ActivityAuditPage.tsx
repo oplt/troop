@@ -116,14 +116,14 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         <Paper
             sx={{
                 p: 2,
-                borderRadius: 3,
+                borderRadius: 1,
                 border: (t) => (isPending ? `1px solid ${t.palette.warning.light}` : "1px solid transparent"),
                 bgcolor: (t) => (!isPending ? t.palette.action.hover : "transparent"),
             }}
         >
             <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
                         {actionDescription}
                     </Typography>
                     <Chip
@@ -173,7 +173,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                     <Box
                         sx={{
                             p: 1.25,
-                            borderRadius: 2,
+                            borderRadius: 1,
                             bgcolor: "background.default",
                             border: 1,
                             borderColor: "divider",
@@ -323,7 +323,7 @@ export default function ActivityAuditPage() {
         <PageShell maxWidth="xl">
 
 
-            <Paper sx={{ p: 2, borderRadius: 3, mb: 2 }}>
+            <Paper sx={{ p: 2, borderRadius: 1, mb: 2 }}>
                 <Stack spacing={2}>
                     <Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap" useFlexGap>
                         <TextField
@@ -443,7 +443,7 @@ export default function ActivityAuditPage() {
                         )}
                         <Stack spacing={1.5}>
                             {filteredRuns.map((run) => (
-                                <Paper key={run.id} sx={{ p: 2, borderRadius: 3 }}>
+                                <Paper key={run.id} sx={{ p: 2, borderRadius: 1 }}>
                                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                                         <Box>
                                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -485,7 +485,7 @@ export default function ActivityAuditPage() {
                         {syncLoading && <CircularProgress size={20} />}
                         <Stack spacing={1.25}>
                             {filteredSync.map((event) => (
-                                <Paper key={event.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper key={event.id} sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Typography variant="body2">{event.action} • {event.status}</Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         {event.detail || "—"} • {formatDateTime(event.created_at)}

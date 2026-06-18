@@ -5,7 +5,7 @@ body,
 }
 
 body {
-  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Universal Sans Text", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
 }
 
 code,
@@ -32,15 +32,13 @@ img {
 }
 
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(41, 37, 36, 0.28);
-  border-radius: 999px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
+  background: rgba(23, 26, 32, 0.2);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-track {

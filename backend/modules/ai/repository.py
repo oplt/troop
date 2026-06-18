@@ -1,6 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.modules.ai.models import (
     AiDocument,
     AiDocumentChunk,
@@ -14,6 +15,7 @@ from backend.modules.ai.models import (
     AiReviewItem,
     AiRun,
 )
+from backend.modules.orchestration.model_utils import normalize_embedding_for_vector
 
 
 class AiRepository:
@@ -99,16 +101,20 @@ class AiRepository:
         await self.db.flush()
         return document
 
+    async def update_document(self, document: AiDocument, **values) -> AiDocument:
+        for field, value in values.items():
+            setattr(document, field, value)
+        await self.db.flush()
+        return document
+
     async def replace_document_chunks(
         self,
         document: AiDocument,
         chunks: list[tuple[int, str, int, list[float]]],
     ) -> None:
-        result = await self.db.execute(
-            select(AiDocumentChunk).where(AiDocumentChunk.document_id == document.id)
+        await self.db.execute(
+            delete(AiDocumentChunk).where(AiDocumentChunk.document_id == document.id)
         )
-        for chunk in result.scalars().all():
-            await self.db.delete(chunk)
         await self.db.flush()
         for chunk_index, content, token_count, embedding in chunks:
             self.db.add(
@@ -118,20 +124,62 @@ class AiRepository:
                     content=content,
                     token_count=token_count,
                     embedding_json=embedding,
+                    embedding_vector=normalize_embedding_for_vector(embedding),
                 )
             )
         await self.db.flush()
 
+    async def search_document_chunks_by_vector(
+        self,
+        user_id: str,
+        document_ids: list[str],
+        query_vec: list[float],
+        *,
+        top_k: int,
+    ) -> list[dict]:
+        if not document_ids:
+            return []
+        qv = normalize_embedding_for_vector(query_vec)
+        literal = "[" + ",".join(str(float(x)) for x in qv) + "]"
+        cap = max(1, min(int(top_k), 20))
+        sql = text(
+            """
+            SELECT c.id AS chunk_id,
+                   c.document_id,
+                   c.chunk_index,
+                   c.content,
+                   d.title AS document_title,
+                   1 - (c.embedding_vector <=> CAST(:qv AS vector)) AS score
+            FROM ai_document_chunks c
+            INNER JOIN ai_documents d ON d.id = c.document_id
+            WHERE d.user_id = :uid
+              AND c.document_id = ANY(:doc_ids)
+              AND c.embedding_vector IS NOT NULL
+            ORDER BY c.embedding_vector <=> CAST(:qv AS vector)
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(
+            sql,
+            {"uid": user_id, "doc_ids": document_ids, "qv": literal, "lim": cap},
+        )
+        return [dict(row) for row in result.mappings().all()]
+
     async def list_document_chunks(
         self,
         document_ids: list[str],
+        *,
+        limit: int | None = None,
     ) -> list[AiDocumentChunk]:
         if not document_ids:
             return []
+        cap = settings.AI_RETRIEVE_CHUNK_SCAN_MAX if limit is None else limit
+        cap = min(max(int(cap), 1), settings.AI_RETRIEVE_CHUNK_SCAN_MAX)
         result = await self.db.execute(
             select(AiDocumentChunk)
             .where(AiDocumentChunk.document_id.in_(document_ids))
             .order_by(AiDocumentChunk.document_id.asc(), AiDocumentChunk.chunk_index.asc())
+            .limit(cap)
         )
         return list(result.scalars().all())
 

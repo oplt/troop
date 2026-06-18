@@ -249,7 +249,7 @@ export default function BrainstormsPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <Paper sx={{ p: 2, borderRadius: 3, mb: 2 }}>
+            <Paper sx={{ p: 2, borderRadius: 1, mb: 2 }}>
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                     <TextField
                         label="Search"

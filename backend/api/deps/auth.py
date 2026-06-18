@@ -3,6 +3,12 @@ import logging
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.cache import (
+    get_cached_session_valid,
+    invalidate_session_cache,
+    invalidate_user_session_caches,
+    set_cached_session_valid,
+)
 from backend.core.config import settings
 from backend.core.security import decode_token
 from backend.db.session import get_db
@@ -30,9 +36,14 @@ async def _get_authenticated_user(access_token: str | None, db: AsyncSession) ->
         raise HTTPException(status_code=401, detail="User not found")
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
-    session = await repo.get_active_session_by_id(session_id)
-    if not session or session.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Session is no longer valid")
+
+    cached_valid = await get_cached_session_valid(user_id, session_id)
+    if cached_valid is not True:
+        session = await repo.get_active_session_by_id(session_id)
+        if not session or session.user_id != user.id:
+            await invalidate_session_cache(user_id, session_id)
+            raise HTTPException(status_code=401, detail="Session is no longer valid")
+        await set_cached_session_valid(user_id, session_id)
 
     return user
 

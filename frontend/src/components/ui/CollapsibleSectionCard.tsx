@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button, Chip, Collapse, Stack, type SxProps, type Theme } from "@mui/material";
 import { ExpandLess as CollapseIcon, ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 
@@ -26,6 +26,7 @@ export function CollapsibleSectionCard({
     sx,
 }: CollapsibleSectionCardProps) {
     const [expanded, setExpanded] = useState(defaultExpanded);
+    const sectionId = useId();
     return (
         <SectionCard
             sx={sx}
@@ -43,6 +44,8 @@ export function CollapsibleSectionCard({
                     <Button
                         size="small"
                         variant="text"
+                        aria-expanded={expanded}
+                        aria-controls={sectionId}
                         endIcon={expanded ? <CollapseIcon /> : <ExpandMoreIcon />}
                         onClick={() => setExpanded((current) => !current)}
                     >
@@ -51,7 +54,7 @@ export function CollapsibleSectionCard({
                 </Stack>
             }
         >
-            <Collapse in={expanded} mountOnEnter unmountOnExit timeout="auto">
+            <Collapse id={sectionId} in={expanded} mountOnEnter unmountOnExit timeout="auto">
                 {children}
             </Collapse>
         </SectionCard>

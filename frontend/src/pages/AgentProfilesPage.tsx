@@ -105,7 +105,7 @@ export default function AgentProfilesPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 1 }}>
                 <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
                     <Box>
                         <Typography variant="overline" color="text.secondary">
@@ -149,7 +149,7 @@ export default function AgentProfilesPage() {
             {error && <Alert severity="error">{error}</Alert>}
 
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "360px 1fr" }, gap: 3 }}>
-                <Paper sx={{ p: 2, borderRadius: 2 }}>
+                <Paper sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={1.5}>
                         {agents.map((agent) => (
                             <Button
@@ -170,7 +170,7 @@ export default function AgentProfilesPage() {
                     </Stack>
                 </Paper>
 
-                <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+                <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1 }}>
                     <Stack spacing={2.5}>
                         {selectedAgent && (
                             <Box>

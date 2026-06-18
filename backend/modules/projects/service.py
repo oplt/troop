@@ -13,6 +13,12 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.cache import (
+    get_cached_project_acl,
+    invalidate_project_acl_cache_for_project,
+    invalidate_project_memory_settings_cache,
+    set_cached_project_acl,
+)
 from backend.modules.identity_access.models import User
 from backend.modules.memory.settings import merge_memory_settings
 from backend.modules.notifications.repository import NotificationsRepository
@@ -319,7 +325,7 @@ class OrchestrationProjectsServiceMixin:
         return {
             "projects": await self.repo.list_projects(user.id),
             "agents": await self.repo.list_agents(user.id),
-            "active_runs": (await self.repo.list_runs(user.id))[:10],
+            "active_runs": await self.repo.list_runs(user.id, limit=10),
             "pending_approvals": (await self.repo.list_approvals(user.id, "pending"))[:10],
             "github_events": (await self.repo.list_sync_events(user.id))[:10],
         }
@@ -484,6 +490,7 @@ class OrchestrationProjectsServiceMixin:
                     "fs_write",
                     "db_query",
                     "repo_search",
+                    "knowledge_search",
                 }
                 fallback_payload = {
                     "project_id": project.id,
@@ -522,9 +529,14 @@ class OrchestrationProjectsServiceMixin:
                 manager_assigned = True
 
     async def get_project(self, user: User, project_id: str):
+        cached_acl = await get_cached_project_acl(user.id, project_id)
+        if cached_acl is False:
+            raise HTTPException(status_code=404, detail="Project not found")
         project = await self.repo.get_project(user.id, project_id)
         if not project:
+            await set_cached_project_acl(user.id, project_id, allowed=False)
             raise HTTPException(status_code=404, detail="Project not found")
+        await set_cached_project_acl(user.id, project_id, allowed=True)
         return project
 
     async def update_project(self, user: User, project_id: str, updates: dict[str, Any]):
@@ -543,6 +555,8 @@ class OrchestrationProjectsServiceMixin:
                 setattr(project, field, value)
         await self.db.commit()
         await self.db.refresh(project)
+        if "settings" in updates:
+            await invalidate_project_memory_settings_cache(project.id)
         return project
 
     async def delete_project(self, user: User, project_id: str) -> None:
@@ -555,6 +569,8 @@ class OrchestrationProjectsServiceMixin:
             resource_id=project.id,
         )
         await self.db.commit()
+        await invalidate_project_acl_cache_for_project(project_id)
+        await invalidate_project_memory_settings_cache(project_id)
 
     async def get_gate_config(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
@@ -848,7 +864,7 @@ class OrchestrationProjectsServiceMixin:
         project = await self.get_project(user, project_id)
         repositories = await self.repo.list_project_repositories(project.id)
         jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project.id, limit=240)
-        documents = await self.repo.list_documents(project.id, None)
+        documents = await self.repo.list_documents(project.id, None, limit=0)
 
         documents_by_repo: dict[str, list[Any]] = {}
         for document in documents:
@@ -1241,8 +1257,8 @@ class OrchestrationProjectsServiceMixin:
                 if manager_membership
                 else None
             )
-            tasks = await self.repo.list_tasks(project.id)
-            runs = await self.repo.list_runs(user.id, project.id)
+            tasks = await self.repo.list_tasks(project.id, limit=0)
+            runs = await self.repo.list_runs(user.id, project.id, limit=0)
             repositories = await self.repo.list_project_repositories(project.id)
             sync_events = await self.repo.list_sync_events(user.id, project.id)
             ingest_jobs = await self.repo.list_memory_ingest_jobs_for_project(
@@ -1519,7 +1535,7 @@ class OrchestrationProjectsServiceMixin:
 
     async def hierarchy_live_snapshot(self, user: User) -> dict[str, Any]:
         agents = await self.repo.list_agents(user.id, None)
-        runs = await self.repo.list_runs(user.id, None)
+        runs = await self.repo.list_runs(user.id, None, limit=0)
         return {
             "agents": len(agents),
             "runs": {

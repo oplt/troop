@@ -155,7 +155,7 @@ export default function BrainstormDetailPage() {
                                         {roundMessages.map((message) => {
                                             const agent = agents.find((item) => item.id === message.agent_id);
                                             return (
-                                                <Paper key={message.id} sx={{ p: 1.5, borderRadius: 3 }}>
+                                                <Paper key={message.id} sx={{ p: 1.5, borderRadius: 1 }}>
                                                     <Stack direction="row" spacing={1.5} alignItems="flex-start">
                                                         <Avatar sx={{ width: 34, height: 34 }}>
                                                             {initials(agent?.name || "AI")}
@@ -278,7 +278,7 @@ export default function BrainstormDetailPage() {
                     <SectionCard title="Moderator log" description="Round summaries and finalization records captured in the room decision log.">
                         <Stack spacing={1}>
                             {roundSummaries.map((entry, index) => (
-                                <Paper key={`round-summary-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper key={`round-summary-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="subtitle2">Round {String(entry.round ?? index + 1)}</Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         Consensus: {humanizeKey(String(entry.consensus_kind ?? "open"))}
@@ -293,7 +293,7 @@ export default function BrainstormDetailPage() {
                                 </Paper>
                             ))}
                             {finalEntries.map((entry, index) => (
-                                <Paper key={`final-output-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper key={`final-output-${index}`} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="subtitle2">Final output</Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         Reason: {humanizeKey(String(entry.reason ?? "completed"))} · Output: {humanizeKey(String(entry.output_type ?? brainstorm.output_type))}

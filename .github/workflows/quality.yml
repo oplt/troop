@@ -1,0 +1,45 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "backend[dev]"
+      - name: Run backend tests
+        run: pytest backend/tests/test_orchestration_domain_services.py backend/tests/test_golden_retrieval.py backend/tests/test_error_payloads.py
+      - name: Run RAG eval gate
+        run: python backend/tools/rag_eval_gate.py backend/tests/fixtures/rag_eval_golden.json --min-pass-rate 1.0
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm vitest run src/config/queryKeys.test.ts src/hooks/projectLiveSnapshotSync.test.ts src/pages/DashboardPage.test.tsx src/pages/OrchestrationProjectDetailPage.test.tsx

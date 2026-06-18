@@ -4,98 +4,72 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.modules.ai.providers import AiProviderRegistry
-from backend.modules.audit.repository import AuditRepository
-from backend.modules.github.service import OrchestrationGithubServiceMixin
-from backend.modules.memory.service import OrchestrationMemoryServiceMixin
-from backend.modules.orchestration.execution.execution_service import (
-    OrchestrationExecutionServiceMixin,
+from backend.modules.orchestration.services.base import (
+    GITHUB_WEBHOOK_EVENT_ALLOWLIST,
+    OrchestrationRunQueryMixin,
+    OrchestrationServiceBase,
+    SEMANTIC_ENTRY_TYPES,
+    TASK_TRANSITIONS,
 )
-from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.orchestration.services.approvals_service import (
-    OrchestrationApprovalsServiceMixin,
-)
-from backend.modules.orchestration.services.brainstorm_service import (
-    OrchestrationBrainstormServiceMixin,
-)
-from backend.modules.orchestration.services.evals_service import OrchestrationEvalsServiceMixin
-from backend.modules.orchestration.services.providers_service import (
-    OrchestrationProvidersServiceMixin,
-)
-from backend.modules.orchestration.services.routing_service import OrchestrationRoutingServiceMixin
+from backend.modules.orchestration.services.approvals_domain import ApprovalsService
+from backend.modules.orchestration.services.brainstorm_domain import BrainstormService
+from backend.modules.orchestration.services.evals_domain import EvalsService
+from backend.modules.orchestration.services.execution_domain import ExecutionService
+from backend.modules.orchestration.services.github_sync_domain import GithubSyncService
+from backend.modules.orchestration.services.knowledge_domain import KnowledgeService
+from backend.modules.orchestration.services.memory_domain import MemoryService
 from backend.modules.projects.service import OrchestrationProjectsServiceMixin
 from backend.modules.projects.tasks_service import OrchestrationTasksServiceMixin
 from backend.modules.team.service import TeamServiceMixin
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "ApprovalsService",
+    "BrainstormService",
+    "EvalsService",
+    "ExecutionService",
+    "GithubSyncService",
+    "KnowledgeService",
+    "MemoryService",
+    "OrchestrationService",
+    "GITHUB_WEBHOOK_EVENT_ALLOWLIST",
+    "SEMANTIC_ENTRY_TYPES",
+    "TASK_TRANSITIONS",
+]
 
-TASK_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"queued", "archived"},
-    "queued": {"planned", "blocked", "failed", "archived"},
-    "planned": {"in_progress", "blocked", "archived", "failed"},
-    "in_progress": {"blocked", "needs_review", "completed", "failed", "planned"},
-    "blocked": {"planned", "in_progress", "failed", "archived"},
-    "needs_review": {"approved", "planned", "blocked", "failed"},
-    "approved": {"completed", "planned", "archived"},
-    "completed": {"synced_to_github", "planned", "archived"},
-    "failed": {"planned", "queued", "archived"},
-    "synced_to_github": {"archived", "planned"},
-    "archived": set(),
-}
-
-from backend.modules.memory.entry_types import (
-    SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
-)
-
-SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
-
-GITHUB_WEBHOOK_EVENT_ALLOWLIST = frozenset(
-    {
-        "installation",
-        "installation_repositories",
-        "issues",
-        "issue_comment",
-        "pull_request",
-        "pull_request_review",
-        "pull_request_review_comment",
-        "push",
-        "projects_v2_item",
-    }
-)
+_DOMAIN_SERVICES = ("approvals", "execution", "memory", "github_sync", "evals", "brainstorm")
 
 
 class OrchestrationService(
-    OrchestrationEvalsServiceMixin,
-    OrchestrationApprovalsServiceMixin,
-    OrchestrationGithubServiceMixin,
-    OrchestrationMemoryServiceMixin,
-    OrchestrationBrainstormServiceMixin,
-    OrchestrationProvidersServiceMixin,
-    OrchestrationRoutingServiceMixin,
-    OrchestrationExecutionServiceMixin,
-    OrchestrationTasksServiceMixin,
+    OrchestrationRunQueryMixin,
     OrchestrationProjectsServiceMixin,
+    OrchestrationTasksServiceMixin,
     TeamServiceMixin,
+    OrchestrationServiceBase,
 ):
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.repo = OrchestrationRepository(db)
-        self.audit_repo = AuditRepository(db)
-        self.ai_providers = AiProviderRegistry()
+    """Facade composing domain services; evals/brainstorm stay on the shell."""
 
+    def __init__(self, db: AsyncSession) -> None:
+        super().__init__(db)
+        self.approvals = ApprovalsService(db)
+        self.execution = ExecutionService(db)
+        self.memory = MemoryService(db)
+        self.github_sync = GithubSyncService(db)
+        self.evals = EvalsService(db)
+        self.brainstorm = BrainstormService(db)
+        self._knowledge_facade = KnowledgeService(self.memory)
 
-    _TOOL_MIN_PERMISSION: dict[str, str] = {
-        "fs_read": "read-only",
-        "repo_search": "read-only",
-        "web_fetch": "read-only",
-        "web_search": "read-only",
-        "github_comment": "comment-only",
-        "github_label_issue": "code-write",
-        "github_create_pr": "code-write",
-        "fs_write": "code-write",
-        "code_execute": "code-write",
-        "db_query": "code-write",
-    }
-    _PERMISSION_RANK: dict[str, int] = {"read-only": 1, "comment-only": 2, "code-write": 3, "merge-blocked": 3}
-    _MERGE_BLOCKED_TOOLS: frozenset[str] = frozenset({"github_create_pr", "github_label_issue"})
+    @property
+    def knowledge(self) -> KnowledgeService:
+        return self._knowledge_facade
+
+    def __getattr__(self, name: str):
+        for attr in _DOMAIN_SERVICES:
+            domain = object.__getattribute__(self, attr)
+            if hasattr(domain, name):
+                value = getattr(domain, name)
+                if callable(value):
+                    return value.__get__(domain, type(domain))
+                return value
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")

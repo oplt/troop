@@ -7,6 +7,8 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
+from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.github.repository import GithubRepositoryMixin
 from backend.modules.memory.repository import MemoryRepositoryMixin
 from backend.modules.orchestration.models import (
@@ -378,12 +380,20 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def list_tasks(self, project_id: str) -> list[OrchestratorTask]:
-        result = await self.db.execute(
+    async def list_tasks(self, project_id: str, *, limit: int | None = None) -> list[OrchestratorTask]:
+        stmt = (
             select(OrchestratorTask)
             .where(OrchestratorTask.project_id == project_id)
             .order_by(OrchestratorTask.position.asc(), OrchestratorTask.created_at.asc())
         )
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
+        )
+        if cap is not None:
+            stmt = stmt.limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_task(self, project_id: str, task_id: str) -> OrchestratorTask | None:
@@ -486,7 +496,13 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def list_runs(self, owner_id: str, project_id: str | None = None) -> list[TaskRun]:
+    async def list_runs(
+        self,
+        owner_id: str,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+    ) -> list[TaskRun]:
         stmt = (
             select(TaskRun)
             .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
@@ -494,7 +510,15 @@ class OrchestrationRepository(
         )
         if project_id:
             stmt = stmt.where(TaskRun.project_id == project_id)
-        result = await self.db.execute(stmt.order_by(TaskRun.created_at.desc()))
+        stmt = stmt.order_by(TaskRun.created_at.desc())
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
+        )
+        if cap is not None:
+            stmt = stmt.limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def sum_token_usage_for_agent(self, owner_id: str, agent_id: str, since: datetime) -> int:
@@ -579,11 +603,63 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def list_run_events(self, run_id: str) -> list[RunEvent]:
+    async def count_run_events(self, run_id: str) -> int:
         result = await self.db.execute(
-            select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.created_at.asc())
+            select(func.count()).select_from(RunEvent).where(RunEvent.run_id == run_id)
         )
-        return list(result.scalars().all())
+        return int(result.scalar_one() or 0)
+
+    async def count_run_events_by_types(
+        self, run_id: str, event_types: Sequence[str]
+    ) -> int:
+        if not event_types:
+            return 0
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(RunEvent)
+            .where(RunEvent.run_id == run_id, RunEvent.event_type.in_(event_types))
+        )
+        return int(result.scalar_one() or 0)
+
+    async def list_run_events(
+        self,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+        descending: bool = False,
+    ) -> list[RunEvent]:
+        cap = settings.RUN_EVENTS_DEFAULT_LIMIT if limit is None else limit
+        cap = min(max(int(cap), 1), settings.RUN_EVENTS_MAX_LIMIT)
+        offset = max(int(offset), 0)
+        order_cols = (
+            (RunEvent.created_at.desc(), RunEvent.id.desc())
+            if descending
+            else (RunEvent.created_at.asc(), RunEvent.id.asc())
+        )
+        result = await self.db.execute(
+            select(RunEvent)
+            .where(RunEvent.run_id == run_id)
+            .order_by(*order_cols)
+            .offset(offset)
+            .limit(cap)
+        )
+        events = list(result.scalars().all())
+        if descending:
+            events.reverse()
+        return events
+
+    async def list_run_events_tail(self, run_id: str, *, limit: int = 12) -> list[RunEvent]:
+        cap = min(max(int(limit), 1), settings.RUN_EVENTS_MAX_LIMIT)
+        result = await self.db.execute(
+            select(RunEvent)
+            .where(RunEvent.run_id == run_id)
+            .order_by(RunEvent.created_at.desc(), RunEvent.id.desc())
+            .limit(cap)
+        )
+        events = list(result.scalars().all())
+        events.reverse()
+        return events
 
     async def list_run_events_since(
         self, run_id: str, *, created_after: datetime | None, limit: int = 200
@@ -984,7 +1060,13 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def list_documents(self, project_id: str, task_id: str | None = None) -> list[ProjectDocument]:
+    async def list_documents(
+        self,
+        project_id: str,
+        task_id: str | None = None,
+        *,
+        limit: int | None = None,
+    ) -> list[ProjectDocument]:
         stmt = select(ProjectDocument).where(
             ProjectDocument.project_id == project_id,
             ProjectDocument.deleted_at.is_(None),
@@ -993,7 +1075,15 @@ class OrchestrationRepository(
             stmt = stmt.where(
                 or_(ProjectDocument.task_id == task_id, ProjectDocument.task_id.is_(None))
             )
-        result = await self.db.execute(stmt.order_by(ProjectDocument.created_at.desc()))
+        stmt = stmt.order_by(ProjectDocument.created_at.desc())
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_DOCUMENTS_MAX_LIMIT,
+        )
+        if cap is not None:
+            stmt = stmt.limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_document(self, project_id: str, document_id: str) -> ProjectDocument | None:
@@ -1010,11 +1100,11 @@ class OrchestrationRepository(
         document: ProjectDocument,
         chunks: list[tuple[int, str, int, list[float], dict]],
     ) -> None:
-        result = await self.db.execute(
-            select(ProjectDocumentChunk).where(ProjectDocumentChunk.project_document_id == document.id)
+        await self.db.execute(
+            delete(ProjectDocumentChunk).where(
+                ProjectDocumentChunk.project_document_id == document.id
+            )
         )
-        for item in result.scalars().all():
-            await self.db.delete(item)
         await self.db.flush()
         for chunk_index, content, token_count, embedding, metadata in chunks:
             ev = normalize_embedding_for_vector(embedding)
@@ -1079,7 +1169,10 @@ class OrchestrationRepository(
         *,
         task_id: str | None = None,
         source_kind: str | None = None,
+        limit: int | None = None,
     ) -> list[ProjectDocumentChunk]:
+        cap = settings.RAG_CHUNK_FALLBACK_MAX if limit is None else limit
+        cap = min(max(int(cap), 1), settings.RAG_CHUNK_FALLBACK_MAX)
         stmt = (
             select(ProjectDocumentChunk)
             .join(ProjectDocument, ProjectDocumentChunk.project_document_id == ProjectDocument.id)
@@ -1098,7 +1191,9 @@ class OrchestrationRepository(
                 ProjectDocumentChunk.metadata_json["source_kind"].as_string() == source_kind
             )
         result = await self.db.execute(
-            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc())
+            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc()).limit(
+                cap
+            )
         )
         return list(result.scalars().all())
 
@@ -1688,6 +1783,10 @@ class OrchestrationRepository(
             .limit(max(1, min(limit, 100)))
         )
         return list(res.scalars().all())
+
+    async def get_memory_ingest_job(self, job_id: str) -> MemoryIngestJob | None:
+        res = await self.db.execute(select(MemoryIngestJob).where(MemoryIngestJob.id == job_id))
+        return res.scalar_one_or_none()
 
     async def list_memory_ingest_jobs_for_project(
         self, owner_id: str, project_id: str, *, limit: int = 80

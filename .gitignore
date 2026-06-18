@@ -364,3 +364,4 @@ frontend/node_modules
 .aider*
 opencode.json
 graphify-out/
+.truecourse/

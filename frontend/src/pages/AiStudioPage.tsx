@@ -18,8 +18,10 @@ import {
     AutoAwesome as AiIcon,
     Dataset as DatasetIcon,
     Description as DocumentIcon,
+    ErrorOutline as ErrorOutlineIcon,
     PlayCircleOutline as RunIcon,
     PsychologyAlt as PromptIcon,
+    Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import {
     createAiDataset,
@@ -47,6 +49,7 @@ import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
+import { extractApiErrorMessage } from "../utils/apiErrors";
 
 function parseJsonObject(value: string, fallback: Record<string, unknown> = {}) {
     if (!value.trim()) {
@@ -66,9 +69,15 @@ function formatCostMicros(micros: number) {
 export default function AiStudioPage() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const { data: overview, isLoading } = useQuery({
+    const { data: overview, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ["ai", "overview"],
         queryFn: getAiOverview,
+        refetchInterval: (query) => {
+            const docs = query.state.data?.documents ?? [];
+            return docs.some((doc) => doc.ingestion_status === "pending" || doc.ingestion_status === "running")
+                ? 2500
+                : false;
+        },
     });
     const { data: reviews = [] } = useQuery({
         queryKey: ["ai", "reviews"],
@@ -192,19 +201,29 @@ export default function AiStudioPage() {
     });
     const createTextDocumentMutation = useMutation({
         mutationFn: createAiDocument,
-        onSuccess: async () => {
+        onSuccess: async (result) => {
             setTextDocumentForm({ title: "", description: "", content: "", content_type: "text/plain" });
             await queryClient.invalidateQueries({ queryKey: ["ai"] });
-            showToast({ message: "Document ingested.", severity: "success" });
+            showToast({
+                message: result.queued
+                    ? "Document queued for indexing."
+                    : "Document ingested.",
+                severity: "success",
+            });
         },
     });
     const uploadDocumentMutation = useMutation({
         mutationFn: ({ file, description }: { file: File; description?: string }) =>
             uploadAiDocument(file, description),
-        onSuccess: async () => {
+        onSuccess: async (result) => {
             setUploadDescription("");
             await queryClient.invalidateQueries({ queryKey: ["ai"] });
-            showToast({ message: "Document uploaded and chunked.", severity: "success" });
+            showToast({
+                message: result.queued
+                    ? "Document uploaded and queued for indexing."
+                    : "Document uploaded and chunked.",
+                severity: "success",
+            });
         },
     });
     const createRunMutation = useMutation({
@@ -310,6 +329,31 @@ export default function AiStudioPage() {
             <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
                 <Skeleton variant="rounded" width="92%" height={520} sx={{ borderRadius: 6 }} />
             </Box>
+        );
+    }
+
+    if (isError) {
+        const message = extractApiErrorMessage(error, "Couldn't load AI Studio. Check your connection and try again.");
+        return (
+            <PageShell maxWidth="xl">
+                <EmptyState
+                    icon={<ErrorOutlineIcon />}
+                    title="Couldn't load AI Studio"
+                    description={message}
+                    action={
+                        <Button
+                            variant="contained"
+                            startIcon={<RefreshIcon />}
+                            disabled={isFetching}
+                            onClick={() => {
+                                void refetch();
+                            }}
+                        >
+                            {isFetching ? "Retrying…" : "Try again"}
+                        </Button>
+                    }
+                />
+            </PageShell>
         );
     }
 
@@ -668,7 +712,7 @@ export default function AiStudioPage() {
                                 disabled={createTextDocumentMutation.isPending || !textDocumentForm.title.trim() || !textDocumentForm.content.trim()}
                                 onClick={() => createTextDocumentMutation.mutate(textDocumentForm)}
                             >
-                                {createTextDocumentMutation.isPending ? "Ingesting..." : "Create text document"}
+                                {createTextDocumentMutation.isPending ? "Queueing..." : "Create text document"}
                             </Button>
                             <Button component="label" variant="contained" disabled={uploadDocumentMutation.isPending}>
                                 {uploadDocumentMutation.isPending ? "Uploading..." : "Upload text/markdown/json file"}
@@ -689,8 +733,24 @@ export default function AiStudioPage() {
                             {documents.length > 0 ? (
                                 <Stack spacing={1}>
                                     {documents.map((document) => (
-                                        <Box key={document.id} sx={(theme) => ({ p: 1.5, borderRadius: 3, border: `1px solid ${theme.palette.divider}` })}>
-                                            <Typography variant="subtitle2">{document.title}</Typography>
+                                        <Box key={document.id} sx={(theme) => ({ p: 1.5, borderRadius: 1, border: `1px solid ${theme.palette.divider}` })}>
+                                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                <Typography variant="subtitle2">{document.title}</Typography>
+                                                {document.ingestion_status !== "completed" ? (
+                                                    <Chip
+                                                        size="small"
+                                                        label={document.ingestion_status}
+                                                        color={
+                                                            document.ingestion_status === "failed"
+                                                                ? "error"
+                                                                : document.ingestion_status === "running"
+                                                                  ? "info"
+                                                                  : "warning"
+                                                        }
+                                                        variant="outlined"
+                                                    />
+                                                ) : null}
+                                            </Stack>
                                             <Typography variant="caption" color="text.secondary">
                                                 {document.chunk_count} chunks • {document.content_type} • {formatDateTime(document.updated_at)}
                                             </Typography>
@@ -817,7 +877,7 @@ export default function AiStudioPage() {
                                 {selectedDatasetCases.length > 0 && (
                                     <Stack spacing={1}>
                                         {selectedDatasetCases.map((item) => (
-                                            <Box key={item.id} sx={(theme) => ({ p: 1.5, borderRadius: 3, border: `1px solid ${theme.palette.divider}` })}>
+                                            <Box key={item.id} sx={(theme) => ({ p: 1.5, borderRadius: 1, border: `1px solid ${theme.palette.divider}` })}>
                                                 <Typography variant="body2" sx={{ fontFamily: '"IBM Plex Mono", monospace' }}>
                                                     {JSON.stringify(item.input_variables)}
                                                 </Typography>

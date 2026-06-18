@@ -38,7 +38,6 @@ from backend.modules.orchestration.execution.execution_workflow import (
     workflow_state,
 )
 
-# from backend.modules.orchestration.model_utils import _model_capabilities
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import (
@@ -46,23 +45,9 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorTask,
 )
 from backend.modules.team.models import AgentProfile
+from backend.modules.orchestration.constants import TASK_TRANSITIONS
 
 logger = logging.getLogger(__name__)
-
-
-TASK_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"queued", "archived"},
-    "queued": {"planned", "blocked", "failed", "archived"},
-    "planned": {"in_progress", "blocked", "archived", "failed"},
-    "in_progress": {"blocked", "needs_review", "completed", "failed", "planned"},
-    "blocked": {"planned", "in_progress", "failed", "archived"},
-    "needs_review": {"approved", "planned", "blocked", "failed"},
-    "approved": {"completed", "planned", "archived"},
-    "completed": {"synced_to_github", "planned", "archived"},
-    "failed": {"planned", "queued", "archived"},
-    "synced_to_github": {"archived", "planned"},
-    "archived": set(),
-}
 
 
 class OrchestrationExecutionServiceMixin:
@@ -1475,19 +1460,26 @@ class OrchestrationExecutionServiceMixin:
         await self.db.refresh(new_run)
         return new_run
 
-    async def list_run_events(self, user: User, run_id: str):
+    async def list_run_events(
+        self,
+        user: User,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ):
         run = await self.get_run(user, run_id)
-        return await self.repo.list_run_events(run.id)
+        return await self.repo.list_run_events(run.id, limit=limit, offset=offset)
 
     async def execute_run(self, run_id: str) -> TaskRun:
-        logger.info(f"[EXECUTE_RUN START] Starting execution for run {run_id}")
+        logger.info("execute_run_start run_id=%s", run_id)
         run = await self.repo.get_run_for_worker(run_id)
         if run is None:
             raise RuntimeError(f"Run {run_id} not found")
         if run.status == "cancelled":
-            logger.info(f"[EXECUTE_RUN] Run {run_id} is cancelled, returning")
+            logger.info("execute_run_cancelled run_id=%s", run_id)
             return run
-        logger.info(f"[EXECUTE_RUN] Run {run_id} retrieved, status={run.status}, run_mode={run.run_mode}")
+        logger.info("execute_run_active run_id=%s status=%s run_mode=%s", run_id, run.status, run.run_mode)
         prior_status = run.status
         workflow = self._ensure_run_workflow(run)
         run.status = "in_progress"

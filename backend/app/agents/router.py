@@ -65,6 +65,11 @@ class MemorySearch(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
+class MemoryUpdate(BaseModel):
+    content: str | None = Field(default=None, min_length=1)
+    metadata: dict[str, Any] | None = None
+
+
 class MemoryResponse(BaseModel):
     id: str
     scope: str
@@ -482,3 +487,31 @@ async def search_memory(
             payload.limit,
         )
     ]
+
+
+@memory_router.patch("/{memory_id}", response_model=MemoryResponse)
+async def update_memory(
+    memory_id: str,
+    payload: MemoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await SqlMemoryStore(db, current_user).update_memory(
+        memory_id,
+        content=payload.content,
+        metadata=payload.metadata,
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Memory not found or update blocked")
+    return _memory(item)
+
+
+@memory_router.delete("/{memory_id}", status_code=204)
+async def delete_memory(
+    memory_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ok = await SqlMemoryStore(db, current_user).delete_memory(memory_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Memory not found")

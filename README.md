@@ -557,7 +557,13 @@ cd backend
 
 uv run ruff check .
 uv run ruff format --check .
+
+# Memory layer tests
+PYTHONPATH=.. .venv/bin/python -m pytest tests/test_memory_layer.py -q
 ```
+
+See [docs/MEMORY_LAYER.md](docs/MEMORY_LAYER.md) for AI memory layer setup and configuration.
+See [docs/RAG_LAYER.md](docs/RAG_LAYER.md) for document RAG setup, search, and grounded answers.
 
 Top-level checks:
 

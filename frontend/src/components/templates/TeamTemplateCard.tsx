@@ -43,7 +43,7 @@ export function TeamTemplateCard({
             }}
             sx={{
                 p: 2,
-                borderRadius: 3,
+                borderRadius: 1,
                 display: "flex",
                 flexDirection: "column",
                 gap: 1,

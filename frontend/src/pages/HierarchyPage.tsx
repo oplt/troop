@@ -1189,20 +1189,17 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
             elevation={0}
             sx={{
                 width: 284,
-                borderRadius: 3,
-                border: "1px solid",
-                borderColor: selected ? tone : alpha("#101828", 0.1),
-                bgcolor: data.status === "inactive" ? alpha("#101828", 0.02) : "background.paper",
-                boxShadow: selected
-                    ? `0 0 0 3px ${alpha(tone, 0.18)}, 0 14px 32px rgba(16,24,40,0.14)`
-                    : "0 10px 28px rgba(16,24,40,0.08)",
-                transition: "all 160ms ease",
+                borderRadius: 1,
+                border: "2px solid",
+                borderColor: selected ? "primary.main" : "divider",
+                bgcolor: data.status === "inactive" ? "grey.50" : "background.paper",
+                boxShadow: "none",
+                transition: "border-color 0.33s, background-color 0.33s",
                 opacity: data.status === "inactive" ? 0.75 : 1,
                 overflow: "hidden",
                 position: "relative",
                 "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 18px 38px rgba(16,24,40,0.14)",
+                    backgroundColor: "grey.50",
                 },
             }}
         >
@@ -1219,7 +1216,6 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                     bottom: 0,
                     width: 4,
                     bgcolor: tone,
-                    background: `linear-gradient(180deg, ${tone} 0%, ${alpha(tone, 0.55)} 100%)`,
                 }}
             />
             <Box
@@ -1227,7 +1223,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                     px: 1.75,
                     pt: 1.5,
                     pb: 1.1,
-                    background: `linear-gradient(135deg, ${alpha(tone, 0.14)} 0%, ${alpha(tone, 0)} 70%)`,
+                    bgcolor: alpha(tone, 0.08),
                 }}
             >
                 <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
@@ -1236,18 +1232,18 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                             sx={{
                                 width: 38,
                                 height: 38,
-                                borderRadius: 2,
+                                borderRadius: 1,
                                 display: "grid",
                                 placeItems: "center",
-                                bgcolor: alpha(tone, 0.15),
+                                bgcolor: alpha(tone, 0.12),
                                 color: tone,
-                                boxShadow: `inset 0 0 0 1px ${alpha(tone, 0.22)}`,
+                                border: `1px solid ${alpha(tone, 0.22)}`,
                             }}
                         >
                             {getRoleIcon(data.role)}
                         </Box>
                         <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle2" fontWeight={700} noWrap>
+                            <Typography variant="subtitle2" fontWeight={500} noWrap>
                                 {data.name || "Untitled agent"}
                             </Typography>
                             <Typography
@@ -1267,7 +1263,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                                 height: 8,
                                 borderRadius: "50%",
                                 bgcolor: statusDotColor,
-                                boxShadow: isPulsing ? `0 0 0 3px ${alpha(statusDotColor, 0.25)}` : "none",
+                                boxShadow: isPulsing ? `0 0 0 2px ${alpha(statusDotColor, 0.2)}` : "none",
                                 animation: isPulsing ? "troop-pulse 1.4s ease-in-out infinite" : "none",
                                 "@keyframes troop-pulse": {
                                     "0%, 100%": { opacity: 1 },
@@ -1278,9 +1274,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                         <Typography
                             variant="caption"
                             sx={{
-                                textTransform: "uppercase",
-                                letterSpacing: 0.6,
-                                fontWeight: 600,
+                                fontWeight: 500,
                                 color: "text.secondary",
                             }}
                         >
@@ -1299,7 +1293,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                     <Stack direction="row" spacing={0.75} alignItems="center">
                         <Typography
                             variant="caption"
-                            sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.5 }}
+                            sx={{ fontWeight: 500, color: "text.secondary" }}
                         >
                             model
                         </Typography>
@@ -1321,7 +1315,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
                             height: 22,
                             bgcolor: alpha(tone, 0.12),
                             color: tone,
-                            fontWeight: 700,
+                            fontWeight: 500,
                             textTransform: "capitalize",
                             border: `1px solid ${alpha(tone, 0.25)}`,
                         }}
@@ -1409,11 +1403,11 @@ function AgentEditorSection({
     defaultExpanded?: boolean;
 }) {
     return (
-        <Accordion defaultExpanded={defaultExpanded} disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, overflow: "hidden", "&:before": { display: "none" } }}>
+        <Accordion defaultExpanded={defaultExpanded} disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", "&:before": { display: "none" } }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Stack spacing={0.25}>
                     {step ? (
-                        <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: 1, color: "text.secondary", fontWeight: 700 }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
                             {step}
                         </Typography>
                     ) : null}
@@ -3401,7 +3395,7 @@ export default function AgentLibraryPage() {
                                     }}
                                     sx={{
                                         height: { xs: 560, xl: 720 },
-                                        borderRadius: 4,
+                                        borderRadius: 1,
                                         overflow: "hidden",
                                         border: "1px solid",
                                         borderColor: draggingItem?.type === "agent-template" ? "primary.main" : "divider",
@@ -3466,7 +3460,7 @@ export default function AgentLibraryPage() {
                                     display: { xs: "none", xl: "block" },
                                     alignSelf: "stretch",
                                     minHeight: 720,
-                                    borderRadius: 999,
+                                    borderRadius: 1,
                                     cursor: "col-resize",
                                     bgcolor: isResizingInspector ? "primary.main" : "divider",
                                     transition: "background-color 120ms ease",
@@ -3554,7 +3548,7 @@ export default function AgentLibraryPage() {
                                                 sx={{
                                                     px: 1.25,
                                                     py: 0.75,
-                                                    borderRadius: 2,
+                                                    borderRadius: 1,
                                                     cursor: "grab",
                                                     "&:active": { cursor: "grabbing" },
                                                     "&:hover": { borderColor: "primary.main" },
@@ -3633,7 +3627,7 @@ export default function AgentLibraryPage() {
                         <Alert severity="info">
                             Start with mission and scope. Then define what work this agent should receive, which tools it may use, and how strict its runtime policy should be.
                         </Alert>
-                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                             <Stack spacing={1.5}>
                                 <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
                                     <Box>
@@ -3655,26 +3649,26 @@ export default function AgentLibraryPage() {
                                     </Stack>
                                 </Stack>
                                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
-                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                         <Typography variant="caption" color="text.secondary">Role</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5 }}>{form.role}</Typography>
                                     </Paper>
-                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                         <Typography variant="caption" color="text.secondary">Routing surface</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5 }}>{parseCsv(form.capabilities).length || 0} capabilities</Typography>
                                     </Paper>
-                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                         <Typography variant="caption" color="text.secondary">Runtime</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5 }}>{form.model || "No primary model set"}</Typography>
                                     </Paper>
-                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                    <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                         <Typography variant="caption" color="text.secondary">Output</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5 }}>{form.output_format || "json"}</Typography>
                                     </Paper>
                                 </Box>
                             </Stack>
                         </Paper>
-                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                             <Stack spacing={0.75}>
                                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
                                     <Chip size="small" label={form.role} color={getRoleColor(form.role as TeamGraphRole)} variant="outlined" />
@@ -4131,7 +4125,7 @@ export default function AgentLibraryPage() {
                     <Alert severity="info">
                         Good skills are narrow and reusable. They should add a recognizable behavior pattern to many agents, not duplicate the full identity of one agent.
                     </Alert>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
                                 <Box>
@@ -4152,19 +4146,19 @@ export default function AgentLibraryPage() {
                                 </Stack>
                             </Stack>
                             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Capabilities</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.capabilities.length} linked</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Allowed tools</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.allowed_tools.length} required</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Tags</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.tags.length} labels</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Instruction depth</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{skillForm.rules_markdown.trim() ? "Defined" : "Missing"}</Typography>
                                 </Paper>
@@ -4269,7 +4263,7 @@ export default function AgentLibraryPage() {
                     <Alert severity="info">
                         Best practice: build the team from agent templates first. Use extra metadata only to explain the team’s purpose and sharing model.
                     </Alert>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
                                 <Box>
@@ -4290,19 +4284,19 @@ export default function AgentLibraryPage() {
                                 </Stack>
                             </Stack>
                             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Agents</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedTeamAgentTemplates.length} selected</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Roles</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{derivedTeamTemplateSummary.roles.length} derived</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Tools</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{derivedTeamTemplateSummary.tools.length} derived</Typography>
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Visibility</Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>{teamTemplateForm.visibility || "private"}</Typography>
                                 </Paper>
@@ -4341,7 +4335,7 @@ export default function AgentLibraryPage() {
                                 }}
                                 sx={{
                                     p: 1,
-                                    borderRadius: 3,
+                                    borderRadius: 1,
                                     borderStyle: "dashed",
                                     bgcolor: draggingItem?.type === "agent-template" ? "action.hover" : "background.paper",
                                 }}
@@ -4353,7 +4347,7 @@ export default function AgentLibraryPage() {
                                         description="Drag agent templates here to compose the team visually."
                                     />
                                 ) : (
-                                    <Box sx={{ height: 420, borderRadius: 2, overflow: "hidden", bgcolor: alpha("#f8fafc", 0.7) }}>
+                                    <Box sx={{ height: 420, borderRadius: 1, overflow: "hidden", bgcolor: alpha("#f8fafc", 0.7) }}>
                                         <ReactFlow
                                             nodes={teamTemplateCanvasNodes}
                                             edges={teamTemplateCanvasEdges}
@@ -4376,7 +4370,7 @@ export default function AgentLibraryPage() {
                                 </Typography>
                             </Paper>
                             <Stack spacing={1.25}>
-                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Typography variant="subtitle2">Canvas inspector</Typography>
                                     {selectedTeamTemplateCanvasNode ? (
                                         <Stack spacing={1} sx={{ mt: 1 }}>
@@ -4397,7 +4391,7 @@ export default function AgentLibraryPage() {
                                         </Typography>
                                     )}
                                 </Paper>
-                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Typography variant="subtitle2">Agent template library</Typography>
                                     <Stack spacing={1} sx={{ mt: 1 }}>
                                         {templates.length === 0 ? (
@@ -4411,7 +4405,7 @@ export default function AgentLibraryPage() {
                                                     draggable={!isIncluded}
                                                     onDragStart={() => !isIncluded && setDraggingItem({ type: "agent-template", slug: template.slug })}
                                                     onDragEnd={() => setDraggingItem(null)}
-                                                    sx={{ p: 1.25, borderRadius: 2, opacity: isIncluded ? 0.6 : 1 }}
+                                                    sx={{ p: 1.25, borderRadius: 1, opacity: isIncluded ? 0.6 : 1 }}
                                                 >
                                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                         <Box>

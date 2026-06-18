@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, or_, select, text
 
+from backend.core.config import settings
+from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.memory.models import (
     AgentMemoryEntry,
     EpisodicArchiveManifest,
@@ -38,14 +41,30 @@ class MemoryRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def list_documents(self, project_id: str, task_id: str | None = None) -> list[ProjectDocument]:
+    async def list_documents(
+        self,
+        project_id: str,
+        task_id: str | None = None,
+        *,
+        limit: int | None = None,
+    ) -> list[ProjectDocument]:
         stmt = select(ProjectDocument).where(
             ProjectDocument.project_id == project_id,
             ProjectDocument.deleted_at.is_(None),
         )
         if task_id is not None:
-            stmt = stmt.where(or_(ProjectDocument.task_id == task_id, ProjectDocument.task_id.is_(None)))
-        result = await self.db.execute(stmt.order_by(ProjectDocument.created_at.desc()))
+            stmt = stmt.where(
+                or_(ProjectDocument.task_id == task_id, ProjectDocument.task_id.is_(None))
+            )
+        stmt = stmt.order_by(ProjectDocument.created_at.desc())
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_DOCUMENTS_MAX_LIMIT,
+        )
+        if cap is not None:
+            stmt = stmt.limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_document(self, project_id: str, document_id: str) -> ProjectDocument | None:
@@ -62,13 +81,14 @@ class MemoryRepositoryMixin:
         document: ProjectDocument,
         chunks: list[tuple[int, str, int, list[float], dict]],
     ) -> None:
-        result = await self.db.execute(
-            select(ProjectDocumentChunk).where(ProjectDocumentChunk.project_document_id == document.id)
+        await self.db.execute(
+            delete(ProjectDocumentChunk).where(
+                ProjectDocumentChunk.project_document_id == document.id
+            )
         )
-        for item in result.scalars().all():
-            await self.db.delete(item)
         await self.db.flush()
         for chunk_index, content, token_count, embedding, metadata in chunks:
+            ev = normalize_embedding_for_vector(embedding)
             self.db.add(
                 ProjectDocumentChunk(
                     project_document_id=document.id,
@@ -78,7 +98,7 @@ class MemoryRepositoryMixin:
                     content=content,
                     token_count=token_count,
                     embedding_json=embedding,
-                    embedding_vector=normalize_embedding_for_vector(embedding),
+                    embedding_vector=ev,
                     metadata_json=metadata,
                 )
             )
@@ -130,7 +150,10 @@ class MemoryRepositoryMixin:
         *,
         task_id: str | None = None,
         source_kind: str | None = None,
+        limit: int | None = None,
     ) -> list[ProjectDocumentChunk]:
+        cap = settings.RAG_CHUNK_FALLBACK_MAX if limit is None else limit
+        cap = min(max(int(cap), 1), settings.RAG_CHUNK_FALLBACK_MAX)
         stmt = (
             select(ProjectDocumentChunk)
             .join(ProjectDocument, ProjectDocumentChunk.project_document_id == ProjectDocument.id)
@@ -147,7 +170,9 @@ class MemoryRepositoryMixin:
         if source_kind:
             stmt = stmt.where(ProjectDocumentChunk.metadata_json["source_kind"].as_string() == source_kind)
         result = await self.db.execute(
-            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc())
+            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc()).limit(
+                cap
+            )
         )
         return list(result.scalars().all())
 
@@ -222,6 +247,28 @@ class MemoryRepositoryMixin:
             stmt = stmt.where(SemanticMemoryEntry.namespace.startswith(namespace_prefix))
         if source_task_id:
             stmt = stmt.where(SemanticMemoryEntry.source_task_id == source_task_id)
+        if search:
+            q = f"%{search}%"
+            stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
+        cap = max(1, min(limit, 500))
+        result = await self.db.execute(stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap))
+        return list(result.scalars().all())
+
+    async def list_semantic_memory_entries_for_projects(
+        self,
+        owner_id: str,
+        project_ids: Sequence[str],
+        *,
+        search: str | None = None,
+        limit: int = 100,
+    ) -> list[SemanticMemoryEntry]:
+        ids = [pid for pid in project_ids if pid]
+        if not ids:
+            return []
+        stmt = select(SemanticMemoryEntry).where(
+            SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.project_id.in_(ids),
+        )
         if search:
             q = f"%{search}%"
             stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
@@ -576,6 +623,10 @@ class MemoryRepositoryMixin:
             .limit(max(1, min(limit, 100)))
         )
         return list(res.scalars().all())
+
+    async def get_memory_ingest_job(self, job_id: str) -> MemoryIngestJob | None:
+        res = await self.db.execute(select(MemoryIngestJob).where(MemoryIngestJob.id == job_id))
+        return res.scalar_one_or_none()
 
     async def list_memory_ingest_jobs_for_project(
         self, owner_id: str, project_id: str, *, limit: int = 80

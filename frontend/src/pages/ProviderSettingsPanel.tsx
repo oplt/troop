@@ -817,7 +817,7 @@ export function ProviderSettingsPanel() {
             >
                 <Stack spacing={1.25}>
                     {capabilityMatrix.map((item, idx) => (
-                        <Paper key={`${item.providerId ?? item.providerType}-${item.modelSlug}-${idx}`} sx={{ p: 1.5, borderRadius: 3 }}>
+                        <Paper key={`${item.providerId ?? item.providerType}-${item.modelSlug}-${idx}`} sx={{ p: 1.5, borderRadius: 1 }}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} justifyContent="space-between">
                                 <Typography variant="body2">
                                     <strong>{item.providerLabel}</strong> · {item.modelSlug}

@@ -466,7 +466,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1.6fr) minmax(360px, 1fr)" }, gap: 2 }}>
                         <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
                             {members.filter((member) => member.id !== manager.id).map((member) => (
-                                <Paper key={member.id} sx={{ p: 2, borderRadius: 4, border: "1px solid", borderColor: selectedMember?.id === member.id ? "primary.main" : "divider", boxShadow: selectedMember?.id === member.id ? "0 0 0 2px rgba(25, 118, 210, 0.12)" : "none" }}>
+                                <Paper key={member.id} sx={{ p: 2, borderRadius: 1, border: "2px solid", borderColor: selectedMember?.id === member.id ? "primary.main" : "divider", boxShadow: "none" }}>
                                     <Stack spacing={1.25}>
                                         <Stack direction="row" justifyContent="space-between" spacing={1}>
                                             <Box onClick={() => setSelectedMemberId(member.id)} sx={{ cursor: "pointer" }}>
@@ -551,7 +551,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                         <Typography variant="subtitle2" sx={{ mb: 1 }}>Tasks</Typography>
                                         <Stack spacing={1}>
                                             {selectedMember.tasks.slice(0, 5).map((task) => (
-                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                                     <Stack spacing={1}>
                                                         <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                             <Typography variant="body2">{task.title}</Typography>
@@ -583,7 +583,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                         <Typography variant="subtitle2" sx={{ mb: 1 }}>Recent runs</Typography>
                                         <Stack spacing={1}>
                                             {selectedMember.runs.slice(0, 4).map((run) => (
-                                                <Paper key={run.id} variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+                                                <Paper key={run.id} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                         <Box>
                                                             <Typography variant="body2">{run.run_mode}</Typography>
@@ -615,7 +615,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                 <Typography variant="body2" color="text.secondary">No approvals pending.</Typography>
                             )}
                             {snapshot.pending_approvals.map((approval) => (
-                                <Paper key={approval.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper key={approval.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                         <Box>
                                             <Typography variant="body2">{approval.approval_type}</Typography>
@@ -633,7 +633,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                     <SectionCard title="Assignable backlog" description="Quick reassignment queue for manager-level routing.">
                         <Stack spacing={1}>
                             {backlogTasks.map((task) => (
-                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
                                         <Box>
                                             <Typography variant="body2">{task.title}</Typography>

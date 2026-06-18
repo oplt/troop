@@ -43,6 +43,7 @@ export default defineConfig({
           query: ["@tanstack/react-query"],
           forms: ["react-hook-form", "@hookform/resolvers", "zod"],
           mui: ["@mui/material", "@mui/icons-material", "@emotion/react", "@emotion/styled"],
+          xyflow: ["@xyflow/react"],
         },
       },
     },

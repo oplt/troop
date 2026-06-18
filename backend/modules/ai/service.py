@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from datetime import UTC, datetime
@@ -20,6 +21,10 @@ from backend.modules.ai.providers import AiProviderRegistry, ProviderGenerateReq
 from backend.modules.ai.repository import AiRepository
 from backend.modules.ai.schemas import AiProviderDescriptor
 from backend.modules.identity_access.models import User
+from backend.modules.orchestration._helpers import _chunk_text, _cosine_similarity
+from backend.modules.orchestration.repository import OrchestrationRepository
+
+logger = logging.getLogger(__name__)
 
 PLACEHOLDER_PATTERN = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
 
@@ -39,34 +44,6 @@ def _render_template(template: str, variables: dict[str, Any]) -> str:
         return str(value)
 
     return PLACEHOLDER_PATTERN.sub(replace, template)
-
-
-def _chunk_text(text: str, chunk_size: int = 1200, overlap: int = 150) -> list[str]:
-    normalized = text.strip()
-    if not normalized:
-        return []
-    chunks: list[str] = []
-    start = 0
-    while start < len(normalized):
-        end = min(len(normalized), start + chunk_size)
-        chunk = normalized[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        if end >= len(normalized):
-            break
-        start = max(end - overlap, start + 1)
-    return chunks
-
-
-def _cosine_similarity(left: list[float], right: list[float]) -> float:
-    if not left or not right or len(left) != len(right):
-        return 0.0
-    numerator = sum(a * b for a, b in zip(left, right, strict=True))
-    left_norm = math.sqrt(sum(a * a for a in left))
-    right_norm = math.sqrt(sum(b * b for b in right))
-    if left_norm == 0 or right_norm == 0:
-        return 0.0
-    return numerator / (left_norm * right_norm)
 
 
 class AiService:
@@ -202,17 +179,13 @@ class AiService:
     async def list_documents(self, user: User):
         return await self.repo.list_documents_for_user(user.id)
 
-    async def create_document_from_text(
-        self,
-        user: User,
-        *,
-        title: str,
-        description: str | None,
-        content: str,
-        content_type: str,
-        filename: str | None = None,
-        metadata: dict[str, Any] | None = None,
-    ):
+    async def get_document(self, user: User, document_id: str):
+        document = await self.repo.get_document_for_user(user.id, document_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return document
+
+    def _validate_document_content(self, content: str) -> None:
         if not content.strip():
             raise HTTPException(status_code=422, detail="Document content must not be empty")
         if len(content.encode("utf-8")) > settings.AI_DOCUMENT_MAX_BYTES:
@@ -223,22 +196,13 @@ class AiService:
                     f" {settings.AI_DOCUMENT_MAX_BYTES} bytes"
                 ),
             )
+
+    async def _index_ai_document(self, document) -> None:
+        content = document.source_text or ""
         chunks = _chunk_text(
             content, settings.AI_DOCUMENT_CHUNK_SIZE, settings.AI_DOCUMENT_CHUNK_OVERLAP
         )
         embeddings = await self.providers.embed_texts(chunks) if chunks else []
-        document = await self.repo.create_document(
-            user_id=user.id,
-            title=title,
-            description=description,
-            filename=filename,
-            content_type=content_type,
-            size_bytes=len(content.encode("utf-8")),
-            ingestion_status="completed",
-            source_text=content,
-            metadata_json=metadata or {},
-            chunk_count=len(chunks),
-        )
         await self.repo.replace_document_chunks(
             document,
             [
@@ -246,13 +210,95 @@ class AiService:
                 for index, chunk in enumerate(chunks)
             ],
         )
+        document.ingestion_status = "completed"
+        document.chunk_count = len(chunks)
+        document.updated_at = datetime.now(UTC)
+        await self.db.flush()
+
+    async def _queue_ai_document_ingest(self, user: User, document_id: str) -> str:
+        job = await OrchestrationRepository(self.db).create_memory_ingest_job(
+            owner_id=user.id,
+            project_id=None,
+            job_type="ai_document_ingest",
+            payload_json={"document_id": document_id, "user_id": user.id},
+            status="pending",
+        )
+        try:
+            from backend.workers.orchestration import queue_memory_ingest_jobs
+
+            queue_memory_ingest_jobs()
+        except Exception as exc:
+            logger.warning(
+                "ai_document_ingest_queue_failed document_id=%s error=%s",
+                document_id,
+                exc,
+            )
+        return job.id
+
+    async def process_ai_document_ingest_job(self, *, user_id: str, document_id: str) -> None:
+        document = await self.repo.get_document_for_user(user_id, document_id)
+        if document is None:
+            raise RuntimeError("ai_document_ingest target not found")
+        document.ingestion_status = "running"
+        document.updated_at = datetime.now(UTC)
+        await self.db.flush()
+        try:
+            await self._index_ai_document(document)
+        except Exception as exc:
+            document.ingestion_status = "failed"
+            document.metadata_json = {
+                **(document.metadata_json or {}),
+                "ingest_error": str(exc)[:2000],
+            }
+            document.updated_at = datetime.now(UTC)
+            await self.db.flush()
+            raise
+
+    async def create_document_from_text(
+        self,
+        user: User,
+        *,
+        title: str,
+        description: str | None,
+        content: str,
+        content_type: str,
+        filename: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        queue_async: bool | None = None,
+    ) -> tuple[Any, str | None]:
+        self._validate_document_content(content)
+        use_async = (
+            settings.AI_DOCUMENT_INGEST_ASYNC if queue_async is None else bool(queue_async)
+        )
+        document = await self.repo.create_document(
+            user_id=user.id,
+            title=title,
+            description=description,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(content.encode("utf-8")),
+            ingestion_status="pending" if use_async else "completed",
+            source_text=content,
+            metadata_json=metadata or {},
+            chunk_count=0,
+        )
+        ingest_job_id: str | None = None
+        if use_async:
+            ingest_job_id = await self._queue_ai_document_ingest(user, document.id)
+        else:
+            await self._index_ai_document(document)
         await self.db.commit()
         await self.db.refresh(document)
-        return document
+        return document, ingest_job_id
 
     async def create_document_from_upload(
-        self, user: User, file: UploadFile, description: str | None
-    ):
+        self,
+        user: User,
+        file: UploadFile,
+        description: str | None,
+        *,
+        queue_async: bool | None = None,
+    ) -> tuple[Any, str | None]:
         content_type = file.content_type or "text/plain"
         if not (
             content_type.startswith("text/")
@@ -287,6 +333,7 @@ class AiService:
             content=content,
             content_type=content_type,
             filename=file.filename,
+            queue_async=queue_async,
         )
 
     async def retrieve_chunks(
@@ -298,19 +345,50 @@ class AiService:
         top_k: int,
     ) -> list[dict[str, Any]]:
         allowed_docs = await self.repo.list_documents_for_user(user.id)
-        allowed_doc_map = {document.id: document for document in allowed_docs}
+        allowed_doc_map = {
+            document.id: document
+            for document in allowed_docs
+            if document.ingestion_status == "completed"
+        }
         candidate_ids = document_ids or list(allowed_doc_map)
         invalid_ids = [
             document_id for document_id in candidate_ids if document_id not in allowed_doc_map
         ]
         if invalid_ids:
             raise HTTPException(status_code=404, detail="One or more documents were not found")
-        chunks = await self.repo.list_document_chunks(candidate_ids)
+        query_embedding = (await self.providers.embed_texts([query]))[0]
+        vector_hits = await self.repo.search_document_chunks_by_vector(
+            user.id,
+            candidate_ids,
+            query_embedding,
+            top_k=top_k,
+        )
+        if vector_hits:
+            return [
+                {
+                    "document_id": str(row["document_id"]),
+                    "chunk_id": str(row["chunk_id"]),
+                    "document_title": str(row.get("document_title") or "document"),
+                    "chunk_index": int(row.get("chunk_index") or 0),
+                    "score": round(float(row.get("score") or 0.0), 4),
+                    "content": str(row.get("content") or ""),
+                }
+                for row in vector_hits
+            ]
+
+        if not settings.AI_RETRIEVE_PYTHON_FALLBACK_ENABLED:
+            return []
+
+        chunks = await self.repo.list_document_chunks(
+            candidate_ids,
+            limit=settings.RAG_CHUNK_FALLBACK_MAX,
+        )
         if not chunks:
             return []
-        query_embedding = (await self.providers.embed_texts([query]))[0]
         matches = []
         for chunk in chunks:
+            if not chunk.embedding_json:
+                continue
             score = _cosine_similarity(query_embedding, chunk.embedding_json)
             document = allowed_doc_map[chunk.document_id]
             matches.append(

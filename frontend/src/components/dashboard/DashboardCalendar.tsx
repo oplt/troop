@@ -149,7 +149,7 @@ function getDateCalendarSx(daySize: number) {
         },
         "& .MuiPickersCalendarHeader-label": {
             fontSize: "1rem",
-            fontWeight: 700,
+            fontWeight: 500,
         },
         "& .MuiDayCalendar-header": {
             justifyContent: "space-between",
@@ -158,7 +158,7 @@ function getDateCalendarSx(daySize: number) {
         "& .MuiDayCalendar-weekDayLabel": {
             width: daySize,
             color: "text.secondary",
-            fontWeight: 700,
+            fontWeight: 500,
         },
         "& .MuiDayCalendar-weekContainer": {
             justifyContent: "space-between",
@@ -245,7 +245,7 @@ function DayItems({
                 <Box
                     key={item.id}
                     sx={(theme) => ({
-                        borderRadius: 3,
+                        borderRadius: 1,
                         border: `1px solid ${theme.palette.divider}`,
                         p: 1.5,
                         backgroundColor:
@@ -463,7 +463,7 @@ export function DashboardCalendar({
                     sx={(theme) => ({
                         width: daySize,
                         height: daySize,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         borderRadius: "999px",
                         color: outsideCurrentMonth
                             ? theme.palette.text.disabled
@@ -625,7 +625,7 @@ export function DashboardCalendar({
                                 backgroundColor: theme.palette.background.paper,
                             })}
                         >
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                                 All day
                             </Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
@@ -638,14 +638,14 @@ export function DashboardCalendar({
                                             sx={{
                                                 px: 1.25,
                                                 py: 0.8,
-                                                borderRadius: 2,
+                                                borderRadius: 1,
                                                 border: `1px solid ${colors.border}`,
                                                 backgroundColor: colors.bg,
                                                 color: colors.text,
                                                 cursor: "pointer",
                                             }}
                                         >
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                 {item.title}
                                             </Typography>
                                         </Box>
@@ -680,7 +680,7 @@ export function DashboardCalendar({
                                         borderBottom: `1px solid ${theme.palette.divider}`,
                                     })}
                                 >
-                                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
                                         {dayjs().hour(hour).minute(0).format("h A")}
                                     </Typography>
                                 </Box>
@@ -747,7 +747,7 @@ export function DashboardCalendar({
                                             height,
                                             px: 1.25,
                                             py: 1,
-                                            borderRadius: 2,
+                                            borderRadius: 1,
                                             border: `1px solid ${colors.border}`,
                                             backgroundColor: colors.bg,
                                             color: colors.text,
@@ -756,7 +756,7 @@ export function DashboardCalendar({
                                             zIndex: 1,
                                         }}
                                     >
-                                        <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.3 }}>
                                             {item.title}
                                         </Typography>
                                         <Typography variant="body2" sx={{ mt: 0.4 }}>
@@ -907,7 +907,7 @@ export function DashboardCalendar({
                                 })}
                             >
                                 <Stack direction="row" spacing={1} alignItems="center">
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
                                         {day.format("ddd D")}
                                     </Typography>
                                     {isToday && (
@@ -921,7 +921,7 @@ export function DashboardCalendar({
                                                 backgroundColor: theme.palette.primary.main,
                                                 color: theme.palette.primary.contrastText,
                                                 fontSize: 14,
-                                                fontWeight: 700,
+                                                fontWeight: 500,
                                             })}
                                         >
                                             {day.format("D")}
@@ -942,7 +942,7 @@ export function DashboardCalendar({
                             backgroundColor: theme.palette.background.default,
                         })}
                     >
-                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                             All day
                         </Typography>
                     </Box>
@@ -969,14 +969,14 @@ export function DashboardCalendar({
                                                 sx={{
                                                     px: 1.25,
                                                     py: 0.75,
-                                                    borderRadius: 2,
+                                                    borderRadius: 1,
                                                     border: `1px solid ${colors.border}`,
                                                     backgroundColor: colors.bg,
                                                     color: colors.text,
                                                     cursor: "pointer",
                                                 }}
                                             >
-                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                     {item.title}
                                                 </Typography>
                                             </Box>
@@ -1009,7 +1009,7 @@ export function DashboardCalendar({
                                     borderBottom: `1px solid ${theme.palette.divider}`,
                                 })}
                             >
-                                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
                                     {dayjs().hour(hour).minute(0).format("h A")}
                                 </Typography>
                             </Box>
@@ -1048,7 +1048,7 @@ export function DashboardCalendar({
                                             height: item.height,
                                             px: 1.25,
                                             py: 1,
-                                            borderRadius: 2,
+                                            borderRadius: 1,
                                             border: `1px solid ${colors.border}`,
                                             backgroundColor: colors.bg,
                                             color: colors.text,
@@ -1056,7 +1056,7 @@ export function DashboardCalendar({
                                             overflow: "hidden",
                                         }}
                                     >
-                                        <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.3 }}>
                                             {item.title}
                                         </Typography>
                                         <Typography variant="body2" sx={{ mt: 0.4 }}>

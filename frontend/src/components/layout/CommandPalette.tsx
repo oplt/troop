@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -24,9 +24,14 @@ type CommandPaletteProps = {
 
 export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPaletteProps) {
     const [q, setQ] = useState("");
+    const [activeIndex, setActiveIndex] = useState(0);
+    const listboxId = useId();
 
     useEffect(() => {
-        if (open) setQ("");
+        if (open) {
+            setQ("");
+            setActiveIndex(0);
+        }
     }, [open]);
 
     const filtered = useMemo(() => {
@@ -37,11 +42,49 @@ export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPal
         );
     }, [q, routes]);
 
+    useEffect(() => {
+        setActiveIndex(0);
+    }, [q]);
+
+    useEffect(() => {
+        if (activeIndex >= filtered.length) {
+            setActiveIndex(Math.max(filtered.length - 1, 0));
+        }
+    }, [activeIndex, filtered.length]);
+
+    function selectRoute(path: string) {
+        onNavigate(path);
+        onClose();
+    }
+
+    function handleListKeyDown(event: React.KeyboardEvent) {
+        if (filtered.length === 0) {
+            return;
+        }
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setActiveIndex((current) => (current + 1) % filtered.length);
+            return;
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+            return;
+        }
+        if (event.key === "Enter") {
+            event.preventDefault();
+            selectRoute(filtered[activeIndex].path);
+        }
+    }
+
+    const activeDescendantId =
+        filtered.length > 0 ? `${listboxId}-option-${activeIndex}` : undefined;
+
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle sx={{ pb: 0 }}>Go to…</DialogTitle>
             <Typography variant="caption" color="text.secondary" sx={{ px: 3, pb: 1, display: "block" }}>
-                Press K (outside fields) or Ctrl / Cmd + K
+                Press K (outside fields) or Ctrl / Cmd + K. Use arrow keys to move, Enter to open.
             </Typography>
             <DialogContent sx={{ pt: 0 }}>
                 <TextField
@@ -51,18 +94,31 @@ export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPal
                     placeholder="Filter pages"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={handleListKeyDown}
                     sx={{ mb: 1 }}
                 />
-                <List dense disablePadding sx={{ maxHeight: 360, overflow: "auto" }}>
-                    {filtered.map((r) => (
+                <List
+                    dense
+                    disablePadding
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="Pages"
+                    aria-activedescendant={activeDescendantId}
+                    onKeyDown={handleListKeyDown}
+                    tabIndex={0}
+                    sx={{ maxHeight: 360, overflow: "auto", outline: "none" }}
+                >
+                    {filtered.map((route, index) => (
                         <ListItemButton
-                            key={r.path}
-                            onClick={() => {
-                                onNavigate(r.path);
-                                onClose();
-                            }}
+                            key={route.path}
+                            id={`${listboxId}-option-${index}`}
+                            role="option"
+                            aria-selected={index === activeIndex}
+                            selected={index === activeIndex}
+                            onMouseEnter={() => setActiveIndex(index)}
+                            onClick={() => selectRoute(route.path)}
                         >
-                            <ListItemText primary={r.label} secondary={r.path} />
+                            <ListItemText primary={route.label} secondary={route.path} />
                         </ListItemButton>
                     ))}
                     {filtered.length === 0 && (

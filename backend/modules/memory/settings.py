@@ -26,10 +26,22 @@ DEFAULT_MEMORY_SETTINGS: dict[str, Any] = {
     "context_packet_max_tokens": 3500,
     "context_packet_max_chars": 48000,
     "context_packet_section_token_budgets": None,
+    "context_packet_section_priority_scores": None,
     # Tier 4 — compaction / archival / lifecycle
     "compaction_on_task_close_enabled": True,
     "task_close_archive_unpromoted_memory": True,
     "task_close_low_value_archive_days": 14,
+    # Memory layer (mem0-inspired unified API over semantic storage)
+    "memory_layer_enabled": True,
+    "layer": {
+        "enabled": True,
+        "default_search_limit": 5,
+        "extraction_enabled": True,
+        "llm_extraction_enabled": False,
+        "dedup_enabled": True,
+        "min_extraction_confidence": 0.45,
+        "inject_context_before_llm": True,
+    },
 }
 
 
@@ -39,6 +51,10 @@ def merge_memory_settings(settings_json: dict[str, Any] | None) -> dict[str, Any
     mem = raw.get("memory")
     if isinstance(mem, dict):
         for k, v in mem.items():
-            if k in base:
+            if k == "layer" and isinstance(v, dict):
+                layer = dict(base.get("layer") or {})
+                layer.update(v)
+                base["layer"] = layer
+            elif k in base:
                 base[k] = v
     return base

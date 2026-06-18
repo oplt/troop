@@ -166,7 +166,7 @@ export function AgentTemplateImportReviewDrawer({
                     • {visibleIssues.length} issue{visibleIssues.length === 1 ? "" : "s"} • {workingDraft.unmatched_sections.length} unmatched
                 </Alert>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
                         <Box>
                             <Typography variant="overline" color="text.secondary">Import confidence</Typography>
@@ -189,7 +189,7 @@ export function AgentTemplateImportReviewDrawer({
                     </Stack>
                 </Paper>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={2}>
                         <Typography variant="subtitle2">Parsed values</Typography>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -221,7 +221,7 @@ export function AgentTemplateImportReviewDrawer({
                 </Paper>
 
                 {unknownTools.length > 0 ? (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Typography variant="subtitle2">Unknown tools</Typography>
                             {unknownTools.map((tool) => (
@@ -254,11 +254,11 @@ export function AgentTemplateImportReviewDrawer({
                 ) : null}
 
                 {workingDraft.unmatched_sections.length > 0 ? (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Typography variant="subtitle2">Unmatched sections</Typography>
                             {workingDraft.unmatched_sections.map((section) => (
-                                <Paper key={section.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                <Paper key={section.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack spacing={1}>
                                         <Typography variant="subtitle2">{section.heading || "Untitled section"}</Typography>
                                         <Typography variant="caption" color="text.secondary">{section.reason}</Typography>
@@ -291,7 +291,7 @@ export function AgentTemplateImportReviewDrawer({
                     </Paper>
                 ) : null}
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={1.5}>
                         <Typography variant="subtitle2">Issues</Typography>
                         {visibleIssues.length === 0 ? (
@@ -303,7 +303,7 @@ export function AgentTemplateImportReviewDrawer({
                                     variant="outlined"
                                     sx={{
                                         p: 1.5,
-                                        borderRadius: 2,
+                                        borderRadius: 1,
                                         borderColor: `${severityColor(issue.severity)}.main`,
                                         bgcolor: (theme) => theme.palette[severityColor(issue.severity)].lighter ?? theme.palette.action.hover,
                                     }}
@@ -341,7 +341,7 @@ export function AgentTemplateImportReviewDrawer({
                     </Stack>
                 </Paper>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={1.5}>
                         <Typography variant="subtitle2">Drawer preview</Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -371,7 +371,7 @@ export function AgentTemplateImportReviewDrawer({
                                 sx={{
                                     m: 0,
                                     p: 2,
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     bgcolor: "action.hover", // or "grey.100" for light mode / "grey.900" for dark
                                     color: "text.primary",
                                     overflow: "auto",

@@ -24,8 +24,14 @@ export function ProtectedRoute({
 }: Props) {
     if (!isReady) {
         return (
-            <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
-                <CircularProgress />
+            <Box
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+                aria-label="Checking authentication"
+                sx={{ display: "grid", placeItems: "center", minHeight: "100vh" }}
+            >
+                <CircularProgress aria-hidden />
             </Box>
         );
     }

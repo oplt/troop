@@ -413,7 +413,7 @@ export default function OrchestrationProjectsPage() {
                     <Stack spacing={2.5}>
                         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
                             <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: -0.4 }}>
+                                <Typography variant="h4" sx={{ fontWeight: 500 }}>
                                     Agent Projects
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -444,7 +444,7 @@ export default function OrchestrationProjectsPage() {
                                     onClick={() => selectStatusFilter(item.filter)}
                                     sx={{
                                         p: 1.5,
-                                        borderRadius: 2,
+                                        borderRadius: 1,
                                         borderColor: effectiveStatusFilter === item.filter ? "primary.main" : "divider",
                                         bgcolor: effectiveStatusFilter === item.filter ? "action.selected" : "background.paper",
                                         cursor: "pointer",
@@ -456,7 +456,7 @@ export default function OrchestrationProjectsPage() {
                                             {item.icon}
                                         </Box>
                                         <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 500, lineHeight: 1.1 }}>
                                                 {item.value}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
@@ -541,7 +541,7 @@ export default function OrchestrationProjectsPage() {
                                 }}
                             >
                                 {["Project", "Status", "Active run", "Last activity", "Repo", "Action", ""].map((heading) => (
-                                    <Typography key={heading} variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                    <Typography key={heading} variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                                         {heading}
                                     </Typography>
                                 ))}
@@ -561,10 +561,10 @@ export default function OrchestrationProjectsPage() {
                                         variant="outlined"
                                         sx={{
                                             p: { xs: 1.5, md: 0 },
-                                            borderRadius: 2,
+                                            borderRadius: 1,
                                             overflow: "hidden",
-                                            transition: "border-color 160ms ease, box-shadow 160ms ease",
-                                            "&:hover": { borderColor: "primary.main", boxShadow: 1 },
+                                            transition: "border-color 0.33s, background-color 0.33s",
+                                            "&:hover": { borderColor: "primary.main", backgroundColor: "grey.50" },
                                         }}
                                     >
                                         <Box
@@ -578,7 +578,7 @@ export default function OrchestrationProjectsPage() {
                                             }}
                                         >
                                             <Box sx={{ minWidth: 0 }}>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 500 }} noWrap>
                                                     {project.name}
                                                 </Typography>
                                                 <Typography
@@ -694,7 +694,7 @@ export default function OrchestrationProjectsPage() {
                 <Stack spacing={2} component="form" onSubmit={submitProject} sx={{ width: "100%" }}>
                     <input type="hidden" {...register("team_profile_id")} />
                     <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 500 }}>
                             New project
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -737,7 +737,7 @@ export default function OrchestrationProjectsPage() {
                                 Generate draft plan
                             </Button>
                             {bootstrapDraft && (
-                                <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                                <Paper sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider" }}>
                                     <Typography variant="body2" color="text.secondary">
                                         Draft ready with goals, milestones, and starter tasks.
                                     </Typography>
@@ -831,7 +831,7 @@ export default function OrchestrationProjectsPage() {
                                         </Alert>
                                     ) : null}
                                     {repoValidation ? (
-                                        <Paper sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: repoValidation.valid ? "success.main" : "error.main" }}>
+                                        <Paper sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: repoValidation.valid ? "success.main" : "error.main" }}>
                                             <Stack spacing={1}>
                                                 {repoValidation.blocked_reasons.length > 0 ? (
                                                     <Alert severity="error">
@@ -888,7 +888,7 @@ export default function OrchestrationProjectsPage() {
                                         onChange={(_, expanded) => setAdvancedRepoOpen(expanded)}
                                         disableGutters
                                         elevation={0}
-                                        sx={{ border: 1, borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}
+                                        sx={{ border: 1, borderColor: "divider", borderRadius: 1, "&:before": { display: "none" } }}
                                     >
                                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                                             <Typography variant="subtitle2">Advanced repo safeguards</Typography>

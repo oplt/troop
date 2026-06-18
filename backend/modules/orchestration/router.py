@@ -3,11 +3,13 @@ import json
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
+from backend.core.config import settings
+from backend.core.http_cache import apply_private_list_cache_headers, compute_documents_etag
 from backend.db.session import SessionLocal, get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.models import ApprovalRequest
@@ -32,7 +34,6 @@ from backend.modules.orchestration.schemas import (
     AgentWorkSessionCreate,
     AgentWorkSessionResponse,
     AgentWorkSessionUpdate,
-    ApprovalDecision,
     ApprovalResponse,
     BrainstormCreate,
     BrainstormDiscourseInsightsResponse,
@@ -141,6 +142,18 @@ from backend.modules.orchestration.schemas import (
     WorkingMemoryPatch,
     WorkingMemoryResponse,
 )
+from backend.api.deps.orchestration import (
+    get_execution_service,
+    get_github_sync_service,
+    get_knowledge_service,
+    get_memory_service,
+    get_orchestration_service,
+)
+from backend.modules.orchestration.services.execution_domain import ExecutionService
+from backend.modules.orchestration.services.github_sync_domain import GithubSyncService
+from backend.modules.orchestration.services.knowledge_domain import KnowledgeService
+from backend.modules.orchestration.services.memory_domain import MemoryService
+from backend.modules.orchestration.routers.approvals import router as approvals_router
 from backend.modules.orchestration.services.service import OrchestrationService
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.schemas import (
@@ -151,6 +164,7 @@ from backend.modules.team.schemas import (
 
 router = APIRouter()
 public_router = APIRouter()
+router.include_router(approvals_router)
 
 
 def _agent(item) -> AgentResponse:
@@ -1387,10 +1401,10 @@ async def list_semantic_memory(
     namespace_prefix: str | None = None,
     source_task_id: str | None = None,
     limit: int = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    memory: MemoryService = Depends(get_memory_service),
 ):
-    rows = await OrchestrationService(db).list_semantic_memory_entries_for_project(
+    rows = await memory.list_semantic_memory_entries_for_project(
         current_user,
         project_id,
         q=q,
@@ -2416,19 +2430,19 @@ async def benchmark_historical(
 @router.get("/runs", response_model=list[TaskRunResponse])
 async def list_runs(
     project_id: str | None = None,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    execution: ExecutionService = Depends(get_execution_service),
 ):
-    return [_run(item) for item in await OrchestrationService(db).list_task_runs(current_user, project_id)]
+    return [_run(item) for item in await execution.list_task_runs(current_user, project_id)]
 
 
 @router.get("/runs/{run_id}", response_model=TaskRunResponse)
 async def get_run(
     run_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    execution: ExecutionService = Depends(get_execution_service),
 ):
-    return _run(await OrchestrationService(db).get_run(current_user, run_id))
+    return _run(await execution.get_run(current_user, run_id))
 
 
 @router.get("/runs/{run_id}/cost", response_model=RunCostSummaryResponse)
@@ -2444,10 +2458,16 @@ async def get_run_cost_summary(
 @router.get("/runs/{run_id}/events", response_model=list[RunEventResponse])
 async def list_run_events(
     run_id: str,
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_event(item) for item in await OrchestrationService(db).list_run_events(current_user, run_id)]
+    effective_limit = settings.RUN_EVENTS_DEFAULT_LIMIT if limit is None else min(limit, settings.RUN_EVENTS_MAX_LIMIT)
+    items = await OrchestrationService(db).list_run_events(
+        current_user, run_id, limit=effective_limit, offset=offset
+    )
+    return [_event(item) for item in items]
 
 
 @router.get("/runs/{run_id}/execution-state", response_model=RunExecutionSnapshotResponse)
@@ -2463,10 +2483,10 @@ async def get_run_execution_state(
 @router.get("/runs/{run_id}/working-memory", response_model=WorkingMemoryResponse)
 async def get_run_working_memory(
     run_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    memory: MemoryService = Depends(get_memory_service),
 ):
-    wm = await OrchestrationService(db).get_working_memory(current_user, run_id)
+    wm = await memory.get_working_memory(current_user, run_id)
     return _working_memory_payload(wm)
 
 
@@ -2474,10 +2494,10 @@ async def get_run_working_memory(
 async def patch_run_working_memory(
     run_id: str,
     payload: WorkingMemoryPatch,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    memory: MemoryService = Depends(get_memory_service),
 ):
-    merged = await OrchestrationService(db).patch_working_memory(
+    merged = await memory.patch_working_memory(
         current_user,
         run_id,
         payload.model_dump(exclude_unset=True),
@@ -2599,10 +2619,10 @@ async def github_sync_events_stream(
 async def replay_github_sync_event(
     sync_event_id: str,
     payload: dict[str, Any] = Body(default_factory=dict),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    github_sync: GithubSyncService = Depends(get_github_sync_service),
 ):
-    item = await OrchestrationService(db).replay_github_sync_event(
+    item = await github_sync.replay_github_sync_event(
         current_user,
         sync_event_id,
         force=bool(payload.get("force")),
@@ -2971,41 +2991,21 @@ async def pr_assistant_review(
     return await OrchestrationService(db).pr_assistant_review(current_user, payload)
 
 
-@router.get("/approvals", response_model=list[ApprovalResponse])
-async def list_approvals(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return [_approval(item) for item in await OrchestrationService(db).list_approvals(current_user)]
-
-
-@router.post("/approvals/{approval_id}", response_model=ApprovalResponse)
-async def decide_approval(
-    approval_id: str,
-    payload: ApprovalDecision,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return _approval(await OrchestrationService(db).decide_approval(current_user, approval_id, payload.status, payload.reason))
-
-
-@router.get("/approvals/pending-count")
-async def pending_approvals_count(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    count = await OrchestrationService(db).get_pending_approvals_count(current_user)
-    return {"count": count}
-
-
 @router.get("/projects/{project_id}/documents", response_model=list[ProjectDocumentResponse])
 async def list_documents(
     project_id: str,
+    request: Request,
+    response: Response,
     task_id: str | None = None,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    knowledge: KnowledgeService = Depends(get_knowledge_service),
 ):
-    return [_document(item) for item in await OrchestrationService(db).list_documents(current_user, project_id, task_id)]
+    rows = await knowledge.list_documents(current_user, project_id, task_id)
+    etag = compute_documents_etag(rows)
+    apply_private_list_cache_headers(response, etag)
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=dict(response.headers))
+    return [_document(item) for item in rows]
 
 
 @router.post("/projects/{project_id}/documents", response_model=ProjectDocumentResponse, status_code=201)
@@ -3014,11 +3014,11 @@ async def upload_document(
     file: UploadFile = File(...),
     task_id: str | None = Form(default=None),
     ttl_days: int | None = Form(default=None),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    knowledge: KnowledgeService = Depends(get_knowledge_service),
 ):
     return _document(
-        await OrchestrationService(db).upload_document(
+        await knowledge.upload_document(
             current_user,
             project_id,
             task_id,
@@ -3032,10 +3032,10 @@ async def upload_document(
 async def delete_document(
     project_id: str,
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    knowledge: KnowledgeService = Depends(get_knowledge_service),
 ):
-    await OrchestrationService(db).delete_document(current_user, project_id, document_id)
+    await knowledge.delete_document(current_user, project_id, document_id)
     return Response(status_code=204)
 
 
@@ -3046,10 +3046,10 @@ async def search_knowledge(
     task_id: str | None = None,
     top_k: int = 5,
     include_decisions: bool = Query(False),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    knowledge: KnowledgeService = Depends(get_knowledge_service),
 ):
-    return await OrchestrationService(db).search_project_knowledge(
+    return await knowledge.search_project_knowledge(
         current_user,
         project_id,
         q,

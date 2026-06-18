@@ -6,7 +6,11 @@ from urllib.parse import urlencode
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.cache import redis_client
+from backend.core.cache import (
+    invalidate_session_cache,
+    invalidate_user_session_caches,
+    redis_client,
+)
 from backend.core.config import settings
 from backend.core.security import (
     generate_refresh_token,
@@ -161,6 +165,7 @@ class IdentityService:
             raise HTTPException(status_code=403, detail="Verify your email before signing in")
 
         await self.repo.revoke_refresh_session(session)
+        await invalidate_session_cache(session.user_id, session.id)
 
         new_raw = generate_refresh_token()
         new_expires = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -182,6 +187,7 @@ class IdentityService:
         session = await self.repo.get_refresh_session_by_hash(refresh_hash)
         if session:
             await self.repo.revoke_refresh_session(session)
+            await invalidate_session_cache(session.user_id, session.id)
             await self.db.commit()
 
     # ------------------------------------------------------------------ email verification
@@ -299,6 +305,7 @@ class IdentityService:
 
         user.password_hash = hash_password(new_password)
         await self.repo.revoke_all_refresh_sessions_for_user(user.id)
+        await invalidate_user_session_caches(user.id)
         await self.db.commit()
         await redis_client.delete(key)
 

@@ -68,7 +68,7 @@ export default function AgentRunDetailPage() {
     return (
         <PageShell maxWidth="lg">
             {runError && <Alert severity="error">{runError instanceof Error ? runError.message : "Run failed to load."}</Alert>}
-            <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 1 }}>
                 <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
                     <Box>
                         <Typography variant="overline" color="text.secondary">
@@ -111,11 +111,11 @@ export default function AgentRunDetailPage() {
                 </Alert>
             )}
 
-            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1 }}>
                 <Typography variant="h5">Generated plan</Typography>
                 <Stack spacing={1.25} sx={{ mt: 2 }}>
                     {plan.map((step, index) => (
-                        <Box key={`${step.id ?? index}`} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}>
+                        <Box key={`${step.id ?? index}`} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
                             <Typography variant="subtitle2">{index + 1}. {String(step.title ?? step.id ?? "Step")}</Typography>
                             <Typography variant="body2" color="text.secondary">Actor: {String(step.actor ?? "system")}</Typography>
                         </Box>
@@ -124,11 +124,11 @@ export default function AgentRunDetailPage() {
                 </Stack>
             </Paper>
 
-            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1 }}>
                 <Typography variant="h5">Step timeline</Typography>
                 <Stack spacing={1.25} sx={{ mt: 2 }}>
                     {steps.map((step) => (
-                        <Box key={step.id} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}>
+                        <Box key={step.id} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
                             <Stack direction="row" justifyContent="space-between" spacing={2}>
                                 <Typography variant="subtitle2">{step.event_type}</Typography>
                                 <Chip size="small" label={step.level} />
@@ -140,11 +140,11 @@ export default function AgentRunDetailPage() {
                 </Stack>
             </Paper>
 
-            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1 }}>
                 <Typography variant="h5">Artifacts</Typography>
                 <Stack spacing={1.25} sx={{ mt: 2 }}>
                     {artifacts.map((artifact) => (
-                        <Box key={artifact.id} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}>
+                        <Box key={artifact.id} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
                             <Typography variant="subtitle2">{artifact.name}</Typography>
                             <Typography variant="body2" color="text.secondary">{artifact.type} · {artifact.path_or_url ?? "stored in database"}</Typography>
                         </Box>

@@ -29,11 +29,11 @@ export function AuthMarketingPanel({
                 <Box>
                     <Typography
                         variant="overline"
-                        sx={(theme) => ({ color: theme.palette.text.secondary, display: "block", mb: 1 })}
+                        sx={{ color: "text.secondary", display: "block", mb: 1 }}
                     >
                         {eyebrow}
                     </Typography>
-                    <Typography variant="h3" sx={{ mb: 1.25 }}>
+                    <Typography variant="h2" sx={{ mb: 1.25 }}>
                         {title}
                     </Typography>
                     <Typography sx={{ color: "text.secondary", maxWidth: 620 }}>
@@ -45,7 +45,7 @@ export function AuthMarketingPanel({
                     <Box
                         sx={{
                             display: "grid",
-                            gap: 1.25,
+                            gap: 2,
                             gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
                         }}
                     >
@@ -54,9 +54,11 @@ export function AuthMarketingPanel({
                                 key={item.label}
                                 sx={{
                                     p: 2,
-                                    borderRadius: 2,
-                                    backgroundColor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.08 : 0.035),
-                                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                                    borderRadius: 1,
+                                    backgroundColor: (theme) =>
+                                        theme.palette.mode === "dark"
+                                            ? alpha(theme.palette.common.white, 0.04)
+                                            : theme.palette.grey[50],
                                 }}
                             >
                                 <Typography variant="h5">{item.value}</Typography>
@@ -78,9 +80,11 @@ export function AuthMarketingPanel({
                         key={point}
                         sx={{
                             p: 1.5,
-                            borderRadius: 2,
-                            backgroundColor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.06 : 0.03),
-                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            borderRadius: 1,
+                            backgroundColor: (theme) =>
+                                theme.palette.mode === "dark"
+                                    ? alpha(theme.palette.common.white, 0.04)
+                                    : theme.palette.grey[50],
                         }}
                     >
                         <Typography sx={{ color: "text.secondary" }}>{point}</Typography>

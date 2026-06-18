@@ -26,7 +26,7 @@ export function SectionCard({
             sx={[
                 {
                     p: { xs: 2.5, md: 3 },
-                    borderRadius: 2,
+                    borderRadius: 1,
                 },
                 ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
             ]}

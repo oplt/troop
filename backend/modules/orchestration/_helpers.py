@@ -81,6 +81,19 @@ class BlockedExecution(RuntimeError):
     pass
 
 
+def resolve_query_limit(
+    limit: int | None,
+    *,
+    default: int,
+    maximum: int,
+) -> int | None:
+    """Return SQL LIMIT or None when limit=0 requests an uncapped list."""
+    effective = default if limit is None else limit
+    if effective == 0:
+        return None
+    return max(1, min(effective, maximum))
+
+
 async def run_orchestration_job(run_id: str) -> None:
     from backend.db.session import SessionLocal
     from backend.modules.orchestration.services.service import OrchestrationService

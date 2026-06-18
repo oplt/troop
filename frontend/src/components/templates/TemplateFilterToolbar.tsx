@@ -104,14 +104,14 @@ export function TemplateFilterToolbar({ value, groups, onChange }: TemplateFilte
                             sx={{
                                 minHeight: 44,
                                 px: 2,
-                                borderRadius: 999,
+                                borderRadius: 1,
                                 textTransform: "none",
                                 color: "text.primary",
-                                borderColor: isActive(group) ? "info.main" : "divider",
-                                bgcolor: isActive(group) ? "#e8fbff" : "background.paper",
+                                borderColor: isActive(group) ? "primary.main" : "divider",
+                                bgcolor: isActive(group) ? "grey.50" : "background.paper",
                                 "&:hover": {
-                                    borderColor: isActive(group) ? "info.main" : "text.disabled",
-                                    bgcolor: isActive(group) ? "#e8fbff" : "#fbfcfd",
+                                    borderColor: isActive(group) ? "primary.main" : "divider",
+                                    bgcolor: "grey.50",
                                 },
                             }}
                         >
@@ -135,8 +135,8 @@ export function TemplateFilterToolbar({ value, groups, onChange }: TemplateFilte
                                 deleteIcon={<CloseIcon />}
                                 sx={{
                                     height: 42,
-                                    borderRadius: 999,
-                                    bgcolor: "#f2f6f5",
+                                    borderRadius: 1,
+                                    bgcolor: "grey.50",
                                     border: "1px solid",
                                     borderColor: "divider",
                                     "& .MuiChip-deleteIcon": {
@@ -173,7 +173,7 @@ export function TemplateFilterToolbar({ value, groups, onChange }: TemplateFilte
                         mt: 1,
                         p: 1.5,
                         minWidth: 240,
-                        borderRadius: 3,
+                        borderRadius: 1,
                     },
                 }}
             >
@@ -194,7 +194,7 @@ export function TemplateFilterToolbar({ value, groups, onChange }: TemplateFilte
                                 onClick={() => toggleOption(openGroup, option)}
                                 sx={{
                                     justifyContent: "flex-start",
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     textTransform: "none",
                                 }}
                             >

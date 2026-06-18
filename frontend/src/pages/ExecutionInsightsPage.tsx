@@ -51,7 +51,7 @@ export default function ExecutionInsightsPage() {
                 ) : (
                     <Stack spacing={1}>
                         {rows.map((row) => (
-                            <Paper key={row.event_type} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Paper key={row.event_type} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                                     <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
                                         {row.event_type}
@@ -85,7 +85,7 @@ export default function ExecutionInsightsPage() {
                         ) : (
                             <Stack spacing={1}>
                                 {toolFailures.map((row) => (
-                                    <Paper key={row.tool} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                    <Paper key={row.tool} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                                             <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
                                                 {row.tool}

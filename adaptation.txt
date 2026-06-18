@@ -1,0 +1,144 @@
+# Repository Improvement Report
+
+Generated from analysis of the Troop repository (FastAPI + React orchestration platform with semantic/episodic memory, RAG, Celery workers, pgvector, and MUI frontend).
+
+Assumption: production runs with Postgres + pgvector, Redis, Celery workers, and `APP_ENV=production`. Verify staging query plans and load tests before high-volume rollout.
+
+---
+
+## Executive Summary
+
+Phase 1, Phase 2 quick wins, and the completed priority fixes have been removed from this report.
+
+Recent completions:
+- Approval endpoints moved into a dedicated orchestration router slice.
+- RAG retrieval and grounded-answer evals now have a committed gate and CI workflow.
+- pgvector HNSW index validation now has a repeatable plan checker.
+- RAG answer generation now resolves project-scoped model/provider settings before runtime defaults.
+- HTTP exception payloads now share one structured response shape while preserving legacy `detail`.
+- Frontend route errors now send route/project tags to Sentry when a browser client is present.
+- Deployment, Celery topology, pgvector, rollback, and load-test guidance now live in `docs/DEPLOYMENT_RUNBOOK.md`.
+
+**Highest-impact remaining improvements:**
+1. Continue orchestration service/router extraction in small domain PRs.
+2. Continue splitting `ProjectDetailView` tab internals.
+3. Add cross-encoder reranking only if the eval gate shows a precision gap.
+
+---
+
+## Remaining Priority Improvements
+
+### 1. Continue orchestration service/router extraction
+- **Category:** Backend architecture
+- **Severity:** High
+- **Effort:** Large
+- **Risk:** Medium
+- **Status:** Partial
+- **Current state:** Domain deps exist in `api/deps/orchestration.py` and `api/deps/rag.py`; execution, approvals, memory, GitHub sync, knowledge, evals, and brainstorm facades exist. Approval endpoints are extracted to `backend/modules/orchestration/routers/approvals.py`. The legacy router still owns several broad domains.
+- **Recommendation:** Continue extracting narrow route/service slices for provider config, brainstorm, project documents, memory, GitHub sync, and task execution while preserving API contracts.
+- **Expected benefit:** Better test isolation, clearer ownership, and lower regression risk during feature work.
+
+### 2. Split `ProjectDetailView` tab internals
+- **Category:** Frontend architecture
+- **Severity:** High
+- **Effort:** Large
+- **Risk:** Medium
+- **Status:** Partial
+- **Current state:** `OrchestrationProjectDetailPage.tsx` is now a thin lazy route shell, but `frontend/src/pages/projectDetail/OrchestrationProjectDetailView.tsx` still contains too many tab views and behaviors.
+- **Recommendation:** Extract each major tab into colocated modules and hooks before adding new project-detail behavior.
+- **Expected benefit:** Smaller review surface, safer UI changes, and easier project-detail smoke tests.
+
+### 3. Add cross-encoder reranking only after quality metrics justify it
+- **Category:** AI quality / cost control
+- **Severity:** Medium
+- **Effort:** Medium
+- **Risk:** Medium
+- **Status:** Deferred
+- **Current state:** Keyword boost reranking and RAG eval gates exist. Cross-encoder reranking is not implemented.
+- **Recommendation:** Use retrieval eval results to decide whether a cross-encoder is worth added latency/cost. If justified, add it behind `RAG_RERANK_ENABLED` with timeout, max candidate caps, and telemetry.
+- **Expected benefit:** Better precision for ambiguous queries without adding unmeasured cost.
+
+---
+
+## Remaining Architectural Debt
+
+| Area | Status | Recommendation |
+|------|--------|----------------|
+| `frontend/src/pages/projectDetail/OrchestrationProjectDetailView.tsx` | Partial | Extract tab views and colocated hooks. |
+| `backend/modules/orchestration/router.py` | Partial | Continue splitting by domain while preserving API contracts. |
+| `backend/modules/memory/service.py` | Planned | Separate memory, docs, episodic, context, and knowledge-graph responsibilities. |
+| `backend/modules/orchestration/execution/execution_service.py` | Planned | Split run modes and workflow orchestration into narrower services. |
+| `frontend/src/api/orchestration.ts` | Planned | Split API client by orchestration domain. |
+| `backend/modules/github/service.py` | Planned | Extract webhook, sync, repo, and issue/PR services. |
+| `backend/modules/orchestration/repository.py` | Planned | Split data access by aggregate. |
+| AI Studio + project document indexing | Partial | Decide whether to keep separate pipelines or merge behind one knowledge model. |
+| Legacy memory stack + `memory/layer` stack | Planned | Create consolidation plan and migrate one workflow at a time. |
+| Approval UI duplication | Partial | Extract shared approval components after project-detail tab split. |
+
+---
+
+## Remaining UI/UX Work
+
+| Issue | Status | Recommendation |
+|-------|--------|----------------|
+| Forms without RHF/Zod in `AiStudioPage.tsx` and `SemanticMemoryPage.tsx` | Planned | Adopt existing auth/profile form validation patterns. |
+| Project detail still too large | Partial | Extract tabs before adding more UI behavior. |
+
+---
+
+## Remaining AI/RAG Work
+
+| Issue | Status | Recommendation |
+|-------|--------|----------------|
+| Cross-encoder reranking absent | Deferred | Add only if retrieval evals show precision gap. |
+| Memory conflict detection absent from ADD-only extraction | Planned | Integrate with `conflict_resolver.py`. |
+
+---
+
+## Remaining Reliability, Security, and Observability Work
+
+| Area | Status | Recommendation |
+|------|--------|----------------|
+| Logging | Partial | Continue structured key=value logging where execution paths still emit free-form messages. |
+| Load testing | Planned | Run the new runbook against pooled DB connections under concurrent run + ingest load. |
+| Production hardening audit | Partial | Verify Docker-only sandbox, provider config, rate limits, and secret checks together. |
+
+---
+
+## Suggested Implementation Roadmap
+
+### Phase 3
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | Continue orchestration router/service extraction | Partial | Next good candidates: providers, brainstorm, project document routes. |
+| 2 | Extract `ProjectDetailView` tab internals | Partial | Route shell is split; implementation view still needs smaller tab modules. |
+| 3 | Add project-detail smoke tests | Planned | Best after tab extraction. |
+| 4 | Run pgvector plan checker in staging | Planned | Tooling exists; production-like data still needs validation. |
+| 5 | Cross-encoder reranking for RAG | Deferred | Only if eval gate shows precision gap. |
+| 6 | Unified knowledge model | Planned | Decide whether AI Studio and project docs should converge. |
+| 7 | Context score-based token optimizer | Partial | Explicit budgets exist; score-based trimming remains optional. |
+| 8 | GraphQL/REST authz audit and consolidation | Planned | Verify parity after router extraction. |
+| 9 | Production hardening audit | Partial | Validate sandbox, provider config, limits, secrets. |
+
+---
+
+## Final Recommendations
+
+**Do next:**
+- Continue backend orchestration router extraction by domain, next with providers, brainstorm, or project document routes.
+- Continue extracting `ProjectDetailView` tab internals into smaller views/hooks.
+- Run the pgvector plan checker in staging with 10k+ chunks per representative project.
+- Add project-detail smoke tests after tab extraction.
+
+**Defer until metrics justify:**
+- Cross-encoder reranking.
+- Unified knowledge model across AI Studio and project docs.
+- Score-based context trimming beyond configured token budgets.
+- Full orchestration DI rewrite beyond incremental domain extraction.
+
+**Verify before release:**
+- Run `pnpm build && pnpm exec tsc --noEmit`.
+- Run backend tests plus `backend.tools.rag_eval_gate`.
+- Run `backend.tools.pgvector_plan_check` against staging data.
+- Load test pooled connections under concurrent run + ingest load.

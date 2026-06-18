@@ -110,6 +110,12 @@ class AiDocumentResponse(BaseModel):
     updated_at: datetime
 
 
+class AiDocumentIngestResponse(BaseModel):
+    document: AiDocumentResponse
+    ingest_job_id: str | None = None
+    queued: bool = False
+
+
 class AiDocumentCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
     description: str | None = None

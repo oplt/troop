@@ -43,10 +43,10 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
-import { getPendingApprovalsCount } from "../../api/orchestration";
-import { getProfile } from "../../api/profile";
-import { getMe } from "../../api/users";
+import { getPendingApprovalsCount, getOrchestrationProject } from "../../api/orchestration";
+import { useCanonicalUser } from "../../hooks/useCanonicalUser";
 import { useAuth } from "../../hooks/useAuth";
+import { queryKeys, defaultQueryStaleTimeMs } from "../../config/queryKeys";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
 import { getInitials } from "../../utils/formatters";
 import { CommandPalette } from "./CommandPalette";
@@ -84,7 +84,11 @@ function formatPathSegment(segment: string) {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function buildBreadcrumbs(pathname: string, navItems: NavItem[]): BreadcrumbItem[] {
+function buildBreadcrumbs(
+    pathname: string,
+    navItems: NavItem[],
+    resolveSegmentLabel?: (segment: string, index: number, segments: string[]) => string | undefined,
+): BreadcrumbItem[] {
     const exact = navItems.find((item) => item.path === pathname);
     if (exact) {
         return [{ label: exact.label, path: exact.path }];
@@ -102,7 +106,7 @@ function buildBreadcrumbs(pathname: string, navItems: NavItem[]): BreadcrumbItem
         const segment = pathSegments[index];
         const nextPath = `/${pathSegments.slice(0, index + 1).join("/")}`;
         breadcrumbs.push({
-            label: formatPathSegment(segment),
+            label: resolveSegmentLabel?.(segment, index, pathSegments) ?? formatPathSegment(segment),
             path: nextPath,
         });
     }
@@ -122,7 +126,7 @@ function ThemeToggle() {
 
     return (
         <Tooltip title={`Theme: ${colorMode}`}>
-            <IconButton onClick={cycle} size="small" sx={{ border: 1, borderColor: "divider", bgcolor: "background.paper" }}>
+            <IconButton onClick={cycle} size="small" sx={{ borderRadius: 1 }}>
                 {icon}
             </IconButton>
         </Tooltip>
@@ -235,25 +239,14 @@ export function AppLayout() {
     const { data: platformMetadata } = usePlatformMetadata();
 
     const authReady = isReady && isAuthenticated;
-    const { data: currentUser } = useQuery({
-        queryKey: ["me"],
-        queryFn: getMe,
-        enabled: authReady,
-    });
+    const { user: currentUser, profile } = useCanonicalUser({ profileEnabled: authReady });
     const { data: pendingApprovals } = useQuery({
-        queryKey: ["orchestration", "approvals", "pending-count"],
+        queryKey: queryKeys.orchestration.approvalsPendingCount,
         queryFn: getPendingApprovalsCount,
         refetchInterval: 30_000,
         enabled: authReady,
         retry: false,
     });
-    const { data: profile } = useQuery({
-        queryKey: ["profile"],
-        queryFn: getProfile,
-        staleTime: 5 * 60_000,
-        enabled: authReady,
-    });
-
     const pendingCount = pendingApprovals?.count ?? 0;
     const appName = platformMetadata?.app_name ?? "Your App";
     const hasAiModule =
@@ -324,9 +317,30 @@ export function AppLayout() {
     const currentItem = visibleNavItems.find((item) =>
         item.path === "/dashboard" ? location.pathname === item.path : location.pathname.startsWith(item.path)
     );
+    const projectIdFromPath = useMemo(() => {
+        const match = location.pathname.match(/^\/agent-projects\/([^/]+)/);
+        return match?.[1] ?? null;
+    }, [location.pathname]);
+    const { data: breadcrumbProject } = useQuery({
+        queryKey: queryKeys.orchestration.project(projectIdFromPath ?? ""),
+        queryFn: () => getOrchestrationProject(projectIdFromPath!),
+        enabled: Boolean(projectIdFromPath),
+        staleTime: defaultQueryStaleTimeMs,
+    });
+
     const breadcrumbs = useMemo(
-        () => buildBreadcrumbs(location.pathname, visibleNavItems),
-        [location.pathname, visibleNavItems],
+        () =>
+            buildBreadcrumbs(location.pathname, visibleNavItems, (segment, index, segments) => {
+                if (index > 0 && segments[index - 1] === "agent-projects") {
+                    if (segment === projectIdFromPath && breadcrumbProject?.name) {
+                        return breadcrumbProject.name;
+                    }
+                }
+                if (segment === "memory") return "Memory";
+                if (segment === "benchmark") return "Benchmark";
+                return undefined;
+            }),
+        [location.pathname, visibleNavItems, breadcrumbProject?.name, projectIdFromPath],
     );
     const canGoBack = breadcrumbs.length > 1 || location.pathname !== (currentItem?.path ?? "/dashboard");
     const avatarLabel = getInitials(currentUser?.full_name, currentUser?.email);
@@ -350,22 +364,17 @@ export function AppLayout() {
                 disableHoverListener={!drawerCollapsed}
             >
                 <Box
-                    sx={(currentTheme) => ({
-                        borderRadius: 2,
+                    sx={{
+                        borderRadius: 1,
                         px: drawerCollapsed ? 1 : 2,
                         py: drawerCollapsed ? 1.75 : 2.25,
                         mb: 2,
-                        border: `1px solid ${currentTheme.palette.divider}`,
-                        backgroundColor: currentTheme.palette.background.paper,
-                        boxShadow:
-                            currentTheme.palette.mode === "dark"
-                                ? "0 14px 34px rgba(0,0,0,0.18)"
-                                : "0 14px 34px rgba(41,37,36,0.045)",
+                        backgroundColor: "background.paper",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: drawerCollapsed ? "center" : "flex-start",
                         textAlign: drawerCollapsed ? "center" : "left",
-                    })}
+                    }}
                 >
                     {drawerCollapsed ? (
                         <Typography variant="h6" sx={{ lineHeight: 1 }}>
@@ -413,11 +422,13 @@ export function AppLayout() {
             <Box sx={{ flexGrow: 1 }} />
 
             <Box
-                sx={(currentTheme) => ({
+                sx={(theme) => ({
                     p: drawerCollapsed ? 1.25 : 2,
-                    borderRadius: 2,
-                    border: `1px solid ${currentTheme.palette.divider}`,
-                    backgroundColor: alpha(currentTheme.palette.background.paper, 0.78),
+                    borderRadius: 1,
+                    backgroundColor:
+                        theme.palette.mode === "dark"
+                            ? alpha(theme.palette.common.white, 0.04)
+                            : theme.palette.grey[50],
                 })}
             >
                 <Stack spacing={1.5} alignItems={drawerCollapsed ? "center" : "stretch"}>
@@ -450,7 +461,7 @@ export function AppLayout() {
                             <Tooltip title="Manage profile" placement="right">
                                 <IconButton
                                     onClick={() => handleNavigate("/profile")}
-                                    sx={{ border: 1, borderColor: "divider", bgcolor: "background.paper" }}
+                                    sx={{ borderRadius: 1 }}
                                 >
                                     <ProfileIcon fontSize="small" />
                                 </IconButton>
@@ -458,7 +469,7 @@ export function AppLayout() {
                             <Tooltip title="Sign out" placement="right">
                                 <IconButton
                                     onClick={() => void handleSignOut()}
-                                    sx={{ border: 1, borderColor: "divider", bgcolor: "background.paper" }}
+                                    sx={{ borderRadius: 1 }}
                                 >
                                     <LogoutIcon fontSize="small" />
                                 </IconButton>
@@ -491,19 +502,20 @@ export function AppLayout() {
                 sx={{
                     left: { md: `${desktopDrawerWidth}px` },
                     width: { md: `calc(100% - ${desktopDrawerWidth}px)` },
-                    borderBottom: 1,
-                    borderColor: "divider",
-                    backgroundColor: alpha(theme.palette.background.default, theme.palette.mode === "dark" ? 0.88 : 0.92),
+                    backgroundColor: (t) =>
+                        t.palette.mode === "dark"
+                            ? alpha(t.palette.background.default, 0.88)
+                            : "rgba(255, 255, 255, 0.75)",
                     color: "text.primary",
-                    backdropFilter: "blur(14px)",
-                    transition: theme.transitions.create(["left", "width"], {
-                        duration: theme.transitions.duration.shorter,
+                    backdropFilter: "blur(12px)",
+                    transition: theme.transitions.create(["left", "width", "background-color"], {
+                        duration: 330,
                     }),
                 }}
             >
                 <Toolbar sx={{ minHeight: { xs: 72, md: 80 }, px: { xs: 2, md: 3 } }}>
                     {isMobile ? (
-                        <IconButton edge="start" onClick={() => setDrawerOpen(true)} sx={{ mr: 1.25 }}>
+                        <IconButton edge="start" aria-label="Open navigation menu" onClick={() => setDrawerOpen(true)} sx={{ mr: 1.25 }}>
                             <MenuIcon />
                         </IconButton>
                     ) : (
@@ -511,7 +523,7 @@ export function AppLayout() {
                             <IconButton
                                 edge="start"
                                 onClick={() => setDesktopNavCollapsed((current) => !current)}
-                                sx={{ mr: 1.25, border: 1, borderColor: "divider", bgcolor: "background.paper" }}
+                                sx={{ mr: 1.25, borderRadius: 1 }}
                             >
                                 {drawerCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
                             </IconButton>
@@ -562,7 +574,7 @@ export function AppLayout() {
                                             sx={{
                                                 ...crumbSx,
                                                 typography: isLast ? "subtitle1" : "body2",
-                                                fontWeight: isLast ? 600 : 400,
+                                                fontWeight: 500,
                                                 color: isLast ? "text.primary" : "text.secondary",
                                             }}
                                         >

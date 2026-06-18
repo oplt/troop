@@ -121,7 +121,7 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                     • {visibleIssues.length} issue{visibleIssues.length === 1 ? "" : "s"} • {workingDraft.unmatched_sections.length} unmatched
                 </Alert>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
                         <Box>
                             <Typography variant="overline" color="text.secondary">Import confidence</Typography>
@@ -138,7 +138,7 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                     </Stack>
                 </Paper>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={2}>
                         <Typography variant="subtitle2">Parsed values</Typography>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -156,7 +156,7 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                 </Paper>
 
                 {unknownTools.length > 0 ? (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Typography variant="subtitle2">Unknown tools</Typography>
                             {unknownTools.map((tool) => (
@@ -183,11 +183,11 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                 ) : null}
 
                 {workingDraft.unmatched_sections.length > 0 ? (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                         <Stack spacing={1.5}>
                             <Typography variant="subtitle2">Unmatched sections</Typography>
                             {workingDraft.unmatched_sections.map((section) => (
-                                <Paper key={section.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                <Paper key={section.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack spacing={1}>
                                         <Typography variant="subtitle2">{section.heading || "Untitled section"}</Typography>
                                         <Typography variant="caption" color="text.secondary">{section.reason}</Typography>
@@ -220,14 +220,14 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                     </Paper>
                 ) : null}
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={1.5}>
                         <Typography variant="subtitle2">Issues</Typography>
                         {visibleIssues.length === 0 ? (
                             <Alert severity="success">No blocking import issues remain.</Alert>
                         ) : (
                             visibleIssues.map((issue) => (
-                                <Paper key={issue.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                <Paper key={issue.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                     <Stack spacing={1}>
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between">
                                             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -261,7 +261,7 @@ export function SkillTemplateImportReviewDrawer({ open, draft, toolCatalog, onCl
                         </Stack>
                     </AccordionSummary>
                     <AccordionDetails>
-                        <Box component="pre" sx={{ m: 0, p: 2, borderRadius: 2, bgcolor: "grey.950", color: "grey.100", overflow: "auto", fontSize: 12 }}>
+                        <Box component="pre" sx={{ m: 0, p: 2, borderRadius: 1, bgcolor: "grey.950", color: "grey.100", overflow: "auto", fontSize: 12 }}>
                             {JSON.stringify(workingDraft, null, 2)}
                         </Box>
                     </AccordionDetails>

@@ -32,23 +32,9 @@ export function StatCard({
             sx={{
                 position: "relative",
                 p: 2.5,
-                borderRadius: 2,
                 minHeight: "100%",
                 overflow: "hidden",
-                background: `linear-gradient(180deg, ${alpha(accent, theme.palette.mode === "dark" ? 0.1 : 0.045)} 0%, ${alpha(
-                    theme.palette.background.paper,
-                    0.96
-                )} 100%)`,
-                "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: 3,
-                    height: "100%",
-                    backgroundColor: accent,
-                    opacity: 0.9,
-                },
+                backgroundColor: theme.palette.background.paper,
             }}
         >
             <Stack spacing={2}>
@@ -58,16 +44,13 @@ export function StatCard({
                             variant="caption"
                             sx={{
                                 color: "text.secondary",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                                fontWeight: 600,
-                                fontSize: "0.7rem",
+                                fontWeight: 500,
                             }}
                         >
                             {label}
                         </Typography>
                         {tooltipContent && (
-                            <Tooltip title={tooltipContent} arrow placement="top">
+                            <Tooltip title={tooltipContent} placement="top">
                                 <InfoOutlined
                                     sx={{ fontSize: 14, color: "text.secondary", cursor: "help" }}
                                     aria-label="Stat details"
@@ -81,9 +64,9 @@ export function StatCard({
                             height: 40,
                             display: "grid",
                             placeItems: "center",
-                            borderRadius: 999,
+                            borderRadius: 1,
                             color: accent,
-                            backgroundColor: alpha(accent, theme.palette.mode === "dark" ? 0.22 : 0.14),
+                            backgroundColor: alpha(accent, theme.palette.mode === "dark" ? 0.16 : 0.08),
                         }}
                     >
                         {icon}
@@ -94,7 +77,7 @@ export function StatCard({
                 ) : (
                     <Typography
                         variant="h4"
-                        sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}
+                        sx={{ fontWeight: 500, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}
                     >
                         {value}
                     </Typography>

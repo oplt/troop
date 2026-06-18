@@ -30,7 +30,7 @@ export function Subsection({
                 >
                     <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
                         {title && (
-                            <Typography variant={titleVariant} sx={{ fontWeight: 600 }}>
+                            <Typography variant={titleVariant} sx={{ fontWeight: 500 }}>
                                 {title}
                             </Typography>
                         )}

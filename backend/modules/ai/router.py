@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
@@ -6,6 +7,7 @@ from backend.db.session import get_db
 from backend.modules.ai.schemas import (
     AiChunkMatchResponse,
     AiDocumentCreate,
+    AiDocumentIngestResponse,
     AiDocumentResponse,
     AiEvaluationCaseCreate,
     AiEvaluationCaseResponse,
@@ -239,6 +241,14 @@ async def update_prompt_version(
     return _prompt_version_to_response(version)
 
 
+def _document_ingest_response(document, *, ingest_job_id: str | None = None) -> AiDocumentIngestResponse:
+    return AiDocumentIngestResponse(
+        document=_document_to_response(document),
+        ingest_job_id=ingest_job_id,
+        queued=bool(ingest_job_id),
+    )
+
+
 @router.get("/documents", response_model=list[AiDocumentResponse])
 async def list_documents(
     db: AsyncSession = Depends(get_db),
@@ -248,34 +258,58 @@ async def list_documents(
     return [_document_to_response(item) for item in await service.list_documents(current_user)]
 
 
-@router.post("/documents", response_model=AiDocumentResponse, status_code=201)
-async def create_document(
-    payload: AiDocumentCreate,
+@router.get("/documents/{document_id}", response_model=AiDocumentResponse)
+async def get_document(
+    document_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    document = await service.create_document_from_text(
+    return _document_to_response(await service.get_document(current_user, document_id))
+
+
+@router.post("/documents", response_model=AiDocumentIngestResponse)
+async def create_document(
+    payload: AiDocumentCreate,
+    queue_async: bool | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AiService(db)
+    document, ingest_job_id = await service.create_document_from_text(
         current_user,
         title=payload.title,
         description=payload.description,
         content=payload.content,
         content_type=payload.content_type,
         metadata=payload.metadata,
+        queue_async=queue_async,
     )
-    return _document_to_response(document)
+    body = _document_ingest_response(document, ingest_job_id=ingest_job_id)
+    if ingest_job_id:
+        return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
+    return body
 
 
-@router.post("/documents/upload", response_model=AiDocumentResponse, status_code=201)
+@router.post("/documents/upload", response_model=AiDocumentIngestResponse)
 async def upload_document(
     file: UploadFile = File(...),
     description: str | None = Form(default=None),
+    queue_async: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    document = await service.create_document_from_upload(current_user, file, description)
-    return _document_to_response(document)
+    document, ingest_job_id = await service.create_document_from_upload(
+        current_user,
+        file,
+        description,
+        queue_async=queue_async,
+    )
+    body = _document_ingest_response(document, ingest_job_id=ingest_job_id)
+    if ingest_job_id:
+        return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
+    return body
 
 
 @router.post("/retrieve", response_model=list[AiChunkMatchResponse])

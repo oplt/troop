@@ -369,7 +369,7 @@ class OrchestrationTasksServiceMixin:
         if task_id in normalized:
             raise HTTPException(status_code=409, detail="A task cannot depend on itself.")
 
-        tasks = await self.repo.list_tasks(project_id)
+        tasks = await self.repo.list_tasks(project_id, limit=0)
         task_ids = {item.id for item in tasks}
         missing = [dep_id for dep_id in normalized if dep_id not in task_ids]
         if missing:
@@ -432,7 +432,7 @@ class OrchestrationTasksServiceMixin:
 
     async def list_dag_ready_tasks(self, user: User, project_id: str) -> list[dict[str, Any]]:
         await self.get_project(user, project_id)
-        tasks = await self.repo.list_tasks(project_id)
+        tasks = await self.repo.list_tasks(project_id, limit=0)
         deps_all = await self.repo.list_task_dependencies(project_id)
         dep_count: dict[str, int] = {}
         for dep in deps_all:
@@ -569,7 +569,7 @@ class OrchestrationTasksServiceMixin:
                 continue
             after_h = float(sla.get("escalate_hours_after_due", 0) or 0)
             warn_h = float(sla.get("warn_hours_before_due", 24) or 24)
-            tasks = await self.repo.list_tasks(project.id)
+            tasks = await self.repo.list_tasks(project.id, limit=0)
             for task in tasks:
                 if task.status in {"completed", "approved", "archived", "synced_to_github"}:
                     continue

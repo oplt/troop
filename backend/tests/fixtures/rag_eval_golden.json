@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "query": "JWT middleware auth",
+      "expected_chunk_ids": ["golden-auth-middleware"],
+      "negative_chunk_ids": ["noise-footer"],
+      "matches": [
+        {
+          "chunk_id": "golden-auth-middleware",
+          "document_id": "doc-auth",
+          "title": "auth.md",
+          "content": "JWT middleware validates bearer tokens on every API request.",
+          "chunk_index": 0,
+          "score": 0.92
+        }
+      ],
+      "answer": {
+        "query": "JWT middleware auth",
+        "answer": "Auth uses JWT middleware [source:golden-auth-middleware].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "golden-auth-middleware",
+            "document_id": "doc-auth",
+            "title": "auth.md",
+            "chunk_index": 0,
+            "score": 0.92,
+            "excerpt": "JWT middleware validates bearer tokens."
+          }
+        ]
+      }
+    },
+    {
+      "query": "CSRF cookie protection",
+      "expected_chunk_ids": ["golden-csrf-cookie"],
+      "matches": [
+        {
+          "chunk_id": "golden-csrf-cookie",
+          "document_id": "doc-auth",
+          "title": "csrf.md",
+          "content": "Mutating routes require CSRF token validation for cookie-authenticated requests.",
+          "chunk_index": 1,
+          "score": 0.89
+        }
+      ],
+      "answer": {
+        "query": "CSRF cookie protection",
+        "answer": "Mutating requests validate CSRF tokens [source:golden-csrf-cookie].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "golden-csrf-cookie",
+            "document_id": "doc-auth",
+            "title": "csrf.md",
+            "chunk_index": 1,
+            "score": 0.89,
+            "excerpt": "Mutating routes require CSRF token validation."
+          }
+        ]
+      }
+    }
+  ]
+}

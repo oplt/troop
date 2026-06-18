@@ -4,6 +4,7 @@ from backend.core.config import settings
 from backend.modules.orchestration.execution.cpu_executor import execute_code_job
 from backend.modules.orchestration.services.service import OrchestrationService
 from backend.workers.celery_app import celery_app
+from backend.workers.retry import CELERY_TRANSIENT_EXCEPTIONS
 
 
 class OrchestrationWorkerRuntime:
@@ -94,7 +95,7 @@ class OrchestrationWorkerRuntime:
 
 @celery_app.task(
     name="backend.workers.orchestration.run_code_execution",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -106,6 +107,7 @@ def run_code_execution(
     timeout_seconds: int,
     use_shell_wrap: bool = True,
 ) -> dict:
+    """Runs in the CPU Celery queue; ``subprocess.run`` blocking is intentional here."""
     return execute_code_job(
         shell_cmd=shell_cmd,
         cwd=cwd,
@@ -116,7 +118,7 @@ def run_code_execution(
 
 @celery_app.task(
     name="backend.workers.orchestration.run_task",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,
@@ -127,7 +129,7 @@ def run_orchestration_task(run_id: str) -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.process_github_webhook_event",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,
@@ -138,7 +140,7 @@ def process_github_webhook_event(sync_event_id: str) -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.github_connection_resync",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,
@@ -149,7 +151,7 @@ def github_connection_resync(connection_id: str) -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.provider_healthcheck",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -160,7 +162,7 @@ def provider_healthcheck() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.github_issue_poll",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -171,7 +173,7 @@ def github_issue_poll() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.memory_expiration_sweep",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -182,7 +184,7 @@ def memory_expiration_sweep() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.sla_escalation_scan",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -193,7 +195,7 @@ def sla_escalation_scan() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.embed_semantic_memory_entry",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,
@@ -204,7 +206,7 @@ def embed_semantic_memory_entry(entry_id: str) -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.process_memory_ingest_jobs",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,
@@ -215,7 +217,7 @@ def process_memory_ingest_jobs() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.episodic_retention_archive",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -226,7 +228,7 @@ def episodic_retention_archive() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.memory_compaction_backfill",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=1,
@@ -237,7 +239,7 @@ def memory_compaction_backfill() -> None:
 
 @celery_app.task(
     name="backend.workers.orchestration.episodic_index_embedding_batch",
-    autoretry_for=(Exception,),
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
     retry_jitter=True,
     max_retries=2,

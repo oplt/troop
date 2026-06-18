@@ -36,29 +36,59 @@ import { PageShell } from "../components/ui/PageShell";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { EmptyState } from "../components/ui/EmptyState";
+import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
+import { extractApiErrorMessage } from "../utils/apiErrors";
 
 export default function DashboardPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { data: projects, isLoading: projectsLoading } = useQuery({
-        queryKey: ["orchestration", "projects"],
+    const {
+        data: projects,
+        isLoading: projectsLoading,
+        isError: projectsLoadFailed,
+        error: projectsError,
+        refetch: refetchProjects,
+        isFetching: projectsFetching,
+    } = useQuery({
+        queryKey: queryKeys.orchestration.projects,
         queryFn: listOrchestrationProjects,
     });
     const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
         queryKey: ["notifications"],
         queryFn: getNotifications,
     });
-    const { data: orchestrationOverview, isLoading: orchestrationLoading } = useQuery({
-        queryKey: ["orchestration", "overview"],
+    const {
+        data: orchestrationOverview,
+        isLoading: orchestrationLoading,
+        isError: orchestrationLoadFailed,
+        error: orchestrationError,
+        refetch: refetchOrchestration,
+        isFetching: orchestrationFetching,
+    } = useQuery({
+        queryKey: queryKeys.orchestration.overview,
         queryFn: getOrchestrationOverview,
     });
 
     const [signalDays, setSignalDays] = useState(7);
-    const { data: executionInsights, isLoading: insightsLoading } = useQuery({
-        queryKey: ["orchestration", "execution-insights", signalDays],
+    const {
+        data: executionInsights,
+        isLoading: insightsLoading,
+        isError: insightsLoadFailed,
+        error: insightsError,
+        refetch: refetchInsights,
+        isFetching: insightsFetching,
+    } = useQuery({
+        queryKey: queryKeys.orchestration.executionInsights(signalDays),
         queryFn: () => getExecutionInsights(signalDays),
     });
+
+    const dashboardLoadFailed = projectsLoadFailed || orchestrationLoadFailed || insightsLoadFailed;
+    const dashboardRetrying = projectsFetching || orchestrationFetching || insightsFetching;
+    const dashboardErrorMessage = extractApiErrorMessage(
+        projectsError ?? orchestrationError ?? insightsError,
+        "Couldn't load dashboard data. Check your connection and try again.",
+    );
 
     const markOneMutation = useMutation({
         mutationFn: markRead,
@@ -88,10 +118,32 @@ export default function DashboardPage() {
     );
     return (
         <PageShell maxWidth="xl">
+            {dashboardLoadFailed && (
+                <Alert
+                    severity="error"
+                    sx={{ mb: 2 }}
+                    action={
+                        <Button
+                            color="inherit"
+                            size="small"
+                            disabled={dashboardRetrying}
+                            onClick={() => {
+                                void refetchProjects();
+                                void refetchOrchestration();
+                                void refetchInsights();
+                            }}
+                        >
+                            {dashboardRetrying ? "Retrying…" : "Retry"}
+                        </Button>
+                    }
+                >
+                    {dashboardErrorMessage}
+                </Alert>
+            )}
             <Paper
                 sx={(theme) => ({
                     p: { xs: 2.5, md: 4 },
-                    borderRadius: 2,
+                    borderRadius: 1,
                     overflow: "hidden",
                     position: "relative",
                     border: `1px solid ${theme.palette.divider}`,
@@ -242,7 +294,7 @@ export default function DashboardPage() {
                     {notificationsLoading ? (
                         <Stack spacing={1.5}>
                             {Array.from({ length: 5 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 2 }} />
+                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 1 }} />
                             ))}
                         </Stack>
                     ) : visibleNotifications.length > 0 ? (
@@ -256,7 +308,7 @@ export default function DashboardPage() {
                                         key={notification.id}
                                         sx={(theme) => ({
                                             p: 2.25,
-                                            borderRadius: 2,
+                                            borderRadius: 1,
                                             border: `1px solid ${theme.palette.divider}`,
                                             backgroundColor: notification.is_read
                                                 ? alpha(theme.palette.background.paper, 0.68)
@@ -332,6 +384,25 @@ export default function DashboardPage() {
                     }
                 >
                     <Stack spacing={2}>
+                        {insightsLoadFailed && (
+                            <Alert
+                                severity="error"
+                                action={
+                                    <Button
+                                        color="inherit"
+                                        size="small"
+                                        disabled={insightsFetching}
+                                        onClick={() => {
+                                            void refetchInsights();
+                                        }}
+                                    >
+                                        {insightsFetching ? "Retrying…" : "Retry"}
+                                    </Button>
+                                }
+                            >
+                                {extractApiErrorMessage(insightsError, "Couldn't load run activity.")}
+                            </Alert>
+                        )}
                         {executionInsights?.since && (
                             <Typography variant="body2" color="text.secondary">
                                 Since {formatDateTime(executionInsights.since)}
@@ -350,7 +421,7 @@ export default function DashboardPage() {
                             ) : (
                                 <Stack spacing={1}>
                                     {eventRows.map((row) => (
-                                        <Paper key={row.event_type} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                        <Paper key={row.event_type} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                                                 <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
                                                     {row.event_type}
@@ -386,7 +457,7 @@ export default function DashboardPage() {
                                     ) : (
                                         <Stack spacing={1}>
                                             {toolFailures.map((row) => (
-                                                <Paper key={row.tool} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                                <Paper key={row.tool} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                                         <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
                                                             {row.tool}
@@ -414,6 +485,25 @@ export default function DashboardPage() {
                     }
                 >
                     <Stack spacing={1.25}>
+                        {orchestrationLoadFailed && (
+                            <Alert
+                                severity="error"
+                                action={
+                                    <Button
+                                        color="inherit"
+                                        size="small"
+                                        disabled={orchestrationFetching}
+                                        onClick={() => {
+                                            void refetchOrchestration();
+                                        }}
+                                    >
+                                        {orchestrationFetching ? "Retrying…" : "Retry"}
+                                    </Button>
+                                }
+                            >
+                                {extractApiErrorMessage(orchestrationError, "Couldn't load orchestration status.")}
+                            </Alert>
+                        )}
                         <Typography variant="body2" color="text.secondary">
                             {orchestrationLoading
                                 ? "Loading status…"
@@ -424,7 +514,7 @@ export default function DashboardPage() {
                                 key={run.id}
                                 sx={(theme) => ({
                                     p: 1.5,
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     border: `1px solid ${theme.palette.divider}`,
                                 })}
                             >
@@ -450,7 +540,7 @@ export default function DashboardPage() {
                                 <Box
                                     sx={(theme) => ({
                                         p: 2,
-                                        borderRadius: 2,
+                                        borderRadius: 1,
                                         border: `1px solid ${theme.palette.divider}`,
                                         backgroundColor: theme.palette.background.paper,
                                         cursor: "help",
@@ -461,7 +551,7 @@ export default function DashboardPage() {
                                         {userLoading ? (
                                             <Skeleton variant="rounded" width={96} height={28} />
                                         ) : (
-                                            <Typography variant="body2" sx={{ color: item.color, fontWeight: 700 }}>
+                                            <Typography variant="body2" sx={{ color: item.color, fontWeight: 500 }}>
                                                 {item.value}
                                             </Typography>
                                         )}
@@ -479,10 +569,30 @@ export default function DashboardPage() {
                     info={`Most recent ${canonicalProjectLower} in your workspace. Click Open ${canonicalProjectLabel} for the full list.`}
                     count={projects?.length ?? 0}
                 >
+                    {projectsLoadFailed && (
+                        <Alert
+                            severity="error"
+                            sx={{ mb: 2 }}
+                            action={
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    disabled={projectsFetching}
+                                    onClick={() => {
+                                        void refetchProjects();
+                                    }}
+                                >
+                                    {projectsFetching ? "Retrying…" : "Retry"}
+                                </Button>
+                            }
+                        >
+                            {extractApiErrorMessage(projectsError, "Couldn't load projects.")}
+                        </Alert>
+                    )}
                     {projectsLoading ? (
                         <Stack spacing={1.25}>
                             {Array.from({ length: 3 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={72} sx={{ borderRadius: 2 }} />
+                                <Skeleton key={index} variant="rounded" height={72} sx={{ borderRadius: 1 }} />
                             ))}
                         </Stack>
                     ) : projects && projects.length > 0 ? (
@@ -492,7 +602,7 @@ export default function DashboardPage() {
                                     key={project.id}
                                     sx={(theme) => ({
                                         p: 2,
-                                        borderRadius: 2,
+                                        borderRadius: 1,
                                         border: `1px solid ${theme.palette.divider}`,
                                     })}
                                 >

@@ -862,12 +862,12 @@ function ManagerNode({ data, selected }: NodeProps<Node<HierarchyNodeData>>) {
                 width: NODE_WIDTH,
                 minHeight: MANAGER_HEIGHT,
                 p: 2,
-                borderRadius: 4,
+                borderRadius: 1,
                 cursor: "pointer",
-                border: "1px solid",
-                borderColor: selected ? "primary.main" : alpha("#0f172a", 0.12),
+                border: "2px solid",
+                borderColor: selected ? "primary.main" : "divider",
                 bgcolor: alpha("#0a7f5a", 0.08),
-                boxShadow: selected ? "0 0 0 3px rgba(14, 165, 233, 0.16)" : "0 18px 40px rgba(15, 23, 42, 0.08)",
+                boxShadow: "none",
             }}
         >
             <Handle type="source" position={Position.Bottom} style={{ background: "#0a7f5a", width: 10, height: 10 }} />
@@ -946,12 +946,12 @@ function TeamMemberNode({ data, selected }: NodeProps<Node<HierarchyNodeData>>) 
                 width: NODE_WIDTH,
                 minHeight: MEMBER_HEIGHT,
                 p: 2,
-                borderRadius: 4,
+                borderRadius: 1,
                 cursor: "pointer",
-                border: "1px solid",
-                borderColor: selected ? "primary.main" : alpha("#0f172a", 0.12),
+                border: "2px solid",
+                borderColor: selected ? "primary.main" : "divider",
                 bgcolor: "background.paper",
-                boxShadow: selected ? "0 0 0 3px rgba(14, 165, 233, 0.16)" : "0 18px 40px rgba(15, 23, 42, 0.08)",
+                boxShadow: "none",
             }}
         >
             <Handle type="target" position={Position.Top} style={{ background: "#64748b", width: 10, height: 10 }} />
@@ -1042,7 +1042,7 @@ function metricCard(label: string, value: string, tone: string) {
             elevation={0}
             sx={{
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: 1,
                 border: "1px solid",
                 borderColor: "divider",
                 bgcolor: alpha(tone, 0.08),
@@ -1604,7 +1604,7 @@ function HierarchyBuilderInner() {
                                         <Chip label={`${records.filter((record) => record.isTemporary).length} temporary specialists`} size="small" variant="outlined" />
                                         <Chip label={`Selected load ${selectedRecord.currentWorkload}%`} size="small" variant="outlined" />
                                     </Stack>
-                                    <LinearProgress variant="determinate" value={Math.min(100, selectedRecord.currentWorkload)} sx={{ borderRadius: 999, height: 8 }} />
+                                    <LinearProgress variant="determinate" value={Math.min(100, selectedRecord.currentWorkload)} sx={{ height: 8 }} />
                                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                                         <Button size="small" startIcon={<AddIcon />} variant="contained" onClick={() => handleAddTeamMember(false)}>
                                             Add member
@@ -1628,10 +1628,10 @@ function HierarchyBuilderInner() {
                                 </Typography>
                                 <Stack spacing={1}>
                                     {TEAM_TEMPLATES.map((template) => (
-                                        <Paper key={template.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                        <Paper key={template.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                             <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                 <Box>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                         {template.name}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
@@ -1683,8 +1683,8 @@ function HierarchyBuilderInner() {
                                 </Typography>
                                 <Stack spacing={1}>
                                     {selectedRecord.skillBindings.map((binding) => (
-                                        <Paper key={binding.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                        <Paper key={binding.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                 {binding.skill}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
@@ -1808,10 +1808,10 @@ function HierarchyBuilderInner() {
                                                 </Typography>
                                             )}
                                             {selectedRecord.activeTasks.map((task) => (
-                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                                     <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
                                                         <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                                 {task.title}
                                                             </Typography>
                                                             <Typography variant="caption" color="text.secondary">
@@ -1853,8 +1853,8 @@ function HierarchyBuilderInner() {
                                                 </Typography>
                                             )}
                                             {selectedRecord.completedTasks.map((task) => (
-                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                <Paper key={task.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                         {task.title}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
@@ -1868,7 +1868,7 @@ function HierarchyBuilderInner() {
                                     {detailTab === "conversation" && (
                                         <Stack spacing={1}>
                                             {selectedRecord.conversationThread.map((message) => (
-                                                <Paper key={message.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                                <Paper key={message.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                                     <Typography variant="caption" color="text.secondary">
                                                         {message.author} · {formatDateLabel(message.timestamp)}
                                                     </Typography>
@@ -1886,8 +1886,8 @@ function HierarchyBuilderInner() {
                                                 </Typography>
                                             )}
                                             {selectedRecord.artifacts.map((artifact) => (
-                                                <Paper key={artifact.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                <Paper key={artifact.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                         {artifact.name}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
@@ -1906,10 +1906,10 @@ function HierarchyBuilderInner() {
                                                 </Typography>
                                             )}
                                             {selectedRecord.runHistory.map((run) => (
-                                                <Paper key={run.id} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                                                <Paper key={run.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                                     <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                         <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                                 {run.id}
                                                             </Typography>
                                                             <Typography variant="caption" color="text.secondary">

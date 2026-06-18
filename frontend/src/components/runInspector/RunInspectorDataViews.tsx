@@ -395,7 +395,7 @@ export function RunOutputFriendly({ output }: { output: Record<string, unknown> 
                             const name = String(tr.tool ?? "tool");
                             const status = String(tr.status ?? "unknown");
                             return (
-                                <Paper key={i} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                                <Paper key={i} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
                                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                                         <Typography variant="body2" fontWeight={600}>
                                             {name}
@@ -431,7 +431,7 @@ export function RunOutputFriendly({ output }: { output: Record<string, unknown> 
                     <Typography variant="subtitle2" gutterBottom>
                         Structured output
                     </Typography>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         {renderStructuredValue(structured)}
                     </Paper>
                 </Box>

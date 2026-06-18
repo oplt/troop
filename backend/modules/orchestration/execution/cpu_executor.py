@@ -6,6 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from backend.core.config import settings
+
 
 def docker_available() -> bool:
     try:
@@ -28,6 +30,20 @@ def execute_code_job(
     use_shell_wrap: bool,
 ) -> dict[str, Any]:
     cwd_path = Path(cwd)
+    if settings.orchestration_cpu_require_docker and not docker_available():
+        return {
+            "command": shell_cmd,
+            "cwd": str(cwd_path),
+            "returncode": 127,
+            "stdout": "",
+            "stderr": (
+                "Docker sandbox required but Docker is unavailable. "
+                "Install Docker or set ORCHESTRATION_CPU_REQUIRE_DOCKER=false (non-production only)."
+            ),
+            "sandbox": "unavailable",
+            "execution_backend": "cpu_worker_pool",
+            "error": "docker_required_unavailable",
+        }
     if docker_available():
         return execute_code_job_docker(shell_cmd=shell_cmd, cwd=cwd_path, timeout=timeout)
     if use_shell_wrap:

@@ -20,6 +20,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableContainer,
     TableHead,
     TableRow,
     TextField,
@@ -51,30 +52,41 @@ import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard"
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
+import { useDebounce } from "../hooks/useDebounce";
+import { queryKeys } from "../config/queryKeys";
+import { useSnackbar } from "../app/snackbarContext";
+import { extractApiErrorMessage } from "../utils/apiErrors";
+import { EmptyState } from "../components/ui/EmptyState";
+import { ErrorOutline as ErrorOutlineIcon, Refresh as RefreshIcon } from "@mui/icons-material";
 
 const ENTRY_TYPES = ["note", "policy", "standard", "adr", "glossary", "convention", "preference", "routing"];
 
 export default function SemanticMemoryPage() {
     const { projectId } = useParams<{ projectId: string }>();
     const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
     const [q, setQ] = useState("");
     const [vecQ, setVecQ] = useState("");
     const [episodicQ, setEpisodicQ] = useState("");
     const [episodicVecQ, setEpisodicVecQ] = useState("");
+    const debouncedQ = useDebounce(q.trim(), 250);
+    const debouncedVecQ = useDebounce(vecQ.trim(), 250);
+    const debouncedEpisodicQ = useDebounce(episodicQ.trim(), 250);
+    const debouncedEpisodicVecQ = useDebounce(episodicVecQ.trim(), 250);
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({ entry_type: "note", title: "", body: "" });
-    const [notice, setNotice] = useState<string | null>(null);
     const [provEntry, setProvEntry] = useState<SemanticMemoryEntry | null>(null);
     const [approvalReason, setApprovalReason] = useState<Record<string, string>>({});
 
-    const { data: project } = useQuery({
-        queryKey: ["orchestration", "project", projectId],
+    const projectQuery = useQuery({
+        queryKey: queryKeys.orchestration.project(projectId!),
         queryFn: () => getOrchestrationProject(projectId!),
         enabled: !!projectId,
     });
+    const project = projectQuery.data;
 
     const { data: memSettings } = useQuery({
-        queryKey: ["orchestration", "memory-settings", projectId],
+        queryKey: queryKeys.orchestration.memorySettings(projectId!),
         queryFn: () => getProjectMemorySettings(projectId!),
         enabled: !!projectId,
     });
@@ -83,64 +95,66 @@ export default function SemanticMemoryPage() {
         mutationFn: (patch: Parameters<typeof patchProjectMemorySettings>[1]) =>
             patchProjectMemorySettings(projectId!, patch),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "memory-settings", projectId] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.memorySettings(projectId!) });
         },
     });
 
-    const { data: entries = [], isLoading } = useQuery({
-        queryKey: ["orchestration", "semantic", projectId, q, vecQ],
+    const entriesQuery = useQuery({
+        queryKey: queryKeys.orchestration.semantic(projectId!, debouncedQ, debouncedVecQ),
         queryFn: () =>
             listSemanticMemory(projectId!, {
-                q: q.trim() || undefined,
-                vec_q: vecQ.trim() || undefined,
+                q: debouncedQ || undefined,
+                vec_q: debouncedVecQ || undefined,
                 limit: 100,
             }),
         enabled: !!projectId,
     });
+    const entries = entriesQuery.data ?? [];
+    const isLoading = entriesQuery.isLoading;
 
     const { data: episodic } = useQuery({
-        queryKey: ["orchestration", "episodic", projectId, episodicQ, episodicVecQ],
+        queryKey: queryKeys.orchestration.episodic(projectId!, debouncedEpisodicQ, debouncedEpisodicVecQ),
         queryFn: () =>
             searchEpisodicMemory(projectId!, {
-                q: episodicQ.trim() || undefined,
-                vec_q: episodicVecQ.trim() || undefined,
+                q: debouncedEpisodicQ || undefined,
+                vec_q: debouncedEpisodicVecQ || undefined,
                 limit: 40,
             }),
         enabled: !!projectId,
     });
 
     const { data: conflictGroups = [] } = useQuery({
-        queryKey: ["orchestration", "semantic-conflicts", projectId],
+        queryKey: queryKeys.orchestration.semanticConflicts(projectId!),
         queryFn: () => listSemanticMemoryConflicts(projectId!),
         enabled: !!projectId,
     });
 
     const { data: episodicArchives = [] } = useQuery({
-        queryKey: ["orchestration", "episodic-archives", projectId],
+        queryKey: queryKeys.orchestration.episodicArchives(projectId!),
         queryFn: () => listEpisodicArchives(projectId!),
         enabled: !!projectId,
     });
 
     const { data: runs = [] } = useQuery({
-        queryKey: ["orchestration", "project", projectId, "runs-memory-page"],
+        queryKey: queryKeys.orchestration.runsMemoryPage(projectId!),
         queryFn: () => listRuns(projectId!),
         enabled: !!projectId,
     });
     const latestRunId = runs[0]?.id;
     const { data: latestWm } = useQuery({
-        queryKey: ["orchestration", "run-wm", latestRunId],
+        queryKey: queryKeys.orchestration.runWorkingMemory(latestRunId!),
         queryFn: () => getRunWorkingMemory(latestRunId!),
         enabled: Boolean(latestRunId),
     });
 
     const { data: playbooks = [] } = useQuery({
-        queryKey: ["orchestration", "procedural", projectId],
+        queryKey: queryKeys.orchestration.procedural(projectId!),
         queryFn: () => listProceduralPlaybooks(projectId!),
         enabled: !!projectId,
     });
 
     const { data: allApprovals = [] } = useQuery({
-        queryKey: ["orchestration", "approvals"],
+        queryKey: queryKeys.orchestration.approvals,
         queryFn: () => listApprovals(),
     });
     const semanticApprovals = useMemo(
@@ -169,19 +183,19 @@ export default function SemanticMemoryPage() {
         mutationFn: (args: { canonical_entry_id: string; merge_entry_ids: string[] }) =>
             mergeSemanticMemoryEntries(projectId!, args),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "semantic", projectId] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.semanticRoot(projectId!) });
             await queryClient.invalidateQueries({
-                queryKey: ["orchestration", "semantic-conflicts", projectId],
+                queryKey: queryKeys.orchestration.semanticConflicts(projectId!),
             });
-            setNotice("Merged entries into the canonical row.");
+            showToast({ message: "Merged entries into the canonical row.", severity: "success" });
         },
     });
 
     const reindexMut = useMutation({
         mutationFn: () => reindexEpisodicMemory(projectId!, 300),
         onSuccess: async (res) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "episodic", projectId] });
-            setNotice(`Indexed ${res.indexed} episodic rows for search.`);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.episodicRoot(projectId!) });
+            showToast({ message: `Indexed ${res.indexed} episodic rows for search.`, severity: "success" });
         },
     });
 
@@ -189,9 +203,9 @@ export default function SemanticMemoryPage() {
         mutationFn: (args: { approvalId: string; status: "approved" | "rejected"; reason?: string }) =>
             decideApproval(args.approvalId, { status: args.status, reason: args.reason }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "semantic", projectId] });
-            setNotice("Approval updated.");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.semanticRoot(projectId!) });
+            showToast({ message: "Approval updated.", severity: "success" });
         },
     });
 
@@ -204,16 +218,17 @@ export default function SemanticMemoryPage() {
             }),
         onSuccess: async (res) => {
             if (isPendingSemanticWrite(res)) {
-                setNotice(
-                    "Write submitted for approval. It will appear after approval in the approvals queue."
-                );
+                showToast({
+                    message: "Write submitted for approval. It will appear after approval in the approvals queue.",
+                    severity: "info",
+                });
                 setOpen(false);
                 setForm({ entry_type: "note", title: "", body: "" });
                 return;
             }
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "semantic", projectId] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.semanticRoot(projectId!) });
             await queryClient.invalidateQueries({
-                queryKey: ["orchestration", "semantic-conflicts", projectId],
+                queryKey: queryKeys.orchestration.semanticConflicts(projectId!),
             });
             setOpen(false);
             setForm({ entry_type: "note", title: "", body: "" });
@@ -222,12 +237,68 @@ export default function SemanticMemoryPage() {
 
     if (!projectId) return null;
 
+    const memoryLoadFailed = projectQuery.isError || entriesQuery.isError;
+    const memoryRetrying = projectQuery.isFetching || entriesQuery.isFetching;
+    const memoryErrorMessage = extractApiErrorMessage(
+        projectQuery.error ?? entriesQuery.error,
+        "Couldn't load project memory. Check your connection and try again.",
+    );
+
+    if (projectQuery.isLoading) {
+        return (
+            <PageShell maxWidth="lg">
+                <Typography color="text.secondary">Loading memory…</Typography>
+            </PageShell>
+        );
+    }
+
+    if (projectQuery.isError && !project) {
+        return (
+            <PageShell maxWidth="lg">
+                <EmptyState
+                    icon={<ErrorOutlineIcon />}
+                    title="Couldn't load project memory"
+                    description={memoryErrorMessage}
+                    action={
+                        <Button
+                            variant="contained"
+                            startIcon={<RefreshIcon />}
+                            disabled={memoryRetrying}
+                            onClick={() => {
+                                void projectQuery.refetch();
+                                void entriesQuery.refetch();
+                            }}
+                        >
+                            {memoryRetrying ? "Retrying…" : "Try again"}
+                        </Button>
+                    }
+                />
+            </PageShell>
+        );
+    }
+
     return (
         <PageShell maxWidth="lg">
 
-            {notice && (
-                <Alert severity="info" onClose={() => setNotice(null)} sx={{ mb: 2 }}>
-                    {notice}
+            {memoryLoadFailed && project && (
+                <Alert
+                    severity="error"
+                    sx={{ mb: 2 }}
+                    action={
+                        <Button
+                            color="inherit"
+                            size="small"
+                            disabled={memoryRetrying}
+                            onClick={() => {
+                                void projectQuery.refetch();
+                                void entriesQuery.refetch();
+                            }}
+                        >
+                            {memoryRetrying ? "Retrying…" : "Retry"}
+                        </Button>
+                    }
+                >
+                    {memoryErrorMessage}
                 </Alert>
             )}
 
@@ -238,7 +309,7 @@ export default function SemanticMemoryPage() {
                 sx={{ mb: 3 }}
             >
                 <Stack spacing={1.5}>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">1 · Working memory</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Latest run scratchpad (objective, plan, findings). Shown live on Run Inspector; sample from most
@@ -267,19 +338,19 @@ export default function SemanticMemoryPage() {
                             </Button>
                         ) : null}
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">2 · Semantic (this page)</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Typed entries with provenance + confidence. Vector + keyword search above.
                         </Typography>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">3 · Episodic</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Search + cold archives below; execution-derived snippets from runs, comments, brainstorms.
                         </Typography>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">4 · Procedural</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Playbooks ({playbooks.length}) — markdown SOPs injected into context when namespaces match.
@@ -298,7 +369,7 @@ export default function SemanticMemoryPage() {
                             )}
                         </Stack>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                         <Typography variant="subtitle2">5 · Execution events</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Durable run_event log + task timeline on the project board. Recent runs:{" "}
@@ -354,7 +425,7 @@ export default function SemanticMemoryPage() {
                 ) : (
                     <Stack spacing={1.5}>
                         {semanticApprovals.map((a) => (
-                            <Paper key={a.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Paper key={a.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                                 <Stack spacing={1}>
                                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                         <Chip size="small" label={a.approval_type} />
@@ -388,7 +459,7 @@ export default function SemanticMemoryPage() {
                                             onClick={() => {
                                                 const reason = (approvalReason[a.id] ?? "").trim();
                                                 if (!reason) {
-                                                    setNotice("Rejection needs a reason.");
+                                                    showToast({ message: "Rejection needs a reason.", severity: "warning" });
                                                     return;
                                                 }
                                                 decideMut.mutate({ approvalId: a.id, status: "rejected", reason });
@@ -635,6 +706,7 @@ export default function SemanticMemoryPage() {
                 ) : entries.length === 0 ? (
                     <Typography color="text.secondary">No entries yet.</Typography>
                 ) : (
+                    <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
                     <Table size="small">
                         <TableHead>
                             <TableRow>
@@ -689,7 +761,7 @@ export default function SemanticMemoryPage() {
                                             </Tooltip>
                                         </TableCell>
                                         <TableCell>
-                                            <Typography variant="caption" sx={{ color: confColor, fontWeight: 600 }}>
+                                            <Typography variant="caption" sx={{ color: confColor, fontWeight: 500 }}>
                                                 {(conf * 100).toFixed(0)}%
                                             </Typography>
                                         </TableCell>
@@ -699,6 +771,7 @@ export default function SemanticMemoryPage() {
                             })}
                         </TableBody>
                     </Table>
+                    </TableContainer>
                 )}
             </SectionCard>
 
@@ -712,7 +785,7 @@ export default function SemanticMemoryPage() {
                         variant="outlined"
                         onClick={() =>
                             queryClient.invalidateQueries({
-                                queryKey: ["orchestration", "semantic-conflicts", projectId],
+                                queryKey: queryKeys.orchestration.semanticConflicts(projectId!),
                             })
                         }
                     >
@@ -754,6 +827,7 @@ export default function SemanticMemoryPage() {
                                         {g.reason}
                                     </Typography>
                                 )}
+                                <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
                                 <Table size="small">
                                     <TableHead>
                                         <TableRow>
@@ -780,6 +854,7 @@ export default function SemanticMemoryPage() {
                                         ))}
                                     </TableBody>
                                 </Table>
+                                </TableContainer>
                                 <Button
                                     size="small"
                                     variant="contained"
@@ -851,6 +926,7 @@ export default function SemanticMemoryPage() {
                 {episodicArchives.length === 0 ? (
                     <Typography color="text.secondary">No archives yet.</Typography>
                 ) : (
+                    <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
                     <Table size="small">
                         <TableHead>
                             <TableRow>
@@ -879,6 +955,7 @@ export default function SemanticMemoryPage() {
                             ))}
                         </TableBody>
                     </Table>
+                    </TableContainer>
                 )}
             </SectionCard>
 

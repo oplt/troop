@@ -29,7 +29,7 @@ export function SkillTemplateCard({
                 onDragStart(skill.slug);
             }}
             onDragEnd={onDragEnd}
-            sx={{ p: 2, borderRadius: 3, display: "flex", flexDirection: "column", gap: 1, height: "100%" }}
+            sx={{ p: 2, borderRadius: 1, display: "flex", flexDirection: "column", gap: 1, height: "100%" }}
         >
             <Stack direction="row" justifyContent="space-between" spacing={1}>
                 <Typography variant="subtitle2">{skill.name}</Typography>

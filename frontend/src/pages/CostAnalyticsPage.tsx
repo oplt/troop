@@ -195,7 +195,7 @@ export default function CostAnalyticsPage() {
                                         <Typography variant="caption">{run.tokens.toLocaleString()}</Typography>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
                                             ${run.cost_usd.toFixed(5)}
                                         </Typography>
                                     </TableCell>

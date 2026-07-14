@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy import and_, delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from backend.modules.orchestration._helpers import resolve_query_limit
+from backend.modules.audit.models import AuditLog
 from backend.modules.github.repository import GithubRepositoryMixin
 from backend.modules.memory.repository import MemoryRepositoryMixin
+from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.orchestration.models import (
     AgentMemoryEntry,
     AgentProfile,
@@ -126,7 +128,9 @@ class OrchestrationRepository(
         return item
 
     async def list_agent_templates(self) -> list[AgentTemplateCatalog]:
-        result = await self.db.execute(select(AgentTemplateCatalog).order_by(AgentTemplateCatalog.name.asc()))
+        result = await self.db.execute(
+            select(AgentTemplateCatalog).order_by(AgentTemplateCatalog.name.asc())
+        )
         return list(result.scalars().all())
 
     async def get_agent_template(self, template_id: str) -> AgentTemplateCatalog | None:
@@ -271,7 +275,9 @@ class OrchestrationRepository(
                 task_counts["blocked"] += count_value
             if status == "needs_review":
                 task_counts["review"] += count_value
-            if updated_at and (latest_task_updated_at is None or updated_at > latest_task_updated_at):
+            if updated_at and (
+                latest_task_updated_at is None or updated_at > latest_task_updated_at
+            ):
                 latest_task_updated_at = updated_at
 
         run_counts = {"total": 0, "active": 0, "failed": 0}
@@ -313,7 +319,9 @@ class OrchestrationRepository(
                 sync_counts["pending"] += count_value
             if status in {"failed", "error"}:
                 sync_counts["failed"] += count_value
-            if created_at and (latest_sync_created_at is None or created_at > latest_sync_created_at):
+            if created_at and (
+                latest_sync_created_at is None or created_at > latest_sync_created_at
+            ):
                 latest_sync_created_at = created_at
 
         ingest_counts = {"pending": 0, "running": 0, "failed": 0}
@@ -371,7 +379,9 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def get_project_repository(self, project_id: str, repository_link_id: str) -> ProjectRepositoryLink | None:
+    async def get_project_repository(
+        self, project_id: str, repository_link_id: str
+    ) -> ProjectRepositoryLink | None:
         result = await self.db.execute(
             select(ProjectRepositoryLink).where(
                 ProjectRepositoryLink.project_id == project_id,
@@ -380,7 +390,9 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def list_tasks(self, project_id: str, *, limit: int | None = None) -> list[OrchestratorTask]:
+    async def list_tasks(
+        self, project_id: str, *, limit: int | None = None
+    ) -> list[OrchestratorTask]:
         stmt = (
             select(OrchestratorTask)
             .where(OrchestratorTask.project_id == project_id)
@@ -395,6 +407,45 @@ class OrchestrationRepository(
             stmt = stmt.limit(cap)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_tasks_with_dependencies(
+        self, project_id: str, *, limit: int | None = None
+    ) -> tuple[list[OrchestratorTask], dict[str, list[str]]]:
+        """Load a bounded task page and all of its dependencies in one SQL read.
+
+        The limited task-id subquery is important: applying ``LIMIT`` after an
+        outer join would truncate dependency rows and return incomplete graphs.
+        """
+        task_ids = (
+            select(OrchestratorTask.id)
+            .where(OrchestratorTask.project_id == project_id)
+            .order_by(OrchestratorTask.position.asc(), OrchestratorTask.created_at.asc())
+        )
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
+        )
+        if cap is not None:
+            task_ids = task_ids.limit(cap)
+
+        result = await self.db.execute(
+            select(OrchestratorTask, TaskDependency)
+            .outerjoin(TaskDependency, TaskDependency.task_id == OrchestratorTask.id)
+            .where(OrchestratorTask.id.in_(task_ids))
+            .order_by(
+                OrchestratorTask.position.asc(),
+                OrchestratorTask.created_at.asc(),
+                TaskDependency.created_at.asc(),
+            )
+        )
+        tasks_by_id: dict[str, OrchestratorTask] = {}
+        dependencies: dict[str, list[str]] = {}
+        for task, dependency in result.all():
+            tasks_by_id.setdefault(task.id, task)
+            if dependency is not None:
+                dependencies.setdefault(task.id, []).append(dependency.depends_on_task_id)
+        return list(tasks_by_id.values()), dependencies
 
     async def get_task(self, project_id: str, task_id: str) -> OrchestratorTask | None:
         result = await self.db.execute(
@@ -428,7 +479,9 @@ class OrchestrationRepository(
         await self.db.flush()
 
     async def list_task_dependencies(self, project_id: str) -> list[TaskDependency]:
-        task_ids_query = select(OrchestratorTask.id).where(OrchestratorTask.project_id == project_id)
+        task_ids_query = select(OrchestratorTask.id).where(
+            OrchestratorTask.project_id == project_id
+        )
         result = await self.db.execute(
             select(TaskDependency).where(TaskDependency.task_id.in_(task_ids_query))
         )
@@ -470,7 +523,9 @@ class OrchestrationRepository(
 
     async def get_next_task_position(self, project_id: str) -> int:
         value = await self.db.scalar(
-            select(func.max(OrchestratorTask.position)).where(OrchestratorTask.project_id == project_id)
+            select(func.max(OrchestratorTask.position)).where(
+                OrchestratorTask.project_id == project_id
+            )
         )
         return int(value or -1) + 1
 
@@ -535,7 +590,9 @@ class OrchestrationRepository(
         result = await self.db.execute(stmt)
         return int(result.scalar_one() or 0)
 
-    async def sum_estimated_cost_micros_for_agent(self, owner_id: str, agent_id: str, since: datetime) -> int:
+    async def sum_estimated_cost_micros_for_agent(
+        self, owner_id: str, agent_id: str, since: datetime
+    ) -> int:
         stmt = (
             select(func.coalesce(func.sum(TaskRun.estimated_cost_micros), 0))
             .select_from(TaskRun)
@@ -550,7 +607,9 @@ class OrchestrationRepository(
         return int(result.scalar_one() or 0)
 
     async def sum_run_event_cost_micros_for_run(self, run_id: str) -> int:
-        stmt = select(func.coalesce(func.sum(RunEvent.cost_usd_micros), 0)).where(RunEvent.run_id == run_id)
+        stmt = select(func.coalesce(func.sum(RunEvent.cost_usd_micros), 0)).where(
+            RunEvent.run_id == run_id
+        )
         result = await self.db.execute(stmt)
         return int(result.scalar_one() or 0)
 
@@ -583,7 +642,9 @@ class OrchestrationRepository(
             }
         return out
 
-    async def count_active_runs_by_worker(self, project_id: str, agent_ids: Sequence[str]) -> dict[str, int]:
+    async def count_active_runs_by_worker(
+        self, project_id: str, agent_ids: Sequence[str]
+    ) -> dict[str, int]:
         if not agent_ids:
             return {}
         result = await self.db.execute(
@@ -609,9 +670,7 @@ class OrchestrationRepository(
         )
         return int(result.scalar_one() or 0)
 
-    async def count_run_events_by_types(
-        self, run_id: str, event_types: Sequence[str]
-    ) -> int:
+    async def count_run_events_by_types(self, run_id: str, event_types: Sequence[str]) -> int:
         if not event_types:
             return 0
         result = await self.db.execute(
@@ -662,27 +721,46 @@ class OrchestrationRepository(
         return events
 
     async def list_run_events_since(
-        self, run_id: str, *, created_after: datetime | None, limit: int = 200
+        self,
+        run_id: str,
+        *,
+        created_after: datetime | None,
+        after_id: str | None = None,
+        limit: int = 200,
     ) -> list[RunEvent]:
         stmt = select(RunEvent).where(RunEvent.run_id == run_id)
         if created_after is not None:
-            stmt = stmt.where(RunEvent.created_at > created_after)
+            cursor = RunEvent.created_at > created_after
+            if after_id is not None:
+                cursor = or_(
+                    cursor,
+                    and_(RunEvent.created_at == created_after, RunEvent.id > after_id),
+                )
+            stmt = stmt.where(cursor)
         result = await self.db.execute(
             stmt.order_by(RunEvent.created_at.asc(), RunEvent.id.asc()).limit(limit)
         )
         return list(result.scalars().all())
 
     async def get_run_for_worker(self, run_id: str) -> TaskRun | None:
-        result = await self.db.execute(select(TaskRun).where(TaskRun.id == run_id))
+        result = await self.db.execute(
+            select(TaskRun).where(TaskRun.id == run_id).with_for_update()
+        )
         return result.scalar_one_or_none()
 
-    async def list_providers(self, owner_id: str, project_id: str | None = None) -> list[ProviderConfig]:
+    async def list_providers(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[ProviderConfig]:
         stmt = select(ProviderConfig).where(ProviderConfig.owner_id == owner_id)
         if project_id is None:
             stmt = stmt.where(ProviderConfig.project_id.is_(None))
         else:
-            stmt = stmt.where(or_(ProviderConfig.project_id == project_id, ProviderConfig.project_id.is_(None)))
-        result = await self.db.execute(stmt.order_by(ProviderConfig.is_default.desc(), ProviderConfig.updated_at.desc()))
+            stmt = stmt.where(
+                or_(ProviderConfig.project_id == project_id, ProviderConfig.project_id.is_(None))
+            )
+        result = await self.db.execute(
+            stmt.order_by(ProviderConfig.is_default.desc(), ProviderConfig.updated_at.desc())
+        )
         return list(result.scalars().all())
 
     async def get_provider(self, owner_id: str, provider_id: str) -> ProviderConfig | None:
@@ -700,7 +778,9 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def list_projects_using_provider(self, owner_id: str, provider_id: str) -> list[OrchestratorProject]:
+    async def list_projects_using_provider(
+        self, owner_id: str, provider_id: str
+    ) -> list[OrchestratorProject]:
         result = await self.db.execute(
             select(OrchestratorProject).where(OrchestratorProject.owner_id == owner_id)
         )
@@ -737,6 +817,17 @@ class OrchestrationRepository(
         result = await self.db.execute(stmt.order_by(ProviderConfig.updated_at.desc()))
         return list(result.scalars().all())
 
+    async def list_owned_providers(
+        self, owner_id: str, *, enabled_only: bool = False
+    ) -> list[ProviderConfig]:
+        stmt = select(ProviderConfig).where(ProviderConfig.owner_id == owner_id)
+        if enabled_only:
+            stmt = stmt.where(ProviderConfig.is_enabled.is_(True))
+        result = await self.db.execute(
+            stmt.order_by(ProviderConfig.is_default.desc(), ProviderConfig.updated_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def list_model_capabilities(
         self,
         provider_type: str | None = None,
@@ -749,6 +840,25 @@ class OrchestrationRepository(
             stmt = stmt.where(ModelCapability.provider_id == provider_id)
         if provider_type:
             stmt = stmt.where(ModelCapability.provider_type == provider_type)
+        if active_only:
+            stmt = stmt.where(ModelCapability.is_active.is_(True))
+        result = await self.db.execute(
+            stmt.order_by(ModelCapability.provider_type.asc(), ModelCapability.model_slug.asc())
+        )
+        return list(result.scalars().all())
+
+    async def list_model_capabilities_for_owner(
+        self,
+        owner_id: str,
+        *,
+        active_only: bool = True,
+    ) -> list[ModelCapability]:
+        """Return shared catalog rows plus rows belonging to this owner only."""
+        stmt = (
+            select(ModelCapability)
+            .outerjoin(ProviderConfig, ModelCapability.provider_id == ProviderConfig.id)
+            .where(or_(ModelCapability.provider_id.is_(None), ProviderConfig.owner_id == owner_id))
+        )
         if active_only:
             stmt = stmt.where(ModelCapability.is_active.is_(True))
         result = await self.db.execute(
@@ -791,7 +901,9 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def list_brainstorms(self, owner_id: str, project_id: str | None = None) -> list[Brainstorm]:
+    async def list_brainstorms(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[Brainstorm]:
         stmt = (
             select(Brainstorm)
             .join(OrchestratorProject, Brainstorm.project_id == OrchestratorProject.id)
@@ -840,6 +952,14 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
+    async def list_brainstorm_runs(self, brainstorm_id: str) -> list[TaskRun]:
+        result = await self.db.execute(
+            select(TaskRun)
+            .where(TaskRun.brainstorm_id == brainstorm_id)
+            .order_by(TaskRun.created_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def create_project_decision(self, **kwargs) -> ProjectDecision:
         item = ProjectDecision(**kwargs)
         self.db.add(item)
@@ -868,7 +988,9 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def update_project_milestone(self, milestone_id: str, updates: dict) -> ProjectMilestone | None:
+    async def update_project_milestone(
+        self, milestone_id: str, updates: dict
+    ) -> ProjectMilestone | None:
         result = await self.db.execute(
             select(ProjectMilestone).where(ProjectMilestone.id == milestone_id)
         )
@@ -902,7 +1024,9 @@ class OrchestrationRepository(
         )
         return list(result.scalars().all())
 
-    async def get_github_connection(self, owner_id: str, connection_id: str) -> GithubConnection | None:
+    async def get_github_connection(
+        self, owner_id: str, connection_id: str
+    ) -> GithubConnection | None:
         result = await self.db.execute(
             select(GithubConnection).where(
                 GithubConnection.owner_id == owner_id,
@@ -926,7 +1050,9 @@ class OrchestrationRepository(
         )
         return list(result.scalars().all())
 
-    async def get_github_repository(self, owner_id: str, repository_id: str) -> GithubRepository | None:
+    async def get_github_repository(
+        self, owner_id: str, repository_id: str
+    ) -> GithubRepository | None:
         result = await self.db.execute(
             select(GithubRepository)
             .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
@@ -960,7 +1086,9 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def list_issue_links(self, owner_id: str, project_id: str | None = None) -> list[GithubIssueLink]:
+    async def list_issue_links(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[GithubIssueLink]:
         stmt = (
             select(GithubIssueLink)
             .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
@@ -972,14 +1100,19 @@ class OrchestrationRepository(
         result = await self.db.execute(stmt.order_by(GithubIssueLink.updated_at.desc()))
         return list(result.scalars().all())
 
-    async def list_issue_links_stale(self, *, older_than: datetime, limit: int = 40) -> list[GithubIssueLink]:
+    async def list_issue_links_stale(
+        self, *, older_than: datetime, limit: int = 40
+    ) -> list[GithubIssueLink]:
         stmt = (
             select(GithubIssueLink)
             .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
             .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
             .where(
                 GithubConnection.is_active.is_(True),
-                or_(GithubIssueLink.last_synced_at.is_(None), GithubIssueLink.last_synced_at < older_than),
+                or_(
+                    GithubIssueLink.last_synced_at.is_(None),
+                    GithubIssueLink.last_synced_at < older_than,
+                ),
             )
             .order_by(GithubIssueLink.last_synced_at.asc().nullsfirst())
             .limit(limit)
@@ -1011,21 +1144,45 @@ class OrchestrationRepository(
     async def get_sync_event_by_delivery_id(self, delivery_id: str) -> GithubSyncEvent | None:
         result = await self.db.execute(
             select(GithubSyncEvent).where(
-                GithubSyncEvent.payload_json["_webhook_meta"]["delivery_id"].as_string() == delivery_id
+                GithubSyncEvent.payload_json["_webhook_meta"]["delivery_id"].as_string()
+                == delivery_id
             )
         )
         return result.scalar_one_or_none()
 
-    async def list_sync_events(self, owner_id: str, project_id: str | None = None) -> list[GithubSyncEvent]:
+    async def list_sync_events(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[GithubSyncEvent]:
         stmt = (
             select(GithubSyncEvent)
-            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id, isouter=True)
-            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id, isouter=True)
-            .where(or_(GithubConnection.owner_id == owner_id, GithubSyncEvent.repository_id.is_(None)))
+            .join(
+                GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id, isouter=True
+            )
+            .join(
+                GithubConnection,
+                GithubRepository.connection_id == GithubConnection.id,
+                isouter=True,
+            )
+            .where(
+                or_(GithubConnection.owner_id == owner_id, GithubSyncEvent.repository_id.is_(None))
+            )
         )
         if project_id:
             stmt = stmt.where(GithubRepository.project_id == project_id)
         result = await self.db.execute(stmt.order_by(GithubSyncEvent.created_at.desc()))
+        return list(result.scalars().all())
+
+    async def list_sync_events_for_owner_since(
+        self, owner_id: str, since: datetime
+    ) -> list[GithubSyncEvent]:
+        stmt = (
+            select(GithubSyncEvent)
+            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(GithubConnection.owner_id == owner_id, GithubSyncEvent.created_at >= since)
+            .order_by(GithubSyncEvent.created_at.desc())
+        )
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def list_sync_events_for_task(self, task_id: str) -> list[GithubSyncEvent]:
@@ -1140,7 +1297,11 @@ class OrchestrationRepository(
             "d.deleted_at IS NULL",
             "c.embedding_vector IS NOT NULL",
         ]
-        params: dict[str, str | int] = {"pid": project_id, "qv": literal, "lim": max(1, min(top_k, 20))}
+        params: dict[str, str | int] = {
+            "pid": project_id,
+            "qv": literal,
+            "lim": max(1, min(top_k, 20)),
+        }
         if task_id is not None:
             clauses.append("(c.task_id = :tid OR c.task_id IS NULL)")
             params["tid"] = task_id
@@ -1191,9 +1352,10 @@ class OrchestrationRepository(
                 ProjectDocumentChunk.metadata_json["source_kind"].as_string() == source_kind
             )
         result = await self.db.execute(
-            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc()).limit(
-                cap
-            )
+            stmt.order_by(
+                ProjectDocumentChunk.project_document_id.asc(),
+                ProjectDocumentChunk.chunk_index.asc(),
+            ).limit(cap)
         )
         return list(result.scalars().all())
 
@@ -1295,7 +1457,9 @@ class OrchestrationRepository(
         merged.sort(key=lambda a: a.created_at, reverse=True)
         return merged
 
-    async def list_pending_approvals_for_run(self, owner_id: str, run_id: str) -> list[ApprovalRequest]:
+    async def list_pending_approvals_for_run(
+        self, owner_id: str, run_id: str
+    ) -> list[ApprovalRequest]:
         result = await self.db.execute(
             select(ApprovalRequest)
             .join(TaskRun, ApprovalRequest.run_id == TaskRun.id)
@@ -1309,10 +1473,31 @@ class OrchestrationRepository(
         )
         return list(result.scalars().all())
 
-    async def list_approvals_for_task(self, owner_id: str, project_id: str, task_id: str) -> list[ApprovalRequest]:
+    async def list_approvals_for_run(
+        self, run_id: str, *, status: str | None = None
+    ) -> list[ApprovalRequest]:
+        """List approvals attached to a run for worker-side grant consumption.
+
+        This intentionally does not take an owner id: it is only called by a worker
+        after the run has already been resolved through the durable execution path.
+        HTTP callers use the owner-scoped methods above.
+        """
+        stmt = select(ApprovalRequest).where(ApprovalRequest.run_id == run_id)
+        if status is not None:
+            stmt = stmt.where(ApprovalRequest.status == status)
+        result = await self.db.execute(stmt.order_by(ApprovalRequest.created_at.asc()))
+        return list(result.scalars().all())
+
+    async def list_approvals_for_task(
+        self, owner_id: str, project_id: str, task_id: str
+    ) -> list[ApprovalRequest]:
         by_task = (
             select(ApprovalRequest)
-            .join(OrchestratorProject, ApprovalRequest.project_id == OrchestratorProject.id, isouter=True)
+            .join(
+                OrchestratorProject,
+                ApprovalRequest.project_id == OrchestratorProject.id,
+                isouter=True,
+            )
             .where(
                 ApprovalRequest.task_id == task_id,
                 ApprovalRequest.project_id == project_id,
@@ -1345,13 +1530,40 @@ class OrchestrationRepository(
         item = ApprovalRequest(**kwargs)
         self.db.add(item)
         await self.db.flush()
+        self.db.add(
+            AuditLog(
+                user_id=kwargs.get("requested_by_user_id"),
+                action="orchestration.approval.requested",
+                resource_type="approval_request",
+                resource_id=item.id,
+                metadata_json=json.dumps(
+                    {
+                        "approval_type": item.approval_type,
+                        "project_id": item.project_id,
+                        "task_id": item.task_id,
+                        "run_id": item.run_id,
+                        "issue_link_id": item.issue_link_id,
+                        "payload_keys": sorted((item.payload_json or {}).keys()),
+                    }
+                ),
+            )
+        )
+        await self.db.flush()
         return item
 
-    async def list_approvals(self, owner_id: str, status: str | None = None) -> list[ApprovalRequest]:
+    async def list_approvals(
+        self, owner_id: str, status: str | None = None
+    ) -> list[ApprovalRequest]:
         stmt = (
             select(ApprovalRequest)
-            .join(OrchestratorProject, ApprovalRequest.project_id == OrchestratorProject.id, isouter=True)
-            .where(or_(OrchestratorProject.owner_id == owner_id, ApprovalRequest.project_id.is_(None)))
+            .join(
+                OrchestratorProject,
+                ApprovalRequest.project_id == OrchestratorProject.id,
+                isouter=True,
+            )
+            .where(
+                or_(OrchestratorProject.owner_id == owner_id, ApprovalRequest.project_id.is_(None))
+            )
         )
         if status:
             stmt = stmt.where(ApprovalRequest.status == status)
@@ -1361,7 +1573,11 @@ class OrchestrationRepository(
     async def get_approval(self, owner_id: str, approval_id: str) -> ApprovalRequest | None:
         result = await self.db.execute(
             select(ApprovalRequest)
-            .join(OrchestratorProject, ApprovalRequest.project_id == OrchestratorProject.id, isouter=True)
+            .join(
+                OrchestratorProject,
+                ApprovalRequest.project_id == OrchestratorProject.id,
+                isouter=True,
+            )
             .where(
                 ApprovalRequest.id == approval_id,
                 or_(OrchestratorProject.owner_id == owner_id, ApprovalRequest.project_id.is_(None)),
@@ -1371,9 +1587,20 @@ class OrchestrationRepository(
 
     async def list_eval_records(self, project_id: str) -> list[EvalRecord]:
         result = await self.db.execute(
-            select(EvalRecord).where(EvalRecord.project_id == project_id).order_by(EvalRecord.created_at.desc())
+            select(EvalRecord)
+            .where(EvalRecord.project_id == project_id)
+            .order_by(EvalRecord.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def count_eval_records_for_owner_since(self, owner_id: str, since: datetime) -> int:
+        stmt = (
+            select(func.count(EvalRecord.id))
+            .join(OrchestratorProject, EvalRecord.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id, EvalRecord.created_at >= since)
+        )
+        result = await self.db.execute(stmt)
+        return int(result.scalar_one() or 0)
 
     async def get_eval_record(self, project_id: str, eval_id: str) -> EvalRecord | None:
         result = await self.db.execute(
@@ -1403,6 +1630,7 @@ class OrchestrationRepository(
             return {
                 "by_project": [],
                 "by_agent": [],
+                "by_task": [],
                 "by_provider": [],
                 "most_expensive_runs": [],
                 "total_cost_micros": 0,
@@ -1454,6 +1682,38 @@ class OrchestrationRepository(
             }
             for aid, cost, tokens, runs in by_ag.all()
         ]
+
+        task_rows = await self.db.execute(
+            select(
+                TaskRun.task_id,
+                func.coalesce(func.sum(TaskRun.estimated_cost_micros), 0),
+                func.coalesce(func.sum(TaskRun.token_total), 0),
+                func.count(TaskRun.id),
+            )
+            .where(base_filter, TaskRun.task_id.isnot(None))
+            .group_by(TaskRun.task_id)
+        )
+        task_cost_rows = task_rows.all()
+        task_names: dict[str, str] = {}
+        if task_cost_rows:
+            task_ids = [row[0] for row in task_cost_rows]
+            task_result = await self.db.execute(
+                select(OrchestratorTask.id, OrchestratorTask.title).where(
+                    OrchestratorTask.id.in_(task_ids)
+                )
+            )
+            task_names = {str(task_id): str(title) for task_id, title in task_result.all()}
+        by_task = [
+            {
+                "task_id": task_id,
+                "name": task_names.get(str(task_id), "Task"),
+                "cost_usd": int(cost) / 1_000_000,
+                "tokens": int(tokens),
+                "runs": int(runs),
+            }
+            for task_id, cost, tokens, runs in task_cost_rows
+        ]
+        by_task.sort(key=lambda item: item["cost_usd"], reverse=True)
 
         by_prov = await self.db.execute(
             select(
@@ -1515,6 +1775,7 @@ class OrchestrationRepository(
         return {
             "by_project": by_project,
             "by_agent": by_agent,
+            "by_task": by_task,
             "by_provider": by_provider,
             "most_expensive_runs": most_expensive,
             "total_cost_micros": int(total_cost_micros or 0),
@@ -1524,9 +1785,9 @@ class OrchestrationRepository(
     async def summarize_portfolio_for_owner(self, owner_id: str) -> list[dict[str, Any]]:
         """Per-project counts for multi-repo / portfolio dashboards (owner-scoped)."""
         pr = await self.db.execute(
-            select(OrchestratorProject.id, OrchestratorProject.name, OrchestratorProject.slug).where(
-                OrchestratorProject.owner_id == owner_id
-            )
+            select(
+                OrchestratorProject.id, OrchestratorProject.name, OrchestratorProject.slug
+            ).where(OrchestratorProject.owner_id == owner_id)
         )
         rows = pr.all()
         if not rows:
@@ -1588,6 +1849,32 @@ class OrchestrationRepository(
         result = await self.db.execute(stmt)
         return [(str(et), int(c or 0)) for et, c in result.all()]
 
+    async def list_observability_events_for_owner(
+        self, owner_id: str, since: datetime
+    ) -> list[tuple[str, str | None, str, dict[str, Any]]]:
+        """Load the small event projection needed for owner-scoped analytics.
+
+        The projection deliberately excludes messages and raw model output. It
+        keeps the analytics endpoint useful without turning it into a transcript
+        export or exposing prompt/completion content.
+        """
+        stmt = (
+            select(RunEvent.run_id, RunEvent.task_id, RunEvent.event_type, RunEvent.payload_json)
+            .join(TaskRun, RunEvent.run_id == TaskRun.id)
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id, RunEvent.created_at >= since)
+        )
+        result = await self.db.execute(stmt)
+        return [
+            (
+                str(run_id),
+                str(task_id) if task_id else None,
+                str(event_type),
+                payload if isinstance(payload, dict) else {},
+            )
+            for run_id, task_id, event_type, payload in result.all()
+        ]
+
     async def list_all_orchestrator_projects(self) -> list[OrchestratorProject]:
         result = await self.db.execute(
             select(OrchestratorProject).order_by(OrchestratorProject.created_at.asc())
@@ -1627,11 +1914,18 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def get_semantic_memory_entry(self, owner_id: str, entry_id: str) -> SemanticMemoryEntry | None:
+    async def get_semantic_memory_entry(
+        self, owner_id: str, entry_id: str
+    ) -> SemanticMemoryEntry | None:
         result = await self.db.execute(
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.id == entry_id,
                 SemanticMemoryEntry.owner_id == owner_id,
+                SemanticMemoryEntry.deleted_at.is_(None),
+                or_(
+                    SemanticMemoryEntry.expires_at.is_(None),
+                    SemanticMemoryEntry.expires_at > func.now(),
+                ),
             )
         )
         return result.scalar_one_or_none()
@@ -1644,12 +1938,34 @@ class OrchestrationRepository(
         project_id: str | None = None,
         entry_type: str | None = None,
         namespace_prefix: str | None = None,
+        agent_id: str | None = None,
+        company_id: str | None = None,
+        scope: str | None = None,
         search: str | None = None,
         limit: int = 100,
+        include_expired: bool = False,
     ) -> list[SemanticMemoryEntry]:
-        stmt = select(SemanticMemoryEntry).where(SemanticMemoryEntry.owner_id == owner_id)
+        stmt = select(SemanticMemoryEntry).where(
+            SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.deleted_at.is_(None),
+        )
+        if not include_expired:
+            stmt = stmt.where(
+                or_(
+                    SemanticMemoryEntry.expires_at.is_(None),
+                    SemanticMemoryEntry.expires_at > func.now(),
+                )
+            )
         if project_id is not None:
             stmt = stmt.where(SemanticMemoryEntry.project_id == project_id)
+        if company_id is not None:
+            stmt = stmt.where(SemanticMemoryEntry.company_id == company_id)
+        if agent_id is not None:
+            stmt = stmt.where(SemanticMemoryEntry.agent_id == agent_id)
+        if scope is not None:
+            stmt = stmt.where(SemanticMemoryEntry.scope == scope)
+        if source_task_id is not None:
+            stmt = stmt.where(SemanticMemoryEntry.source_task_id == source_task_id)
         if entry_type:
             stmt = stmt.where(SemanticMemoryEntry.entry_type == entry_type)
         if namespace_prefix:
@@ -1734,7 +2050,9 @@ class OrchestrationRepository(
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 

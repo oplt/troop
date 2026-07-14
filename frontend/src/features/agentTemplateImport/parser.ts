@@ -640,12 +640,13 @@ export function parseAgentTemplateMarkdown(options: ParseAgentTemplateMarkdownOp
             return;
         }
 
-        if (target && target in parsed) {
-            const currentValue = parsed[target];
+        if (target && target !== "ignore" && target in parsed) {
+            const field = target as keyof AgentTemplateImportParsed;
+            const currentValue = parsed[field];
             if (typeof currentValue === "string" || typeof currentValue === "undefined" || currentValue === null) {
                 parsed = {
                     ...parsed,
-                    [target]: appendMarkdown(typeof currentValue === "string" ? currentValue : undefined, content),
+                    [field]: appendMarkdown(typeof currentValue === "string" ? currentValue : undefined, content),
                 };
                 mappedSections.add(section.id);
                 return;

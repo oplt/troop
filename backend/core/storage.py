@@ -1,10 +1,10 @@
 import asyncio
-import logging
 from functools import cached_property
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageNotConfiguredError(RuntimeError):
@@ -41,6 +41,9 @@ class ObjectStorage:
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path" if settings.STORAGE_FORCE_PATH_STYLE else "auto"},
+                connect_timeout=settings.STORAGE_CONNECT_TIMEOUT_SECONDS,
+                read_timeout=settings.STORAGE_READ_TIMEOUT_SECONDS,
+                retries={"max_attempts": settings.STORAGE_MAX_ATTEMPTS, "mode": "standard"},
             ),
         )
 

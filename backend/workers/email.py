@@ -1,13 +1,14 @@
 """Email delivery helpers for in-process and Celery-backed execution."""
 
 import asyncio
-import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
+from backend.workers.context import task_context_headers
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def send_email(
@@ -35,6 +36,7 @@ async def send_email(
             username=settings.SMTP_USER or None,
             password=settings.SMTP_PASSWORD or None,
             use_tls=settings.SMTP_TLS,
+            timeout=settings.SMTP_TIMEOUT_SECONDS,
         )
         logger.info("Email sent to=%s subject=%s", to, subject)
     except ImportError:
@@ -74,7 +76,11 @@ def queue_email(*, to: str, subject: str, html_body: str, text_body: str | None 
 
     from backend.workers.tasks import send_email_task
 
-    send_email_task.apply_async(kwargs=payload, queue=settings.CELERY_EMAIL_QUEUE)
+    send_email_task.apply_async(
+        kwargs=payload,
+        queue=settings.CELERY_EMAIL_QUEUE,
+        headers=task_context_headers(),
+    )
 
 
 async def send_verification_email(to: str, token: str) -> None:
@@ -88,9 +94,7 @@ async def send_verification_email(to: str, token: str) -> None:
         <p>This link expires in 24 hours.</p>
         """,
         text_body=(
-            "Thanks for signing up.\n"
-            f"Verify your email: {link}\n"
-            "This link expires in 24 hours."
+            f"Thanks for signing up.\nVerify your email: {link}\nThis link expires in 24 hours."
         ),
     )
 

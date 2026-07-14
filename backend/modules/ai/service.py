@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import math
 import re
 from datetime import UTC, datetime
@@ -12,6 +11,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.ai.models import (
     AiEvaluationRun,
     AiPromptTemplate,
@@ -24,7 +24,7 @@ from backend.modules.identity_access.models import User
 from backend.modules.orchestration._helpers import _chunk_text, _cosine_similarity
 from backend.modules.orchestration.repository import OrchestrationRepository
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 PLACEHOLDER_PATTERN = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
 

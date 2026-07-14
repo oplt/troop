@@ -62,6 +62,7 @@ export default function CostAnalyticsPage() {
 
     const maxProjectCost = Math.max(...(data?.by_project.map((r) => r.cost_usd) ?? [0]));
     const maxAgentCost = Math.max(...(data?.by_agent.map((r) => r.cost_usd) ?? [0]));
+    const maxTaskCost = Math.max(...(data?.by_task.map((r) => r.cost_usd) ?? [0]));
     const maxProviderCost = Math.max(...(data?.by_provider.map((r) => r.cost_usd) ?? [0]));
 
     return (
@@ -99,7 +100,7 @@ export default function CostAnalyticsPage() {
                 )}
             </Box>
 
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "repeat(3, 1fr)" } }}>
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "repeat(4, 1fr)" } }}>
                 <SectionCard title="By project" description="Cost breakdown per agent project.">
                     {isLoading ? (
                         <Stack spacing={1}>{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={20} />)}</Stack>
@@ -137,6 +138,20 @@ export default function CostAnalyticsPage() {
                         <Stack spacing={1.25}>
                             {data?.by_provider.map((row) => (
                                 <BarRow key={row.name} label={row.name} value={row.cost_usd} max={maxProviderCost} />
+                            ))}
+                        </Stack>
+                    )}
+                </SectionCard>
+
+                <SectionCard title="By task" description="The task-level cost view used to find expensive or noisy work.">
+                    {isLoading ? (
+                        <Stack spacing={1}>{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={20} />)}</Stack>
+                    ) : data?.by_task.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">No task costs recorded yet.</Typography>
+                    ) : (
+                        <Stack spacing={1.25}>
+                            {data?.by_task.slice(0, 12).map((row) => (
+                                <BarRow key={row.name} label={row.name} value={row.cost_usd} max={maxTaskCost} color="secondary" />
                             ))}
                         </Stack>
                     )}

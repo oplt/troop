@@ -23,6 +23,7 @@ import {
     listBrainstorms,
     listOrchestrationProjects,
     listOrchestrationTasks,
+    listProjectAgents,
     startBrainstorm,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
@@ -40,7 +41,7 @@ const BRAINSTORM_MODES = [
     "architecture_proposal",
 ] as const;
 
-const OUTPUT_TYPES = ["adr", "implementation_plan", "test_plan", "risk_register"] as const;
+const OUTPUT_TYPES = ["adr", "implementation_plan", "test_plan", "issue_reply_draft", "risk_register"] as const;
 
 function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
     const queryClient = useQueryClient();
@@ -56,6 +57,12 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
         max_rounds: "3",
         max_cost_usd: "10",
         max_repetition_score: "0.92",
+        soft_consensus_min_similarity: "0.72",
+        conflict_pairwise_max_similarity: "0.38",
+        stop_on_consensus: true,
+        accept_soft_consensus: true,
+        conflict_requires_moderation: true,
+        escalate_on_no_consensus: true,
     });
 
     const { data: projects = [] } = useQuery({
@@ -66,6 +73,13 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
         queryKey: ["orchestration", "agents"],
         queryFn: () => listAgents(),
     });
+    const { data: projectMembers = [] } = useQuery({
+        queryKey: ["orchestration", "project", form.project_id, "agents"],
+        queryFn: () => listProjectAgents(form.project_id),
+        enabled: Boolean(form.project_id),
+    });
+    const projectAgentIds = useMemo(() => new Set(projectMembers.map((member) => member.agent_id)), [projectMembers]);
+    const projectAgents = agents.filter((agent) => projectAgentIds.has(agent.id));
     const { data: tasks = [] } = useQuery({
         queryKey: ["orchestration", "project", form.project_id, "tasks"],
         queryFn: () => listOrchestrationTasks(form.project_id),
@@ -85,6 +99,14 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                 max_rounds: Number(form.max_rounds || 3),
                 max_cost_usd: Number(form.max_cost_usd || 10),
                 max_repetition_score: Number(form.max_repetition_score || 0.92),
+                stop_conditions: {
+                    soft_consensus_min_similarity: Number(form.soft_consensus_min_similarity || 0.72),
+                    conflict_pairwise_max_similarity: Number(form.conflict_pairwise_max_similarity || 0.38),
+                    stop_on_consensus: form.stop_on_consensus,
+                    accept_soft_consensus: form.accept_soft_consensus,
+                    conflict_requires_moderation: form.conflict_requires_moderation,
+                    escalate_on_no_consensus: form.escalate_on_no_consensus,
+                },
             }),
         onSuccess: async (brainstorm) => {
             await startBrainstorm(brainstorm.id);
@@ -159,7 +181,7 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                             fullWidth
                         >
                             <MenuItem value="">Auto / none</MenuItem>
-                            {agents.map((agent) => (
+                            {projectAgents.map((agent) => (
                                 <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
                             ))}
                         </TextField>
@@ -174,7 +196,7 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                             participant_agent_ids: typeof event.target.value === "string" ? [event.target.value] : event.target.value,
                         }))}
                     >
-                        {agents.map((agent) => (
+                            {projectAgents.map((agent) => (
                             <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
                         ))}
                     </TextField>
@@ -198,6 +220,43 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                             fullWidth
                         />
                     </Stack>
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                        <TextField
+                            label="Soft consensus floor"
+                            type="number"
+                            inputProps={{ min: 0, max: 1, step: 0.01 }}
+                            value={form.soft_consensus_min_similarity}
+                            onChange={(event) => setForm((current) => ({ ...current, soft_consensus_min_similarity: event.target.value }))}
+                            helperText="Minimum pairwise similarity to accept soft consensus"
+                            fullWidth
+                        />
+                        <TextField
+                            label="Conflict similarity ceiling"
+                            type="number"
+                            inputProps={{ min: 0, max: 1, step: 0.01 }}
+                            value={form.conflict_pairwise_max_similarity}
+                            onChange={(event) => setForm((current) => ({ ...current, conflict_pairwise_max_similarity: event.target.value }))}
+                            helperText="Below this, distinct positions are treated as conflict"
+                            fullWidth
+                        />
+                    </Stack>
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                        {([
+                            ["stop_on_consensus", "Stop on consensus"],
+                            ["accept_soft_consensus", "Accept soft consensus"],
+                            ["conflict_requires_moderation", "Require moderation on conflict"],
+                            ["escalate_on_no_consensus", "Escalate without consensus"],
+                        ] as const).map(([key, label]) => (
+                            <Button
+                                key={key}
+                                variant={form[key] ? "contained" : "outlined"}
+                                onClick={() => setForm((current) => ({ ...current, [key]: !current[key] }))}
+                                sx={{ flex: 1 }}
+                            >
+                                {label}: {form[key] ? "yes" : "no"}
+                            </Button>
+                        ))}
+                    </Stack>
                     {createMutation.isError && (
                         <Alert severity="error">
                             {createMutation.error instanceof Error ? createMutation.error.message : "Couldn't start brainstorm. Try again."}
@@ -210,7 +269,7 @@ function CreateBrainstormDialog({ onClose }: { onClose: () => void }) {
                 <Button
                     variant="contained"
                     onClick={() => createMutation.mutate()}
-                    disabled={!form.project_id || !form.topic.trim() || form.participant_agent_ids.length === 0 || createMutation.isPending}
+                    disabled={!form.project_id || !form.topic.trim() || form.participant_agent_ids.length < 2 || createMutation.isPending}
                 >
                     Create and start
                 </Button>

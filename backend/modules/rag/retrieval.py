@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import asdict
@@ -9,14 +8,17 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.cache import (
+    cache_singleflight,
     get_cached_rag_retrieval,
     invalidate_project_rag_retrieval_cache,
     rag_retrieval_cache_key,
     set_cached_rag_retrieval,
 )
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.ai.providers import AiProviderRegistry, ProviderGenerateRequest
 from backend.modules.memory.models import ProjectDocument
+from backend.modules.observability.metrics import record_memory_retrieval
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.providers import execute_prompt
 from backend.modules.orchestration.repository import OrchestrationRepository
@@ -31,7 +33,7 @@ from backend.modules.rag.reranker import RerankerService
 from backend.modules.rag.schemas import RagAnswer, RagChunkMatch, RagSearchFilters
 from backend.modules.rag.vector_store import PgVectorStoreRepository
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RetrieverService:
@@ -76,6 +78,11 @@ class RetrieverService:
         )
         cached_payload = await get_cached_rag_retrieval(cache_key)
         if cached_payload is not None:
+            record_memory_retrieval(
+                "rag",
+                "cache_hit",
+                timer.elapsed_ms / 1000.0,
+            )
             log_rag_event(
                 "retrieve_cache_hit",
                 project_id=filters.project_id,
@@ -85,33 +92,41 @@ class RetrieverService:
             )
             return [RagChunkMatch(**item) for item in cached_payload]
 
-        query_vec = (await self._embedder.embed_texts([query.strip() or "context"]))[0]
+        async def fill() -> list[RagChunkMatch]:
+            # Re-check after acquiring the single-flight lock so waiters do not
+            # repeat the vector search when the first caller has filled Redis.
+            cached_after_wait = await get_cached_rag_retrieval(cache_key)
+            if cached_after_wait is not None:
+                return [RagChunkMatch(**item) for item in cached_after_wait]
 
-        vector_hits = await self._vector_store.search(
-            filters.project_id,
-            query_vec,
-            filters=filters,
-            limit=cap,
-        )
-        matches = self._hits_from_vector_rows(vector_hits)
-
-        if not matches and self._config.python_fallback_enabled:
-            log_rag_event(
-                "retrieve_python_fallback",
-                project_id=filters.project_id,
-                user_id=filters.user_id,
-                level="warning",
+            query_vec = (await self._embedder.embed_texts([query.strip() or "context"]))[0]
+            vector_hits = await self._vector_store.search(
+                filters.project_id,
+                query_vec,
+                filters=filters,
+                limit=cap,
             )
-            matches = await self._fallback_search(filters.project_id, query_vec, filters, cap)
+            matches = self._hits_from_vector_rows(vector_hits)
 
-        if filters.include_decisions:
-            matches = await self._merge_decisions(filters.project_id, query, matches, cap)
+            if not matches and self._config.python_fallback_enabled:
+                log_rag_event(
+                    "retrieve_python_fallback",
+                    project_id=filters.project_id,
+                    user_id=filters.user_id,
+                    level="warning",
+                )
+                matches = await self._fallback_search(filters.project_id, query_vec, filters, cap)
 
-        threshold = self._config.effective_score_threshold()
-        matches = [m for m in matches if m.score >= threshold]
-        matches = self._reranker.rerank(query, matches)[:cap]
+            if filters.include_decisions:
+                matches = await self._merge_decisions(filters.project_id, query, matches, cap)
 
-        await set_cached_rag_retrieval(cache_key, matches)
+            threshold = self._config.effective_score_threshold()
+            matches = [m for m in matches if m.score >= threshold]
+            matches = self._reranker.rerank(query, matches)[:cap]
+            await set_cached_rag_retrieval(cache_key, matches)
+            return matches
+
+        matches = await cache_singleflight(f"rag-retrieve:{cache_key}", fill)
 
         log_rag_event(
             "retrieve",
@@ -120,6 +135,7 @@ class RetrieverService:
             count=len(matches),
             duration_ms=timer.elapsed_ms,
         )
+        record_memory_retrieval("rag", "success", timer.elapsed_ms / 1000.0)
         return matches
 
     async def build_context(
@@ -159,7 +175,9 @@ class RetrieverService:
         if not chunks:
             return []
         cap = min(cap, self._config.chunk_fallback_max)
-        documents = {d.id: d for d in await self._repo.list_documents(project_id, filters.task_id, limit=0)}
+        documents = {
+            d.id: d for d in await self._repo.list_documents(project_id, filters.task_id, limit=0)
+        }
         matches: list[RagChunkMatch] = []
         for chunk in chunks:
             if not chunk.embedding_json:

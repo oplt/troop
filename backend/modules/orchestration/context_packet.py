@@ -7,12 +7,13 @@ concatenation with explicit section keys for telemetry and future token budgetin
 from __future__ import annotations
 
 import hashlib
-import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from backend.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 CONTEXT_PACKET_SCHEMA_VERSION = "1.0"
 

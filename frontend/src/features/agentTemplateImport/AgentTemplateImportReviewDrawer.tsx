@@ -305,7 +305,7 @@ export function AgentTemplateImportReviewDrawer({
                                         p: 1.5,
                                         borderRadius: 1,
                                         borderColor: `${severityColor(issue.severity)}.main`,
-                                        bgcolor: (theme) => theme.palette[severityColor(issue.severity)].lighter ?? theme.palette.action.hover,
+                                        bgcolor: (theme) => theme.palette[severityColor(issue.severity)].light ?? theme.palette.action.hover,
                                     }}
                                 >
                                     <Stack spacing={1}>

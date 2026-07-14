@@ -23,6 +23,17 @@ TaskStatus = Literal[
 ]
 TaskPriority = Literal["low", "normal", "high", "urgent"]
 RunMode = Literal["single_agent", "manager_worker", "brainstorm", "review", "debate"]
+HierarchyRelationship = Literal["delegates_to", "reviews", "escalates_to", "collaborates_with"]
+HierarchyRoutingMode = Literal[
+    "capability_based",
+    "priority_sla",
+    "sla_priority",
+    "cost_aware",
+    "model_availability",
+    "user_pinned",
+    "throughput",
+]
+HierarchyExecutionMode = Literal["single_agent", "manager_worker", "debate"]
 BrainstormMode = Literal[
     "exploration",
     "solution_design",
@@ -31,7 +42,13 @@ BrainstormMode = Literal[
     "root_cause",
     "architecture_proposal",
 ]
-BrainstormOutputType = Literal["adr", "implementation_plan", "test_plan", "risk_register"]
+BrainstormOutputType = Literal[
+    "adr",
+    "implementation_plan",
+    "test_plan",
+    "issue_reply_draft",
+    "risk_register",
+]
 
 
 class AgentMarkdownValidationResponse(BaseModel):
@@ -58,6 +75,9 @@ class AgentResolvedProfile(BaseModel):
     output_schema: dict[str, Any] = Field(default_factory=dict)
     budget: dict[str, Any] = Field(default_factory=dict)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
+    task_filters: list[str] = Field(default_factory=list)
 
 
 class AgentInheritancePreview(BaseModel):
@@ -86,6 +106,8 @@ class AgentCreate(RequestModel):
     allowed_tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str = "private"
     tags: list[str] = Field(default_factory=list)
     budget: dict[str, Any] = Field(default_factory=dict)
@@ -116,6 +138,8 @@ class AgentUpdate(RequestModel):
     allowed_tools: list[str] | None = None
     skills: list[str] | None = None
     model_policy: dict[str, Any] | None = None
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str | None = None
     is_active: bool | None = None
     tags: list[str] | None = None
@@ -162,6 +186,8 @@ class AgentResponse(BaseModel):
     allowed_tools: list[str]
     skills: list[str]
     model_policy: dict[str, Any]
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str
     is_active: bool
     tags: list[str]
@@ -170,6 +196,7 @@ class AgentResponse(BaseModel):
     retry_limit: int
     memory_policy: dict[str, Any]
     output_schema: dict[str, Any]
+    task_filters: list[str] = Field(default_factory=list)
     inheritance: AgentInheritancePreview | None = None
     lint: AgentLintSummary | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -245,6 +272,9 @@ class ModelCapabilityResponse(BaseModel):
     model_slug: str
     display_name: str | None
     supports_tools: bool
+    supports_tool_calling: bool = False
+    supports_structured_output: bool = False
+    supports_reasoning: bool = False
     supports_vision: bool
     max_context_tokens: int
     cost_per_1k_input: float
@@ -339,6 +369,30 @@ class ProjectResponse(BaseModel):
     knowledge_summary: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class HierarchyEdge(BaseModel):
+    source_agent_id: str
+    target_agent_id: str
+    relationship: HierarchyRelationship = "delegates_to"
+
+
+class HierarchyPolicyUpdate(RequestModel):
+    manager_agent_id: str | None = None
+    edges: list[HierarchyEdge] = Field(default_factory=list)
+    delegation_rules: dict[str, list[str]] = Field(default_factory=dict)
+    brainstorm_rules: dict[str, list[str]] = Field(default_factory=dict)
+    reviewer_agent_ids: list[str] = Field(default_factory=list)
+    reviewer_chain_mode: str = "sequential"
+    routing_mode: HierarchyRoutingMode = "capability_based"
+    sibling_load_balance: str = "queue_depth"
+    default_execution_mode: HierarchyExecutionMode = "single_agent"
+    blocked_handoff: dict[str, Any] = Field(default_factory=dict)
+
+
+class HierarchyPolicyResponse(HierarchyPolicyUpdate):
+    final_authority: str = "human_user"
+    validation_errors: list[str] = Field(default_factory=list)
 
 
 class ProjectRepositoryLinkCreate(RequestModel):
@@ -443,6 +497,7 @@ class TaskCreate(RequestModel):
         if value == "medium":
             return "normal"
         return value
+
     status: TaskStatus = "backlog"
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
@@ -456,6 +511,8 @@ class TaskCreate(RequestModel):
         description="Optional hours from task creation for SLA deadline when no due_date (combined with due_date as earliest of the two).",
     )
     labels: list[str] = Field(default_factory=list)
+    required_tools: list[str] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
     result_summary: str | None = None
     result_payload: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -533,6 +590,7 @@ class TaskUpdate(RequestModel):
         if value == "medium":
             return "normal"
         return value
+
     status: TaskStatus | None = None
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
@@ -541,6 +599,8 @@ class TaskUpdate(RequestModel):
     due_date: datetime | None = None
     response_sla_hours: int | None = Field(default=None, ge=1, le=8760)
     labels: list[str] | None = None
+    required_tools: list[str] | None = None
+    external_links: list[dict[str, Any]] | None = None
     result_summary: str | None = None
     result_payload: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
@@ -579,6 +639,13 @@ class DagReadyTaskItem(BaseModel):
     title: str
     status: str
     dependency_count: int
+
+
+class TaskBlockerResponse(BaseModel):
+    task_id: str
+    can_start: bool
+    blockers: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class DagParallelStartPayload(RequestModel):
@@ -624,6 +691,8 @@ class TaskResponse(BaseModel):
     due_date: datetime | None
     response_sla_hours: int | None = None
     labels: list[str]
+    required_tools: list[str] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
     result_summary: str | None = None
     result_payload: dict[str, Any]
     position: int
@@ -631,6 +700,13 @@ class TaskResponse(BaseModel):
     dependency_ids: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+
+class TaskAssignmentRequest(RequestModel):
+    """Explicit assignment contract used by board drag-and-drop actions."""
+
+    assigned_agent_id: str | None = None
+    source: Literal["drag_drop", "manual"] = "drag_drop"
 
 
 class TaskRunCreate(RequestModel):
@@ -836,6 +912,7 @@ class SemanticMemoryEntryResponse(BaseModel):
     id: str
     owner_id: str
     scope: str
+    company_id: str | None = None
     project_id: str | None
     agent_id: str | None
     entry_type: str
@@ -848,6 +925,13 @@ class SemanticMemoryEntryResponse(BaseModel):
     source_run_id: str | None
     provenance: dict[str, Any]
     created_by_user_id: str | None
+    ttl_days: int | None = None
+    expires_at: datetime | None = None
+    deleted_at: datetime | None = None
+    retention_policy: str = "default"
+    memory_version: int = 1
+    embedding_model: str | None = None
+    embedding_version: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -864,6 +948,8 @@ class SemanticMemoryEntryCreate(RequestModel):
     source_task_id: str | None = None
     source_run_id: str | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)
+    ttl_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_policy: str = Field(default="default", min_length=1, max_length=64)
 
 
 class SemanticMemoryEntryUpdate(RequestModel):
@@ -872,6 +958,8 @@ class SemanticMemoryEntryUpdate(RequestModel):
     entry_type: str | None = None
     namespace: str | None = None
     metadata: dict[str, Any] | None = None
+    ttl_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_policy: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class PromoteWorkingMemoryRequest(RequestModel):
@@ -903,6 +991,9 @@ class MemorySettingsResponse(BaseModel):
     compaction_on_task_close_enabled: bool
     task_close_archive_unpromoted_memory: bool
     task_close_low_value_archive_days: int
+    default_ttl_days: int
+    max_ttl_days: int
+    context_max_tokens: int
 
 
 class MemorySettingsPatch(RequestModel):
@@ -924,6 +1015,9 @@ class MemorySettingsPatch(RequestModel):
     compaction_on_task_close_enabled: bool | None = None
     task_close_archive_unpromoted_memory: bool | None = None
     task_close_low_value_archive_days: int | None = Field(default=None, ge=1, le=3650)
+    default_ttl_days: int | None = Field(default=None, ge=0, le=3650)
+    max_ttl_days: int | None = Field(default=None, ge=1, le=3650)
+    context_max_tokens: int | None = Field(default=None, ge=64, le=12000)
 
 
 class PendingSemanticWriteResponse(BaseModel):
@@ -1084,6 +1178,24 @@ class BrainstormCreate(RequestModel):
     stop_conditions: dict[str, Any] = Field(default_factory=dict)
 
 
+class BrainstormParticipantCreate(RequestModel):
+    agent_id: str
+    stance: str | None = Field(default=None, max_length=2000)
+
+
+class BrainstormParticipantUpdate(RequestModel):
+    stance: str | None = Field(default=None, max_length=2000)
+
+
+class BrainstormArtifactResponse(BaseModel):
+    artifact_kind: Literal["task_artifact", "project_document", "project_decision"]
+    artifact_id: str
+    output_type: str
+    title: str
+    content: str
+    created_at: datetime
+
+
 class BrainstormResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -1154,6 +1266,16 @@ class ApprovalResponse(BaseModel):
     payload: dict[str, Any]
     created_at: datetime
     resolved_at: datetime | None
+
+
+class HITLAuditLogResponse(BaseModel):
+    id: str
+    user_id: str | None
+    action: str
+    resource_type: str | None
+    resource_id: str | None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
 
 
 class ProjectDocumentResponse(BaseModel):
@@ -1268,6 +1390,35 @@ class ToolFailureCount(BaseModel):
     count: int
 
 
+class ExecutionRollup(BaseModel):
+    """A stable, privacy-safe aggregate used by observability screens."""
+
+    id: str | None = None
+    name: str
+    runs: int = 0
+    tokens: int = 0
+    cost_usd: float = 0.0
+    avg_latency_ms: float = 0.0
+    retries: int = 0
+    tool_failures: int = 0
+    validation_failures: int = 0
+    acceptance_rate: float | None = None
+
+
+class ProviderHealthSummaryResponse(BaseModel):
+    provider_id: str
+    project_id: str | None = None
+    name: str
+    provider_type: str
+    default_model: str
+    enabled: bool
+    status: str
+    healthy: bool | None = None
+    latency_ms: int | None = None
+    last_checked_at: datetime | None = None
+    error: str | None = None
+
+
 class ExecutionInsightsResponse(BaseModel):
     since: datetime
     days: int
@@ -1277,6 +1428,30 @@ class ExecutionInsightsResponse(BaseModel):
     brainstorm_round_summary_events: int = 0
     blocked_events: int = 0
     tool_call_failed_events: int = 0
+    total_runs: int = 0
+    completed_runs: int = 0
+    failed_runs: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
+    avg_latency_ms: float = 0.0
+    p95_latency_ms: float = 0.0
+    retry_count: int = 0
+    retry_rate: float = 0.0
+    validation_failures: int = 0
+    hallucination_failures: int = 0
+    github_sync_events: int = 0
+    github_sync_failures: int = 0
+    discussion_rounds: int = 0
+    discussion_loop_score: float | None = None
+    discussion_loop_detected: int = 0
+    acceptance_checks: int = 0
+    accepted_after_review: int = 0
+    acceptance_rate_after_review: float | None = None
+    evaluation_records: int = 0
+    by_project: list[ExecutionRollup] = Field(default_factory=list)
+    by_agent: list[ExecutionRollup] = Field(default_factory=list)
+    by_task: list[ExecutionRollup] = Field(default_factory=list)
+    by_provider: list[ExecutionRollup] = Field(default_factory=list)
 
 
 class RuntimeInfoResponse(BaseModel):
@@ -1285,6 +1460,9 @@ class RuntimeInfoResponse(BaseModel):
     orchestration_durable_queue_backend: str = "celery"
     durable_signal_model: str = "checkpoint_signal_queue"
     durable_query_model: str = "checkpoint_query_snapshot"
+    durable_backend: dict[str, Any] = Field(default_factory=dict)
+    execution_topology: dict[str, Any] = Field(default_factory=dict)
+    realtime_transport: dict[str, Any] = Field(default_factory=dict)
     celery_queues: dict[str, str] = Field(
         default_factory=dict,
         description="Logical plane → Redis queue name (split workers; see ADR 0006).",
@@ -1319,6 +1497,13 @@ class WorkflowTemplateResponse(BaseModel):
     suggested_execution: dict[str, Any] = Field(default_factory=dict)
 
 
+class WorkflowTemplateApplyResponse(BaseModel):
+    project_id: str
+    template: WorkflowTemplateResponse
+    applied_execution: dict[str, Any] = Field(default_factory=dict)
+    applied_at: datetime
+
+
 class AgentMemoryEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -1338,6 +1523,14 @@ class AgentMemoryEntryResponse(BaseModel):
     metadata: dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+
+class AgentMemoryEntryCreate(RequestModel):
+    agent_id: str = Field(min_length=1, max_length=64)
+    key: str = Field(min_length=1, max_length=128)
+    value_text: str = Field(min_length=1, max_length=50000)
+    scope: Literal["project-only", "long-term"] = "project-only"
+    ttl_days: int | None = Field(default=None, ge=1, le=3650)
 
 
 class OverviewResponse(BaseModel):
@@ -1364,9 +1557,12 @@ class AgentTemplateResponse(BaseModel):
     tags: list[str]
     skills: list[str]
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     budget: dict[str, Any]
     memory_policy: dict[str, Any]
     output_schema: dict[str, Any]
+    task_filters: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -1385,14 +1581,19 @@ class AgentTemplateCreate(RequestModel):
     tags: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     budget: dict[str, Any] = Field(default_factory=dict)
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] = Field(default_factory=dict)
+    task_filters: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentTemplateUpdate(RequestModel):
-    slug: str | None = Field(default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    slug: str | None = Field(
+        default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$"
+    )
     name: str | None = Field(default=None, min_length=2, max_length=255)
     role: str | None = None
     description: str | None = None
@@ -1406,9 +1607,12 @@ class AgentTemplateUpdate(RequestModel):
     tags: list[str] | None = None
     skills: list[str] | None = None
     model_policy: dict[str, Any] | None = None
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     budget: dict[str, Any] | None = None
     memory_policy: dict[str, Any] | None = None
     output_schema: dict[str, Any] | None = None
+    task_filters: list[str] | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -1427,6 +1631,9 @@ class AgentFromTemplateRequest(RequestModel):
     output_schema: dict[str, Any] = Field(default_factory=dict)
     budget: dict[str, Any] = Field(default_factory=dict)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
+    task_filters: list[str] = Field(default_factory=list)
 
 
 class AgentTestRunRequest(RequestModel):
@@ -1553,7 +1760,9 @@ class TeamProfileResponse(BaseModel):
 
 class TeamProfileCreateFromTemplate(RequestModel):
     template_id: str
-    slug: str | None = Field(default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    slug: str | None = Field(
+        default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$"
+    )
     name: str | None = Field(default=None, min_length=2, max_length=255)
 
 
@@ -1634,17 +1843,27 @@ class ProjectDecisionResponse(BaseModel):
     created_at: datetime
 
 
-VALID_GATE_ACTIONS = frozenset([
-    "post_to_github", "open_pr", "mark_complete",
-    "change_task_ownership", "write_memory", "use_expensive_model", "run_tool",
-])
+VALID_GATE_ACTIONS = frozenset(
+    [
+        "post_to_github",
+        "open_pr",
+        "mark_complete",
+        "change_task_ownership",
+        "write_memory",
+        "use_expensive_model",
+        "run_tool",
+    ]
+)
 
-VALID_AUTONOMY_LEVELS = frozenset(["autonomous", "semi_autonomous", "assisted", "supervised"])
+VALID_AUTONOMY_LEVELS = frozenset(
+    ["autonomous", "semi-autonomous", "semi_autonomous", "assisted", "supervised"]
+)
 
 
 class GateConfigResponse(BaseModel):
     autonomy_level: str
     approval_gates: list[str]
+    mandatory_approval_gates: list[str] = Field(default_factory=list)
 
 
 class GateConfigUpdate(RequestModel):
@@ -1664,7 +1883,9 @@ class GateConfigUpdate(RequestModel):
         if v is not None:
             invalid = [g for g in v if g not in VALID_GATE_ACTIONS]
             if invalid:
-                raise ValueError(f"Invalid gate actions: {invalid}. Valid: {sorted(VALID_GATE_ACTIONS)}")
+                raise ValueError(
+                    f"Invalid gate actions: {invalid}. Valid: {sorted(VALID_GATE_ACTIONS)}"
+                )
         return v
 
 
@@ -1732,6 +1953,7 @@ class CostAggregationResponse(BaseModel):
     period: str
     by_project: list[dict[str, Any]]
     by_agent: list[dict[str, Any]]
+    by_task: list[dict[str, Any]] = Field(default_factory=list)
     by_provider: list[dict[str, Any]]
     most_expensive_runs: list[dict[str, Any]]
     total_cost_usd: float

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 
-logger = logging.getLogger(__name__)
+from backend.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def _safe_preview(text: str, *, max_len: int = 48) -> str:

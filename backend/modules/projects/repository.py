@@ -4,6 +4,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from backend.core.config import settings
 from backend.modules.identity_access.models import User
 from backend.modules.projects.models import Project, ProjectTask
 
@@ -58,7 +59,7 @@ class ProjectsRepository:
         return result.scalar_one_or_none()
 
     async def list_tasks_with_assignees(
-        self, project_id: str
+        self, project_id: str, *, limit: int | None = None
     ) -> list[tuple[ProjectTask, User | None]]:
         assignee = aliased(User)
         status_order = case(
@@ -69,12 +70,16 @@ class ProjectsRepository:
             (ProjectTask.status == "done", 4),
             else_=99,
         )
-        result = await self.db.execute(
+        stmt = (
             select(ProjectTask, assignee)
             .outerjoin(assignee, ProjectTask.assignee_id == assignee.id)
             .where(ProjectTask.project_id == project_id)
             .order_by(status_order, ProjectTask.position.asc(), ProjectTask.created_at.asc())
         )
+        effective_limit = settings.PROJECT_LIST_TASKS_DEFAULT_LIMIT if limit is None else limit
+        if effective_limit > 0:
+            stmt = stmt.limit(min(effective_limit, settings.PROJECT_LIST_TASKS_MAX_LIMIT))
+        result = await self.db.execute(stmt)
         return list(result.all())
 
     async def get_task_with_assignee(

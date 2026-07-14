@@ -4,6 +4,8 @@ import {
     Box,
     Button,
     Chip,
+    Checkbox,
+    FormControlLabel,
     IconButton,
     MenuItem,
     Paper,
@@ -24,6 +26,9 @@ import {
     listGithubSyncEvents,
     listOrchestrationProjects,
     refreshGithubIssueLink,
+    replayGithubSyncEvent,
+    requestGithubComment,
+    requestGithubPr,
     syncGithubRepositories,
     updateOrchestrationTask,
 } from "../api/orchestration";
@@ -84,6 +89,7 @@ export function GithubSyncPanel() {
     const [connectionForm, setConnectionForm] = useState({ name: "", api_url: "https://api.github.com", token: "" });
     const [importForm, setImportForm] = useState({ project_id: "", repository_id: "", issue_numbers: "" });
     const [filters, setFilters] = useState({ project_id: "", repository_id: "", event_status: "", event_type: "", issue_status: "" });
+    const [commentDrafts, setCommentDrafts] = useState<Record<string, { body: string; close: boolean }>>({});
 
     const { data: projects = [] } = useQuery({ queryKey: ["orchestration", "projects"], queryFn: listOrchestrationProjects });
     const { data: connections = [] } = useQuery({ queryKey: ["orchestration", "github", "connections"], queryFn: listGithubConnections });
@@ -175,6 +181,39 @@ export function GithubSyncPanel() {
         },
         onError: (error) => {
             showToast({ message: error instanceof Error ? error.message : "Couldn't refresh linked issue.", severity: "error" });
+        },
+    });
+    const commentMutation = useMutation({
+        mutationFn: ({ issueLinkId, body, close }: { issueLinkId: string; body: string; close: boolean }) =>
+            requestGithubComment(issueLinkId, { body, close_issue: close }),
+        onSuccess: async (_, variables) => {
+            setCommentDrafts((current) => ({ ...current, [variables.issueLinkId]: { body: "", close: false } }));
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
+            showToast({ message: "GitHub comment queued for approval.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: error instanceof Error ? error.message : "Couldn't queue GitHub comment.", severity: "error" });
+        },
+    });
+    const prMutation = useMutation({
+        mutationFn: ({ issueLinkId, draftPr }: { issueLinkId: string; draftPr: boolean }) =>
+            requestGithubPr(issueLinkId, { draft_pr: draftPr }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
+            showToast({ message: "PR generation queued for approval.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: error instanceof Error ? error.message : "Couldn't request PR generation.", severity: "error" });
+        },
+    });
+    const replayMutation = useMutation({
+        mutationFn: (syncEventId: string) => replayGithubSyncEvent(syncEventId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "events"] });
+            showToast({ message: "GitHub webhook replay queued.", severity: "success" });
+        },
+        onError: (error) => {
+            showToast({ message: error instanceof Error ? error.message : "Couldn't replay GitHub webhook.", severity: "error" });
         },
     });
     const repositoryById = useMemo(
@@ -386,6 +425,62 @@ export function GithubSyncPanel() {
                                     >
                                         Update
                                     </Button>
+                                    {item.issue_url ? (
+                                        <Button size="small" href={item.issue_url} target="_blank" rel="noreferrer">
+                                            Open on GitHub
+                                        </Button>
+                                    ) : null}
+                                    {item.task_id ? (
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            onClick={() => prMutation.mutate({ issueLinkId: item.id, draftPr: true })}
+                                            disabled={prMutation.isPending}
+                                        >
+                                            Draft PR
+                                        </Button>
+                                    ) : null}
+                                </Stack>
+                                <Stack spacing={0.75} sx={{ mt: 1.25 }}>
+                                    <TextField
+                                        size="small"
+                                        multiline
+                                        minRows={2}
+                                        label="Progress or manager note"
+                                        placeholder="Draft a note for the GitHub issue…"
+                                        value={commentDrafts[item.id]?.body || ""}
+                                        onChange={(event) => setCommentDrafts((current) => ({
+                                            ...current,
+                                            [item.id]: { body: event.target.value, close: current[item.id]?.close || false },
+                                        }))}
+                                    />
+                                    <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} justifyContent="space-between" spacing={1}>
+                                        <FormControlLabel
+                                            control={(
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={commentDrafts[item.id]?.close || false}
+                                                    onChange={(event) => setCommentDrafts((current) => ({
+                                                        ...current,
+                                                        [item.id]: { body: current[item.id]?.body || "", close: event.target.checked },
+                                                    }))}
+                                                />
+                                            )}
+                                            label="Close issue after approval"
+                                        />
+                                        <Button
+                                            size="small"
+                                            variant="contained"
+                                            disabled={!commentDrafts[item.id]?.body?.trim() || commentMutation.isPending}
+                                            onClick={() => commentMutation.mutate({
+                                                issueLinkId: item.id,
+                                                body: (commentDrafts[item.id]?.body || "").trim(),
+                                                close: commentDrafts[item.id]?.close || false,
+                                            })}
+                                        >
+                                            Queue comment
+                                        </Button>
+                                    </Stack>
                                 </Stack>
                             </Paper>
                         ))}
@@ -404,7 +499,20 @@ export function GithubSyncPanel() {
                             <Chip size="small" variant="outlined" label={`Branch violations ${branchViolations.length}`} />
                         </Stack>
                         {syncFailures.slice(0, 5).map((event) => (
-                            <Alert key={event.id} severity="error">
+                            <Alert
+                                key={event.id}
+                                severity="error"
+                                action={(
+                                    <Button
+                                        color="inherit"
+                                        size="small"
+                                        onClick={() => replayMutation.mutate(event.id)}
+                                        disabled={replayMutation.isPending}
+                                    >
+                                        Replay
+                                    </Button>
+                                )}
+                            >
                                 {event.action} • {event.detail || "No detail available."}
                             </Alert>
                         ))}

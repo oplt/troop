@@ -24,6 +24,7 @@ NAMESPACE_SCOPES: Final[tuple[str, ...]] = (
     "project",
     "task",
     "agent",
+    "user",
     "global",
 )
 
@@ -36,7 +37,9 @@ _NAMESPACE_RE = re.compile(r"^[a-z0-9][a-z0-9_\-/]*$")
 def parse_namespace(namespace: str) -> tuple[str, str | None, list[str]]:
     """Return (scope, scoped_id, remainder_segments). Raises if invalid."""
     if not namespace or len(namespace) > 512:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="namespace empty or too long")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="namespace empty or too long"
+        )
     if not _NAMESPACE_RE.match(namespace):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -44,7 +47,9 @@ def parse_namespace(namespace: str) -> tuple[str, str | None, list[str]]:
         )
     parts = [p for p in namespace.split("/") if p != ""]
     if not parts:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="namespace has no segments")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="namespace has no segments"
+        )
     scope = parts[0]
     if scope not in NAMESPACE_SCOPES:
         raise HTTPException(

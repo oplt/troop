@@ -1,18 +1,19 @@
-import logging
-
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from backend.core.cache import redis_client
 from backend.core.config import settings
+from backend.core.logging import get_logger
 
-logger = logging.getLogger("backend.request")
+logger = get_logger("backend.request")
 
 
 def _request_has_session_credentials(request: Request) -> bool:
-    """SPA + cookie auth can exceed a naive per-IP cap from parallel GETs; reserve public RL for anonymous traffic."""
-    if request.cookies.get(settings.ACCESS_COOKIE_NAME) or request.cookies.get(settings.REFRESH_COOKIE_NAME):
+    """Reserve public rate limiting for anonymous SPA/API traffic."""
+    if request.cookies.get(settings.ACCESS_COOKIE_NAME) or request.cookies.get(
+        settings.REFRESH_COOKIE_NAME
+    ):
         return True
     auth = request.headers.get("Authorization")
     return bool(auth and auth.startswith("Bearer "))
@@ -24,6 +25,11 @@ class PublicRateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not request.url.path.startswith("/api/") and not request.url.path.startswith("/health/"):
+            return await call_next(request)
+
+        # Health probes must not be blocked by the Redis-backed public limiter;
+        # readiness performs its own bounded dependency checks.
+        if request.url.path in {"/health/live", "/health/ready"}:
             return await call_next(request)
 
         if _request_has_session_credentials(request):

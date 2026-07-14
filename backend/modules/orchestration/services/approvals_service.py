@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
 
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 from backend.modules.memory.coordination import (
     MEMORY_COORDINATION_KEY,
 )
 from backend.modules.memory.metrics import increment_memory_metric
+from backend.modules.orchestration.hitl_policy import (
+    action_requires_approval as hitl_action_requires_approval,
+)
 from backend.modules.orchestration.models import (
     TaskRun,
 )
@@ -18,7 +21,7 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorTask,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
@@ -35,6 +38,11 @@ class OrchestrationApprovalsServiceMixin:
         approval = await self.repo.get_approval(user.id, approval_id)
         if not approval:
             raise HTTPException(status_code=404, detail="Approval request not found")
+        if approval.status != "pending":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Approval request is already {approval.status} and cannot be decided again.",
+            )
         if status == "rejected" and not str(reason or "").strip():
             raise HTTPException(status_code=422, detail="A rejection reason is required.")
         approval.status = status
@@ -131,17 +139,10 @@ class OrchestrationApprovalsServiceMixin:
                     meta[MEMORY_COORDINATION_KEY] = cur
                     task.metadata_json = meta
         elif status == "approved" and approval.run_id:
-            # Approved actions unblock the task run
-            run = await self.db.get(TaskRun, approval.run_id)
-            if run and run.status == "blocked":
-                run.status = "in_progress"
-                await self._emit_run_event(
-                    run,
-                    event_type="unblocked",
-                    level="info",
-                    message="Run unblocked by human approval.",
-                    payload={"approval_id": approval.id, "reason": reason},
-                )
+            # The common resume path below handles the durable queue transition.
+            # Keep this branch explicit so approval types without a side effect still
+            # receive the same worker resume behavior.
+            pass
         elif status == "rejected" and approval.task_id:
             task = await self.db.get(OrchestratorTask, approval.task_id)
             if task and task.status in {"approved", "completed"}:
@@ -170,6 +171,54 @@ class OrchestrationApprovalsServiceMixin:
                             run=run,
                             reason="re-plan triggered by rejected approval",
                         )
+
+        # Some approval types have their own side-effect branch above (for example
+        # task_mark_complete). Rejection handling must still be applied uniformly;
+        # otherwise a rejected completion request could leave a run blocked forever.
+        if status == "rejected" and approval.task_id:
+            task = await self.db.get(OrchestratorTask, approval.task_id)
+            if task and task.status in {"blocked", "approved", "completed"}:
+                await self._transition_task_status(
+                    task,
+                    "planned",
+                    reason="approval rejected; task returned to planning",
+                )
+            if approval.run_id:
+                run = await self.db.get(TaskRun, approval.run_id)
+                if run and run.status not in {"completed", "failed", "cancelled"}:
+                    run.status = "failed"
+                    run.error_message = f"Approval rejected: {reason or 'No reason provided'}"
+                    await self._emit_run_event(
+                        run,
+                        event_type="approval_rejected",
+                        level="warning",
+                        message="Run failed because a required approval was rejected.",
+                        payload={"approval_id": approval.id, "reason": reason},
+                    )
+        resume_run_id: str | None = None
+        if status == "approved" and approval.run_id:
+            run = await self.db.get(TaskRun, approval.run_id)
+            if run and run.status == "blocked":
+                run.status = "queued"
+                run.error_message = None
+                run.completed_at = None
+                task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
+                if task and task.status == "blocked":
+                    await self._transition_task_status(
+                        task,
+                        "planned",
+                        run=run,
+                        reason="approval granted; durable run resume queued",
+                    )
+                await self._emit_run_event(
+                    run,
+                    event_type="unblocked",
+                    level="info",
+                    message="Run queued for durable resume after human approval.",
+                    payload={"approval_id": approval.id, "reason": reason},
+                )
+                resume_run_id = run.id
+
         await self.audit_repo.log(
             user_id=user.id,
             action=f"orchestration.approval.{status}",
@@ -184,6 +233,12 @@ class OrchestrationApprovalsServiceMixin:
             },
         )
         await self.db.commit()
+        if resume_run_id:
+            from backend.modules.orchestration.execution.durable_execution import (
+                submit_orchestration_run,
+            )
+
+            submit_orchestration_run(resume_run_id)
         await self.db.refresh(approval)
         return approval
 
@@ -199,15 +254,8 @@ class OrchestrationApprovalsServiceMixin:
     ) -> bool:
         """Check if an action type requires approval based on project gate config.
 
-        If the project autonomy_level is 'autonomous', all gates are short-circuited.
-        Otherwise, checks if the action_type is in the project's approval_gates list.
+        Protected actions remain gated at every autonomy level. Autonomous mode only
+        short-circuits optional, non-destructive actions.
         """
         settings = self._project_execution_settings(project)
-        autonomy_level = settings.get("autonomy_level", "assisted")
-
-        # Autonomous mode short-circuits all gates
-        if autonomy_level == "autonomous":
-            return False
-
-        approval_gates = settings.get("approval_gates", [])
-        return action_type in approval_gates
+        return hitl_action_requires_approval(settings, action_type)

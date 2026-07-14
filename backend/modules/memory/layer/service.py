@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.ai.providers import AiProviderRegistry, ProviderGenerateRequest
 from backend.modules.memory.layer.config import MemoryConfig, resolve_memory_config
-from backend.modules.memory.layer.context import build_memory_context
 from backend.modules.memory.layer.dedup import content_hash, is_duplicate
 from backend.modules.memory.layer.extractor import (
     _SYSTEM_PROMPT,
@@ -22,9 +21,14 @@ from backend.modules.memory.layer.provider import MemoryProvider, SemanticMemory
 from backend.modules.memory.layer.redaction import sanitize_for_storage
 from backend.modules.memory.layer.repository import SqlMemoryRepository
 from backend.modules.memory.layer.schemas import MemoryFilters, MemoryRecord, MemoryScope
+from backend.modules.memory.lifecycle import (
+    MemoryContextLifecycle,
+    SemanticMemoryLifecycle,
+    resolve_retention,
+)
 from backend.modules.memory.metrics import increment_memory_metric
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryService:
@@ -41,6 +45,8 @@ class MemoryService:
         self._db = db
         self._config = config or resolve_memory_config()
         self._provider = provider or SemanticMemoryProvider(SqlMemoryRepository(db))
+        self._semantic = SemanticMemoryLifecycle(self._provider)
+        self._context = MemoryContextLifecycle()
         self._embedder = embedder or AiProviderRegistry()
         self._log_content = (
             bool(getattr(settings, "MEMORY_LOG_CONTENT_IN_DEV", False))
@@ -59,6 +65,8 @@ class MemoryService:
         *,
         scope: MemoryScope = "project",
         project_id: str | None = None,
+        ttl_days: int | None = None,
+        retention_policy: str = "default",
     ) -> MemoryRecord | None:
         if not self._config.enabled:
             return None
@@ -67,6 +75,23 @@ class MemoryService:
         meta = dict(metadata or {})
         meta.setdefault("source", "memory_service")
         meta.setdefault("created_by_user_id", user_id)
+        requested_ttl = ttl_days if ttl_days is not None else meta.get("ttl_days")
+        try:
+            requested_ttl = int(requested_ttl) if requested_ttl is not None else None
+        except (TypeError, ValueError):
+            requested_ttl = None
+        retention = resolve_retention(
+            requested_ttl,
+            default_ttl_days=self._config.default_ttl_days,
+            max_ttl_days=self._config.max_ttl_days,
+            policy=retention_policy,
+        )
+        meta["ttl_days"] = retention.ttl_days
+        meta["expires_at"] = retention.expires_at.isoformat() if retention.expires_at else None
+        meta["retention_policy"] = retention.policy
+        meta.setdefault("memory_version", 1)
+        meta.setdefault("embedding_model", getattr(settings, "RAG_EMBEDDING_MODEL", "") or None)
+        meta.setdefault("embedding_version", "v1")
 
         safe_content, redaction_hits = sanitize_for_storage(content)
         if not safe_content:
@@ -86,12 +111,16 @@ class MemoryService:
 
         filters = MemoryFilters(
             user_id=user_id,
+            company_id=meta.get("company_id"),
             project_id=project_id or meta.get("project_id"),
             agent_id=meta.get("agent_id"),
+            task_id=meta.get("task_id") or meta.get("source_task_id"),
             session_id=meta.get("session_id"),
+            scope=scope,
+            namespace_prefix=meta.get("namespace"),
         )
         if self._config.dedup_enabled:
-            duplicate = await self._provider.find_duplicate(user_id, digest, filters)
+            duplicate = await self._semantic.find_duplicate(user_id, digest, filters)
             if duplicate is not None:
                 log_memory_event(
                     "add_dedup_skip",
@@ -102,7 +131,7 @@ class MemoryService:
                 increment_memory_metric("memory_layer_dedup_skip")
                 return duplicate
 
-        record = await self._provider.add(
+        record = await self._semantic.add(
             owner_id=user_id,
             content=safe_content,
             scope=scope,
@@ -144,7 +173,7 @@ class MemoryService:
             except Exception as exc:
                 logger.debug("memory search embedding unavailable: %s", exc)
 
-        records = await self._provider.search(
+        records = await self._semantic.search(
             user_id,
             query,
             query_vec=query_vec,
@@ -188,8 +217,24 @@ class MemoryService:
             if redaction_hits:
                 meta["redaction_applied"] = redaction_hits
             meta["content_hash"] = content_hash(safe_content)
+        if "ttl_days" in meta:
+            try:
+                update_ttl = int(meta["ttl_days"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Memory TTL must be an integer") from exc
+            if update_ttl < 0 or update_ttl > self._config.max_ttl_days:
+                raise ValueError(
+                    f"Memory TTL must be between 0 and {self._config.max_ttl_days} days"
+                )
+            retention = resolve_retention(
+                update_ttl,
+                default_ttl_days=0,
+                max_ttl_days=self._config.max_ttl_days,
+                policy=str(meta.get("retention_policy") or "default"),
+            )
+            meta["expires_at"] = retention.expires_at.isoformat() if retention.expires_at else None
 
-        record = await self._provider.update(
+        record = await self._semantic.update(
             user_id,
             memory_id,
             content=safe_content,
@@ -221,7 +266,7 @@ class MemoryService:
             return False
 
         timer = MemoryTimer()
-        ok = await self._provider.delete(user_id, memory_id)
+        ok = await self._semantic.delete(user_id, memory_id)
         if ok:
             await self._db.commit()
         log_memory_event(
@@ -239,7 +284,7 @@ class MemoryService:
             return 0
 
         timer = MemoryTimer()
-        count = await self._provider.delete_for_user(user_id)
+        count = await self._semantic.delete_for_user(user_id)
         await self._db.commit()
         log_memory_event(
             "delete_user",
@@ -258,6 +303,7 @@ class MemoryService:
         limit: int | None = None,
         filters: MemoryFilters | None = None,
         header: str | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         if not self._config.enabled:
             return ""
@@ -267,7 +313,12 @@ class MemoryService:
             limit=limit,
             filters=filters,
         )
-        return build_memory_context(records, header=header)
+        return self._context.build(
+            records,
+            header=header,
+            query=query,
+            max_tokens=max_tokens or self._config.context_max_tokens,
+        )
 
     async def extract_and_store_from_interaction(
         self,

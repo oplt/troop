@@ -30,6 +30,9 @@ class AgentResolvedProfile(BaseModel):
     output_schema: dict[str, Any] = Field(default_factory=dict)
     budget: dict[str, Any] = Field(default_factory=dict)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
+    task_filters: list[str] = Field(default_factory=list)
 
 
 class AgentInheritancePreview(BaseModel):
@@ -58,6 +61,8 @@ class AgentCreate(RequestModel):
     allowed_tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str = "private"
     tags: list[str] = Field(default_factory=list)
     budget: dict[str, Any] = Field(default_factory=dict)
@@ -88,6 +93,8 @@ class AgentUpdate(RequestModel):
     allowed_tools: list[str] | None = None
     skills: list[str] | None = None
     model_policy: dict[str, Any] | None = None
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str | None = None
     is_active: bool | None = None
     tags: list[str] | None = None
@@ -134,6 +141,8 @@ class AgentResponse(BaseModel):
     allowed_tools: list[str]
     skills: list[str]
     model_policy: dict[str, Any]
+    permissions: str | dict[str, Any] | None = None
+    escalation_path: str | None = None
     visibility: str
     is_active: bool
     tags: list[str]
@@ -142,6 +151,7 @@ class AgentResponse(BaseModel):
     retry_limit: int
     memory_policy: dict[str, Any]
     output_schema: dict[str, Any]
+    task_filters: list[str] = Field(default_factory=list)
     inheritance: AgentInheritancePreview | None = None
     lint: AgentLintSummary | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

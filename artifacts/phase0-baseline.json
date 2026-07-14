@@ -1,0 +1,87 @@
+{
+  "captured_at": "2026-07-14T23:03:59.621075+00:00",
+  "database": {
+    "skipped": "DATABASE_URL not set"
+  },
+  "endpoints": [
+    {
+      "concurrency": 2,
+      "errors": [
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 4,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/health/live"
+    },
+    {
+      "concurrency": 2,
+      "errors": [
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed",
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 4,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/health/ready"
+    }
+  ],
+  "git_revision": "a5db83740428326314eb267fc48a4e556bcd2ae6",
+  "parameters": {
+    "concurrency": 2,
+    "requests_per_url": 4,
+    "samples": 2,
+    "timeout_seconds": 0.5,
+    "urls": [
+      "http://127.0.0.1:8000/health/live",
+      "http://127.0.0.1:8000/health/ready"
+    ]
+  },
+  "process": {
+    "after": {
+      "cpu_seconds": 0.17,
+      "pid": 4,
+      "rss_bytes": 42340352,
+      "scope": "benchmark_process"
+    },
+    "before": {
+      "cpu_seconds": 0.07,
+      "pid": 4,
+      "rss_bytes": 29683712,
+      "scope": "benchmark_process"
+    },
+    "cpu_percent_of_one_core": 97.762,
+    "elapsed_seconds": 0.102,
+    "rss_delta_bytes": 12656640
+  },
+  "queue_depth": {
+    "error": "ConnectionError: Error 1 connecting to 127.0.0.1:6379. Operation not permitted.",
+    "queues": {}
+  },
+  "redis": {
+    "error": "ConnectionError: Error 1 connecting to 127.0.0.1:6379. Operation not permitted.",
+    "url": "redis://127.0.0.1:6379/0"
+  },
+  "schema_version": 1
+}

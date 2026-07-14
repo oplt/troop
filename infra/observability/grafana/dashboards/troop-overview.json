@@ -1,0 +1,57 @@
+{
+  "title": "Troop API overview",
+  "uid": "troop-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(troop_http_requests_total[5m]))", "legendFormat": "requests/s"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP p95 latency",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(troop_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP 5xx rate",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(rate(troop_http_errors_total[5m]))", "legendFormat": "errors/s"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Active worker tasks",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "troop_worker_active_tasks", "legendFormat": "active"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Durable queue age",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "max(troop_queue_oldest_age_seconds) by (queue)", "legendFormat": "{{queue}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Orchestration run outcomes",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "sum by (outcome) (rate(troop_orchestration_runs_total[5m]))", "legendFormat": "{{outcome}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider failure ratio",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [{"expr": "sum(rate(troop_provider_requests_total{outcome!=\"success\"}[10m])) / clamp_min(sum(rate(troop_provider_requests_total[10m])), 1)", "legendFormat": "failure ratio"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory retrieval p95",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(troop_memory_retrieval_duration_seconds_bucket[10m])) by (le, memory_type))", "legendFormat": "{{memory_type}}"}]
+    }
+  ]
+}

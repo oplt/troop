@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import logging
 import time
 from typing import Literal
 
-logger = logging.getLogger(__name__)
+from backend.core.config import settings
+from backend.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 LogLevel = Literal["info", "warning", "error", "debug"]
 
@@ -23,6 +25,8 @@ def log_rag_event(
     project_id: str | None = None,
     document_id: str | None = None,
     count: int | None = None,
+    completed: int | None = None,
+    total: int | None = None,
     duration_ms: float | None = None,
     attempt: int | None = None,
     error: str | None = None,
@@ -38,13 +42,17 @@ def log_rag_event(
         parts.append(f"document_id={document_id}")
     if count is not None:
         parts.append(f"count={count}")
+    if completed is not None:
+        parts.append(f"completed={completed}")
+    if total is not None:
+        parts.append(f"total={total}")
     if duration_ms is not None:
         parts.append(f"duration_ms={duration_ms:.1f}")
     if attempt is not None:
         parts.append(f"attempt={attempt}")
     if error:
         parts.append(f"error={error}")
-    if content_preview:
+    if content_preview and settings.RAG_LOG_CONTENT_IN_DEV and not settings.is_production:
         parts.append(f"preview={_safe_preview(content_preview)!r}")
 
     message = " ".join(parts)

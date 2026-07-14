@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration._helpers import (
     _provider_type_aliases,
@@ -21,7 +21,7 @@ from backend.modules.orchestration.providers import (
 from backend.modules.orchestration.security import encrypt_secret, mask_secret
 from backend.modules.projects.orchestration_models import OrchestratorProject
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OrchestrationProvidersServiceMixin:
@@ -148,8 +148,10 @@ class OrchestrationProvidersServiceMixin:
             "models": models,
         }
 
-    async def list_model_capabilities(self) -> list[ModelCapability]:
-        return await self.repo.list_model_capabilities()
+    async def list_model_capabilities(self, user: User | None = None) -> list[ModelCapability]:
+        if user is None:
+            return await self.repo.list_model_capabilities()
+        return await self.repo.list_model_capabilities_for_owner(user.id)
 
     async def compare_providers(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
         provider_a = await self.repo.get_provider(user.id, payload["provider_a_id"])
@@ -319,6 +321,9 @@ class OrchestrationProvidersServiceMixin:
                     "modified_at": item.get("last_verified_at"),
                     "details": {
                         "supports_tools": item.get("supports_tools"),
+                        "supports_tool_calling": item.get("supports_tool_calling"),
+                        "supports_structured_output": item.get("supports_structured_output"),
+                        "supports_reasoning": item.get("supports_reasoning"),
                         "supports_vision": item.get("supports_vision"),
                         "context_window": item.get("context_window"),
                         "max_output_tokens": item.get("max_output_tokens"),
@@ -356,6 +361,9 @@ class OrchestrationProvidersServiceMixin:
                 "latency_p50": item.get("latency_p50"),
                 "health_status": item.get("health_status"),
                 "source_for_each_field": item.get("source_for_each_field") or {},
+                "supports_tool_calling": bool(item.get("supports_tool_calling", item.get("supports_tools"))),
+                "supports_structured_output": bool(item.get("supports_structured_output", False)),
+                "supports_reasoning": bool(item.get("supports_reasoning", False)),
                 "last_verified_at": item.get("last_verified_at"),
                 "override_reason": item.get("override_reason"),
                 "source": item.get("source"),
@@ -458,6 +466,47 @@ class OrchestrationProvidersServiceMixin:
             results.append({"provider_id": provider.id, "provider_name": provider.name, **result})
         await self.db.commit()
         return results
+
+    async def run_provider_health_checks_for_user(self, user: User) -> list[dict[str, Any]]:
+        """Run an explicitly requested health sweep within the caller's workspace."""
+        providers = await self.repo.list_owned_providers(user.id, enabled_only=True)
+        results: list[dict[str, Any]] = []
+        for provider in providers:
+            result = await self._healthcheck_provider(provider)
+            results.append({"provider_id": provider.id, "provider_name": provider.name, **result})
+        await self.db.commit()
+        return results
+
+    async def provider_health_summary(self, user: User) -> list[dict[str, Any]]:
+        """Return the latest persisted health state without running provider calls.
+
+        Observability pages should be safe to refresh frequently.  Health checks
+        remain an explicit action; this read endpoint only exposes the last
+        recorded result and never sends credentials to a provider.
+        """
+        providers = await self.repo.list_owned_providers(user.id, enabled_only=False)
+        summary: list[dict[str, Any]] = []
+        for provider in providers:
+            metadata = dict(provider.metadata_json or {})
+            status = str(provider.last_healthcheck_status or "unknown")
+            summary.append(
+                {
+                    "provider_id": provider.id,
+                    "project_id": provider.project_id,
+                    "name": provider.name,
+                    "provider_type": provider.provider_type,
+                    "default_model": provider.default_model,
+                    "enabled": bool(provider.is_enabled),
+                    "status": status,
+                    "healthy": bool(provider.is_healthy) if provider.last_healthcheck_at else None,
+                    "latency_ms": provider.last_healthcheck_latency_ms,
+                    "last_checked_at": provider.last_healthcheck_at,
+                    "error": str(metadata.get("last_healthcheck_error"))[:500]
+                    if metadata.get("last_healthcheck_error")
+                    else None,
+                }
+            )
+        return summary
 
     async def _provider_health_snapshots(
         self, agents: list[AgentProfile]

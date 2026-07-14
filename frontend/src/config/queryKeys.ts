@@ -12,9 +12,15 @@ export const queryKeys = {
     },
     orchestration: {
         projects: ["orchestration", "projects"] as const,
+        hierarchyRuns: ["orchestration", "hierarchy", "runs"] as const,
+        skillCatalog: ["orchestration", "skill-catalog"] as const,
+        teamTemplates: ["orchestration", "team-templates"] as const,
+        teamProfiles: ["orchestration", "team-profiles"] as const,
+        hierarchyAgents: (projectId: string) => ["orchestration", "hierarchy", "agents", projectId] as const,
         overview: ["orchestration", "overview"] as const,
         executionInsights: (days: number) => ["orchestration", "execution-insights", days] as const,
         project: (projectId: string) => ["orchestration", "project", projectId] as const,
+        projectRoot: ["orchestration", "project"] as const,
         projectTasks: (projectId: string) => ["orchestration", "project", projectId, "tasks"] as const,
         projectTaskTimeline: (projectId: string, taskId: string) =>
             ["orchestration", "project", projectId, "tasks", taskId, "timeline"] as const,
@@ -26,6 +32,10 @@ export const queryKeys = {
             taskId
                 ? (["orchestration", "project", projectId, "task-artifacts", taskId] as const)
                 : (["orchestration", "project", projectId, "task-artifacts"] as const),
+        projectTaskBlockers: (projectId: string, taskId?: string) =>
+            taskId
+                ? (["orchestration", "project", projectId, "task-blockers", taskId] as const)
+                : (["orchestration", "project", projectId, "task-blockers"] as const),
         projectRuns: (projectId: string) => ["orchestration", "project", projectId, "runs"] as const,
         projectAgents: (projectId: string) => ["orchestration", "project", projectId, "agents"] as const,
         projectDocuments: (projectId: string) => ["orchestration", "project", projectId, "documents"] as const,
@@ -51,10 +61,13 @@ export const queryKeys = {
         projectMilestones: (projectId: string) => ["orchestration", "project", projectId, "milestones"] as const,
         projectDecisions: (projectId: string) => ["orchestration", "project", projectId, "decisions"] as const,
         projectGateConfig: (projectId: string) => ["orchestration", "project", projectId, "gate-config"] as const,
+        workflowTemplates: ["orchestration", "workflow-templates"] as const,
+        projectWorkflowTemplates: (projectId: string) => ["orchestration", "project", projectId, "workflow-templates"] as const,
         projectDagReady: (projectId: string) => ["orchestration", "project", projectId, "dag-ready"] as const,
         projectMergePreview: (projectId: string, taskId: string | null) =>
             ["orchestration", "project", projectId, "merge-preview", taskId] as const,
         projectBrainstorms: (projectId: string) => ["orchestration", "project", projectId, "brainstorms"] as const,
+        githubIssues: ["orchestration", "github", "issues"] as const,
         projectLiveSnapshot: (projectId: string) =>
             ["orchestration", "project", projectId, "live-snapshot"] as const,
         agents: (projectId?: string) =>

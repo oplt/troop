@@ -17,6 +17,9 @@ class MemoryConfig:
     dedup_enabled: bool = True
     min_extraction_confidence: float = 0.45
     log_latency: bool = True
+    default_ttl_days: int = 0
+    max_ttl_days: int = 3650
+    context_max_tokens: int = 700
 
     @classmethod
     def from_settings(cls, project_settings_json: dict[str, Any] | None = None) -> MemoryConfig:
@@ -52,6 +55,36 @@ class MemoryConfig:
                 )
             ),
             log_latency=bool(layer.get("log_latency", True)),
+            default_ttl_days=max(
+                0,
+                int(
+                    layer.get(
+                        "default_ttl_days",
+                        ms.get("default_ttl_days", getattr(settings, "MEMORY_DEFAULT_TTL_DAYS", 0)),
+                    )
+                ),
+            ),
+            max_ttl_days=max(
+                1,
+                int(
+                    layer.get(
+                        "max_ttl_days",
+                        ms.get("max_ttl_days", getattr(settings, "MEMORY_MAX_TTL_DAYS", 3650)),
+                    )
+                ),
+            ),
+            context_max_tokens=max(
+                64,
+                int(
+                    layer.get(
+                        "context_max_tokens",
+                        ms.get(
+                            "context_max_tokens",
+                            getattr(settings, "MEMORY_CONTEXT_MAX_TOKENS", 700),
+                        ),
+                    )
+                ),
+            ),
         )
 
 

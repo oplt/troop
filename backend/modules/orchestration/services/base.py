@@ -13,7 +13,10 @@ from backend.modules.identity_access.models import User
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
 )
-from backend.modules.orchestration.constants import GITHUB_WEBHOOK_EVENT_ALLOWLIST, TASK_TRANSITIONS
+from backend.modules.orchestration.constants import (  # noqa: F401
+    GITHUB_WEBHOOK_EVENT_ALLOWLIST,
+    TASK_TRANSITIONS,
+)
 from backend.modules.orchestration.repository import OrchestrationRepository
 
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
@@ -53,8 +56,10 @@ class OrchestrationServiceBase:
 class OrchestrationRunQueryMixin:
     """Minimal run read access without pulling in the execution domain."""
 
-    async def list_task_runs(self, user: User, project_id: str | None = None):
-        return await self.repo.list_runs(user.id, project_id)
+    async def list_task_runs(
+        self, user: User, project_id: str | None = None, *, limit: int | None = None
+    ):
+        return await self.repo.list_runs(user.id, project_id, limit=limit)
 
     async def get_run(self, user: User, run_id: str):
         run = await self.repo.get_run(user.id, run_id)

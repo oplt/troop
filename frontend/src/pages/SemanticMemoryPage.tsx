@@ -74,7 +74,7 @@ export default function SemanticMemoryPage() {
     const debouncedEpisodicQ = useDebounce(episodicQ.trim(), 250);
     const debouncedEpisodicVecQ = useDebounce(episodicVecQ.trim(), 250);
     const [open, setOpen] = useState(false);
-    const [form, setForm] = useState({ entry_type: "note", title: "", body: "" });
+    const [form, setForm] = useState({ entry_type: "note", title: "", body: "", ttl_days: "" });
     const [provEntry, setProvEntry] = useState<SemanticMemoryEntry | null>(null);
     const [approvalReason, setApprovalReason] = useState<Record<string, string>>({});
 
@@ -109,7 +109,7 @@ export default function SemanticMemoryPage() {
             }),
         enabled: !!projectId,
     });
-    const entries = entriesQuery.data ?? [];
+    const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
     const isLoading = entriesQuery.isLoading;
 
     const { data: episodic } = useQuery({
@@ -215,6 +215,7 @@ export default function SemanticMemoryPage() {
                 entry_type: form.entry_type,
                 title: form.title.trim(),
                 body: form.body.trim(),
+                ttl_days: form.ttl_days.trim() ? Number(form.ttl_days) : undefined,
             }),
         onSuccess: async (res) => {
             if (isPendingSemanticWrite(res)) {
@@ -223,7 +224,7 @@ export default function SemanticMemoryPage() {
                     severity: "info",
                 });
                 setOpen(false);
-                setForm({ entry_type: "note", title: "", body: "" });
+                setForm({ entry_type: "note", title: "", body: "", ttl_days: "" });
                 return;
             }
             await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.semanticRoot(projectId!) });
@@ -231,7 +232,7 @@ export default function SemanticMemoryPage() {
                 queryKey: queryKeys.orchestration.semanticConflicts(projectId!),
             });
             setOpen(false);
-            setForm({ entry_type: "note", title: "", body: "" });
+            setForm({ entry_type: "note", title: "", body: "", ttl_days: "" });
         },
     });
 
@@ -668,6 +669,37 @@ export default function SemanticMemoryPage() {
                                 inputProps={{ min: 1, max: 200 }}
                                 fullWidth
                             />
+                            <TextField
+                                key={`memory-ttl-${memSettings.default_ttl_days}`}
+                                label="Default semantic TTL (days)"
+                                type="number"
+                                size="small"
+                                defaultValue={String(memSettings.default_ttl_days)}
+                                onBlur={(e) => {
+                                    const n = Number(e.target.value);
+                                    if (!Number.isFinite(n)) return;
+                                    settingsMut.mutate({ default_ttl_days: Math.round(n) });
+                                }}
+                                helperText="0 keeps entries until explicitly deleted."
+                                inputProps={{ min: 0, max: memSettings.max_ttl_days }}
+                                disabled={settingsMut.isPending}
+                                fullWidth
+                            />
+                            <TextField
+                                key={`memory-context-${memSettings.context_max_tokens}`}
+                                label="Memory context budget (tokens)"
+                                type="number"
+                                size="small"
+                                defaultValue={String(memSettings.context_max_tokens)}
+                                onBlur={(e) => {
+                                    const n = Number(e.target.value);
+                                    if (!Number.isFinite(n)) return;
+                                    settingsMut.mutate({ context_max_tokens: Math.round(n) });
+                                }}
+                                inputProps={{ min: 64, max: 12000 }}
+                                disabled={settingsMut.isPending}
+                                fullWidth
+                            />
                         </Stack>
                     </Stack>
                 ) : (
@@ -717,6 +749,7 @@ export default function SemanticMemoryPage() {
                                 <TableCell>Prov.</TableCell>
                                 <TableCell>Confidence</TableCell>
                                 <TableCell>Updated</TableCell>
+                                <TableCell>Retention</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -727,6 +760,9 @@ export default function SemanticMemoryPage() {
                                 const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
                                 const confColor =
                                     conf >= 0.75 ? "success.main" : conf >= 0.5 ? "warning.main" : "error.main";
+                                const expiryLabel = row.expires_at
+                                    ? `Expires ${formatDateTime(row.expires_at)}`
+                                    : "No expiry";
                                 return (
                                     <TableRow key={row.id}>
                                         <TableCell>{row.entry_type}</TableCell>
@@ -766,6 +802,11 @@ export default function SemanticMemoryPage() {
                                             </Typography>
                                         </TableCell>
                                         <TableCell>{formatDateTime(row.updated_at)}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {expiryLabel}
+                                            </Typography>
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })}
@@ -1017,6 +1058,14 @@ export default function SemanticMemoryPage() {
                             multiline
                             minRows={4}
                             required
+                        />
+                        <TextField
+                            label="TTL (days, optional)"
+                            type="number"
+                            value={form.ttl_days}
+                            onChange={(e) => setForm((f) => ({ ...f, ttl_days: e.target.value }))}
+                            helperText="Leave empty to use the project default."
+                            inputProps={{ min: 1, max: memSettings?.max_ttl_days ?? 3650 }}
                         />
                     </Stack>
                 </DialogContent>

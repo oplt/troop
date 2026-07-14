@@ -85,3 +85,49 @@ async def test_record_github_webhook_event_creates_new_delivery():
 
     assert sync_id == "sync-new"
     repo.create_sync_event.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_issue_comment_webhook_replay_does_not_duplicate_task_thread_comment():
+    repo = MagicMock()
+    repository = MagicMock(id="repo-1", connection_id="conn-1", full_name="acme/app")
+    link = MagicMock(id="link-1", task_id="task-1")
+    connection = MagicMock(owner_id="owner-1")
+    repo.get_issue_link_by_repo_and_number = AsyncMock(return_value=link)
+    repo.get_github_entity_mapping_by_external = AsyncMock(return_value=MagicMock(id="mapping-1"))
+    repo.create_task_comment = AsyncMock()
+    harness = _GithubHarness(repo)
+    harness.db.get = AsyncMock(return_value=connection)
+    harness._ensure_repository_from_webhook_payload = AsyncMock(return_value=repository)
+    sync_event = MagicMock()
+
+    await harness._process_webhook_issue_comment(
+        sync_event,
+        {
+            "issue": {"number": 7},
+            "comment": {"id": 99, "body": "same delivery", "user": {"login": "octocat"}},
+        },
+    )
+
+    repo.create_task_comment.assert_not_awaited()
+    assert sync_event.issue_link_id == "link-1"
+    assert sync_event.status == "completed"
+    assert "already mirrored" in sync_event.detail
+
+
+@pytest.mark.asyncio
+async def test_pull_request_resolves_to_issue_from_closing_keyword():
+    repo = MagicMock()
+    expected = MagicMock(repository_id="repo-1", issue_number=42)
+    repo.get_issue_link_by_repo_and_number = AsyncMock(
+        side_effect=lambda _repo_id, number: expected if number == 42 else None
+    )
+    harness = _GithubHarness(repo)
+    repository = MagicMock(id="repo-1")
+
+    resolved = await harness._resolve_issue_link_for_pull_request(
+        repository,
+        {"number": 100, "body": "Closes #42", "head": {"ref": "feature/a"}},
+    )
+
+    assert resolved is expected

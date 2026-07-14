@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.memory.layer.schemas import MemoryFilters, MemoryRecord
@@ -61,6 +62,7 @@ def entry_to_record(entry: SemanticMemoryEntry, *, score: float | None = None) -
         memory_type=str(metadata.get("memory_type") or entry.entry_type or "note"),
         scope=entry.scope,  # type: ignore[arg-type]
         project_id=entry.project_id,
+        company_id=entry.company_id,
         agent_id=entry.agent_id,
         session_id=entry.source_run_id or metadata.get("session_id"),
         source=str(metadata.get("source") or entry.provenance_json.get("source") or "semantic"),
@@ -69,6 +71,13 @@ def entry_to_record(entry: SemanticMemoryEntry, *, score: float | None = None) -
         score=score,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
+        ttl_days=entry.ttl_days,
+        expires_at=entry.expires_at,
+        deleted_at=entry.deleted_at,
+        retention_policy=entry.retention_policy,
+        memory_version=entry.memory_version,
+        embedding_model=entry.embedding_model,
+        embedding_version=entry.embedding_version,
     )
 
 
@@ -95,7 +104,10 @@ class SqlMemoryRepository:
         await self._db.flush()
 
     async def delete_for_user(self, owner_id: str) -> int:
-        rows = await self._repo.list_semantic_memory_entries(owner_id, limit=10_000)
+        result = await self._db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.owner_id == owner_id)
+        )
+        rows = list(result.scalars().all())
         for row in rows:
             await self._db.delete(row)
         await self._db.flush()
@@ -115,8 +127,12 @@ class SqlMemoryRepository:
                 owner_id,
                 project_id=project_id,
                 agent_id=filters.agent_id,
+                source_task_id=filters.task_id,
+                namespace_prefix=filters.namespace_prefix,
+                scope=filters.scope,
                 search=query,
                 limit=limit,
+                include_expired=filters.include_expired,
             )
         if filters.scope == "company" and filters.user_id:
             company_rows = await self._repo.list_semantic_memory_entries_for_company(
@@ -130,8 +146,13 @@ class SqlMemoryRepository:
             owner_id,
             project_id=None,
             agent_id=filters.agent_id,
+            company_id=filters.company_id,
+            source_task_id=filters.task_id,
+            namespace_prefix=filters.namespace_prefix,
+            scope=filters.scope,
             search=query,
             limit=limit,
+            include_expired=filters.include_expired,
         )
 
     async def search_by_vector(
@@ -171,7 +192,12 @@ class SqlMemoryRepository:
             owner_id,
             project_id=filters.project_id,
             agent_id=filters.agent_id,
+            company_id=filters.company_id,
+            source_task_id=filters.task_id,
+            namespace_prefix=filters.namespace_prefix,
+            scope=filters.scope,
             limit=200,
+            include_expired=filters.include_expired,
         )
         for row in rows:
             meta = row.metadata_json or {}
@@ -179,9 +205,7 @@ class SqlMemoryRepository:
                 return row
         return None
 
-    async def enqueue_embedding(
-        self, owner_id: str, project_id: str | None, entry_id: str
-    ) -> None:
+    async def enqueue_embedding(self, owner_id: str, project_id: str | None, entry_id: str) -> None:
         if not project_id:
             return
         await self._repo.create_memory_ingest_job(

@@ -1,12 +1,11 @@
-import logging
-
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from backend.core.error_payloads import error_payload
+from backend.core.logging import get_logger
 
-logger = logging.getLogger("backend.error")
+logger = get_logger("backend.error")
 
 
 def register_exception_handlers(app: FastAPI) -> None:

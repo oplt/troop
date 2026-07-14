@@ -35,7 +35,11 @@ import {
     Menu as MenuIcon,
     AccountCircle as ProfileIcon,
     AttachMoney as CostAnalyticsIcon,
+    Forum as BrainstormsIcon,
+    GitHub as GithubIcon,
+    Tune as ModelSettingsIcon,
     ViewModule as PortfolioNavIcon,
+    AccountTree as WorkflowTemplatesIcon,
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
     SmartToy as AgentsIcon,
@@ -260,9 +264,13 @@ export function AppLayout() {
             { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
             { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
             { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
+            { label: "GitHub sync", icon: <GithubIcon />, path: "/github-sync", group: "workspace" },
+            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
+            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
             {
-                label: "Activity",
+                label: "Audit & approvals",
                 icon: <ActivityIcon />,
                 path: "/activity",
                 group: "workspace",
@@ -276,6 +284,7 @@ export function AppLayout() {
                 ? [{ label: "AI Studio", icon: <AutoAwesomeIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
             { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
+            { label: "Execution insights", icon: <ActivityIcon />, path: "/analytics/execution", group: "workspace" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
         [hasAiModule, pendingCount]
@@ -340,7 +349,7 @@ export function AppLayout() {
                 if (segment === "benchmark") return "Benchmark";
                 return undefined;
             }),
-        [location.pathname, visibleNavItems, breadcrumbProject?.name, projectIdFromPath],
+        [location.pathname, visibleNavItems, breadcrumbProject, projectIdFromPath],
     );
     const canGoBack = breadcrumbs.length > 1 || location.pathname !== (currentItem?.path ?? "/dashboard");
     const avatarLabel = getInitials(currentUser?.full_name, currentUser?.email);

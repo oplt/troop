@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import text
 
 from backend.core.cache import redis_client
 from backend.core.config import settings
 from backend.db.session import engine
+from backend.modules.observability.health import readiness_report
 
 health_router = APIRouter(prefix="/health", tags=["health"])
 
@@ -17,28 +17,15 @@ async def live():
 async def ready():
     if not settings.HEALTH_READY_PUBLIC and settings.is_production:
         raise HTTPException(status_code=404, detail="Not found")
-    checks: dict[str, str] = {}
-
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        checks["db"] = "ok"
-    except Exception:
-        checks["db"] = "error"
-
-    try:
-        await redis_client.ping()
-        checks["redis"] = "ok"
-    except Exception:
-        checks["redis"] = "error"
-
-    if settings.celery_broker_url.startswith(("redis://", "rediss://")):
-        checks["queue"] = checks["redis"]
-    else:
-        checks["queue"] = "unknown"
-
-    all_ok = all(v == "ok" for v in checks.values())
-    return {"status": "ok" if all_ok else "degraded", "checks": checks}
+    report = await readiness_report(
+        engine,
+        redis_client,
+        settings.celery_broker_url,
+        settings.HEALTH_READY_TIMEOUT_SECONDS,
+    )
+    if report["status"] != "ok":
+        raise HTTPException(status_code=503, detail=report)
+    return report
 
 
 @health_router.get("/version")
@@ -48,6 +35,8 @@ async def version():
     return {
         "app": settings.APP_NAME,
         "env": settings.APP_ENV,
+        "instance_id": settings.INSTANCE_ID or "unassigned",
         "version": "0.1.0",
         "async_jobs": "celery",
+        "multi_instance_safe": True,
     }

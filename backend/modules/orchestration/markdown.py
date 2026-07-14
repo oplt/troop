@@ -132,6 +132,11 @@ def parse_agent_markdown(content: str) -> tuple[dict[str, Any] | None, list[str]
             "manager_slug": manager,
             "permissions": permissions,
         },
+        # Keep these contract fields explicit in the normalized representation.
+        # The persistence layer also mirrors them into the legacy JSON buckets so
+        # older runtimes and templates remain compatible.
+        "permissions": permissions,
+        "escalation_path": escalation_path,
         "tags": tags,
         "budget": budget,
         "memory_policy": memory,

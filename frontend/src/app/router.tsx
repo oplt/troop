@@ -24,13 +24,16 @@ const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProje
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
 const BrainstormsPage = lazy(() => import("../pages/BrainstormsPage"));
 const BrainstormDetailPage = lazy(() => import("../pages/BrainstormDetailPage"));
+const GithubSyncPage = lazy(() => import("../pages/GithubSyncPage"));
 const ActivityAuditPage = lazy(() => import("../pages/ActivityAuditPage"));
 const RunInspectorPage = lazy(() => import("../pages/RunInspectorPage"));
 const CostAnalyticsPage = lazy(() => import("../pages/CostAnalyticsPage"));
+const ExecutionInsightsPage = lazy(() => import("../pages/ExecutionInsightsPage"));
 const BenchmarkPage = lazy(() => import("../pages/BenchmarkPage"));
 const SemanticMemoryPage = lazy(() => import("../pages/SemanticMemoryPage"));
 const ModelSettingsPage = lazy(() => import("../pages/ModelSettingsPage"));
 const OrchestrationPortfolioPage = lazy(() => import("../pages/OrchestrationPortfolioPage"));
+const WorkflowTemplatesPage = lazy(() => import("../pages/WorkflowTemplatesPage"));
 const CompaniesPage = lazy(() => import("../pages/CompaniesPage"));
 const CompanyMemoryPage = lazy(() => import("../pages/CompanyMemoryPage"));
 const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
@@ -93,17 +96,18 @@ export function AppRouter() {
                     <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
+                    <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
                     <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
-                    <Route path="/github-sync" element={<RedirectToAdminSettingsTab tab="github" />} />
+                    <Route path="/github-sync" element={<SuspensePage><GithubSyncPage /></SuspensePage>} />
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />
                     <Route path="/activity" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />
-                    <Route path="/analytics/execution" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/analytics/execution" element={<SuspensePage><ExecutionInsightsPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId/benchmark" element={<SuspensePage><BenchmarkPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
                     <Route path="/runs/:runId" element={<SuspensePage><RunInspectorPage /></SuspensePage>} />

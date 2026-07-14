@@ -22,6 +22,7 @@ import {
     listModelCapabilities,
     listProviderModels,
     listProviders,
+    runProviderHealthChecks,
     startProviderRuntime,
     testProvider,
     updateProvider,
@@ -240,6 +241,9 @@ export function ProviderSettingsPanel() {
             providerType: item.provider_type,
             modelSlug: item.model_slug,
             supportsTools: item.supports_tools,
+            supports_tool_calling: item.supports_tool_calling,
+            supports_structured_output: item.supports_structured_output,
+            supports_reasoning: item.supports_reasoning,
             supportsVision: item.supports_vision,
             contextTokens: item.context_window ?? item.max_context_tokens,
             maxOutputTokens: item.max_output_tokens,
@@ -263,6 +267,9 @@ export function ProviderSettingsPanel() {
                     providerType: provider.provider_type,
                     modelSlug: model,
                     supportsTools: false,
+                    supports_tool_calling: false,
+                    supports_structured_output: false,
+                    supports_reasoning: false,
                     supportsVision: false,
                     contextTokens: 8192,
                     maxOutputTokens: null,
@@ -313,6 +320,19 @@ export function ProviderSettingsPanel() {
             showToast({
                 message: status === "healthy" ? "Provider health check completed." : `Provider unhealthy${error ? `: ${error}` : "."}`,
                 severity: status === "healthy" ? "success" : "warning",
+            });
+        },
+    });
+
+    const healthSweepMutation = useMutation({
+        mutationFn: runProviderHealthChecks,
+        onSuccess: async (results) => {
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            const unhealthy = results.filter((item) => String(item.status ?? "") !== "healthy").length;
+            showToast({
+                message: unhealthy ? `${unhealthy} provider(s) need attention.` : "All enabled providers are healthy.",
+                severity: unhealthy ? "warning" : "success",
             });
         },
     });
@@ -559,6 +579,16 @@ export function ProviderSettingsPanel() {
                     description="Status is backed by explicit test requests and periodic Celery beat health checks."
                 >
                     <Stack spacing={1.5}>
+                        <Stack direction="row" justifyContent="flex-end">
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => healthSweepMutation.mutate()}
+                                disabled={healthSweepMutation.isPending || providers.length === 0}
+                            >
+                                {healthSweepMutation.isPending ? "Checking providers…" : "Check all providers"}
+                            </Button>
+                        </Stack>
                         {providers.map((provider) => {
                             const discoveredCount = Array.isArray(provider.metadata?.discovered_models)
                                 ? provider.metadata.discovered_models.length
@@ -824,6 +854,9 @@ export function ProviderSettingsPanel() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                                     <Chip size="small" label={item.supportsTools ? "tools" : "no-tools"} />
+                                    <Chip size="small" label={item.supports_tool_calling ? "tool-calling" : "no-tool-calling"} />
+                                    <Chip size="small" label={item.supports_structured_output ? "structured-output" : "text-only-output"} />
+                                    <Chip size="small" label={item.supports_reasoning ? "reasoning" : "no-reasoning"} />
                                     <Chip size="small" label={item.supportsVision ? "vision" : "text-only"} />
                                     <Chip size="small" label={item.contextTokens ? `${item.contextTokens.toLocaleString()} ctx` : "ctx —"} />
                                     <Chip size="small" label={item.maxOutputTokens ? `${item.maxOutputTokens.toLocaleString()} out` : "out —"} />

@@ -1,5 +1,5 @@
 import { Alert, Divider, ListSubheader, MenuItem, Stack, TextField } from "@mui/material";
-import { useMemo } from "react";
+import { useMemo, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -110,7 +110,7 @@ export function TemplateBuilderView({
         [modelGroups],
     );
     const renderModelOptions = (currentValue: string, allowNone: boolean) => {
-        const items: JSX.Element[] = [];
+        const items: ReactElement[] = [];
         if (allowNone) {
             items.push(
                 <MenuItem key="__none" value="">

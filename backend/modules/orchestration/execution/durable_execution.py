@@ -1,22 +1,53 @@
 """Durable orchestration enqueueing (control plane).
 
-**Today:** Celery + Redis broker deliver at-least-once execution of ``run_orchestration_task``
-(see ``backend/workers/orchestration.py`` and ADR 0002).
-
-**Future:** A Temporal (or similar) backend can implement the same contract for cross-process
-replay, signals, and long-lived workflow state without changing API callers (ADR 0004).
-
-Callers should use :func:`submit_orchestration_run` instead of importing Celery tasks directly
-so the enqueue path stays centralized.
+Celery + Redis is the active durable backend. Runs remain recoverable because the worker
+persists checkpoints, signals, query snapshots, and workflow steps in Postgres before and during
+execution. The adapter boundary is intentionally small so a Temporal worker can replace the
+transport later without changing API callers.
 """
 
 from __future__ import annotations
 
+from backend.core.config import settings
+from backend.core.logging import get_logger
+
+SUPPORTED_DURABLE_BACKENDS = frozenset({"celery"})
+NON_CLAIMABLE_RUN_STATUSES = frozenset(
+    {"in_progress", "completed", "cancelled", "awaiting_approval"}
+)
+
+
+def is_run_execution_claimable(status: str | None) -> bool:
+    """Prevent duplicate deliveries from starting an already active/terminal run."""
+    return str(status or "").strip().lower() not in NON_CLAIMABLE_RUN_STATUSES
+
+
+def durable_backend_status() -> dict[str, object]:
+    configured = str(settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND or "celery").strip().lower()
+    return {
+        "configured": configured,
+        "active": "celery" if configured == "celery" else None,
+        "available": configured in SUPPORTED_DURABLE_BACKENDS,
+        "delivery": "at_least_once" if configured == "celery" else None,
+        "checkpointed": True,
+        "temporal_adapter_ready": True,
+        "temporal_worker_available": False,
+    }
+
 
 def submit_orchestration_run(run_id: str) -> None:
-    """Submit a task run to the configured durable queue (Celery)."""
-    import logging
-    logger = logging.getLogger(__name__)
+    """Submit a task run to the configured durable queue.
+
+    Fail closed for unsupported backends instead of silently queueing to Celery when an operator
+    explicitly configured another backend.
+    """
+    backend = str(settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND or "celery").strip().lower()
+    if backend not in SUPPORTED_DURABLE_BACKENDS:
+        raise RuntimeError(
+            f"Durable orchestration backend '{backend}' is configured but unavailable. "
+            "Use celery or install/configure the Temporal worker adapter."
+        )
+    logger = get_logger(__name__)
     logger.info(f"[SUBMIT] Submitting orchestration run {run_id}")
     from backend.workers.orchestration import queue_orchestration_run
 

@@ -8,11 +8,21 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
+from backend.api.deps.orchestration import (
+    get_execution_service,
+    get_github_sync_service,
+    get_knowledge_service,
+    get_memory_service,
+)
 from backend.core.config import settings
 from backend.core.http_cache import apply_private_list_cache_headers, compute_documents_etag
 from backend.db.session import SessionLocal, get_db
+from backend.modules.audit.repository import AuditRepository
 from backend.modules.identity_access.models import User
+from backend.modules.observability.metrics import record_sse_event
+from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.models import ApprovalRequest
+from backend.modules.orchestration.routers.approvals import router as approvals_router
 from backend.modules.orchestration.schemas import (
     ActiveRunSummary,
     AgentCreate,
@@ -20,6 +30,7 @@ from backend.modules.orchestration.schemas import (
     AgentInheritancePreview,
     AgentLintSummary,
     AgentMarkdownValidationResponse,
+    AgentMemoryEntryCreate,
     AgentMemoryEntryResponse,
     AgentQualityScoreResponse,
     AgentResolvedProfile,
@@ -35,10 +46,13 @@ from backend.modules.orchestration.schemas import (
     AgentWorkSessionResponse,
     AgentWorkSessionUpdate,
     ApprovalResponse,
+    BrainstormArtifactResponse,
     BrainstormCreate,
     BrainstormDiscourseInsightsResponse,
     BrainstormMessageResponse,
+    BrainstormParticipantCreate,
     BrainstormParticipantResponse,
+    BrainstormParticipantUpdate,
     BrainstormResponse,
     CostAggregationResponse,
     DagParallelStartPayload,
@@ -55,6 +69,9 @@ from backend.modules.orchestration.schemas import (
     GateConfigResponse,
     GateConfigUpdate,
     GithubSyncEventResponse,
+    HierarchyPolicyResponse,
+    HierarchyPolicyUpdate,
+    HITLAuditLogResponse,
     KnowledgeGraphEdgeCreate,
     KnowledgeGraphEdgeResponse,
     KnowledgeSearchResultResponse,
@@ -99,6 +116,7 @@ from backend.modules.orchestration.schemas import (
     ProviderConfigCreate,
     ProviderConfigResponse,
     ProviderConfigUpdate,
+    ProviderHealthSummaryResponse,
     ProviderModelListResponse,
     ReplayRunRequest,
     RunCostSummaryResponse,
@@ -120,6 +138,8 @@ from backend.modules.orchestration.schemas import (
     TaskAcceptanceCheckResponse,
     TaskArtifactCreate,
     TaskArtifactResponse,
+    TaskAssignmentRequest,
+    TaskBlockerResponse,
     TaskCommentCreate,
     TaskCommentResponse,
     TaskCreate,
@@ -138,22 +158,15 @@ from backend.modules.orchestration.schemas import (
     TeamTemplateResponse,
     TeamTemplateUpdate,
     WorkflowSignalRequest,
+    WorkflowTemplateApplyResponse,
     WorkflowTemplateResponse,
     WorkingMemoryPatch,
     WorkingMemoryResponse,
-)
-from backend.api.deps.orchestration import (
-    get_execution_service,
-    get_github_sync_service,
-    get_knowledge_service,
-    get_memory_service,
-    get_orchestration_service,
 )
 from backend.modules.orchestration.services.execution_domain import ExecutionService
 from backend.modules.orchestration.services.github_sync_domain import GithubSyncService
 from backend.modules.orchestration.services.knowledge_domain import KnowledgeService
 from backend.modules.orchestration.services.memory_domain import MemoryService
-from backend.modules.orchestration.routers.approvals import router as approvals_router
 from backend.modules.orchestration.services.service import OrchestrationService
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.schemas import (
@@ -165,6 +178,33 @@ from backend.modules.team.schemas import (
 router = APIRouter()
 public_router = APIRouter()
 router.include_router(approvals_router)
+
+
+@router.get("/hitl/audit-logs", response_model=list[HITLAuditLogResponse])
+async def list_hitl_audit_logs(
+    limit: int = Query(default=100, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    logs = await AuditRepository(db).list_for_user(current_user.id, limit=limit)
+    rows: list[HITLAuditLogResponse] = []
+    for log in logs:
+        try:
+            metadata = json.loads(log.metadata_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            metadata = {}
+        rows.append(
+            HITLAuditLogResponse(
+                id=log.id,
+                user_id=log.user_id,
+                action=log.action,
+                resource_type=log.resource_type,
+                resource_id=log.resource_id,
+                metadata=metadata if isinstance(metadata, dict) else {},
+                created_at=log.created_at,
+            )
+        )
+    return rows
 
 
 def _agent(item) -> AgentResponse:
@@ -190,6 +230,8 @@ def _agent(item) -> AgentResponse:
         allowed_tools=item.allowed_tools_json,
         skills=item.skills_json,
         model_policy=item.model_policy_json,
+        permissions=(item.model_policy_json or {}).get("permissions"),
+        escalation_path=(item.model_policy_json or {}).get("escalation_path"),
         visibility=item.visibility,
         is_active=item.is_active,
         tags=item.tags_json,
@@ -198,6 +240,7 @@ def _agent(item) -> AgentResponse:
         retry_limit=item.retry_limit,
         memory_policy=item.memory_policy_json,
         output_schema=item.output_schema_json,
+        task_filters=list((item.metadata_json or {}).get("task_filters") or []),
         inheritance=(
             AgentInheritancePreview(
                 parent_template_slug=inheritance_payload.get("parent_template_slug"),
@@ -251,6 +294,9 @@ def _model_capability(item) -> ModelCapabilityResponse:
         model_slug=item.model_slug,
         display_name=item.display_name,
         supports_tools=item.supports_tools,
+        supports_tool_calling=bool(metadata.get("supports_tool_calling", item.supports_tools)),
+        supports_structured_output=bool(metadata.get("supports_structured_output", False)),
+        supports_reasoning=bool(metadata.get("supports_reasoning", False)),
         supports_vision=item.supports_vision,
         max_context_tokens=item.max_context_tokens,
         cost_per_1k_input=item.cost_per_1k_input,
@@ -350,6 +396,8 @@ def _task(
         due_date=item.due_date,
         response_sla_hours=getattr(item, "response_sla_hours", None),
         labels=item.labels_json,
+        required_tools=list((item.metadata_json or {}).get("required_tools") or []),
+        external_links=list((item.metadata_json or {}).get("external_links") or []),
         result_summary=item.result_summary,
         result_payload=item.result_payload_json,
         position=item.position,
@@ -484,6 +532,13 @@ def _semantic_entry(item) -> SemanticMemoryEntryResponse:
         provenance=provenance,
         confidence=get_confidence(provenance),
         created_by_user_id=item.created_by_user_id,
+        ttl_days=getattr(item, "ttl_days", None),
+        expires_at=getattr(item, "expires_at", None),
+        deleted_at=getattr(item, "deleted_at", None),
+        retention_policy=getattr(item, "retention_policy", "default"),
+        memory_version=getattr(item, "memory_version", 1),
+        embedding_model=getattr(item, "embedding_model", None),
+        embedding_version=getattr(item, "embedding_version", None),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -527,7 +582,7 @@ def _event(item) -> RunEventResponse:
         level=item.level,
         event_type=item.event_type,
         message=item.message,
-        payload=item.payload_json,
+        payload=redact_approval_payload(item.payload_json),
         input_tokens=item.input_tokens,
         output_tokens=item.output_tokens,
         cost_usd_micros=item.cost_usd_micros,
@@ -570,7 +625,10 @@ def _brainstorm(item) -> BrainstormResponse:
         topic=item.topic,
         status=item.status,
         mode=extras.get("mode", (item.stop_conditions_json or {}).get("mode", "exploration")),
-        output_type=extras.get("output_type", (item.stop_conditions_json or {}).get("output_type", "implementation_plan")),
+        output_type=extras.get(
+            "output_type",
+            (item.stop_conditions_json or {}).get("output_type", "implementation_plan"),
+        ),
         max_rounds=item.max_rounds,
         stop_conditions=item.stop_conditions_json,
         participant_count=extras.get("participant_count", 0),
@@ -781,22 +839,66 @@ async def update_orchestration_portfolio_execution_policy(
     return PortfolioExecutionPolicyResponse(**data)
 
 
-async def _live_snapshot_stream(snapshot_factory):
+_sse_slots = asyncio.Semaphore(max(1, settings.SSE_MAX_CONNECTIONS))
+
+
+async def _live_snapshot_stream(snapshot_factory, *, request: Request, stream_name: str):
+    try:
+        await asyncio.wait_for(_sse_slots.acquire(), timeout=0.05)
+    except TimeoutError:
+        record_sse_event(stream_name, "rejected")
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Live stream capacity is temporarily exhausted"},
+            headers={"Retry-After": "5"},
+        )
+
     last_signature: str | None = None
+    record_sse_event(stream_name, "opened", delta_connections=1)
 
     async def event_stream():
         nonlocal last_signature
-        for tick in range(900):
-            snapshot = await snapshot_factory()
-            payload = json.dumps(snapshot, default=str, sort_keys=True)
-            if payload != last_signature:
-                last_signature = payload
-                yield f"event: snapshot\ndata: {payload}\n\n"
-            elif tick % 10 == 0:
-                yield "event: heartbeat\ndata: {}\n\n"
-            await asyncio.sleep(2)
+        loop = asyncio.get_running_loop()
+        started_at = loop.time()
+        last_heartbeat_at = started_at
+        try:
+            while loop.time() - started_at < settings.SSE_MAX_DURATION_SECONDS:
+                if await request.is_disconnected():
+                    record_sse_event(stream_name, "disconnected")
+                    return
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+                snapshot = await snapshot_factory()
+                payload = json.dumps(snapshot, default=str, sort_keys=True)
+                now = loop.time()
+                if len(payload.encode("utf-8")) > settings.SSE_MAX_PAYLOAD_BYTES:
+                    record_sse_event(stream_name, "payload_dropped")
+                elif payload != last_signature:
+                    last_signature = payload
+                    last_heartbeat_at = now
+                    record_sse_event(stream_name, "snapshot")
+                    yield f"event: snapshot\ndata: {payload}\n\n"
+                elif now - last_heartbeat_at >= settings.SSE_HEARTBEAT_SECONDS:
+                    last_heartbeat_at = now
+                    record_sse_event(stream_name, "heartbeat")
+                    yield "event: heartbeat\ndata: {}\n\n"
+
+                await asyncio.sleep(max(0.1, settings.SSE_POLL_INTERVAL_SECONDS))
+        except asyncio.CancelledError:
+            record_sse_event(stream_name, "cancelled")
+            raise
+        finally:
+            _sse_slots.release()
+            record_sse_event(stream_name, "closed", delta_connections=-1)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 async def _with_fresh_orchestration_session(callback):
@@ -815,23 +917,29 @@ async def _with_fresh_orchestration_session(callback):
 
 @router.get("/portfolio/stream")
 async def orchestration_portfolio_stream(
+    request: Request,
     current_user: User = Depends(get_current_user),
 ):
     return await _live_snapshot_stream(
         lambda: _with_fresh_orchestration_session(
             lambda service: service.portfolio_live_snapshot(current_user)
-        )
+        ),
+        request=request,
+        stream_name="portfolio",
     )
 
 
 @router.get("/hierarchy/stream")
 async def hierarchy_stream(
+    request: Request,
     current_user: User = Depends(get_current_user),
 ):
     return await _live_snapshot_stream(
         lambda: _with_fresh_orchestration_session(
             lambda service: service.hierarchy_live_snapshot(current_user)
-        )
+        ),
+        request=request,
+        stream_name="hierarchy",
     )
 
 
@@ -850,6 +958,24 @@ async def validate_markdown(
         errors=errors,
         warnings=warnings,
         activation_ready=not errors,
+    )
+
+
+@router.post("/agents/validate-contract", response_model=AgentMarkdownValidationResponse)
+async def validate_agent_contract(
+    payload: AgentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    contract_payload = payload.model_dump(exclude_none=True)
+    lint = await service.lint_agent_payload_detailed(current_user, contract_payload)
+    return AgentMarkdownValidationResponse(
+        valid=not lint["errors"],
+        normalized=contract_payload,
+        errors=list(lint["errors"]),
+        warnings=list(lint["warnings"]),
+        activation_ready=bool(lint["activation_ready"]),
     )
 
 
@@ -924,7 +1050,9 @@ async def list_skill_catalog(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [SkillPackResponse(**item) for item in await OrchestrationService(db).list_skill_catalog()]
+    return [
+        SkillPackResponse(**item) for item in await OrchestrationService(db).list_skill_catalog()
+    ]
 
 
 @router.post("/agents/skills", response_model=SkillPackResponse, status_code=201)
@@ -944,7 +1072,9 @@ async def update_skill_pack(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await OrchestrationService(db).update_skill_pack(slug, payload.model_dump(exclude_unset=True))
+    result = await OrchestrationService(db).update_skill_pack(
+        slug, payload.model_dump(exclude_unset=True)
+    )
     return SkillPackResponse(**result)
 
 
@@ -979,7 +1109,9 @@ async def create_agent_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await OrchestrationService(db).create_agent_template(payload.model_dump(exclude_none=True))
+    result = await OrchestrationService(db).create_agent_template(
+        payload.model_dump(exclude_none=True)
+    )
     return AgentTemplateResponse(**result)
 
 
@@ -1042,7 +1174,9 @@ async def create_team_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await OrchestrationService(db).create_team_template(payload.model_dump(exclude_none=True))
+    result = await OrchestrationService(db).create_team_template(
+        payload.model_dump(exclude_none=True)
+    )
     return TeamTemplateResponse(**result)
 
 
@@ -1112,7 +1246,9 @@ async def update_agent(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    agent = await service.update_agent(current_user, agent_id, payload.model_dump(exclude_unset=True))
+    agent = await service.update_agent(
+        current_user, agent_id, payload.model_dump(exclude_unset=True)
+    )
     agent.__orchestration_inheritance__ = await service.resolve_agent_inheritance(agent)
     agent.__orchestration_lint__ = await service.summarize_agent_lint(current_user, agent)
     return _agent(agent)
@@ -1176,7 +1312,10 @@ async def list_agent_versions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [AgentVersionResponse.model_validate(item) for item in await OrchestrationService(db).list_agent_versions(current_user, agent_id)]
+    return [
+        AgentVersionResponse.model_validate(item)
+        for item in await OrchestrationService(db).list_agent_versions(current_user, agent_id)
+    ]
 
 
 @router.get("/projects", response_model=list[ProjectResponse])
@@ -1193,7 +1332,9 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _project(await OrchestrationService(db).create_project(current_user, payload.model_dump()))
+    return _project(
+        await OrchestrationService(db).create_project(current_user, payload.model_dump())
+    )
 
 
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
@@ -1212,7 +1353,38 @@ async def update_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _project(await OrchestrationService(db).update_project(current_user, project_id, payload.model_dump(exclude_unset=True)))
+    return _project(
+        await OrchestrationService(db).update_project(
+            current_user, project_id, payload.model_dump(exclude_unset=True)
+        )
+    )
+
+
+@router.get("/projects/{project_id}/hierarchy-policy", response_model=HierarchyPolicyResponse)
+async def get_hierarchy_policy(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return HierarchyPolicyResponse(
+        **await OrchestrationService(db).get_hierarchy_policy(current_user, project_id)
+    )
+
+
+@router.put("/projects/{project_id}/hierarchy-policy", response_model=HierarchyPolicyResponse)
+async def update_hierarchy_policy(
+    project_id: str,
+    payload: HierarchyPolicyUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return HierarchyPolicyResponse(
+        **await OrchestrationService(db).update_hierarchy_policy(
+            current_user,
+            project_id,
+            payload.model_dump(exclude_unset=True),
+        )
+    )
 
 
 @router.post("/local-repo/validate", response_model=LocalRepoWorkspaceResponse)
@@ -1222,7 +1394,9 @@ async def validate_local_repo_workspace(
     current_user: User = Depends(get_current_user),
 ):
     return LocalRepoWorkspaceResponse(
-        **await OrchestrationService(db).validate_local_repo_workspace(current_user, payload.model_dump())
+        **await OrchestrationService(db).validate_local_repo_workspace(
+            current_user, payload.model_dump()
+        )
     )
 
 
@@ -1296,18 +1470,24 @@ async def list_project_agents(
     return [_project_agent_membership(item) for item in items]
 
 
-@router.post("/projects/{project_id}/agents", response_model=ProjectAgentMembershipResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/agents", response_model=ProjectAgentMembershipResponse, status_code=201
+)
 async def add_project_agent(
     project_id: str,
     payload: ProjectAgentMembershipCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = await OrchestrationService(db).add_project_agent(current_user, project_id, payload.model_dump(exclude_unset=True))
+    item = await OrchestrationService(db).add_project_agent(
+        current_user, project_id, payload.model_dump(exclude_unset=True)
+    )
     return _project_agent_membership(item)
 
 
-@router.patch("/projects/{project_id}/agents/{membership_id}", response_model=ProjectAgentMembershipResponse)
+@router.patch(
+    "/projects/{project_id}/agents/{membership_id}", response_model=ProjectAgentMembershipResponse
+)
 async def update_project_agent(
     project_id: str,
     membership_id: str,
@@ -1315,7 +1495,9 @@ async def update_project_agent(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = await OrchestrationService(db).update_project_agent(current_user, project_id, membership_id, payload.model_dump(exclude_unset=True))
+    item = await OrchestrationService(db).update_project_agent(
+        current_user, project_id, membership_id, payload.model_dump(exclude_unset=True)
+    )
     return _project_agent_membership(item)
 
 
@@ -1345,7 +1527,9 @@ async def update_gate_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).update_gate_config(current_user, project_id, payload.autonomy_level, payload.approval_gates)
+    return await OrchestrationService(db).update_gate_config(
+        current_user, project_id, payload.autonomy_level, payload.approval_gates
+    )
 
 
 @router.get("/projects/{project_id}/memory-settings", response_model=MemorySettingsResponse)
@@ -1371,7 +1555,9 @@ async def patch_project_memory_settings(
     return MemorySettingsResponse(**data)
 
 
-@router.get("/companies/{company_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse])
+@router.get(
+    "/companies/{company_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse]
+)
 async def list_company_semantic_memory(
     company_id: str,
     q: str | None = None,
@@ -1392,7 +1578,9 @@ async def list_company_semantic_memory(
     return [_semantic_entry(item) for item in rows]
 
 
-@router.get("/projects/{project_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse])
+@router.get(
+    "/projects/{project_id}/semantic-memory", response_model=list[SemanticMemoryEntryResponse]
+)
 async def list_semantic_memory(
     project_id: str,
     q: str | None = None,
@@ -1419,7 +1607,10 @@ async def list_semantic_memory(
 
 @router.post(
     "/projects/{project_id}/semantic-memory",
-    responses={201: {"model": SemanticMemoryEntryResponse}, 202: {"model": PendingSemanticWriteResponse}},
+    responses={
+        201: {"model": SemanticMemoryEntryResponse},
+        202: {"model": PendingSemanticWriteResponse},
+    },
 )
 async def create_semantic_memory(
     project_id: str,
@@ -1654,7 +1845,9 @@ async def delete_knowledge_graph_edge(
     return Response(status_code=204)
 
 
-@router.get("/projects/{project_id}/semantic-memory/{entry_id}", response_model=SemanticMemoryEntryResponse)
+@router.get(
+    "/projects/{project_id}/semantic-memory/{entry_id}", response_model=SemanticMemoryEntryResponse
+)
 async def get_semantic_memory(
     project_id: str,
     entry_id: str,
@@ -1669,7 +1862,10 @@ async def get_semantic_memory(
 
 @router.patch(
     "/projects/{project_id}/semantic-memory/{entry_id}",
-    responses={200: {"model": SemanticMemoryEntryResponse}, 202: {"model": PendingSemanticWriteResponse}},
+    responses={
+        200: {"model": SemanticMemoryEntryResponse},
+        202: {"model": PendingSemanticWriteResponse},
+    },
 )
 async def update_semantic_memory(
     project_id: str,
@@ -1797,7 +1993,9 @@ async def list_procedural_playbooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    rows = await OrchestrationService(db).list_procedural_playbooks_for_project(current_user, project_id)
+    rows = await OrchestrationService(db).list_procedural_playbooks_for_project(
+        current_user, project_id
+    )
     return [_procedural_playbook(item) for item in rows]
 
 
@@ -1848,16 +2046,26 @@ async def delete_procedural_playbook(
     return Response(status_code=204)
 
 
-@router.get("/projects/{project_id}/repositories", response_model=list[ProjectRepositoryLinkResponse])
+@router.get(
+    "/projects/{project_id}/repositories", response_model=list[ProjectRepositoryLinkResponse]
+)
 async def list_project_repositories(
     project_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_project_repo(item) for item in await OrchestrationService(db).list_project_repositories(current_user, project_id)]
+    return [
+        _project_repo(item)
+        for item in await OrchestrationService(db).list_project_repositories(
+            current_user, project_id
+        )
+    ]
 
 
-@router.patch("/projects/{project_id}/repositories/{repository_link_id}", response_model=ProjectRepositoryLinkResponse)
+@router.patch(
+    "/projects/{project_id}/repositories/{repository_link_id}",
+    response_model=ProjectRepositoryLinkResponse,
+)
 async def update_project_repository(
     project_id: str,
     repository_link_id: str,
@@ -1872,7 +2080,9 @@ async def update_project_repository(
     )
 
 
-@router.get("/projects/{project_id}/memory-ingest-jobs", response_model=list[MemoryIngestJobResponse])
+@router.get(
+    "/projects/{project_id}/memory-ingest-jobs", response_model=list[MemoryIngestJobResponse]
+)
 async def list_project_memory_ingest_jobs(
     project_id: str,
     limit: int = Query(60, ge=1, le=300),
@@ -1894,30 +2104,40 @@ async def project_repository_index_status(
     return await OrchestrationService(db).project_repository_index_status(current_user, project_id)
 
 
-@router.post("/projects/{project_id}/repositories", response_model=ProjectRepositoryLinkResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/repositories",
+    response_model=ProjectRepositoryLinkResponse,
+    status_code=201,
+)
 async def add_project_repository(
     project_id: str,
     payload: ProjectRepositoryLinkCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _project_repo(await OrchestrationService(db).add_project_repository(current_user, project_id, payload.model_dump()))
+    return _project_repo(
+        await OrchestrationService(db).add_project_repository(
+            current_user, project_id, payload.model_dump()
+        )
+    )
 
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
 async def list_tasks(
     project_id: str,
+    limit: int = Query(
+        settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
+        ge=1,
+        le=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    tasks = await service.list_tasks(current_user, project_id)
+    await service.get_project(current_user, project_id)
+    tasks, deps_by_task = await service.repo.list_tasks_with_dependencies(project_id, limit=limit)
     link_ids = [t.github_issue_link_id for t in tasks if t.github_issue_link_id]
     summaries = await service.github_issue_summaries_for_link_ids(link_ids)
-    dependencies = await service.repo.list_task_dependencies(project_id)
-    deps_by_task: dict[str, list[str]] = {}
-    for dep in dependencies:
-        deps_by_task.setdefault(dep.task_id, []).append(dep.depends_on_task_id)
     return [
         _task(
             item,
@@ -1942,7 +2162,11 @@ async def create_task(
         if item.github_issue_link_id
         else {}
     )
-    return _task(item, payload.dependency_ids, gh.get(item.github_issue_link_id) if item.github_issue_link_id else None)
+    return _task(
+        item,
+        payload.dependency_ids,
+        gh.get(item.github_issue_link_id) if item.github_issue_link_id else None,
+    )
 
 
 @router.get("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
@@ -1964,6 +2188,18 @@ async def get_task(
         item,
         [dep.depends_on_task_id for dep in dependencies if dep.task_id == task_id],
         gh.get(item.github_issue_link_id) if item.github_issue_link_id else None,
+    )
+
+
+@router.get("/projects/{project_id}/tasks/{task_id}/blockers", response_model=TaskBlockerResponse)
+async def get_task_blockers(
+    project_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return TaskBlockerResponse(
+        **await OrchestrationService(db).get_task_blockers(current_user, project_id, task_id)
     )
 
 
@@ -2015,7 +2251,9 @@ async def create_local_repo_worktree(
     current_user: User = Depends(get_current_user),
 ):
     return LocalRepoWorktreeResponse(
-        **await OrchestrationService(db).create_local_repo_worktree(current_user, project_id, task_id)
+        **await OrchestrationService(db).create_local_repo_worktree(
+            current_user, project_id, task_id
+        )
     )
 
 
@@ -2030,7 +2268,9 @@ async def build_local_repo_context_pack(
     current_user: User = Depends(get_current_user),
 ):
     return LocalRepoContextPackResponse(
-        **await OrchestrationService(db).build_local_repo_context_pack(current_user, project_id, task_id)
+        **await OrchestrationService(db).build_local_repo_context_pack(
+            current_user, project_id, task_id
+        )
     )
 
 
@@ -2079,10 +2319,14 @@ async def merge_resolution_preview(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).merge_resolution_preview(current_user, project_id, task_id)
+    return await OrchestrationService(db).merge_resolution_preview(
+        current_user, project_id, task_id
+    )
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/merge-resolve-run", response_model=TaskRunResponse)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/merge-resolve-run", response_model=TaskRunResponse
+)
 async def start_merge_resolution_run(
     project_id: str,
     task_id: str,
@@ -2105,7 +2349,39 @@ async def update_task(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    item = await service.update_task(current_user, project_id, task_id, payload.model_dump(exclude_unset=True))
+    item = await service.update_task(
+        current_user, project_id, task_id, payload.model_dump(exclude_unset=True)
+    )
+    gh = (
+        await service.github_issue_summaries_for_link_ids([item.github_issue_link_id])
+        if item.github_issue_link_id
+        else {}
+    )
+    dependencies = await service.repo.list_task_dependencies(project_id)
+    return _task(
+        item,
+        [dep.depends_on_task_id for dep in dependencies if dep.task_id == task_id],
+        gh.get(item.github_issue_link_id) if item.github_issue_link_id else None,
+    )
+
+
+@router.post("/projects/{project_id}/tasks/{task_id}/assign", response_model=TaskResponse)
+async def assign_task(
+    project_id: str,
+    task_id: str,
+    payload: TaskAssignmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Assign a task through the same HITL-protected path as manual edits."""
+    service = OrchestrationService(db)
+    item = await service.update_task(
+        current_user,
+        project_id,
+        task_id,
+        {"assigned_agent_id": payload.assigned_agent_id},
+        assignment_source=payload.source,
+    )
     gh = (
         await service.github_issue_summaries_for_link_ids([item.github_issue_link_id])
         if item.github_issue_link_id
@@ -2130,17 +2406,28 @@ async def delete_task(
     return Response(status_code=204)
 
 
-@router.get("/projects/{project_id}/tasks/{task_id}/comments", response_model=list[TaskCommentResponse])
+@router.get(
+    "/projects/{project_id}/tasks/{task_id}/comments", response_model=list[TaskCommentResponse]
+)
 async def list_task_comments(
     project_id: str,
     task_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [TaskCommentResponse.model_validate(item) for item in await OrchestrationService(db).list_task_comments(current_user, project_id, task_id)]
+    return [
+        TaskCommentResponse.model_validate(item)
+        for item in await OrchestrationService(db).list_task_comments(
+            current_user, project_id, task_id
+        )
+    ]
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/comments", response_model=TaskCommentResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/comments",
+    response_model=TaskCommentResponse,
+    status_code=201,
+)
 async def add_task_comment(
     project_id: str,
     task_id: str,
@@ -2148,10 +2435,16 @@ async def add_task_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return TaskCommentResponse.model_validate(await OrchestrationService(db).add_task_comment(current_user, project_id, task_id, payload.body))
+    return TaskCommentResponse.model_validate(
+        await OrchestrationService(db).add_task_comment(
+            current_user, project_id, task_id, payload.body
+        )
+    )
 
 
-@router.get("/projects/{project_id}/tasks/{task_id}/timeline", response_model=list[TaskTimelineEntry])
+@router.get(
+    "/projects/{project_id}/tasks/{task_id}/timeline", response_model=list[TaskTimelineEntry]
+)
 async def list_task_timeline(
     project_id: str,
     task_id: str,
@@ -2217,17 +2510,37 @@ async def patch_task_memory_coordination(
     )
 
 
-@router.get("/projects/{project_id}/tasks/{task_id}/artifacts", response_model=list[TaskArtifactResponse])
+@router.get(
+    "/projects/{project_id}/tasks/{task_id}/artifacts", response_model=list[TaskArtifactResponse]
+)
 async def list_task_artifacts(
     project_id: str,
     task_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [TaskArtifactResponse(id=item.id, task_id=item.task_id, run_id=item.run_id, kind=item.kind, title=item.title, content=item.content, metadata=item.metadata_json, created_at=item.created_at) for item in await OrchestrationService(db).list_task_artifacts(current_user, project_id, task_id)]
+    return [
+        TaskArtifactResponse(
+            id=item.id,
+            task_id=item.task_id,
+            run_id=item.run_id,
+            kind=item.kind,
+            title=item.title,
+            content=item.content,
+            metadata=item.metadata_json,
+            created_at=item.created_at,
+        )
+        for item in await OrchestrationService(db).list_task_artifacts(
+            current_user, project_id, task_id
+        )
+    ]
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/artifacts", response_model=TaskArtifactResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/artifacts",
+    response_model=TaskArtifactResponse,
+    status_code=201,
+)
 async def create_task_artifact(
     project_id: str,
     task_id: str,
@@ -2235,11 +2548,32 @@ async def create_task_artifact(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = await OrchestrationService(db).create_task_artifact(current_user, project_id, task_id, payload.kind, payload.title, payload.content, payload.metadata)
-    return TaskArtifactResponse(id=item.id, task_id=item.task_id, run_id=item.run_id, kind=item.kind, title=item.title, content=item.content, metadata=item.metadata_json, created_at=item.created_at)
+    item = await OrchestrationService(db).create_task_artifact(
+        current_user,
+        project_id,
+        task_id,
+        payload.kind,
+        payload.title,
+        payload.content,
+        payload.metadata,
+    )
+    return TaskArtifactResponse(
+        id=item.id,
+        task_id=item.task_id,
+        run_id=item.run_id,
+        kind=item.kind,
+        title=item.title,
+        content=item.content,
+        metadata=item.metadata_json,
+        created_at=item.created_at,
+    )
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/decompose", response_model=list[TaskResponse], status_code=201)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/decompose",
+    response_model=list[TaskResponse],
+    status_code=201,
+)
 async def decompose_task(
     project_id: str,
     task_id: str,
@@ -2248,7 +2582,9 @@ async def decompose_task(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    tasks = await service.decompose_task(current_user, project_id, task_id, payload.max_subtasks, payload.context)
+    tasks = await service.decompose_task(
+        current_user, project_id, task_id, payload.max_subtasks, payload.context
+    )
     return await _tasks_to_responses(service, tasks)
 
 
@@ -2264,7 +2600,10 @@ async def list_subtasks(
     return await _tasks_to_responses(service, tasks)
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/check-acceptance", response_model=TaskAcceptanceCheckResponse)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/check-acceptance",
+    response_model=TaskAcceptanceCheckResponse,
+)
 async def check_task_acceptance(
     project_id: str,
     task_id: str,
@@ -2283,17 +2622,29 @@ async def list_milestones(
     return await OrchestrationService(db).list_milestones(current_user, project_id)
 
 
-@router.post("/projects/{project_id}/milestones", response_model=ProjectMilestoneResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/milestones", response_model=ProjectMilestoneResponse, status_code=201
+)
 async def create_milestone(
     project_id: str,
     payload: ProjectMilestoneCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).create_milestone(current_user, project_id, payload.title, payload.description, payload.due_date, payload.status, payload.position)
+    return await OrchestrationService(db).create_milestone(
+        current_user,
+        project_id,
+        payload.title,
+        payload.description,
+        payload.due_date,
+        payload.status,
+        payload.position,
+    )
 
 
-@router.patch("/projects/{project_id}/milestones/{milestone_id}", response_model=ProjectMilestoneResponse)
+@router.patch(
+    "/projects/{project_id}/milestones/{milestone_id}", response_model=ProjectMilestoneResponse
+)
 async def update_milestone(
     project_id: str,
     milestone_id: str,
@@ -2301,7 +2652,9 @@ async def update_milestone(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).update_milestone(current_user, project_id, milestone_id, payload.model_dump(exclude_none=True))
+    return await OrchestrationService(db).update_milestone(
+        current_user, project_id, milestone_id, payload.model_dump(exclude_none=True)
+    )
 
 
 @router.get("/projects/{project_id}/decisions", response_model=list[ProjectDecisionResponse])
@@ -2310,20 +2663,38 @@ async def list_decisions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_project_decision(d) for d in await OrchestrationService(db).list_decisions(current_user, project_id)]
+    return [
+        _project_decision(d)
+        for d in await OrchestrationService(db).list_decisions(current_user, project_id)
+    ]
 
 
-@router.post("/projects/{project_id}/decisions", response_model=ProjectDecisionResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/decisions", response_model=ProjectDecisionResponse, status_code=201
+)
 async def create_decision(
     project_id: str,
     payload: ProjectDecisionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _project_decision(await OrchestrationService(db).create_decision(current_user, project_id, payload.title, payload.decision, payload.rationale, payload.author_label, payload.task_id, payload.brainstorm_id))
+    return _project_decision(
+        await OrchestrationService(db).create_decision(
+            current_user,
+            project_id,
+            payload.title,
+            payload.decision,
+            payload.rationale,
+            payload.author_label,
+            payload.task_id,
+            payload.brainstorm_id,
+        )
+    )
 
 
-@router.post("/projects/{project_id}/tasks/{task_id}/runs", response_model=TaskRunResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/runs", response_model=TaskRunResponse, status_code=201
+)
 async def start_task_run(
     project_id: str,
     task_id: str,
@@ -2346,7 +2717,10 @@ async def list_eval_records(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_eval(item) for item in await OrchestrationService(db).list_eval_records(current_user, project_id)]
+    return [
+        _eval(item)
+        for item in await OrchestrationService(db).list_eval_records(current_user, project_id)
+    ]
 
 
 @router.post("/projects/{project_id}/evals", response_model=EvalRecordResponse, status_code=201)
@@ -2356,7 +2730,11 @@ async def create_eval_record(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _eval(await OrchestrationService(db).create_eval_record(current_user, project_id, payload.model_dump()))
+    return _eval(
+        await OrchestrationService(db).create_eval_record(
+            current_user, project_id, payload.model_dump()
+        )
+    )
 
 
 @router.patch("/projects/{project_id}/evals/{eval_id}", response_model=EvalRecordResponse)
@@ -2391,10 +2769,14 @@ async def score_eval_record(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _eval(await OrchestrationService(db).score_eval_record(current_user, project_id, eval_id))
+    return _eval(
+        await OrchestrationService(db).score_eval_record(current_user, project_id, eval_id)
+    )
 
 
-@router.get("/projects/{project_id}/evals/leaderboard", response_model=list[EvalLeaderboardEntryResponse])
+@router.get(
+    "/projects/{project_id}/evals/leaderboard", response_model=list[EvalLeaderboardEntryResponse]
+)
 async def eval_leaderboard(
     project_id: str,
     db: AsyncSession = Depends(get_db),
@@ -2430,10 +2812,17 @@ async def benchmark_historical(
 @router.get("/runs", response_model=list[TaskRunResponse])
 async def list_runs(
     project_id: str | None = None,
+    limit: int = Query(
+        settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
+        ge=1,
+        le=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
+    ),
     current_user: User = Depends(get_current_user),
     execution: ExecutionService = Depends(get_execution_service),
 ):
-    return [_run(item) for item in await execution.list_task_runs(current_user, project_id)]
+    return [
+        _run(item) for item in await execution.list_task_runs(current_user, project_id, limit=limit)
+    ]
 
 
 @router.get("/runs/{run_id}", response_model=TaskRunResponse)
@@ -2463,7 +2852,11 @@ async def list_run_events(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    effective_limit = settings.RUN_EVENTS_DEFAULT_LIMIT if limit is None else min(limit, settings.RUN_EVENTS_MAX_LIMIT)
+    effective_limit = (
+        settings.RUN_EVENTS_DEFAULT_LIMIT
+        if limit is None
+        else min(limit, settings.RUN_EVENTS_MAX_LIMIT)
+    )
     items = await OrchestrationService(db).list_run_events(
         current_user, run_id, limit=effective_limit, offset=offset
     )
@@ -2516,15 +2909,21 @@ async def stream_run_events(
 
     async def event_stream():
         last_seen_at = None
+        last_seen_id = None
         terminal = {"completed", "failed", "cancelled", "blocked"}
         idle_loops = 0
         for _ in range(2400):  # up to 10 minutes at 250ms cadence
-            events = await service.repo.list_run_events_since(run_id, created_after=last_seen_at)
+            events = await service.repo.list_run_events_since(
+                run_id,
+                created_after=last_seen_at,
+                after_id=last_seen_id,
+            )
             if events:
                 idle_loops = 0
             for item in events:
                 last_seen_at = item.created_at
-                yield "event: run_event\n" f"data: {_event(item).model_dump_json()}\n\n"
+                last_seen_id = item.id
+                yield f"event: run_event\ndata: {_event(item).model_dump_json()}\n\n"
             run_obj = await service.repo.get_run(current_user.id, run_id)
             if run_obj and run_obj.status in terminal:
                 yield f"event: stream_end\ndata: {json.dumps({'event_type': 'stream_end', 'status': run_obj.status})}\n\n"
@@ -2534,7 +2933,15 @@ async def stream_run_events(
                 yield "event: heartbeat\ndata: {}\n\n"
             await asyncio.sleep(0.25)
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/runs/{run_id}/cancel", response_model=TaskRunResponse)
@@ -2607,12 +3014,17 @@ async def replay_run(
 
 @router.get("/github/sync-events/stream")
 async def github_sync_events_stream(
+    request: Request,
     project_id: str | None = None,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = OrchestrationService(db)
-    return await _live_snapshot_stream(lambda: service.github_live_snapshot(current_user, project_id))
+    return await _live_snapshot_stream(
+        lambda: _with_fresh_orchestration_session(
+            lambda service: service.github_live_snapshot(current_user, project_id)
+        ),
+        request=request,
+        stream_name="github",
+    )
 
 
 @router.post("/github/sync-events/{sync_event_id}/replay")
@@ -2676,7 +3088,9 @@ async def simulate_agent(
     current_user: User = Depends(get_current_user),
 ):
     scenarios = payload.get("scenarios") if isinstance(payload, dict) else None
-    return await OrchestrationService(db).run_agent_simulation(current_user, agent_id, scenarios=scenarios)
+    return await OrchestrationService(db).run_agent_simulation(
+        current_user, agent_id, scenarios=scenarios
+    )
 
 
 @router.post("/projects/bootstrap-from-text")
@@ -2685,7 +3099,9 @@ async def bootstrap_project_from_text(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).bootstrap_project_from_text(current_user, str(payload.get("prompt") or ""))
+    return await OrchestrationService(db).bootstrap_project_from_text(
+        current_user, str(payload.get("prompt") or "")
+    )
 
 
 @router.post("/projects/bootstrap-apply", response_model=ProjectResponse, status_code=201)
@@ -2722,7 +3138,9 @@ async def save_custom_workflow_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await OrchestrationService(db).save_custom_workflow_template(current_user, project_id, payload)
+    return await OrchestrationService(db).save_custom_workflow_template(
+        current_user, project_id, payload
+    )
 
 
 @router.get("/skills/marketplace")
@@ -2782,13 +3200,31 @@ async def list_workflow_templates(current_user: User = Depends(get_current_user)
     return [WorkflowTemplateResponse(**item) for item in BUILTIN_WORKFLOW_TEMPLATES]
 
 
+@router.post(
+    "/projects/{project_id}/workflow-templates/{template_id}/apply",
+    response_model=WorkflowTemplateApplyResponse,
+)
+async def apply_workflow_template(
+    project_id: str,
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).apply_workflow_template(
+        current_user, project_id, template_id
+    )
+
+
 @router.get("/providers", response_model=list[ProviderConfigResponse])
 async def list_providers(
     project_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_provider(item) for item in await OrchestrationService(db).list_providers(current_user, project_id)]
+    return [
+        _provider(item)
+        for item in await OrchestrationService(db).list_providers(current_user, project_id)
+    ]
 
 
 @router.post("/providers", response_model=ProviderConfigResponse, status_code=201)
@@ -2797,7 +3233,9 @@ async def create_provider(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _provider(await OrchestrationService(db).create_provider(current_user, payload.model_dump()))
+    return _provider(
+        await OrchestrationService(db).create_provider(current_user, payload.model_dump())
+    )
 
 
 @router.patch("/providers/{provider_id}", response_model=ProviderConfigResponse)
@@ -2807,7 +3245,11 @@ async def update_provider(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _provider(await OrchestrationService(db).update_provider(current_user, provider_id, payload.model_dump(exclude_unset=True)))
+    return _provider(
+        await OrchestrationService(db).update_provider(
+            current_user, provider_id, payload.model_dump(exclude_unset=True)
+        )
+    )
 
 
 @router.delete("/providers/{provider_id}", status_code=204)
@@ -2829,6 +3271,22 @@ async def test_provider_connection(
     return await OrchestrationService(db).test_provider(current_user, provider_id)
 
 
+@router.post("/providers/health-check")
+async def health_check_providers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).run_provider_health_checks_for_user(current_user)
+
+
+@router.get("/providers/health-summary", response_model=list[ProviderHealthSummaryResponse])
+async def provider_health_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).provider_health_summary(current_user)
+
+
 @router.get("/providers/{provider_id}/models", response_model=ProviderModelListResponse)
 async def list_provider_models(
     provider_id: str,
@@ -2843,8 +3301,10 @@ async def list_model_capabilities(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _ = current_user
-    return [_model_capability(item) for item in await OrchestrationService(db).list_model_capabilities()]
+    return [
+        _model_capability(item)
+        for item in await OrchestrationService(db).list_model_capabilities(current_user)
+    ]
 
 
 @router.post("/providers/compare", response_model=ProviderCompareResponse)
@@ -2862,7 +3322,10 @@ async def list_brainstorms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_brainstorm(item) for item in await OrchestrationService(db).list_brainstorms(current_user, project_id)]
+    return [
+        _brainstorm(item)
+        for item in await OrchestrationService(db).list_brainstorms(current_user, project_id)
+    ]
 
 
 @router.post("/brainstorms", response_model=BrainstormResponse, status_code=201)
@@ -2871,7 +3334,9 @@ async def create_brainstorm(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _brainstorm(await OrchestrationService(db).create_brainstorm(current_user, payload.model_dump()))
+    return _brainstorm(
+        await OrchestrationService(db).create_brainstorm(current_user, payload.model_dump())
+    )
 
 
 @router.get("/brainstorms/{brainstorm_id}", response_model=BrainstormResponse)
@@ -2883,13 +3348,73 @@ async def get_brainstorm(
     return _brainstorm(await OrchestrationService(db).get_brainstorm(current_user, brainstorm_id))
 
 
-@router.get("/brainstorms/{brainstorm_id}/participants", response_model=list[BrainstormParticipantResponse])
+@router.get(
+    "/brainstorms/{brainstorm_id}/participants", response_model=list[BrainstormParticipantResponse]
+)
 async def list_brainstorm_participants(
     brainstorm_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_brainstorm_participant(item) for item in await OrchestrationService(db).list_brainstorm_participants(current_user, brainstorm_id)]
+    return [
+        _brainstorm_participant(item)
+        for item in await OrchestrationService(db).list_brainstorm_participants(
+            current_user, brainstorm_id
+        )
+    ]
+
+
+@router.post(
+    "/brainstorms/{brainstorm_id}/participants",
+    response_model=BrainstormParticipantResponse,
+    status_code=201,
+)
+async def add_brainstorm_participant(
+    brainstorm_id: str,
+    payload: BrainstormParticipantCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).add_brainstorm_participant(
+        current_user,
+        brainstorm_id,
+        payload.agent_id,
+        payload.stance,
+    )
+    return _brainstorm_participant(item)
+
+
+@router.patch(
+    "/brainstorms/{brainstorm_id}/participants/{participant_id}",
+    response_model=BrainstormParticipantResponse,
+)
+async def update_brainstorm_participant(
+    brainstorm_id: str,
+    participant_id: str,
+    payload: BrainstormParticipantUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).update_brainstorm_participant(
+        current_user,
+        brainstorm_id,
+        participant_id,
+        payload.model_dump(exclude_unset=True),
+    )
+    return _brainstorm_participant(item)
+
+
+@router.delete("/brainstorms/{brainstorm_id}/participants/{participant_id}", status_code=204)
+async def remove_brainstorm_participant(
+    brainstorm_id: str,
+    participant_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await OrchestrationService(db).remove_brainstorm_participant(
+        current_user, brainstorm_id, participant_id
+    )
+    return Response(status_code=204)
 
 
 @router.get("/brainstorms/{brainstorm_id}/messages", response_model=list[BrainstormMessageResponse])
@@ -2898,10 +3423,18 @@ async def list_brainstorm_messages(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_brainstorm_message(item) for item in await OrchestrationService(db).list_brainstorm_messages(current_user, brainstorm_id)]
+    return [
+        _brainstorm_message(item)
+        for item in await OrchestrationService(db).list_brainstorm_messages(
+            current_user, brainstorm_id
+        )
+    ]
 
 
-@router.get("/brainstorms/{brainstorm_id}/discourse-insights", response_model=BrainstormDiscourseInsightsResponse)
+@router.get(
+    "/brainstorms/{brainstorm_id}/discourse-insights",
+    response_model=BrainstormDiscourseInsightsResponse,
+)
 async def brainstorm_discourse_insights(
     brainstorm_id: str,
     db: AsyncSession = Depends(get_db),
@@ -2935,7 +3468,9 @@ async def force_brainstorm_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _brainstorm(await OrchestrationService(db).force_brainstorm_summary(current_user, brainstorm_id))
+    return _brainstorm(
+        await OrchestrationService(db).force_brainstorm_summary(current_user, brainstorm_id)
+    )
 
 
 @router.post("/brainstorms/{brainstorm_id}/promote", response_model=list[TaskResponse])
@@ -2955,16 +3490,35 @@ async def promote_brainstorm_adr(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _project_decision(await OrchestrationService(db).promote_brainstorm_to_adr(current_user, brainstorm_id))
+    return _project_decision(
+        await OrchestrationService(db).promote_brainstorm_to_adr(current_user, brainstorm_id)
+    )
 
 
-@router.post("/brainstorms/{brainstorm_id}/promote-document", response_model=ProjectDocumentResponse)
+@router.post(
+    "/brainstorms/{brainstorm_id}/promote-document", response_model=ProjectDocumentResponse
+)
 async def promote_brainstorm_document(
     brainstorm_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return _document(await OrchestrationService(db).promote_brainstorm_to_document(current_user, brainstorm_id))
+    return _document(
+        await OrchestrationService(db).promote_brainstorm_to_document(current_user, brainstorm_id)
+    )
+
+
+@router.post(
+    "/brainstorms/{brainstorm_id}/export-artifact", response_model=BrainstormArtifactResponse
+)
+async def export_brainstorm_artifact(
+    brainstorm_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return BrainstormArtifactResponse(
+        **await OrchestrationService(db).export_brainstorm_artifact(current_user, brainstorm_id)
+    )
 
 
 @public_router.post("/webhooks/incidents")
@@ -3008,7 +3562,9 @@ async def list_documents(
     return [_document(item) for item in rows]
 
 
-@router.post("/projects/{project_id}/documents", response_model=ProjectDocumentResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/documents", response_model=ProjectDocumentResponse, status_code=201
+)
 async def upload_document(
     project_id: str,
     file: UploadFile = File(...),
@@ -3078,6 +3634,30 @@ async def list_project_memory(
     ]
 
 
+@router.post("/projects/{project_id}/memory", status_code=201)
+async def create_project_memory(
+    project_id: str,
+    payload: AgentMemoryEntryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await OrchestrationService(db).create_project_agent_memory(
+        current_user,
+        project_id,
+        **payload.model_dump(),
+    )
+    if isinstance(item, ApprovalRequest):
+        return JSONResponse(
+            status_code=202,
+            content={
+                "pending": True,
+                "approval_id": item.id,
+                "approval_type": item.approval_type,
+            },
+        )
+    return _memory(item)
+
+
 @router.delete("/projects/{project_id}/memory/{memory_id}", status_code=204)
 async def delete_project_memory(
     project_id: str,
@@ -3105,11 +3685,16 @@ async def index_repository(
 @router.get("/projects/{project_id}/stream")
 async def project_stream(
     project_id: str,
-    db: AsyncSession = Depends(get_db),
+    request: Request,
     current_user: User = Depends(get_current_user),
 ):
-    service = OrchestrationService(db)
-    return await _live_snapshot_stream(lambda: service.project_live_snapshot(current_user, project_id))
+    return await _live_snapshot_stream(
+        lambda: _with_fresh_orchestration_session(
+            lambda service: service.project_live_snapshot(current_user, project_id)
+        ),
+        request=request,
+        stream_name="project",
+    )
 
 
 @router.get("/projects/{project_id}/live-snapshot", response_model=ProjectLiveSnapshotResponse)

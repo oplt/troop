@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.ai.providers import AiProviderRegistry
 from backend.modules.rag.config import RagConfig
 from backend.modules.rag.observability import log_rag_event
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EmbeddingService:

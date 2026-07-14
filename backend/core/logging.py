@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -6,6 +7,30 @@ from backend.core.config import settings
 
 _REPO_DIR = Path(__file__).resolve().parents[2]
 _LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+_SENSITIVE_VALUE_PATTERN = re.compile(
+    r"(?i)(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|private[_-]?key)\b\s*[=:]\s*)([^\s,;]+)"
+)
+_BEARER_PATTERN = re.compile(r"(?i)(\bBearer\s+)[^\s,;]+")
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Return the application logger through one shared acquisition point."""
+    return logging.getLogger(name)
+
+
+def _redact_sensitive_values(value: str) -> str:
+    value = _SENSITIVE_VALUE_PATTERN.sub(r"\1[REDACTED]", value)
+    return _BEARER_PATTERN.sub(r"\1[REDACTED]", value)
+
+
+class _RedactSensitiveValues(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Resolve %-style arguments before redaction and clear them so the
+        # handler cannot interpolate the original secret a second time.
+        message = _redact_sensitive_values(record.getMessage())
+        record.msg = message
+        record.args = ()
+        return True
 
 
 class _IgnoreSqlalchemyPoolCancelledTerminate(logging.Filter):
@@ -31,6 +56,8 @@ def _add_common_filter(handler: logging.Handler) -> None:
         for existing in handler.filters
     ):
         handler.addFilter(_IgnoreSqlalchemyPoolCancelledTerminate())
+    if not any(isinstance(existing, _RedactSensitiveValues) for existing in handler.filters):
+        handler.addFilter(_RedactSensitiveValues())
 
 
 def _add_daily_file_handler(root_logger: logging.Logger) -> None:

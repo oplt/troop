@@ -584,6 +584,10 @@ class HierarchyControlPlaneService:
             "pending_approval_count": len([approval for approval in approvals if approval.status == "pending"]),
         }
 
+    def serialize_task(self, item: OrchestratorTask, approvals: list[ApprovalRequest] | None = None) -> dict[str, Any]:
+        """Return the public task contract shared by REST, GraphQL, and workers."""
+        return self._serialize_task(item, approvals or [])
+
     def _serialize_run(self, item: TaskRun) -> dict[str, Any]:
         return {
             "id": item.id,
@@ -598,6 +602,10 @@ class HierarchyControlPlaneService:
             "started_at": item.started_at,
             "completed_at": item.completed_at,
         }
+
+    def serialize_run(self, item: TaskRun) -> dict[str, Any]:
+        """Return the public run contract without exposing private serializer details."""
+        return self._serialize_run(item)
 
     def _serialize_approval(self, item: ApprovalRequest) -> dict[str, Any]:
         return {
@@ -620,6 +628,10 @@ class HierarchyControlPlaneService:
             "consensus_status": item.consensus_status,
             "updated_at": item.updated_at,
         }
+
+    def serialize_brainstorm(self, item: Brainstorm) -> dict[str, Any]:
+        """Return the public brainstorm contract used by API adapters."""
+        return self._serialize_brainstorm(item)
 
     def _serialize_provider_model(
         self,

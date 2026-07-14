@@ -31,6 +31,9 @@ DEFAULT_MEMORY_SETTINGS: dict[str, Any] = {
     "compaction_on_task_close_enabled": True,
     "task_close_archive_unpromoted_memory": True,
     "task_close_low_value_archive_days": 14,
+    "default_ttl_days": 0,
+    "max_ttl_days": 3650,
+    "context_max_tokens": 700,
     # Memory layer (mem0-inspired unified API over semantic storage)
     "memory_layer_enabled": True,
     "layer": {

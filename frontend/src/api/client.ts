@@ -16,6 +16,18 @@ export class SessionExpiredError extends Error {
     }
 }
 
+export class ApiRequestError extends Error {
+    readonly status: number;
+    readonly detail: unknown;
+
+    constructor(message: string, status: number, detail: unknown) {
+        super(message);
+        this.name = "ApiRequestError";
+        this.status = status;
+        this.detail = detail;
+    }
+}
+
 export function markAuthStateChanged() {
     authStateVersion += 1;
 }
@@ -113,7 +125,7 @@ export async function apiFetch<T>(
         };
         const detail = error.detail;
         if (typeof detail === "string" && detail.trim()) {
-            throw new Error(detail);
+            throw new ApiRequestError(detail, response.status, detail);
         }
         if (detail && typeof detail === "object") {
             const nested = detail as {
@@ -135,11 +147,11 @@ export async function apiFetch<T>(
             }
             const parts = [nestedMessage, ...nestedErrors, ...nestedWarnings, ...checkDetails].filter(Boolean);
             if (parts.length > 0) {
-                throw new Error(parts.join(" — "));
+                throw new ApiRequestError(parts.join(" — "), response.status, detail);
             }
-            throw new Error(JSON.stringify(detail));
+            throw new ApiRequestError(JSON.stringify(detail), response.status, detail);
         }
-        throw new Error("Request failed");
+        throw new ApiRequestError("Request failed", response.status, detail);
     }
 
     // Handle 204 No Content

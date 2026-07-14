@@ -1,0 +1,73 @@
+groups:
+  - name: troop.slo
+    interval: 30s
+    rules:
+      - alert: TroopApiAvailabilityBurn
+        expr: sum(rate(troop_http_errors_total[5m])) / clamp_min(sum(rate(troop_http_requests_total[5m])), 1) > 0.005
+        for: 10m
+        labels:
+          severity: page
+          owner: platform
+        annotations:
+          summary: Troop API 5xx ratio exceeds the 99.5% availability budget
+          runbook: docs/PHASE7_OPERATIONS.md#api-availability
+
+      - alert: TroopApiP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(troop_http_request_duration_seconds_bucket[10m])) by (le)) > 1.5
+        for: 15m
+        labels:
+          severity: ticket
+          owner: platform
+        annotations:
+          summary: Troop API p95 latency is above 1.5 seconds
+          runbook: docs/PHASE7_OPERATIONS.md#api-latency
+
+      - alert: TroopQueueAgeHigh
+        expr: max(troop_queue_oldest_age_seconds) > 300
+        for: 10m
+        labels:
+          severity: page
+          owner: orchestration
+        annotations:
+          summary: A durable queue has an item older than five minutes
+          runbook: docs/PHASE7_OPERATIONS.md#queue-age
+
+      - alert: TroopQueueDepthHigh
+        expr: max(troop_queue_depth) > 100
+        for: 15m
+        labels:
+          severity: ticket
+          owner: orchestration
+        annotations:
+          summary: Durable queue depth is persistently high
+          runbook: docs/PHASE7_OPERATIONS.md#queue-age
+
+      - alert: TroopRunFailureRateHigh
+        expr: sum(rate(troop_orchestration_runs_total{outcome=~"failed|worker_error"}[15m])) / clamp_min(sum(rate(troop_orchestration_runs_total[15m])), 1) > 0.05
+        for: 15m
+        labels:
+          severity: page
+          owner: orchestration
+        annotations:
+          summary: Orchestration run failure rate exceeds 5%
+          runbook: docs/PHASE7_OPERATIONS.md#run-success
+
+      - alert: TroopProviderFailureRateHigh
+        expr: sum(rate(troop_provider_requests_total{outcome!="success"}[10m])) / clamp_min(sum(rate(troop_provider_requests_total[10m])), 1) > 0.10
+        for: 10m
+        labels:
+          severity: ticket
+          owner: ai-platform
+        annotations:
+          summary: Provider failure rate exceeds 10%
+          runbook: docs/PHASE7_OPERATIONS.md#provider-reliability
+
+      - alert: TroopMemoryRetrievalP95High
+        expr: histogram_quantile(0.95, sum(rate(troop_memory_retrieval_duration_seconds_bucket[10m])) by (le, memory_type)) > 1
+        for: 15m
+        labels:
+          severity: ticket
+          owner: memory
+        annotations:
+          summary: Memory retrieval p95 latency exceeds one second
+          runbook: docs/PHASE7_OPERATIONS.md#memory-retrieval

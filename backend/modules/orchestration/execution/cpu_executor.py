@@ -28,9 +28,10 @@ def execute_code_job(
     cwd: str,
     timeout: int,
     use_shell_wrap: bool,
+    require_docker: bool = False,
 ) -> dict[str, Any]:
     cwd_path = Path(cwd)
-    if settings.orchestration_cpu_require_docker and not docker_available():
+    if (settings.orchestration_cpu_require_docker or require_docker) and not docker_available():
         return {
             "command": shell_cmd,
             "cwd": str(cwd_path),
@@ -116,6 +117,7 @@ async def execute_code_job_async(
     cwd: str,
     timeout: int,
     use_shell_wrap: bool,
+    require_docker: bool = False,
 ) -> dict[str, Any]:
     return await asyncio.to_thread(
         execute_code_job,
@@ -123,4 +125,5 @@ async def execute_code_job_async(
         cwd=cwd,
         timeout=timeout,
         use_shell_wrap=use_shell_wrap,
+        require_docker=require_docker,
     )

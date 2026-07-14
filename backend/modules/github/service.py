@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import logging
+import re
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,8 +16,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.config import settings
+from backend.core.external_http import external_headers
+from backend.core.http_clients import managed_http_client
+from backend.core.logging import get_logger
 from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
+from backend.modules.memory.entry_types import (
+    SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
+)
+from backend.modules.orchestration.constants import GITHUB_WEBHOOK_EVENT_ALLOWLIST
+from backend.modules.orchestration.hitl_policy import action_requires_approval
 from backend.modules.orchestration.models import (
     ApprovalRequest,
     TaskRun,
@@ -27,24 +35,23 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
     OrchestratorTask,
     TaskArtifact,
+    TaskComment,
 )
 
-from backend.modules.orchestration.constants import GITHUB_WEBHOOK_EVENT_ALLOWLIST
-
-logger = logging.getLogger(__name__)
-
-from backend.modules.memory.entry_types import (
-    SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
-)
+logger = get_logger(__name__)
 
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
 
 
 class OrchestrationGithubServiceMixin:
-    async def github_issue_summaries_for_link_ids(self, link_ids: list[str]) -> dict[str, dict[str, Any]]:
+    async def github_issue_summaries_for_link_ids(
+        self, link_ids: list[str]
+    ) -> dict[str, dict[str, Any]]:
         return await self.repo.map_github_issue_summaries_by_link_id(link_ids)
 
-    async def github_live_snapshot(self, user: User, project_id: str | None = None) -> dict[str, Any]:
+    async def github_live_snapshot(
+        self, user: User, project_id: str | None = None
+    ) -> dict[str, Any]:
         repositories = await self.repo.list_github_repositories(user.id)
         issue_links = await self.repo.list_issue_links(user.id, project_id)
         sync_events = await self.repo.list_sync_events(user.id, project_id)
@@ -64,7 +71,9 @@ class OrchestrationGithubServiceMixin:
         if not settings.GITHUB_APP_SLUG:
             raise HTTPException(status_code=503, detail="GitHub App is not configured")
         state_payload = f"{user.id}:{int(time.time())}"
-        encoded_state = base64.urlsafe_b64encode(state_payload.encode("utf-8")).decode("utf-8").rstrip("=")
+        encoded_state = (
+            base64.urlsafe_b64encode(state_payload.encode("utf-8")).decode("utf-8").rstrip("=")
+        )
         return f"https://github.com/apps/{settings.GITHUB_APP_SLUG}/installations/new?state={encoded_state}"
 
     async def finalize_github_app_installation(
@@ -98,7 +107,9 @@ class OrchestrationGithubServiceMixin:
         verified_at = datetime.now(UTC)
         webhook_fp = None
         if settings.GITHUB_APP_WEBHOOK_SECRET:
-            webhook_fp = hashlib.sha256(settings.GITHUB_APP_WEBHOOK_SECRET.encode("utf-8")).hexdigest()[:16]
+            webhook_fp = hashlib.sha256(
+                settings.GITHUB_APP_WEBHOOK_SECRET.encode("utf-8")
+            ).hexdigest()[:16]
         existing = await self.repo.get_github_connection_by_installation(user.id, installation_id)
         if existing:
             existing.name = f"{settings.GITHUB_APP_NAME} · {account_login}"
@@ -107,7 +118,9 @@ class OrchestrationGithubServiceMixin:
             existing.is_active = True
             existing.github_installation_id = installation_id
             existing.install_account_type = str(account.get("type") or "") or None
-            existing.repository_selection = str(installation.get("repository_selection") or "") or None
+            existing.repository_selection = (
+                str(installation.get("repository_selection") or "") or None
+            )
             existing.install_permissions_json = dict(installation.get("permissions") or {})
             existing.install_events_json = list(installation.get("events") or [])
             existing.install_last_verified_at = verified_at
@@ -140,7 +153,9 @@ class OrchestrationGithubServiceMixin:
         if payload.get("connection_mode") == "github_app":
             installation_id = payload.get("installation_id")
             if not installation_id:
-                raise HTTPException(status_code=422, detail="installation_id is required for GitHub App connections")
+                raise HTTPException(
+                    status_code=422, detail="installation_id is required for GitHub App connections"
+                )
             return await self.finalize_github_app_installation(
                 user,
                 installation_id=int(installation_id),
@@ -149,7 +164,9 @@ class OrchestrationGithubServiceMixin:
             )
         token = payload.get("token")
         if not token:
-            raise HTTPException(status_code=422, detail="token is required for legacy token connections")
+            raise HTTPException(
+                status_code=422, detail="token is required for legacy token connections"
+            )
         account_login = await self._fetch_github_login(payload["api_url"], payload["token"])
         item = await self.repo.create_github_connection(
             owner_id=user.id,
@@ -180,7 +197,9 @@ class OrchestrationGithubServiceMixin:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
         repos = await self._list_github_repositories(connection)
         created = []
-        existing = {item.full_name: item for item in await self.repo.list_github_repositories(user.id)}
+        existing = {
+            item.full_name: item for item in await self.repo.list_github_repositories(user.id)
+        }
         seen_full_names: set[str] = set()
         for repo in repos:
             seen_full_names.add(str(repo["full_name"]))
@@ -221,7 +240,9 @@ class OrchestrationGithubServiceMixin:
             row.is_active = False
             metadata = dict(row.metadata_json or {})
             metadata["last_verified_at"] = datetime.now(UTC).isoformat()
-            metadata["health"] = self._github_repository_health(connection, metadata, is_active=False)
+            metadata["health"] = self._github_repository_health(
+                connection, metadata, is_active=False
+            )
             row.metadata_json = metadata
         await self.db.commit()
         return created
@@ -251,14 +272,19 @@ class OrchestrationGithubServiceMixin:
             raise HTTPException(status_code=404, detail="GitHub connection not found")
         project_manager = await self._project_default_manager(project.id, project=project)
         repo_pool = self._repo_pool_config(project, repository=repository)
-        default_worker = str(
-            payload.get("auto_assign_agent_id")
-            or repo_pool.get("default_assignee_agent_id")
-            or (project_manager.id if project_manager else "")
-            or ""
-        ).strip() or None
+        default_worker = (
+            str(
+                payload.get("auto_assign_agent_id")
+                or repo_pool.get("default_assignee_agent_id")
+                or (project_manager.id if project_manager else "")
+                or ""
+            ).strip()
+            or None
+        )
         default_reviewer = str(repo_pool.get("default_reviewer_agent_id") or "").strip() or None
-        issues = await self._fetch_github_issues(connection, repository, payload.get("issue_numbers", []))
+        issues = await self._fetch_github_issues(
+            connection, repository, payload.get("issue_numbers", [])
+        )
         results = []
         for issue in issues:
             issue_labels = [item["name"] for item in issue.get("labels", [])]
@@ -293,7 +319,8 @@ class OrchestrationGithubServiceMixin:
                     **issue,
                     "project_id": project.id,
                     "updated_at": datetime.now(UTC).isoformat(),
-                    "imported_at": (link.metadata_json or {}).get("imported_at") or datetime.now(UTC).isoformat(),
+                    "imported_at": (link.metadata_json or {}).get("imported_at")
+                    or datetime.now(UTC).isoformat(),
                 }
 
             task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
@@ -365,6 +392,27 @@ class OrchestrationGithubServiceMixin:
                 "task_id": task.id,
                 "assigned_agent_id": task.assigned_agent_id,
             }
+            external_ref = f"{repository.full_name}#{int(issue['number'])}"
+            try:
+                async with self.db.begin_nested():
+                    existing_mapping = await self.repo.get_github_entity_mapping_by_external(
+                        user.id,
+                        external_kind="github_issue",
+                        external_ref=external_ref,
+                    )
+                    if existing_mapping is None:
+                        await self.repo.create_github_entity_mapping(
+                            owner_id=user.id,
+                            external_kind="github_issue",
+                            external_ref=external_ref,
+                            entity_kind="task",
+                            entity_id=task.id,
+                            connection_id=repository.connection_id,
+                            repository_id=repository.id,
+                            metadata_json={"issue_number": int(issue["number"])},
+                        )
+            except IntegrityError:
+                pass
             results.append(task)
             await self.repo.create_sync_event(
                 repository_id=repository.id,
@@ -403,7 +451,9 @@ class OrchestrationGithubServiceMixin:
         link.title = (issue.get("title") or link.title)[:255]
         link.state = str(issue.get("state") or link.state)
         link.body = issue.get("body") or link.body
-        link.labels_json = [item["name"] for item in issue.get("labels", []) if isinstance(item, dict)]
+        link.labels_json = [
+            item["name"] for item in issue.get("labels", []) if isinstance(item, dict)
+        ]
         assignee = issue.get("assignee") or {}
         link.assignee_login = assignee.get("login") if isinstance(assignee, dict) else None
         link.issue_url = issue.get("html_url") or link.issue_url
@@ -441,7 +491,9 @@ class OrchestrationGithubServiceMixin:
 
     async def poll_stale_github_issue_links(self) -> int:
         """Background poll for issue state when webhooks are unavailable."""
-        before = datetime.now(UTC) - timedelta(minutes=max(1, settings.GITHUB_ISSUE_POLL_INTERVAL_MINUTES))
+        before = datetime.now(UTC) - timedelta(
+            minutes=max(1, settings.GITHUB_ISSUE_POLL_INTERVAL_MINUTES)
+        )
         links = await self.repo.list_issue_links_stale(older_than=before, limit=50)
         updated = 0
         for link in links:
@@ -469,11 +521,15 @@ class OrchestrationGithubServiceMixin:
         if not issue_link:
             raise HTTPException(status_code=404, detail="Issue link not found")
         repository = await self.db.get(GithubRepository, issue_link.repository_id)
-        task = await self.db.get(OrchestratorTask, issue_link.task_id) if issue_link.task_id else None
+        task = (
+            await self.db.get(OrchestratorTask, issue_link.task_id) if issue_link.task_id else None
+        )
         project = await self.db.get(OrchestratorProject, task.project_id) if task else None
         policy, trusted_ids = self._effective_github_outbound_comment_policy(project, repository)
         if policy == "disabled":
-            raise HTTPException(status_code=403, detail="Outbound GitHub comments are disabled for this project.")
+            raise HTTPException(
+                status_code=403, detail="Outbound GitHub comments are disabled for this project."
+            )
         if policy == "approved_artifacts_only" and not (artifact_ids or []):
             raise HTTPException(
                 status_code=422,
@@ -486,7 +542,9 @@ class OrchestrationGithubServiceMixin:
             for aid in artifact_ids:
                 art = await self.db.get(TaskArtifact, aid)
                 if art is None or art.task_id != issue_link.task_id:
-                    raise HTTPException(status_code=404, detail=f"Artifact {aid} not found for this task.")
+                    raise HTTPException(
+                        status_code=404, detail=f"Artifact {aid} not found for this task."
+                    )
                 body = (body + f"\n\n### {art.title}\n{art.content or ''}").strip()
         dedup_key = (idempotency_key or "").strip() or (
             f"github-comment:{issue_link.id}:{hashlib.sha256(f'{body}|{close_issue}'.encode()).hexdigest()[:48]}"
@@ -535,11 +593,83 @@ class OrchestrationGithubServiceMixin:
             return approval
         if approval is None:
             raise RuntimeError("GitHub comment approval was not created")
-        if policy == "auto_trusted_agent" and user.id in trusted_ids:
+        if (
+            policy == "auto_trusted_agent"
+            and user.id in trusted_ids
+            and project is not None
+            and not action_requires_approval(
+                (project.settings_json or {}).get("execution"), "post_to_github"
+            )
+        ):
             approval.status = "approved"
             approval.approved_by_user_id = user.id
             approval.resolved_at = datetime.now(UTC)
             await self._post_approved_github_comment(approval)
+        await self.db.commit()
+        await self.db.refresh(approval)
+        return approval
+
+    async def create_github_pr_approval(
+        self,
+        user: User,
+        issue_link_id: str,
+        *,
+        run_id: str | None = None,
+        draft_pr: bool = True,
+    ):
+        """Create a guarded PR-generation request for a linked GitHub task."""
+        issue_link = await self.repo.get_issue_link(user.id, issue_link_id)
+        if issue_link is None or issue_link.task_id is None:
+            raise HTTPException(status_code=404, detail="Linked GitHub task not found")
+        task = await self.db.get(OrchestratorTask, issue_link.task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Linked orchestration task not found")
+        project = await self.db.get(OrchestratorProject, task.project_id)
+        if project is None or project.owner_id != user.id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        run = (
+            await self.db.get(TaskRun, run_id)
+            if run_id
+            else await self.repo.get_latest_run_for_task(task.project_id, task.id)
+        )
+        if run is None or run.task_id != task.id:
+            raise HTTPException(
+                status_code=422,
+                detail="A completed or reviewable task run is required before creating a PR.",
+            )
+        if run.status not in {"completed", "approved", "failed", "blocked"}:
+            raise HTTPException(status_code=409, detail="The selected run is still in progress.")
+        pending = await self.repo.list_pending_approvals_for_task(user.id, task.project_id, task.id)
+        for approval in pending:
+            if (
+                approval.approval_type == "github_create_pr"
+                and approval.issue_link_id == issue_link.id
+            ):
+                return approval
+        approval = await self._create_github_write_approval(
+            user_id=user.id,
+            project_id=task.project_id,
+            task_id=task.id,
+            run_id=run.id,
+            issue_link_id=issue_link.id,
+            approval_type="github_create_pr",
+            payload_json={
+                "run_id": run.id,
+                "task_id": task.id,
+                "draft_pr": draft_pr,
+                "repository_id": issue_link.repository_id,
+                "issue_number": issue_link.issue_number,
+                "requested_from": "github_sync_console",
+            },
+        )
+        await self.repo.create_sync_event(
+            repository_id=issue_link.repository_id,
+            issue_link_id=issue_link.id,
+            action="create_pr_pending",
+            status="pending",
+            detail="PR generation requested and is waiting for approval.",
+            payload_json={"run_id": run.id, "task_id": task.id, "draft_pr": draft_pr},
+        )
         await self.db.commit()
         await self.db.refresh(approval)
         return approval
@@ -554,14 +684,22 @@ class OrchestrationGithubServiceMixin:
     ) -> tuple[str, list[str]]:
         gh = self._project_github_settings(project)
         policy = str(gh.get("outbound_comment_policy") or "manual_approval")
-        trusted = [str(x).strip() for x in (gh.get("outbound_comment_trusted_user_ids") or []) if str(x).strip()]
+        trusted = [
+            str(x).strip()
+            for x in (gh.get("outbound_comment_trusted_user_ids") or [])
+            if str(x).strip()
+        ]
         if repository is not None and repository.full_name:
             pool = (gh.get("repo_agent_pools") or {}).get(repository.full_name)
             if isinstance(pool, dict):
                 if pool.get("outbound_comment_policy"):
                     policy = str(pool["outbound_comment_policy"])
                 if pool.get("outbound_comment_trusted_user_ids"):
-                    trusted = [str(x).strip() for x in pool["outbound_comment_trusted_user_ids"] if str(x).strip()]
+                    trusted = [
+                        str(x).strip()
+                        for x in pool["outbound_comment_trusted_user_ids"]
+                        if str(x).strip()
+                    ]
         return policy, trusted
 
     def _github_field_write_source(
@@ -618,9 +756,17 @@ class OrchestrationGithubServiceMixin:
         archived = bool(repository_payload.get("archived"))
         disabled = bool(repository_payload.get("disabled"))
         deleted = bool(repository_payload.get("deleted"))
-        installation_health = self._github_connection_health(dict((connection.metadata_json or {}) if connection else {}))
+        installation_health = self._github_connection_health(
+            dict((connection.metadata_json or {}) if connection else {})
+        )
         status = "healthy"
-        if not is_active or archived or disabled or deleted or installation_health["status"] != "healthy":
+        if (
+            not is_active
+            or archived
+            or disabled
+            or deleted
+            or installation_health["status"] != "healthy"
+        ):
             status = "degraded"
         return {
             "status": status,
@@ -650,7 +796,9 @@ class OrchestrationGithubServiceMixin:
                 return dict(pools[text])
         return {}
 
-    async def _task_github_repository(self, task: OrchestratorTask | None) -> GithubRepository | None:
+    async def _task_github_repository(
+        self, task: OrchestratorTask | None
+    ) -> GithubRepository | None:
         if task is None or not task.github_issue_link_id:
             return None
         issue_link = await self.db.get(GithubIssueLink, task.github_issue_link_id)
@@ -666,8 +814,15 @@ class OrchestrationGithubServiceMixin:
         return self._repo_pool_config(project, repository=repository)
 
     async def _fetch_github_login(self, api_url: str, token: str) -> str:
-        async with httpx.AsyncClient(timeout=30.0, base_url=api_url) as client:
-            response = await client.get("/user", headers={"Authorization": f"Bearer {token}"})
+        async with managed_http_client(
+            "github",
+            timeout_seconds=30.0,
+            base_url=api_url,
+        ) as client:
+            response = await client.get(
+                "/user",
+                headers=external_headers({"Authorization": f"Bearer {token}"}),
+            )
         if response.status_code >= 400:
             raise HTTPException(status_code=422, detail="Failed to validate GitHub token")
         return response.json()["login"]
@@ -688,13 +843,19 @@ class OrchestrationGithubServiceMixin:
     async def _github_app_get_installation(
         self, installation_id: int, *, api_url: str = "https://api.github.com"
     ) -> dict[str, Any]:
-        async with httpx.AsyncClient(timeout=30.0, base_url=api_url) as client:
+        async with managed_http_client(
+            "github",
+            timeout_seconds=30.0,
+            base_url=api_url,
+        ) as client:
             response = await client.get(
                 f"/app/installations/{installation_id}",
-                headers={
-                    "Authorization": f"Bearer {self._github_app_jwt()}",
-                    "Accept": "application/vnd.github+json",
-                },
+                headers=external_headers(
+                    {
+                        "Authorization": f"Bearer {self._github_app_jwt()}",
+                        "Accept": "application/vnd.github+json",
+                    }
+                ),
             )
         if response.status_code >= 400:
             raise HTTPException(status_code=502, detail="Failed to read GitHub App installation")
@@ -703,14 +864,21 @@ class OrchestrationGithubServiceMixin:
     async def _github_installation_token(self, connection: GithubConnection) -> str:
         installation_id = int((connection.metadata_json or {}).get("installation_id") or 0)
         if installation_id <= 0:
-            raise HTTPException(status_code=422, detail="GitHub App connection is missing installation_id")
-        async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
+            raise HTTPException(
+                status_code=422, detail="GitHub App connection is missing installation_id"
+            )
+        async with managed_http_client(
+            "github",
+            timeout_seconds=30.0, base_url=connection.api_url
+        ) as client:
             response = await client.post(
                 f"/app/installations/{installation_id}/access_tokens",
-                headers={
-                    "Authorization": f"Bearer {self._github_app_jwt()}",
-                    "Accept": "application/vnd.github+json",
-                },
+                headers=external_headers(
+                    {
+                        "Authorization": f"Bearer {self._github_app_jwt()}",
+                        "Accept": "application/vnd.github+json",
+                    }
+                ),
             )
         if response.status_code >= 400:
             raise HTTPException(status_code=502, detail="Failed to mint GitHub installation token")
@@ -738,8 +906,17 @@ class OrchestrationGithubServiceMixin:
         json_body: dict[str, Any] | None = None,
     ) -> httpx.Response:
         headers = await self._github_auth_headers(connection)
-        async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
-            return await client.request(method, path, headers=headers, params=params, json=json_body)
+        async with managed_http_client(
+            "github",
+            timeout_seconds=30.0, base_url=connection.api_url
+        ) as client:
+            return await client.request(
+                method,
+                path,
+                headers=external_headers(headers),
+                params=params,
+                json=json_body,
+            )
 
     async def _list_github_repositories(self, connection: GithubConnection) -> list[dict[str, Any]]:
         if self._github_connection_mode(connection) == "github_app":
@@ -787,7 +964,9 @@ class OrchestrationGithubServiceMixin:
                                 f"GitHub said: {detail}"
                             ),
                         )
-                    raise HTTPException(status_code=502, detail=f"Failed to fetch issue #{issue_number}")
+                    raise HTTPException(
+                        status_code=502, detail=f"Failed to fetch issue #{issue_number}"
+                    )
                 issues.append(response.json())
             return issues
         response = await self._github_request(
@@ -823,7 +1002,9 @@ class OrchestrationGithubServiceMixin:
         payload = approval.payload_json
         comment_body = payload.get("body") or payload.get("draft_comment")
         if not comment_body:
-            raise HTTPException(status_code=422, detail="Approval payload does not include a comment body")
+            raise HTTPException(
+                status_code=422, detail="Approval payload does not include a comment body"
+            )
         if payload.get("posted_comment_id"):
             return
         response = await self._github_request(
@@ -859,9 +1040,13 @@ class OrchestrationGithubServiceMixin:
         if approval.task_id:
             task = await self.db.get(OrchestratorTask, approval.task_id)
             if task and task.status == "approved":
-                await self._transition_task_status(task, "completed", reason="approved for external sync")
+                await self._transition_task_status(
+                    task, "completed", reason="approved for external sync"
+                )
             if task and task.status == "completed":
-                await self._transition_task_status(task, "synced_to_github", reason="github comment posted")
+                await self._transition_task_status(
+                    task, "synced_to_github", reason="github comment posted"
+                )
         await self.repo.create_sync_event(
             repository_id=repository.id,
             issue_link_id=issue_link.id,
@@ -880,7 +1065,11 @@ class OrchestrationGithubServiceMixin:
         payload = approval.payload_json or {}
         run_id = payload.get("run_id")
         task_id = approval.task_id or payload.get("task_id")
-        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        issue_link = (
+            await self.db.get(GithubIssueLink, approval.issue_link_id)
+            if approval.issue_link_id
+            else None
+        )
         if not run_id or not task_id or issue_link is None:
             raise HTTPException(status_code=422, detail="PR approval payload is incomplete")
         run = await self.db.get(TaskRun, str(run_id))
@@ -892,11 +1081,17 @@ class OrchestrationGithubServiceMixin:
 
     async def _approve_github_pr_review_comment(self, approval: ApprovalRequest) -> None:
         payload = approval.payload_json or {}
-        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        issue_link = (
+            await self.db.get(GithubIssueLink, approval.issue_link_id)
+            if approval.issue_link_id
+            else None
+        )
         if issue_link is None:
             raise HTTPException(status_code=404, detail="Issue link not found")
         repository = await self.db.get(GithubRepository, issue_link.repository_id)
-        connection = await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        connection = (
+            await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        )
         pr_number = payload.get("pr_number")
         body = str(payload.get("body") or "").strip()
         if connection is None or repository is None or not pr_number or not body:
@@ -907,6 +1102,10 @@ class OrchestrationGithubServiceMixin:
             f"/repos/{repository.full_name}/pulls/{pr_number}/reviews",
             json_body={"body": body[:5000], "event": "COMMENT"},
         )
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=502, detail="Failed to post approved reviewer PR comment"
+            )
         await self.repo.create_sync_event(
             repository_id=repository.id,
             issue_link_id=issue_link.id,
@@ -919,15 +1118,23 @@ class OrchestrationGithubServiceMixin:
         )
 
     async def _approve_github_issue_sync(self, approval: ApprovalRequest) -> None:
-        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id) if approval.issue_link_id else None
+        issue_link = (
+            await self.db.get(GithubIssueLink, approval.issue_link_id)
+            if approval.issue_link_id
+            else None
+        )
         if issue_link is None:
             raise HTTPException(status_code=404, detail="Issue link not found")
         repository = await self.db.get(GithubRepository, issue_link.repository_id)
-        connection = await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        connection = (
+            await self.db.get(GithubConnection, repository.connection_id) if repository else None
+        )
         payload = dict(approval.payload_json or {})
         body = dict(payload.get("issue_update") or {})
         if repository is None or connection is None or not body:
-            raise HTTPException(status_code=422, detail="GitHub issue sync approval payload is incomplete")
+            raise HTTPException(
+                status_code=422, detail="GitHub issue sync approval payload is incomplete"
+            )
         response = await self._github_request(
             connection,
             "PATCH",
@@ -959,11 +1166,14 @@ class OrchestrationGithubServiceMixin:
             return False
         if not signature or not signature.startswith("sha256="):
             return False
-        expected = "sha256=" + hmac.new(
-            settings.GITHUB_APP_WEBHOOK_SECRET.encode("utf-8"),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
+        expected = (
+            "sha256="
+            + hmac.new(
+                settings.GITHUB_APP_WEBHOOK_SECRET.encode("utf-8"),
+                body,
+                hashlib.sha256,
+            ).hexdigest()
+        )
         return hmac.compare_digest(expected, signature)
 
     async def record_github_webhook_event(
@@ -1008,9 +1218,15 @@ class OrchestrationGithubServiceMixin:
         if repository.get("full_name"):
             repo_model = await self.repo.get_github_repository_by_full_name(repository["full_name"])
         issue_link = None
-        issue_number = int(((payload.get("issue") or {}).get("number")) or ((payload.get("pull_request") or {}).get("number")) or 0)
+        issue_number = int(
+            ((payload.get("issue") or {}).get("number"))
+            or ((payload.get("pull_request") or {}).get("number"))
+            or 0
+        )
         if repo_model and issue_number:
-            issue_link = await self.repo.get_issue_link_by_repo_and_number(repo_model.id, issue_number)
+            issue_link = await self.repo.get_issue_link_by_repo_and_number(
+                repo_model.id, issue_number
+            )
         payload_excerpt = {
             "issue_number": issue_number or None,
             "installation_id": int(((payload.get("installation") or {}).get("id")) or 0) or None,
@@ -1023,7 +1239,9 @@ class OrchestrationGithubServiceMixin:
             "delivery_id": delivery_id,
             "signature_validated": signature_validated,
             "received_at": datetime.now(UTC).isoformat(),
-            "replay_history": list((payload.get("_webhook_meta") or {}).get("replay_history") or []),
+            "replay_history": list(
+                (payload.get("_webhook_meta") or {}).get("replay_history") or []
+            ),
             "event_name": event_name,
             "action": payload.get("action"),
             "payload_excerpt": payload_excerpt,
@@ -1049,6 +1267,20 @@ class OrchestrationGithubServiceMixin:
             repository = await self.repo.get_github_repository(user.id, sync_event.repository_id)
             if repository is None:
                 raise HTTPException(status_code=404, detail="GitHub sync event not found")
+        else:
+            repository_name = str(
+                ((sync_event.payload_json or {}).get("repository") or {}).get("full_name") or ""
+            ).strip()
+            repository = (
+                await self.repo.get_github_repository_by_full_name(repository_name)
+                if repository_name
+                else None
+            )
+            if (
+                repository is None
+                or await self.repo.get_github_repository(user.id, repository.id) is None
+            ):
+                raise HTTPException(status_code=404, detail="GitHub sync event not found")
         if sync_event.status == "running":
             raise HTTPException(status_code=409, detail="Sync event is already running")
         if sync_event.status == "completed" and not force:
@@ -1072,9 +1304,8 @@ class OrchestrationGithubServiceMixin:
         payload["_webhook_meta"] = meta
         sync_event.payload_json = payload
         sync_event.status = "queued"
-        sync_event.detail = (
-            f"Replay queued from {history[-1]['previous_status']}."
-            + (" Forced replay enabled." if force else "")
+        sync_event.detail = f"Replay queued from {history[-1]['previous_status']}." + (
+            " Forced replay enabled." if force else ""
         )
         await self.db.commit()
         try:
@@ -1137,9 +1368,7 @@ class OrchestrationGithubServiceMixin:
 
     async def _process_webhook_projects_v2_item(self, sync_event, payload: dict[str, Any]) -> None:
         sync_event.status = "ignored"
-        sync_event.detail = (
-            "GitHub Projects (classic/v2) board sync is not implemented yet; event was recorded for auditing."
-        )
+        sync_event.detail = "GitHub Projects (classic/v2) board sync is not implemented yet; event was recorded for auditing."
         sync_event.payload_json = {
             "projects_v2_stub": True,
             "action": payload.get("action"),
@@ -1152,7 +1381,9 @@ class OrchestrationGithubServiceMixin:
             raise RuntimeError("GitHub repository connection is missing")
         return connection.owner_id
 
-    async def _ensure_repository_from_webhook_payload(self, payload: dict[str, Any]) -> GithubRepository | None:
+    async def _ensure_repository_from_webhook_payload(
+        self, payload: dict[str, Any]
+    ) -> GithubRepository | None:
         repository = payload.get("repository") or {}
         full_name = repository.get("full_name")
         if not full_name:
@@ -1163,7 +1394,9 @@ class OrchestrationGithubServiceMixin:
             repo_model.metadata_json = {
                 **repository,
                 "last_verified_at": datetime.now(UTC).isoformat(),
-                "health": self._github_repository_health(connection, repository, is_active=bool(repo_model.is_active)),
+                "health": self._github_repository_health(
+                    connection, repository, is_active=bool(repo_model.is_active)
+                ),
             }
             return repo_model
         installation_id = int(((payload.get("installation") or {}).get("id")) or 0)
@@ -1203,7 +1436,8 @@ class OrchestrationGithubServiceMixin:
             select(GithubConnection).where(
                 or_(
                     GithubConnection.github_installation_id == installation_id,
-                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer()
+                    == installation_id,
                 )
             )
         )
@@ -1217,7 +1451,9 @@ class OrchestrationGithubServiceMixin:
             {
                 "installation_id": installation_id,
                 "repository_selection": installation.get("repository_selection"),
-                "permissions": dict(installation.get("permissions") or metadata.get("permissions") or {}),
+                "permissions": dict(
+                    installation.get("permissions") or metadata.get("permissions") or {}
+                ),
                 "events": list(installation.get("events") or metadata.get("events") or []),
                 "suspended_at": installation.get("suspended_at"),
                 "last_verified_at": datetime.now(UTC).isoformat(),
@@ -1233,14 +1469,18 @@ class OrchestrationGithubServiceMixin:
         connection.install_permissions_json = dict(installation.get("permissions") or {})
         connection.install_events_json = list(installation.get("events") or [])
         connection.install_last_verified_at = datetime.now(UTC)
-        connection.repository_selection = str(installation.get("repository_selection") or "") or None
+        connection.repository_selection = (
+            str(installation.get("repository_selection") or "") or None
+        )
         acct = installation.get("account") if isinstance(installation.get("account"), dict) else {}
         connection.install_account_type = str(acct.get("type") or "") or None
         connection.metadata_json = metadata
         sync_event.status = "completed"
         sync_event.detail = f"Installation {installation_id} state updated from webhook."
 
-    async def _process_webhook_installation_repositories(self, sync_event, payload: dict[str, Any]) -> None:
+    async def _process_webhook_installation_repositories(
+        self, sync_event, payload: dict[str, Any]
+    ) -> None:
         installation_id = int(((payload.get("installation") or {}).get("id")) or 0)
         if installation_id <= 0:
             sync_event.status = "ignored"
@@ -1250,7 +1490,8 @@ class OrchestrationGithubServiceMixin:
             select(GithubConnection).where(
                 or_(
                     GithubConnection.github_installation_id == installation_id,
-                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer()
+                    == installation_id,
                 )
             )
         )
@@ -1262,7 +1503,9 @@ class OrchestrationGithubServiceMixin:
         added = list(payload.get("repositories_added") or [])
         removed = list(payload.get("repositories_removed") or [])
         for repo in added:
-            repository = await self.repo.get_github_repository_by_full_name(str(repo.get("full_name") or ""))
+            repository = await self.repo.get_github_repository_by_full_name(
+                str(repo.get("full_name") or "")
+            )
             if repository is None:
                 await self.repo.create_github_repository(
                     connection_id=connection.id,
@@ -1289,7 +1532,9 @@ class OrchestrationGithubServiceMixin:
                     "health": self._github_repository_health(connection, repo, is_active=True),
                 }
         for repo in removed:
-            repository = await self.repo.get_github_repository_by_full_name(str(repo.get("full_name") or ""))
+            repository = await self.repo.get_github_repository_by_full_name(
+                str(repo.get("full_name") or "")
+            )
             if repository is None:
                 continue
             repository.is_active = False
@@ -1314,7 +1559,9 @@ class OrchestrationGithubServiceMixin:
         owner_id = await self._owner_id_for_repository(repository)
         project = await self.db.get(OrchestratorProject, repository.project_id)
         repo_pool = self._repo_pool_config(project, repository=repository)
-        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
+        link = await self.repo.get_issue_link_by_repo_and_number(
+            repository.id, int(issue["number"])
+        )
         if link is None:
             link = await self.repo.create_issue_link(
                 repository_id=repository.id,
@@ -1334,8 +1581,10 @@ class OrchestrationGithubServiceMixin:
             task = await self.repo.create_task(
                 project_id=repository.project_id,
                 created_by_user_id=owner_id,
-                assigned_agent_id=str(repo_pool.get("default_assignee_agent_id") or "").strip() or None,
-                reviewer_agent_id=str(repo_pool.get("default_reviewer_agent_id") or "").strip() or None,
+                assigned_agent_id=str(repo_pool.get("default_assignee_agent_id") or "").strip()
+                or None,
+                reviewer_agent_id=str(repo_pool.get("default_reviewer_agent_id") or "").strip()
+                or None,
                 title=(issue.get("title") or "GitHub issue")[:255],
                 description=issue.get("body"),
                 source="github",
@@ -1391,14 +1640,22 @@ class OrchestrationGithubServiceMixin:
         if repository is None:
             sync_event.status = "ignored"
             return
-        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
-        assignee_login = ((payload.get("assignee") or {}).get("login")) or ((issue.get("assignee") or {}).get("login"))
+        link = await self.repo.get_issue_link_by_repo_and_number(
+            repository.id, int(issue["number"])
+        )
+        assignee_login = ((payload.get("assignee") or {}).get("login")) or (
+            (issue.get("assignee") or {}).get("login")
+        )
         if link is None or link.task_id is None or not assignee_login:
             sync_event.status = "ignored"
             sync_event.detail = "No linked task or assignee mapping available."
             return
         owner_id = await self._owner_id_for_repository(repository)
-        project = await self.db.get(OrchestratorProject, repository.project_id) if repository.project_id else None
+        project = (
+            await self.db.get(OrchestratorProject, repository.project_id)
+            if repository.project_id
+            else None
+        )
         repo_pool = self._repo_pool_config(project, repository=repository)
         assignee_map = dict(repo_pool.get("github_assignee_map") or {})
         mapped = assignee_map.get(assignee_login)
@@ -1430,7 +1687,9 @@ class OrchestrationGithubServiceMixin:
         if repository is None:
             sync_event.status = "ignored"
             return
-        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
+        link = await self.repo.get_issue_link_by_repo_and_number(
+            repository.id, int(issue["number"])
+        )
         if link is None:
             sync_event.status = "ignored"
             sync_event.detail = "Issue link does not exist yet."
@@ -1438,14 +1697,18 @@ class OrchestrationGithubServiceMixin:
         link.title = str(issue.get("title") or link.title)[:255]
         link.body = issue.get("body") or link.body
         link.state = str(issue.get("state") or link.state)
-        link.labels_json = [item["name"] for item in issue.get("labels", []) if isinstance(item, dict)]
-        link.assignee_login = ((issue.get("assignee") or {}).get("login"))
+        link.labels_json = [
+            item["name"] for item in issue.get("labels", []) if isinstance(item, dict)
+        ]
+        link.assignee_login = (issue.get("assignee") or {}).get("login")
         link.issue_url = issue.get("html_url") or link.issue_url
         link.last_synced_at = datetime.now(UTC)
         link.metadata_json = {**(link.metadata_json or {}), "last_webhook_issue": issue}
         task = await self.db.get(OrchestratorTask, link.task_id) if link.task_id else None
         if task is not None:
-            project = await self.db.get(OrchestratorProject, task.project_id) if task.project_id else None
+            project = (
+                await self.db.get(OrchestratorProject, task.project_id) if task.project_id else None
+            )
             meta = dict(task.metadata_json or {})
             old_fs = dict((meta.get("github_sync_provenance") or {}).get("field_sources") or {})
             new_fs = dict(old_fs)
@@ -1464,11 +1727,19 @@ class OrchestrationGithubServiceMixin:
                 new_fs["labels"] = "github"
             if src_status != "app":
                 new_fs["status"] = "github"
-                if link.state == "closed" and task.status not in {"completed", "synced_to_github", "archived"}:
-                    await self._transition_task_status(task, "synced_to_github", reason="github issue closed")
+                if link.state == "closed" and task.status not in {
+                    "completed",
+                    "synced_to_github",
+                    "archived",
+                }:
+                    await self._transition_task_status(
+                        task, "synced_to_github", reason="github issue closed"
+                    )
                 elif link.state == "open" and task.status == "synced_to_github":
-                    await self._transition_task_status(task, "planned", reason="github issue reopened")
-            meta["github_milestone_number"] = ((issue.get("milestone") or {}).get("number"))
+                    await self._transition_task_status(
+                        task, "planned", reason="github issue reopened"
+                    )
+            meta["github_milestone_number"] = (issue.get("milestone") or {}).get("number")
             meta["github_sync_provenance"] = {
                 "source": "github_webhook_issue_changed",
                 "last_synced_at": datetime.now(UTC).isoformat(),
@@ -1499,7 +1770,11 @@ class OrchestrationGithubServiceMixin:
             reviewer_id = rids[0] if isinstance(rids, list) and rids else None
         if not reviewer_id:
             return
-        author_login = ((review.get("user") or {}).get("login") if isinstance(review.get("user"), dict) else None)
+        author_login = (
+            (review.get("user") or {}).get("login")
+            if isinstance(review.get("user"), dict)
+            else None
+        )
         run = await self.repo.create_run(
             project_id=task.project_id,
             task_id=task.id,
@@ -1507,7 +1782,9 @@ class OrchestrationGithubServiceMixin:
             orchestrator_agent_id=None,
             worker_agent_id=task.assigned_agent_id,
             reviewer_agent_id=reviewer_id,
-            provider_config_id=(project.settings_json or {}).get("execution", {}).get("provider_config_id"),
+            provider_config_id=(project.settings_json or {})
+            .get("execution", {})
+            .get("provider_config_id"),
             run_mode="review",
             status="queued",
             model_name=(project.settings_json or {}).get("execution", {}).get("model_name"),
@@ -1540,15 +1817,44 @@ class OrchestrationGithubServiceMixin:
         if repository is None:
             sync_event.status = "ignored"
             return
-        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(issue["number"]))
+        issue_number = int(issue["number"])
+        link = await self.repo.get_issue_link_by_repo_and_number(repository.id, issue_number)
+        if link is None and issue.get("pull_request"):
+            owner_id = await self._owner_id_for_repository(repository)
+            pr_mapping = await self.repo.get_github_entity_mapping_by_external(
+                owner_id,
+                external_kind="github_pull_request",
+                external_ref=f"{repository.full_name}#{issue_number}",
+            )
+            if pr_mapping is not None and pr_mapping.entity_kind == "task":
+                link = await self.repo.get_issue_link_by_task(pr_mapping.entity_id)
+        if link is None and not issue.get("pull_request"):
+            # GitHub can deliver a comment before the worker has finished the
+            # corresponding `issues.opened` event.  Materialize the task now
+            # so the comment is never lost to event-ordering races.
+            await self._process_webhook_issue_opened(sync_event, payload)
+            link = await self.repo.get_issue_link_by_repo_and_number(repository.id, issue_number)
         if link is None or link.task_id is None:
             sync_event.status = "ignored"
             return
         cid = comment.get("id")
+        owner_id = await self._owner_id_for_repository(repository)
+        external_ref = f"{repository.full_name}#issue:{issue_number}:comment:{cid}"
+        if cid is not None:
+            existing_mapping = await self.repo.get_github_entity_mapping_by_external(
+                owner_id,
+                external_kind="github_issue_comment",
+                external_ref=external_ref,
+            )
+            if existing_mapping is not None:
+                sync_event.issue_link_id = link.id
+                sync_event.status = "completed"
+                sync_event.detail = f"GitHub comment {cid} was already mirrored; replay ignored."
+                return
         thread_marker = f"<!--gh:comment_id={cid}-->" if cid else ""
         in_reply = comment.get("in_reply_to_id")
         reply_line = f"\n[in_reply_to={in_reply}]" if in_reply else ""
-        await self.repo.create_task_comment(
+        task_comment: TaskComment = await self.repo.create_task_comment(
             task_id=link.task_id,
             author_user_id=None,
             author_agent_id=None,
@@ -1557,16 +1863,67 @@ class OrchestrationGithubServiceMixin:
                 f"{comment.get('body') or ''}{reply_line}"
             ).strip(),
         )
+        if cid is not None:
+            try:
+                async with self.db.begin_nested():
+                    await self.repo.create_github_entity_mapping(
+                        owner_id=owner_id,
+                        external_kind="github_issue_comment",
+                        external_ref=external_ref,
+                        entity_kind="task_comment",
+                        entity_id=task_comment.id,
+                        connection_id=repository.connection_id,
+                        repository_id=repository.id,
+                        metadata_json={
+                            "issue_number": int(issue["number"]),
+                            "task_id": link.task_id,
+                        },
+                    )
+            except IntegrityError:
+                pass
+        sync_event.issue_link_id = link.id
         sync_event.status = "completed"
         sync_event.detail = f"GitHub comment appended to task thread for issue #{issue['number']}."
 
-    async def _process_webhook_pull_request_opened(self, sync_event, payload: dict[str, Any]) -> None:
+    async def _resolve_issue_link_for_pull_request(
+        self, repository: GithubRepository, pr: dict[str, Any]
+    ) -> GithubIssueLink | None:
+        """Resolve a PR by issue number, closing keyword, or Troop branch."""
+        number = int(pr.get("number") or 0)
+        if number:
+            direct = await self.repo.get_issue_link_by_repo_and_number(repository.id, number)
+            if direct is not None:
+                return direct
+        body = str(pr.get("body") or "")
+        for issue_number in re.findall(
+            r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", body
+        ):
+            linked = await self.repo.get_issue_link_by_repo_and_number(
+                repository.id, int(issue_number)
+            )
+            if linked is not None:
+                return linked
+        branch = str((pr.get("head") or {}).get("ref") or "")
+        if branch.startswith("troop/"):
+            owner_id = await self._owner_id_for_repository(repository)
+            for linked in await self.repo.list_issue_links(owner_id):
+                if (
+                    linked.repository_id == repository.id
+                    and linked.task_id
+                    and branch.startswith(f"troop/{linked.task_id}-")
+                ):
+                    return linked
+        return None
+
+    async def _process_webhook_pull_request_opened(
+        self, sync_event, payload: dict[str, Any]
+    ) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
         pr = payload.get("pull_request") or {}
         if repository is None:
             sync_event.status = "ignored"
             return
-        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        issue_link = await self._resolve_issue_link_for_pull_request(repository, pr)
         if issue_link and issue_link.task_id:
             task = await self.db.get(OrchestratorTask, issue_link.task_id)
             project = await self.db.get(OrchestratorProject, task.project_id) if task else None
@@ -1586,22 +1943,32 @@ class OrchestrationGithubServiceMixin:
                     },
                 }
                 orm_attributes.flag_modified(task, "result_payload_json")
-                try:
-                    async with self.db.begin_nested():
-                        oid = await self._owner_id_for_repository(repository)
-                        await self.repo.create_github_entity_mapping(
-                            owner_id=oid,
-                            external_kind="github_pull_request",
-                            external_ref=f"{repository.full_name}#{int(pr.get('number') or 0)}",
-                            entity_kind="task",
-                            entity_id=task.id,
-                            connection_id=repository.connection_id,
-                            repository_id=repository.id,
-                            metadata_json={"pr_number": int(pr.get("number") or 0)},
-                        )
-                except IntegrityError:
-                    pass
-                if project and self._project_github_settings(project).get("enforce_branch_naming", True):
+                pr_number = int(pr.get("number") or 0)
+                if pr_number:
+                    try:
+                        async with self.db.begin_nested():
+                            oid = await self._owner_id_for_repository(repository)
+                            existing = await self.repo.get_github_entity_mapping_by_external(
+                                oid,
+                                external_kind="github_pull_request",
+                                external_ref=f"{repository.full_name}#{pr_number}",
+                            )
+                            if existing is None:
+                                await self.repo.create_github_entity_mapping(
+                                    owner_id=oid,
+                                    external_kind="github_pull_request",
+                                    external_ref=f"{repository.full_name}#{pr_number}",
+                                    entity_kind="task",
+                                    entity_id=task.id,
+                                    connection_id=repository.connection_id,
+                                    repository_id=repository.id,
+                                    metadata_json={"pr_number": pr_number},
+                                )
+                    except IntegrityError:
+                        pass
+                if project and self._project_github_settings(project).get(
+                    "enforce_branch_naming", True
+                ):
                     branch_name = (pr.get("head") or {}).get("ref")
                     if not self._github_branch_name_valid_for_task(project, task, branch_name):
                         await self.repo.create_task_comment(
@@ -1619,9 +1986,14 @@ class OrchestrationGithubServiceMixin:
                             action="branch_policy_violation",
                             status="failed",
                             detail="Opened PR branch does not match the project's naming convention.",
-                            payload_json={"branch": branch_name, "expected": self._github_branch_name_for_task(project, task)},
+                            payload_json={
+                                "branch": branch_name,
+                                "expected": self._github_branch_name_for_task(project, task),
+                            },
                         )
-                if project and self._project_github_settings(project).get("auto_activate_review_on_pr_open", True):
+                if project and self._project_github_settings(project).get(
+                    "auto_activate_review_on_pr_open", True
+                ):
                     await self._enqueue_github_pr_review_run(
                         task,
                         project,
@@ -1631,26 +2003,58 @@ class OrchestrationGithubServiceMixin:
         sync_event.status = "completed"
         sync_event.detail = f"Pull request #{pr['number']} opened."
 
-    async def _process_webhook_pull_request_review(self, sync_event, payload: dict[str, Any]) -> None:
+    async def _process_webhook_pull_request_review(
+        self, sync_event, payload: dict[str, Any]
+    ) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
         review = payload.get("review") or {}
         pr = payload.get("pull_request") or {}
         if repository is None:
             sync_event.status = "ignored"
             return
-        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        issue_link = await self._resolve_issue_link_for_pull_request(repository, pr)
         if issue_link and issue_link.task_id:
             rid = review.get("id")
-            thread_marker = f"<!--gh:review_id={rid}-->" if rid else ""
-            await self.repo.create_task_comment(
-                task_id=issue_link.task_id,
-                author_user_id=None,
-                author_agent_id=None,
-                body=(
-                    f"{thread_marker}\n[GitHub PR review] {(review.get('state') or 'commented').upper()}: "
-                    f"{review.get('body') or ''}"
-                ).strip(),
+            owner_id = await self._owner_id_for_repository(repository)
+            external_ref = f"{repository.full_name}#pr:{int(pr.get('number') or 0)}:review:{rid}"
+            existing = (
+                await self.repo.get_github_entity_mapping_by_external(
+                    owner_id,
+                    external_kind="github_pull_request_review",
+                    external_ref=external_ref,
+                )
+                if rid is not None
+                else None
             )
+            if existing is None:
+                thread_marker = f"<!--gh:review_id={rid}-->" if rid else ""
+                task_comment = await self.repo.create_task_comment(
+                    task_id=issue_link.task_id,
+                    author_user_id=None,
+                    author_agent_id=None,
+                    body=(
+                        f"{thread_marker}\n[GitHub PR review] {(review.get('state') or 'commented').upper()}: "
+                        f"{review.get('body') or ''}"
+                    ).strip(),
+                )
+                if rid is not None:
+                    try:
+                        async with self.db.begin_nested():
+                            await self.repo.create_github_entity_mapping(
+                                owner_id=owner_id,
+                                external_kind="github_pull_request_review",
+                                external_ref=external_ref,
+                                entity_kind="task_comment",
+                                entity_id=task_comment.id,
+                                connection_id=repository.connection_id,
+                                repository_id=repository.id,
+                                metadata_json={
+                                    "pr_number": int(pr.get("number") or 0),
+                                    "task_id": issue_link.task_id,
+                                },
+                            )
+                    except IntegrityError:
+                        pass
             task = await self.db.get(OrchestratorTask, issue_link.task_id)
             project = await self.db.get(OrchestratorProject, task.project_id) if task else None
             if task and project:
@@ -1658,39 +2062,74 @@ class OrchestrationGithubServiceMixin:
         sync_event.status = "completed"
         sync_event.detail = f"Pull request review received for PR #{pr['number']}."
 
-    async def _process_webhook_pull_request_review_comment(self, sync_event, payload: dict[str, Any]) -> None:
+    async def _process_webhook_pull_request_review_comment(
+        self, sync_event, payload: dict[str, Any]
+    ) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
         pr = payload.get("pull_request") or {}
         comment = payload.get("comment") or {}
         if repository is None:
             sync_event.status = "ignored"
             return
-        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        issue_link = await self._resolve_issue_link_for_pull_request(repository, pr)
         if issue_link and issue_link.task_id:
-            marker = f"<!--gh:review_comment_id={comment.get('id')}-->" if comment.get("id") else ""
-            path = str(comment.get("path") or "").strip()
-            line = comment.get("line") or comment.get("original_line")
-            location = f"{path}:{line}" if path and line else path
-            await self.repo.create_task_comment(
-                task_id=issue_link.task_id,
-                author_user_id=None,
-                author_agent_id=None,
-                body=(
-                    f"{marker}\n[GitHub PR review comment] {location}\n"
-                    f"{comment.get('body') or ''}"
-                ).strip(),
+            comment_id = comment.get("id")
+            owner_id = await self._owner_id_for_repository(repository)
+            external_ref = f"{repository.full_name}#pr:{int(pr.get('number') or 0)}:review-comment:{comment_id}"
+            existing = (
+                await self.repo.get_github_entity_mapping_by_external(
+                    owner_id,
+                    external_kind="github_pull_request_review_comment",
+                    external_ref=external_ref,
+                )
+                if comment_id is not None
+                else None
             )
+            if existing is None:
+                marker = f"<!--gh:review_comment_id={comment_id}-->" if comment_id else ""
+                path = str(comment.get("path") or "").strip()
+                line = comment.get("line") or comment.get("original_line")
+                location = f"{path}:{line}" if path and line else path
+                task_comment = await self.repo.create_task_comment(
+                    task_id=issue_link.task_id,
+                    author_user_id=None,
+                    author_agent_id=None,
+                    body=(
+                        f"{marker}\n[GitHub PR review comment] {location}\n"
+                        f"{comment.get('body') or ''}"
+                    ).strip(),
+                )
+                if comment_id is not None:
+                    try:
+                        async with self.db.begin_nested():
+                            await self.repo.create_github_entity_mapping(
+                                owner_id=owner_id,
+                                external_kind="github_pull_request_review_comment",
+                                external_ref=external_ref,
+                                entity_kind="task_comment",
+                                entity_id=task_comment.id,
+                                connection_id=repository.connection_id,
+                                repository_id=repository.id,
+                                metadata_json={
+                                    "pr_number": int(pr.get("number") or 0),
+                                    "task_id": issue_link.task_id,
+                                },
+                            )
+                    except IntegrityError:
+                        pass
             sync_event.issue_link_id = issue_link.id
         sync_event.status = "completed"
         sync_event.detail = f"Pull request review comment mirrored for PR #{pr['number']}."
 
-    async def _process_webhook_pull_request_merged(self, sync_event, payload: dict[str, Any]) -> None:
+    async def _process_webhook_pull_request_merged(
+        self, sync_event, payload: dict[str, Any]
+    ) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
         pr = payload.get("pull_request") or {}
         if repository is None:
             sync_event.status = "ignored"
             return
-        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        issue_link = await self._resolve_issue_link_for_pull_request(repository, pr)
         if issue_link and issue_link.task_id:
             task = await self.db.get(OrchestratorTask, issue_link.task_id)
             if task:
@@ -1706,7 +2145,9 @@ class OrchestrationGithubServiceMixin:
                 }
                 orm_attributes.flag_modified(task, "result_payload_json")
                 if task.status in {"approved", "completed", "synced_to_github"}:
-                    await self._transition_task_status(task, "synced_to_github", reason="pull request merged")
+                    await self._transition_task_status(
+                        task, "synced_to_github", reason="pull request merged"
+                    )
         sync_event.status = "completed"
         sync_event.detail = f"Pull request #{pr['number']} merged."
 
@@ -1722,7 +2163,7 @@ class OrchestrationGithubServiceMixin:
         if repository is None:
             sync_event.status = "ignored"
             return
-        issue_link = await self.repo.get_issue_link_by_repo_and_number(repository.id, int(pr["number"]))
+        issue_link = await self._resolve_issue_link_for_pull_request(repository, pr)
         if issue_link is None or issue_link.task_id is None:
             sync_event.status = "ignored"
             return
@@ -1733,9 +2174,13 @@ class OrchestrationGithubServiceMixin:
         prev = (task.result_payload_json or {}).get("github_pr") or {}
         head = pr.get("head") or {}
         base = pr.get("base") or {}
-        state = forced_state or ("merged" if pr.get("merged") else pr.get("state")) or prev.get("state")
+        state = (
+            forced_state or ("merged" if pr.get("merged") else pr.get("state")) or prev.get("state")
+        )
         reviewers = pr.get("requested_reviewers") or []
-        reviewer_logins = [u.get("login") for u in reviewers if isinstance(u, dict) and u.get("login")]
+        reviewer_logins = [
+            u.get("login") for u in reviewers if isinstance(u, dict) and u.get("login")
+        ]
         gh_pr = {
             **prev,
             "number": pr.get("number", prev.get("number")),
@@ -1771,7 +2216,9 @@ class OrchestrationGithubServiceMixin:
         )
         sync_event.issue_link_id = issue_link.id
         sync_event.status = "completed"
-        sync_event.detail = f"Pull request #{pr.get('number')} lifecycle synced ({payload.get('action')})."
+        sync_event.detail = (
+            f"Pull request #{pr.get('number')} lifecycle synced ({payload.get('action')})."
+        )
 
     async def _process_webhook_push(self, sync_event, payload: dict[str, Any]) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)
@@ -1784,17 +2231,49 @@ class OrchestrationGithubServiceMixin:
             return
         task: OrchestratorTask | None = None
         issue_link: GithubIssueLink | None = None
-        for candidate in await self.repo.list_issue_links_stale(older_than=datetime.now(UTC) + timedelta(days=3650), limit=200):
+        for candidate in await self.repo.list_issue_links_stale(
+            older_than=datetime.now(UTC) + timedelta(days=3650), limit=200
+        ):
             if candidate.repository_id != repository.id or not candidate.task_id:
                 continue
             candidate_task = await self.db.get(OrchestratorTask, candidate.task_id)
             if candidate_task is None:
                 continue
-            if branch and self._github_branch_name_valid_for_task(await self.db.get(OrchestratorProject, candidate_task.project_id), candidate_task, branch):
+            if branch and self._github_branch_name_valid_for_task(
+                await self.db.get(OrchestratorProject, candidate_task.project_id),
+                candidate_task,
+                branch,
+            ):
                 task = candidate_task
                 issue_link = candidate
                 break
         if task is not None:
+            owner_id = await self._owner_id_for_repository(repository)
+            for item in commits[:20]:
+                if not isinstance(item, dict) or not item.get("id"):
+                    continue
+                sha = str(item["id"])
+                try:
+                    async with self.db.begin_nested():
+                        external_ref = f"{repository.full_name}@{sha}"
+                        existing = await self.repo.get_github_entity_mapping_by_external(
+                            owner_id,
+                            external_kind="github_commit",
+                            external_ref=external_ref,
+                        )
+                        if existing is None:
+                            await self.repo.create_github_entity_mapping(
+                                owner_id=owner_id,
+                                external_kind="github_commit",
+                                external_ref=external_ref,
+                                entity_kind="task",
+                                entity_id=task.id,
+                                connection_id=repository.connection_id,
+                                repository_id=repository.id,
+                                metadata_json={"branch": branch, "sha": sha},
+                            )
+                except IntegrityError:
+                    pass
             task.result_payload_json = {
                 **(task.result_payload_json or {}),
                 "github_branch": {
@@ -1843,7 +2322,12 @@ class OrchestrationGithubServiceMixin:
         project = await self.db.get(OrchestratorProject, task.project_id)
         github_settings = self._project_github_settings(project)
         progress_note = (
-            str(run.output_payload_json.get("summary") or run.output_payload_json.get("final_output") or task.result_summary or "")
+            str(
+                run.output_payload_json.get("summary")
+                or run.output_payload_json.get("final_output")
+                or task.result_summary
+                or ""
+            )
         )[:2000]
         auto_post_progress = bool(github_settings.get("auto_post_progress", False))
         if auto_post_progress:
@@ -1869,7 +2353,11 @@ class OrchestrationGithubServiceMixin:
                 action="agent_progress_comment_pending",
                 status="pending",
                 detail="Agent produced a GitHub progress note draft pending approval.",
-                payload_json={"run_id": run.id, "body": progress_note, "agent_id": run.worker_agent_id or run.orchestrator_agent_id},
+                payload_json={
+                    "run_id": run.id,
+                    "body": progress_note,
+                    "agent_id": run.worker_agent_id or run.orchestrator_agent_id,
+                },
             )
         if (
             github_settings.get("close_issue_with_manager_summary", True)
@@ -1911,7 +2399,11 @@ class OrchestrationGithubServiceMixin:
                 payload_json={
                     "run_id": run.id,
                     "task_id": task.id,
-                    "draft_pr": bool(run.input_payload_json.get("draft_pr", github_settings.get("draft_prs_by_default", True))),
+                    "draft_pr": bool(
+                        run.input_payload_json.get(
+                            "draft_pr", github_settings.get("draft_prs_by_default", True)
+                        )
+                    ),
                 },
             )
             await self.repo.create_sync_event(
@@ -1923,7 +2415,9 @@ class OrchestrationGithubServiceMixin:
                 payload_json={"run_id": run.id, "task_id": task.id},
             )
 
-    def _github_branch_name_for_task(self, project: OrchestratorProject | None, task: OrchestratorTask) -> str:
+    def _github_branch_name_for_task(
+        self, project: OrchestratorProject | None, task: OrchestratorTask
+    ) -> str:
         template = ((project.settings_json or {}).get("github", {}) if project else {}).get(
             "branch_prefix", "troop/{task_id}-{slug}"
         )
@@ -1941,7 +2435,11 @@ class OrchestrationGithubServiceMixin:
         return actual == expected
 
     def _task_state_to_github_issue_state(self, task: OrchestratorTask) -> str:
-        return "closed" if task.status in {"approved", "completed", "synced_to_github", "archived"} else "open"
+        return (
+            "closed"
+            if task.status in {"approved", "completed", "synced_to_github", "archived"}
+            else "open"
+        )
 
     async def _task_assignee_login_for_github(
         self, task: OrchestratorTask, project: OrchestratorProject | None
@@ -1995,15 +2493,61 @@ class OrchestrationGithubServiceMixin:
         if connection is None:
             return
         branch_name = self._github_branch_name_for_task(project, task)
+        default_branch = repository.default_branch or "main"
         github_settings = self._project_github_settings(project)
+
+        async def fail_pr(detail: str, *, action: str = "create_pr") -> None:
+            await self.repo.create_sync_event(
+                repository_id=repository.id,
+                issue_link_id=issue_link.id,
+                action=action,
+                status="failed",
+                detail=detail,
+                payload_json={"run_id": run.id, "task_id": task.id, "branch": branch_name},
+            )
+
         if github_settings.get("respect_branch_protections", True):
+            protection_response = await self._github_request(
+                connection,
+                "GET",
+                f"/repos/{repository.full_name}/branches/{default_branch}/protection",
+            )
+            if protection_response.status_code in {401, 403}:
+                await fail_pr(
+                    "GitHub denied branch-protection inspection; PR automation was stopped because protection could not be verified.",
+                    action="github_branch_protection_guard",
+                )
+                return
+            if protection_response.status_code not in {200, 404}:
+                await fail_pr(
+                    f"GitHub branch-protection inspection failed with HTTP {protection_response.status_code}.",
+                    action="github_branch_protection_guard",
+                )
+                return
+            protection = (
+                protection_response.json() if protection_response.status_code == 200 else {}
+            )
             await self.repo.create_sync_event(
                 repository_id=repository.id,
                 issue_link_id=issue_link.id,
                 action="github_branch_protection_guard",
                 status="completed",
-                detail="Stub: GitHub branch protection API not queried; proceeding with automation.",
-                payload_json={"branch": branch_name, "run_id": run.id, "stub": True},
+                detail=(
+                    "Verified GitHub branch protection before PR automation."
+                    if protection_response.status_code == 200
+                    else "GitHub reports no branch protection for the target branch."
+                ),
+                payload_json={
+                    "branch": default_branch,
+                    "run_id": run.id,
+                    "protected": protection_response.status_code == 200,
+                    "required_status_checks": protection.get("required_status_checks")
+                    if isinstance(protection, dict)
+                    else None,
+                    "required_pull_request_reviews": protection.get("required_pull_request_reviews")
+                    if isinstance(protection, dict)
+                    else None,
+                },
             )
         patch_body = str(
             run.output_payload_json.get("final_output")
@@ -2017,42 +2561,51 @@ class OrchestrationGithubServiceMixin:
             if art is None or art.task_id != task.id:
                 continue
             patch_body = (patch_body + f"\n\n### {art.title}\n{art.content or ''}").strip()
-        msg_tpl = str(github_settings.get("commit_message_template") or "troop: task {task_id} {slug}")
+        msg_tpl = str(
+            github_settings.get("commit_message_template") or "troop: task {task_id} {slug}"
+        )
         commit_message = msg_tpl.format(
             task_id=task.id,
             title=(task.title or "")[:120],
             slug=self._slugify(task.title),
         )[:500]
-        default_branch = repository.default_branch or "main"
         ref_response = await self._github_request(
             connection,
             "GET",
             f"/repos/{repository.full_name}/git/ref/heads/{default_branch}",
         )
         if ref_response.status_code >= 400:
-            await self.repo.create_sync_event(
-                repository_id=repository.id,
-                issue_link_id=issue_link.id,
-                action="create_pr",
-                status="failed",
-                detail="Failed to load default branch reference before PR creation.",
-                payload_json={"run_id": run.id},
-            )
+            await fail_pr("Failed to load default branch reference before PR creation.")
             return
         base_commit_sha = ((ref_response.json() or {}).get("object") or {}).get("sha")
+        if not base_commit_sha:
+            await fail_pr("GitHub did not return a commit SHA for the default branch.")
+            return
         commit_response = await self._github_request(
             connection,
             "GET",
             f"/repos/{repository.full_name}/git/commits/{base_commit_sha}",
         )
+        if commit_response.status_code >= 400:
+            await fail_pr("Failed to load the default branch tree before PR creation.")
+            return
         base_tree_sha = (commit_response.json() or {}).get("tree", {}).get("sha")
+        if not base_tree_sha:
+            await fail_pr("GitHub did not return a tree SHA for the default branch.")
+            return
         blob_response = await self._github_request(
             connection,
             "POST",
             f"/repos/{repository.full_name}/git/blobs",
             json_body={"content": patch_body, "encoding": "utf-8"},
         )
+        if blob_response.status_code >= 400:
+            await fail_pr("Failed to create the GitHub patch blob.")
+            return
         blob_sha = (blob_response.json() or {}).get("sha")
+        if not blob_sha:
+            await fail_pr("GitHub did not return a patch blob SHA.")
+            return
         tree_response = await self._github_request(
             connection,
             "POST",
@@ -2069,7 +2622,13 @@ class OrchestrationGithubServiceMixin:
                 ],
             },
         )
+        if tree_response.status_code >= 400:
+            await fail_pr("Failed to create the GitHub patch tree.")
+            return
         new_tree_sha = (tree_response.json() or {}).get("sha")
+        if not new_tree_sha:
+            await fail_pr("GitHub did not return a patch tree SHA.")
+            return
         new_commit_response = await self._github_request(
             connection,
             "POST",
@@ -2080,7 +2639,13 @@ class OrchestrationGithubServiceMixin:
                 "parents": [base_commit_sha],
             },
         )
+        if new_commit_response.status_code >= 400:
+            await fail_pr("Failed to create the GitHub automation commit.")
+            return
         new_commit_sha = (new_commit_response.json() or {}).get("sha")
+        if not new_commit_sha:
+            await fail_pr("GitHub did not return an automation commit SHA.")
+            return
         branch_response = await self._github_request(
             connection,
             "POST",
@@ -2088,13 +2653,8 @@ class OrchestrationGithubServiceMixin:
             json_body={"ref": f"refs/heads/{branch_name}", "sha": new_commit_sha},
         )
         if branch_response.status_code >= 400 and branch_response.status_code != 422:
-            await self.repo.create_sync_event(
-                repository_id=repository.id,
-                issue_link_id=issue_link.id,
-                action="create_branch",
-                status="failed",
-                detail="Failed to create GitHub branch for PR generation.",
-                payload_json={"branch": branch_name, "run_id": run.id},
+            await fail_pr(
+                "Failed to create GitHub branch for PR generation.", action="create_branch"
             )
             return
         pr_body = (
@@ -2102,29 +2662,46 @@ class OrchestrationGithubServiceMixin:
             f"Generated from task `{task.id}`.\n\n"
             f"{patch_body[:6000]}"
         )
-        pr_response = await self._github_request(
-            connection,
-            "POST",
-            f"/repos/{repository.full_name}/pulls",
-            json_body={
-                "title": f"[Troop] {task.title}",
-                "head": branch_name,
-                "base": default_branch,
-                "body": pr_body,
-                "draft": bool(run.input_payload_json.get("draft_pr", github_settings.get("draft_prs_by_default", True))),
-            },
-        )
-        if pr_response.status_code >= 400:
-            await self.repo.create_sync_event(
-                repository_id=repository.id,
-                issue_link_id=issue_link.id,
-                action="create_pr",
-                status="failed",
-                detail="Failed to open pull request from agent output.",
-                payload_json={"branch": branch_name, "run_id": run.id},
+        pr_payload: dict[str, Any] | None = None
+        if branch_response.status_code == 422:
+            existing_response = await self._github_request(
+                connection,
+                "GET",
+                f"/repos/{repository.full_name}/pulls",
+                params={
+                    "head": f"{repository.owner_name}:{branch_name}",
+                    "base": default_branch,
+                    "state": "open",
+                    "per_page": 10,
+                },
             )
-            return
-        pr_payload = pr_response.json()
+            existing_prs = existing_response.json() if existing_response.status_code < 400 else []
+            if isinstance(existing_prs, list) and existing_prs:
+                pr_payload = existing_prs[0]
+            else:
+                await fail_pr("GitHub branch already exists but no open PR could be resolved.")
+                return
+        if pr_payload is None:
+            pr_response = await self._github_request(
+                connection,
+                "POST",
+                f"/repos/{repository.full_name}/pulls",
+                json_body={
+                    "title": f"[Troop] {task.title}",
+                    "head": branch_name,
+                    "base": default_branch,
+                    "body": pr_body,
+                    "draft": bool(
+                        run.input_payload_json.get(
+                            "draft_pr", github_settings.get("draft_prs_by_default", True)
+                        )
+                    ),
+                },
+            )
+            if pr_response.status_code >= 400:
+                await fail_pr("Failed to open pull request from agent output.")
+                return
+            pr_payload = pr_response.json()
         task.result_payload_json = {
             **(task.result_payload_json or {}),
             "github_pr": {
@@ -2137,6 +2714,29 @@ class OrchestrationGithubServiceMixin:
             },
         }
         orm_attributes.flag_modified(task, "result_payload_json")
+        pr_number = int(pr_payload.get("number") or 0)
+        if pr_number:
+            try:
+                async with self.db.begin_nested():
+                    owner_id = await self._owner_id_for_repository(repository)
+                    existing = await self.repo.get_github_entity_mapping_by_external(
+                        owner_id,
+                        external_kind="github_pull_request",
+                        external_ref=f"{repository.full_name}#{pr_number}",
+                    )
+                    if existing is None:
+                        await self.repo.create_github_entity_mapping(
+                            owner_id=owner_id,
+                            external_kind="github_pull_request",
+                            external_ref=f"{repository.full_name}#{pr_number}",
+                            entity_kind="task",
+                            entity_id=task.id,
+                            connection_id=repository.connection_id,
+                            repository_id=repository.id,
+                            metadata_json={"pr_number": pr_number, "run_id": run.id},
+                        )
+            except IntegrityError:
+                pass
         await self.repo.create_sync_event(
             repository_id=repository.id,
             issue_link_id=issue_link.id,
@@ -2153,7 +2753,9 @@ class OrchestrationGithubServiceMixin:
             },
         )
 
-    async def _post_reviewer_pr_comment(self, run: TaskRun, task: OrchestratorTask, review_text: str) -> None:
+    async def _post_reviewer_pr_comment(
+        self, run: TaskRun, task: OrchestratorTask, review_text: str
+    ) -> None:
         if not task.github_issue_link_id:
             return
         issue_link = await self.db.get(GithubIssueLink, task.github_issue_link_id)
@@ -2185,19 +2787,29 @@ class OrchestrationGithubServiceMixin:
             action="post_pr_review",
             status="pending",
             detail=f"Reviewer agent drafted a PR comment for #{pr_number} pending approval.",
-            payload_json={"run_id": run.id, "pr_number": pr_number, "agent_id": run.reviewer_agent_id or run.worker_agent_id},
+            payload_json={
+                "run_id": run.id,
+                "pr_number": pr_number,
+                "agent_id": run.reviewer_agent_id or run.worker_agent_id,
+            },
         )
 
-    async def _sync_manager_run_to_github(self, run: TaskRun, task: OrchestratorTask) -> dict[str, Any]:
+    async def _sync_manager_run_to_github(
+        self, run: TaskRun, task: OrchestratorTask
+    ) -> dict[str, Any]:
         state = self._workflow_checkpoint_artifact(run, "manager_worker.github_action_state", {})
         if state.get("completed"):
             return state
         await self._sync_run_completion_to_github(run, task)
         state = {
             "completed": True,
-            "policy": str((run.input_payload_json or {}).get("github_action_policy") or "auto-on-approval"),
+            "policy": str(
+                (run.input_payload_json or {}).get("github_action_policy") or "auto-on-approval"
+            ),
             "last_synced_at": datetime.now(UTC).isoformat(),
             "run_id": run.id,
         }
-        self._set_workflow_checkpoint_artifact(run, key="manager_worker.github_action_state", value=state)
+        self._set_workflow_checkpoint_artifact(
+            run, key="manager_worker.github_action_state", value=state
+        )
         return state

@@ -182,8 +182,9 @@ export function useProjectLiveSnapshotSync(
         previousRef.current = null;
     }, [projectId]);
 
-    useLiveSnapshotStream(projectId ? `/orchestration/projects/${projectId}/stream` : null, {
+    return useLiveSnapshotStream(projectId ? `/orchestration/projects/${projectId}/stream` : null, {
         enabled,
+        coalesceMs: 120,
         onSnapshot: (payload) => {
             if (!projectId) return;
             applyProjectLiveSnapshotSync(queryClient, projectId, payload, previousRef, {

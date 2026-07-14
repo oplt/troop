@@ -20,6 +20,8 @@ export type Agent = {
     allowed_tools: string[];
     skills: string[];
     model_policy: Record<string, unknown>;
+    permissions: string | Record<string, unknown> | null;
+    escalation_path: string | null;
     visibility: string;
     is_active: boolean;
     tags: string[];
@@ -28,6 +30,7 @@ export type Agent = {
     retry_limit: number;
     memory_policy: Record<string, unknown>;
     output_schema: Record<string, unknown>;
+    task_filters: string[];
     inheritance: AgentInheritancePreview | null;
     lint: AgentLintSummary | null;
     metadata: Record<string, unknown>;
@@ -52,6 +55,9 @@ export type AgentResolvedProfile = {
     output_schema: Record<string, unknown>;
     budget: Record<string, unknown>;
     model_policy: Record<string, unknown>;
+    permissions?: string | Record<string, unknown> | null;
+    escalation_path?: string | null;
+    task_filters?: string[];
 };
 
 export type AgentInheritancePreview = {
@@ -85,6 +91,31 @@ export type ProjectAgentMembership = {
     created_at: string;
 };
 
+export type HierarchyEdge = {
+    source_agent_id: string;
+    target_agent_id: string;
+    relationship: "delegates_to" | "reviews" | "escalates_to" | "collaborates_with";
+};
+
+export type HierarchyPolicy = {
+    manager_agent_id: string | null;
+    edges: HierarchyEdge[];
+    delegation_rules: Record<string, string[]>;
+    brainstorm_rules: Record<string, string[]>;
+    reviewer_agent_ids: string[];
+    reviewer_chain_mode: string;
+    routing_mode: string;
+    sibling_load_balance: string;
+    default_execution_mode: "single_agent" | "manager_worker" | "debate";
+    blocked_handoff: {
+        mode: string;
+        target_agent_id: string | null;
+        fallback_to_manager: boolean;
+    };
+    final_authority: "human_user";
+    validation_errors: string[];
+};
+
 export type OrchestrationTask = {
     id: string;
     project_id: string;
@@ -106,6 +137,8 @@ export type OrchestrationTask = {
     due_date: string | null;
     response_sla_hours?: number | null;
     labels: string[];
+    required_tools: string[];
+    external_links: Array<Record<string, unknown>>;
     result_summary: string | null;
     result_payload: Record<string, unknown>;
     position: number;
@@ -120,6 +153,13 @@ export type DagReadyTask = {
     title: string;
     status: string;
     dependency_count: number;
+};
+
+export type TaskBlockerReport = {
+    task_id: string;
+    can_start: boolean;
+    blockers: Array<Record<string, unknown>>;
+    warnings: Array<Record<string, unknown>>;
 };
 
 export type DagParallelStartResult = {
@@ -402,6 +442,15 @@ export type BrainstormMessage = {
     created_at: string;
 };
 
+export type BrainstormArtifact = {
+    artifact_kind: "task_artifact" | "project_document" | "project_decision";
+    artifact_id: string;
+    output_type: string;
+    title: string;
+    content: string;
+    created_at: string;
+};
+
 export type ProviderConfig = {
     id: string;
     project_id: string | null;
@@ -439,6 +488,9 @@ export type ModelCapability = {
     model_slug: string;
     display_name: string | null;
     supports_tools: boolean;
+    supports_tool_calling: boolean;
+    supports_structured_output: boolean;
+    supports_reasoning: boolean;
     supports_vision: boolean;
     max_context_tokens: number;
     cost_per_1k_input: number;
@@ -686,6 +738,16 @@ export type Approval = {
     resolved_at: string | null;
 };
 
+export type HITLAuditLog = {
+    id: string;
+    user_id: string | null;
+    action: string;
+    resource_type: string | null;
+    resource_id: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+};
+
 export type ProjectDocument = {
     id: string;
     project_id: string;
@@ -737,6 +799,8 @@ export type AgentMemoryEntry = {
     created_at: string;
     updated_at: string;
 };
+
+export type AgentMemoryWriteResult = AgentMemoryEntry | PendingSemanticWriteResponse;
 
 export type TeamTemplate = {
     id: string;
@@ -811,6 +875,10 @@ export async function validateAgentMarkdown(file: File): Promise<{ valid: boolea
     return apiFetch("/orchestration/agents/validate-markdown", { method: "POST", body: formData });
 }
 
+export async function validateAgentContract(payload: Record<string, unknown>): Promise<{ valid: boolean; normalized: Record<string, unknown> | null; errors: string[]; warnings: string[]; activation_ready: boolean }> {
+    return apiFetch("/orchestration/agents/validate-contract", { method: "POST", body: JSON.stringify(payload) });
+}
+
 export async function updateAgent(agentId: string, payload: Record<string, unknown>): Promise<Agent> {
     return apiFetch(`/orchestration/agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
@@ -843,6 +911,17 @@ export async function updateOrchestrationProject(projectId: string, payload: Rec
     return apiFetch(`/orchestration/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+export async function getHierarchyPolicy(projectId: string): Promise<HierarchyPolicy> {
+    return apiFetch(`/orchestration/projects/${projectId}/hierarchy-policy`);
+}
+
+export async function updateHierarchyPolicy(projectId: string, payload: Partial<HierarchyPolicy>): Promise<HierarchyPolicy> {
+    return apiFetch(`/orchestration/projects/${projectId}/hierarchy-policy`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+}
+
 export async function deleteOrchestrationProject(projectId: string): Promise<void> {
     return apiFetch(`/orchestration/projects/${projectId}`, { method: "DELETE" });
 }
@@ -863,12 +942,19 @@ export async function removeProjectAgent(projectId: string, membershipId: string
     return apiFetch(`/orchestration/projects/${projectId}/agents/${membershipId}`, { method: "DELETE" });
 }
 
-export async function listOrchestrationTasks(projectId: string): Promise<OrchestrationTask[]> {
-    return apiFetch(`/orchestration/projects/${projectId}/tasks`);
+export async function listOrchestrationTasks(
+    projectId: string,
+    limit = 500,
+): Promise<OrchestrationTask[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks?limit=${encodeURIComponent(limit)}`);
 }
 
 export async function getOrchestrationTask(projectId: string, taskId: string): Promise<OrchestrationTask> {
     return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}`);
+}
+
+export async function getTaskBlockers(projectId: string, taskId: string): Promise<TaskBlockerReport> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/blockers`);
 }
 
 export async function createOrchestrationTask(projectId: string, payload: Record<string, unknown>): Promise<OrchestrationTask> {
@@ -877,6 +963,18 @@ export async function createOrchestrationTask(projectId: string, payload: Record
 
 export async function updateOrchestrationTask(projectId: string, taskId: string, payload: Record<string, unknown>): Promise<OrchestrationTask> {
     return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function assignOrchestrationTask(
+    projectId: string,
+    taskId: string,
+    assignedAgentId: string | null,
+    source: "drag_drop" | "manual" = "drag_drop",
+): Promise<OrchestrationTask> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ assigned_agent_id: assignedAgentId, source }),
+    });
 }
 
 export async function deleteOrchestrationTask(projectId: string, taskId: string): Promise<void> {
@@ -925,9 +1023,10 @@ export async function startMergeResolutionRun(
     });
 }
 
-export async function listRuns(projectId?: string): Promise<TaskRun[]> {
-    const suffix = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-    return apiFetch(`/orchestration/runs${suffix}`);
+export async function listRuns(projectId?: string, limit = 500): Promise<TaskRun[]> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (projectId) params.set("project_id", projectId);
+    return apiFetch(`/orchestration/runs?${params.toString()}`);
 }
 
 export async function getRun(runId: string): Promise<TaskRun> {
@@ -1042,6 +1141,13 @@ export type SemanticMemoryEntry = {
     provenance: Record<string, unknown>;
     confidence: number;
     created_by_user_id: string | null;
+    ttl_days: number | null;
+    expires_at: string | null;
+    deleted_at: string | null;
+    retention_policy: string;
+    memory_version: number;
+    embedding_model: string | null;
+    embedding_version: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -1065,6 +1171,9 @@ export type ProjectMemorySettings = {
     compaction_on_task_close_enabled: boolean;
     task_close_archive_unpromoted_memory: boolean;
     task_close_low_value_archive_days: number;
+    default_ttl_days: number;
+    max_ttl_days: number;
+    context_max_tokens: number;
 };
 
 /** Returned when semantic writes require human approval (HTTP 202). */
@@ -1192,6 +1301,8 @@ export async function createSemanticMemory(
         scope?: string;
         namespace?: string | null;
         metadata?: Record<string, unknown>;
+        ttl_days?: number;
+        retention_policy?: string;
     }
 ): Promise<SemanticMemoryEntry | PendingSemanticWriteResponse> {
     return apiFetch(`/orchestration/projects/${projectId}/semantic-memory`, {
@@ -1391,6 +1502,7 @@ export type CostAggregation = {
     period: string;
     by_project: Array<{ name: string; cost_usd: number; tokens: number; runs: number }>;
     by_agent: Array<{ name: string; cost_usd: number; tokens: number; runs: number }>;
+    by_task: Array<{ name: string; cost_usd: number; tokens: number; runs: number }>;
     by_provider: Array<{ name: string; cost_usd: number; tokens: number; runs: number }>;
     most_expensive_runs: Array<{ id: string; model_name: string | null; cost_usd: number; tokens: number; status: string; created_at: string }>;
     total_cost_usd: number;
@@ -1465,6 +1577,57 @@ export type ExecutionInsights = {
     brainstorm_round_summary_events: number;
     blocked_events: number;
     tool_call_failed_events: number;
+    total_runs?: number;
+    completed_runs?: number;
+    failed_runs?: number;
+    total_tokens?: number;
+    total_cost_usd?: number;
+    avg_latency_ms?: number;
+    p95_latency_ms?: number;
+    retry_count?: number;
+    retry_rate?: number;
+    validation_failures?: number;
+    hallucination_failures?: number;
+    github_sync_events?: number;
+    github_sync_failures?: number;
+    discussion_rounds?: number;
+    discussion_loop_score?: number | null;
+    discussion_loop_detected?: number;
+    acceptance_checks?: number;
+    accepted_after_review?: number;
+    acceptance_rate_after_review?: number | null;
+    evaluation_records?: number;
+    by_project?: ExecutionRollup[];
+    by_agent?: ExecutionRollup[];
+    by_task?: ExecutionRollup[];
+    by_provider?: ExecutionRollup[];
+};
+
+export type ExecutionRollup = {
+    id: string | null;
+    name: string;
+    runs: number;
+    tokens: number;
+    cost_usd: number;
+    avg_latency_ms: number;
+    retries: number;
+    tool_failures: number;
+    validation_failures: number;
+    acceptance_rate: number | null;
+};
+
+export type ProviderHealthSummary = {
+    provider_id: string;
+    project_id: string | null;
+    name: string;
+    provider_type: string;
+    default_model: string;
+    enabled: boolean;
+    status: string;
+    healthy: boolean | null;
+    latency_ms: number | null;
+    last_checked_at: string | null;
+    error: string | null;
 };
 
 export type TaskTimelineEntry = {
@@ -1484,12 +1647,22 @@ export type WorkflowTemplate = {
     suggested_execution: Record<string, unknown>;
 };
 
+export type WorkflowTemplateApplyResult = {
+    project_id: string;
+    template: WorkflowTemplate;
+    applied_execution: Record<string, unknown>;
+    applied_at: string;
+};
+
 export type RuntimeInfo = {
     orchestration_provider_failover: boolean;
     orchestration_use_langgraph: boolean;
     orchestration_durable_queue_backend: string;
     durable_signal_model: string;
     durable_query_model: string;
+    durable_backend: Record<string, unknown>;
+    execution_topology: Record<string, unknown>;
+    realtime_transport: Record<string, unknown>;
     /** Logical service plane → broker queue name */
     celery_queues: Record<string, string>;
 };
@@ -1536,6 +1709,29 @@ export async function getTaskTimeline(projectId: string, taskId: string): Promis
 
 export async function listWorkflowTemplates(): Promise<WorkflowTemplate[]> {
     return apiFetch("/orchestration/workflow-templates");
+}
+
+export async function applyWorkflowTemplate(
+    projectId: string,
+    templateId: string,
+): Promise<WorkflowTemplateApplyResult> {
+    return apiFetch(`/orchestration/projects/${projectId}/workflow-templates/${encodeURIComponent(templateId)}/apply`, {
+        method: "POST",
+    });
+}
+
+export async function listCustomWorkflowTemplates(projectId: string): Promise<Array<Record<string, unknown>>> {
+    return apiFetch(`/orchestration/projects/${projectId}/workflow-templates/custom`);
+}
+
+export async function saveCustomWorkflowTemplate(
+    projectId: string,
+    payload: { id?: string; name: string; stages: Array<Record<string, unknown>>; forked_from?: string | null },
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/orchestration/projects/${projectId}/workflow-templates/custom`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
 }
 
 export async function getOrchestrationRuntimeInfo(): Promise<RuntimeInfo> {
@@ -1662,6 +1858,31 @@ export async function listBrainstormParticipants(brainstormId: string): Promise<
     return apiFetch(`/orchestration/brainstorms/${brainstormId}/participants`);
 }
 
+export async function addBrainstormParticipant(
+    brainstormId: string,
+    payload: Record<string, unknown>,
+): Promise<BrainstormParticipant> {
+    return apiFetch(`/orchestration/brainstorms/${brainstormId}/participants`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateBrainstormParticipant(
+    brainstormId: string,
+    participantId: string,
+    payload: Record<string, unknown>,
+): Promise<BrainstormParticipant> {
+    return apiFetch(`/orchestration/brainstorms/${brainstormId}/participants/${participantId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function removeBrainstormParticipant(brainstormId: string, participantId: string): Promise<void> {
+    await apiFetch(`/orchestration/brainstorms/${brainstormId}/participants/${participantId}`, { method: "DELETE" });
+}
+
 export async function listBrainstormMessages(brainstormId: string): Promise<BrainstormMessage[]> {
     return apiFetch(`/orchestration/brainstorms/${brainstormId}/messages`);
 }
@@ -1690,6 +1911,10 @@ export async function promoteBrainstormDocument(brainstormId: string): Promise<P
     return apiFetch(`/orchestration/brainstorms/${brainstormId}/promote-document`, { method: "POST" });
 }
 
+export async function exportBrainstormArtifact(brainstormId: string): Promise<BrainstormArtifact> {
+    return apiFetch(`/orchestration/brainstorms/${brainstormId}/export-artifact`, { method: "POST" });
+}
+
 export async function listProviders(projectId?: string): Promise<ProviderConfig[]> {
     const suffix = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
     return apiFetch(`/orchestration/providers${suffix}`);
@@ -1709,6 +1934,14 @@ export async function deleteProvider(providerId: string): Promise<void> {
 
 export async function testProvider(providerId: string): Promise<Record<string, unknown>> {
     return apiFetch(`/orchestration/providers/${providerId}/test`, { method: "POST" });
+}
+
+export async function runProviderHealthChecks(): Promise<Array<Record<string, unknown>>> {
+    return apiFetch("/orchestration/providers/health-check", { method: "POST" });
+}
+
+export async function getProviderHealthSummary(): Promise<ProviderHealthSummary[]> {
+    return apiFetch("/orchestration/providers/health-summary");
 }
 
 export async function startProviderRuntime(providerId: string): Promise<Record<string, unknown>> {
@@ -1782,12 +2015,29 @@ export async function replayGithubSyncEvent(
     });
 }
 
-export async function requestGithubComment(issueLinkId: string, payload: { body: string; close_issue: boolean }): Promise<Approval> {
+export async function requestGithubComment(
+    issueLinkId: string,
+    payload: { body: string; close_issue?: boolean; idempotency_key?: string; artifact_ids?: string[] },
+): Promise<Approval> {
     return apiFetch(`/orchestration/github/issues/${issueLinkId}/comment`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function requestGithubPr(
+    issueLinkId: string,
+    payload: { run_id?: string; draft_pr?: boolean } = {},
+): Promise<Approval> {
+    return apiFetch(`/orchestration/github/issues/${issueLinkId}/pr`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
 }
 
 export async function listApprovals(): Promise<Approval[]> {
     return apiFetch("/orchestration/approvals");
+}
+
+export async function listHITLAuditLogs(limit = 100): Promise<HITLAuditLog[]> {
+    return apiFetch(`/orchestration/hitl/audit-logs?limit=${Math.max(1, Math.min(limit, 200))}`);
 }
 
 /** Process-global counters + `_rollup` (hit rates, histograms, promotion/conflict summaries). */
@@ -1838,6 +2088,16 @@ export async function listProjectMemory(projectId: string, options?: { agentId?:
     if (options?.status) params.set("status", options.status);
     const suffix = params.toString() ? `?${params.toString()}` : "";
     return apiFetch(`/orchestration/projects/${projectId}/memory${suffix}`);
+}
+
+export async function createProjectMemory(
+    projectId: string,
+    payload: { agent_id: string; key: string; value_text: string; scope: "project-only" | "long-term"; ttl_days?: number },
+): Promise<AgentMemoryWriteResult> {
+    return apiFetch(`/orchestration/projects/${projectId}/memory`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
 }
 
 export async function deleteProjectMemoryEntry(projectId: string, memoryId: string): Promise<void> {
@@ -2011,9 +2271,12 @@ export type AgentTemplate = {
     tags: string[];
     skills: string[];
     model_policy: Record<string, unknown>;
+    permissions?: string | Record<string, unknown> | null;
+    escalation_path?: string | null;
     budget: Record<string, unknown>;
     memory_policy: Record<string, unknown>;
     output_schema: Record<string, unknown>;
+    task_filters?: string[];
     metadata: Record<string, unknown>;
 };
 
@@ -2306,6 +2569,7 @@ export async function checkTaskAcceptance(projectId: string, taskId: string): Pr
 export type GateConfig = {
     autonomy_level: string;
     approval_gates: string[];
+    mandatory_approval_gates?: string[];
 };
 
 export async function getGateConfig(projectId: string): Promise<GateConfig> {

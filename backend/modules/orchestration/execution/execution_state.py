@@ -3,7 +3,7 @@
 Execution truth lives in **relational rows and append-only events**, not in vector search.
 Celery (see ``submit_orchestration_run``) is the **durable start signal** for worker
 execution; the **source of truth** for outcomes remains ``task_runs`` + ``run_events``
-in Postgres until/unless Temporal workflow history replaces that (ADR 0004).
+in Postgres. A future Temporal adapter must preserve this state contract (ADR 0004).
 
 **Semantic / RAG** (``_search_project_knowledge``, document chunk embeddings) may only
 **enrich prompts** — it must never decide run lifecycle, task status transitions, or

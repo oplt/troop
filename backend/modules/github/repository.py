@@ -138,6 +138,32 @@ class GithubRepositoryMixin:
         )
         return result.scalar_one_or_none()
 
+    async def get_github_entity_mapping_by_external(
+        self,
+        owner_id: str,
+        *,
+        external_kind: str,
+        external_ref: str,
+    ) -> GithubEntityMapping | None:
+        """Resolve one external GitHub object without knowing its local id.
+
+        Webhooks are retried and can be replayed manually.  Looking up the
+        external identity before creating a local comment/event keeps those
+        operations idempotent even when the local entity has not been seen
+        before.
+        """
+        result = await self.db.execute(
+            select(GithubEntityMapping)
+            .where(
+                GithubEntityMapping.owner_id == owner_id,
+                GithubEntityMapping.external_kind == external_kind,
+                GithubEntityMapping.external_ref == external_ref,
+            )
+            .order_by(GithubEntityMapping.created_at.asc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def create_github_entity_mapping(
         self,
         *,
@@ -204,6 +230,15 @@ class GithubRepositoryMixin:
                 GithubIssueLink.repository_id == repository_id,
                 GithubIssueLink.issue_number == issue_number,
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_issue_link_by_task(self, task_id: str) -> GithubIssueLink | None:
+        result = await self.db.execute(
+            select(GithubIssueLink)
+            .where(GithubIssueLink.task_id == task_id)
+            .order_by(GithubIssueLink.updated_at.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 

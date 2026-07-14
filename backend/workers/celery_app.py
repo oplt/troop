@@ -2,6 +2,9 @@ from celery import Celery
 from celery.schedules import crontab
 
 from backend.core.config import settings
+from backend.core.http_clients import register_worker_http_shutdown
+from backend.modules.observability.instrumentation import register_worker_observability_signals
+from backend.workers.context import register_task_context_signals
 
 celery_app = Celery(
     "app_backend",
@@ -9,23 +12,46 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=["backend.workers.tasks", "backend.workers.orchestration"],
 )
+register_task_context_signals()
+register_worker_observability_signals()
+register_worker_http_shutdown()
+
 
 def _orchestration_task_routes() -> dict[str, dict[str, str]]:
     """Route orchestration tasks to service-scoped queues (same codebase, split workers)."""
     s = settings
     return {
         "backend.workers.orchestration.run_task": {"queue": s.CELERY_TASK_DEFAULT_QUEUE},
-        "backend.workers.orchestration.process_github_webhook_event": {"queue": s.CELERY_QUEUE_GITHUB},
+        "backend.workers.orchestration.run_code_execution": {"queue": s.CELERY_QUEUE_CPU},
+        "backend.workers.orchestration.process_github_webhook_event": {
+            "queue": s.CELERY_QUEUE_GITHUB
+        },
         "backend.workers.orchestration.github_connection_resync": {"queue": s.CELERY_QUEUE_GITHUB},
-        "backend.workers.orchestration.provider_healthcheck": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
+        "backend.workers.orchestration.provider_healthcheck": {
+            "queue": s.CELERY_QUEUE_MODEL_GATEWAY
+        },
         "backend.workers.orchestration.github_issue_poll": {"queue": s.CELERY_QUEUE_GITHUB},
-        "backend.workers.orchestration.memory_expiration_sweep": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
-        "backend.workers.orchestration.sla_escalation_scan": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
-        "backend.workers.orchestration.embed_semantic_memory_entry": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
-        "backend.workers.orchestration.process_memory_ingest_jobs": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
-        "backend.workers.orchestration.episodic_retention_archive": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
-        "backend.workers.orchestration.memory_compaction_backfill": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
-        "backend.workers.orchestration.episodic_index_embedding_batch": {"queue": s.CELERY_QUEUE_MODEL_GATEWAY},
+        "backend.workers.orchestration.memory_expiration_sweep": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
+        "backend.workers.orchestration.sla_escalation_scan": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
+        "backend.workers.orchestration.embed_semantic_memory_entry": {
+            "queue": s.CELERY_QUEUE_MODEL_GATEWAY
+        },
+        "backend.workers.orchestration.process_memory_ingest_jobs": {
+            "queue": s.CELERY_QUEUE_MODEL_GATEWAY
+        },
+        "backend.workers.orchestration.episodic_retention_archive": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
+        "backend.workers.orchestration.memory_compaction_backfill": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
+        "backend.workers.orchestration.episodic_index_embedding_batch": {
+            "queue": s.CELERY_QUEUE_MODEL_GATEWAY
+        },
     }
 
 
@@ -42,12 +68,22 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     task_track_started=True,
     task_ignore_result=True,
+    task_acks_late=settings.CELERY_TASK_ACKS_LATE,
+    task_reject_on_worker_lost=settings.CELERY_TASK_REJECT_ON_WORKER_LOST,
+    worker_prefetch_multiplier=max(1, settings.CELERY_WORKER_PREFETCH_MULTIPLIER),
+    task_soft_time_limit=settings.CELERY_TASK_SOFT_TIME_LIMIT_SECONDS,
+    task_time_limit=settings.CELERY_TASK_TIME_LIMIT_SECONDS,
+    broker_transport_options={
+        "visibility_timeout": settings.CELERY_BROKER_VISIBILITY_TIMEOUT_SECONDS,
+    },
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
         "provider-healthcheck": {
             "task": "backend.workers.orchestration.provider_healthcheck",
-            "schedule": crontab(minute=f"*/{max(1, settings.PROVIDER_HEALTHCHECK_INTERVAL_MINUTES)}"),
+            "schedule": crontab(
+                minute=f"*/{max(1, settings.PROVIDER_HEALTHCHECK_INTERVAL_MINUTES)}"
+            ),
         },
         "github-issue-poll": {
             "task": "backend.workers.orchestration.github_issue_poll",
@@ -59,7 +95,9 @@ celery_app.conf.update(
         },
         "orchestration-sla-escalation-scan": {
             "task": "backend.workers.orchestration.sla_escalation_scan",
-            "schedule": crontab(minute=f"*/{max(1, settings.ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES)}"),
+            "schedule": crontab(
+                minute=f"*/{max(1, settings.ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES)}"
+            ),
         },
         "memory-ingest-jobs": {
             "task": "backend.workers.orchestration.process_memory_ingest_jobs",

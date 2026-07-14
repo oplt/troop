@@ -1,0 +1,1500 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "frontend/.env.example",
+      "language": "config",
+      "sizeLines": 3,
+      "fileCategory": "config"
+    },
+    {
+      "path": "frontend/eslint.config.js",
+      "language": "javascript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/index.html",
+      "language": "html",
+      "sizeLines": 13,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "frontend/package.json",
+      "language": "json",
+      "sizeLines": 56,
+      "fileCategory": "config"
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "language": "typescript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/README.md",
+      "language": "markdown",
+      "sizeLines": 73,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "frontend/scripts/phase0-build-baseline.mjs",
+      "language": "javascript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/admin.ts",
+      "language": "typescript",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/ai.ts",
+      "language": "typescript",
+      "sizeLines": 382,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/auth.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/calendar.ts",
+      "language": "typescript",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/client.test.ts",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/client.ts",
+      "language": "typescript",
+      "sizeLines": 161,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/companies.ts",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/notifications.ts",
+      "language": "typescript",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/orchestration.ts",
+      "language": "typescript",
+      "sizeLines": 2584,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/orchestrationGraphql.ts",
+      "language": "typescript",
+      "sizeLines": 453,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/platform.ts",
+      "language": "typescript",
+      "sizeLines": 323,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/profile.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/settings.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/api/users.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/App.css",
+      "language": "css",
+      "sizeLines": 184,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "frontend/src/app/colorModeContext.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/app/providers.tsx",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/app/router.tsx",
+      "language": "typescript",
+      "sizeLines": 162,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/app/snackbarContext.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/app/SnackbarProvider.tsx",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/app/theme.ts",
+      "language": "typescript",
+      "sizeLines": 546,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/auth/AuthShell.tsx",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "language": "typescript",
+      "sizeLines": 1316,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/guards/ProtectedRoute.test.tsx",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/guards/ProtectedRoute.tsx",
+      "language": "typescript",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/hierarchy/AgentOperatingConsole.tsx",
+      "language": "typescript",
+      "sizeLines": 720,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/hierarchy/HierarchyBuilderCanvas.tsx",
+      "language": "typescript",
+      "sizeLines": 2103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/layout/AppLayout.tsx",
+      "language": "typescript",
+      "sizeLines": 653,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/layout/CommandPalette.tsx",
+      "language": "typescript",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/runInspector/RunInspectorDataViews.tsx",
+      "language": "typescript",
+      "sizeLines": 487,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/MyTemplatesView.tsx",
+      "language": "typescript",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/SkillPackPicker.tsx",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/SkillTemplateCard.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TeamTemplateCard.tsx",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "language": "typescript",
+      "sizeLines": 219,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/templateBuilderState.ts",
+      "language": "typescript",
+      "sizeLines": 279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateBuilderView.tsx",
+      "language": "typescript",
+      "sizeLines": 306,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateCard.tsx",
+      "language": "typescript",
+      "sizeLines": 126,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "language": "typescript",
+      "sizeLines": 209,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateSection.tsx",
+      "language": "typescript",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateTab.tsx",
+      "language": "typescript",
+      "sizeLines": 587,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateTopBar.tsx",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/templates/types.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/EmptyState.tsx",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/PageShell.tsx",
+      "language": "typescript",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/SectionCard.tsx",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/StatCard.tsx",
+      "language": "typescript",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/Subsection.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/config/queryClient.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/config/queryKeys.test.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/config/queryKeys.ts",
+      "language": "typescript",
+      "sizeLines": 114,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx",
+      "language": "typescript",
+      "sizeLines": 389,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/parser.test.ts",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/parser.ts",
+      "language": "typescript",
+      "sizeLines": 873,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/schema.ts",
+      "language": "typescript",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/types.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplates/formState.ts",
+      "language": "typescript",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/auth/context/authContext.ts",
+      "language": "typescript",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/auth/context/AuthContext.tsx",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/auth/schemas.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/queries.ts",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/validation.test.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/validation.ts",
+      "language": "typescript",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/orchestration/project/mutations.test.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/orchestration/project/mutations.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/orchestration/project/ProjectDetailState.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/orchestration/project/queries.test.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/orchestration/project/queries.ts",
+      "language": "typescript",
+      "sizeLines": 217,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/parser.test.ts",
+      "language": "typescript",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/parser.ts",
+      "language": "typescript",
+      "sizeLines": 472,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx",
+      "language": "typescript",
+      "sizeLines": 272,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/types.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/projectLiveSnapshotSync.test.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/projectLiveSnapshotSync.ts",
+      "language": "typescript",
+      "sizeLines": 195,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/useAuth.ts",
+      "language": "typescript",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/useCanonicalUser.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/useDebounce.test.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/useDebounce.ts",
+      "language": "typescript",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/useLiveSnapshotStream.ts",
+      "language": "typescript",
+      "sizeLines": 141,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/hooks/usePlatformMetadata.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/index.css",
+      "language": "css",
+      "sizeLines": 46,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ActivityAuditPage.tsx",
+      "language": "typescript",
+      "sizeLines": 574,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AdminPlatformPage.tsx",
+      "language": "typescript",
+      "sizeLines": 1124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AdminSettingsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 528,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AdminUsersPage.tsx",
+      "language": "typescript",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AgentLibraryPage.tsx",
+      "language": "typescript",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AgentProfilesPage.tsx",
+      "language": "typescript",
+      "sizeLines": 214,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AgentRunDetailPage.tsx",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AiStudioPage.tsx",
+      "language": "typescript",
+      "sizeLines": 909,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/AuthHomePage.tsx",
+      "language": "typescript",
+      "sizeLines": 354,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/BenchmarkPage.tsx",
+      "language": "typescript",
+      "sizeLines": 411,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/BrainstormDetailPage.tsx",
+      "language": "typescript",
+      "sizeLines": 494,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/BrainstormsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/CalendarPage.tsx",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/CompaniesPage.tsx",
+      "language": "typescript",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/CompanyMemoryPage.tsx",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/CostAnalyticsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/DashboardPage.test.tsx",
+      "language": "typescript",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/DashboardPage.tsx",
+      "language": "typescript",
+      "sizeLines": 633,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ExecutionInsightsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/GithubSyncPage.tsx",
+      "language": "typescript",
+      "sizeLines": 561,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/HierarchyPage.tsx",
+      "language": "typescript",
+      "sizeLines": 4426,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ModelSettingsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/NotificationsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 251,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/OrchestrationPortfolioPage.tsx",
+      "language": "typescript",
+      "sizeLines": 343,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/OrchestrationProjectDetailPage.test.tsx",
+      "language": "typescript",
+      "sizeLines": 152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/OrchestrationProjectDetailPage.tsx",
+      "language": "typescript",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/OrchestrationProjectsPage.tsx",
+      "language": "typescript",
+      "sizeLines": 996,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/PlatformPage.tsx",
+      "language": "typescript",
+      "sizeLines": 648,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ProfilePage.tsx",
+      "language": "typescript",
+      "sizeLines": 749,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/projectDetail/kanbanConstants.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/projectDetail/OrchestrationProjectDetailView.tsx",
+      "language": "typescript",
+      "sizeLines": 5761,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ProviderSettingsPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 894,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/ResetPasswordPage.tsx",
+      "language": "typescript",
+      "sizeLines": 126,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/RunInspectorPage.tsx",
+      "language": "typescript",
+      "sizeLines": 1232,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/SemanticMemoryPage.tsx",
+      "language": "typescript",
+      "sizeLines": 1085,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/VerifyEmailPage.tsx",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/WorkflowTemplatesPage.tsx",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/test/setup.ts",
+      "language": "typescript",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/types/qrcode.d.ts",
+      "language": "typescript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/utils/apiErrors.test.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/utils/apiErrors.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/utils/formatters.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/utils/orchestrationSelection.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/tsconfig.app.json",
+      "language": "json",
+      "sizeLines": 29,
+      "fileCategory": "config"
+    },
+    {
+      "path": "frontend/tsconfig.json",
+      "language": "json",
+      "sizeLines": 7,
+      "fileCategory": "config"
+    },
+    {
+      "path": "frontend/tsconfig.node.json",
+      "language": "json",
+      "sizeLines": 26,
+      "fileCategory": "config"
+    },
+    {
+      "path": "frontend/tsconfig.tsbuildinfo",
+      "language": "tsbuildinfo",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vite.config.d.ts",
+      "language": "typescript",
+      "sizeLines": 2,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vite.config.js",
+      "language": "javascript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vitest.config.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "frontend/.env.example": [],
+    "frontend/eslint.config.js": [],
+    "frontend/index.html": [],
+    "frontend/package.json": [],
+    "frontend/playwright.config.ts": [],
+    "frontend/README.md": [],
+    "frontend/scripts/phase0-build-baseline.mjs": [],
+    "frontend/src/api/admin.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/ai.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/auth.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/calendar.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/client.test.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/client.ts": [],
+    "frontend/src/api/companies.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/notifications.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/orchestration.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/orchestrationGraphql.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/platform.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/profile.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/settings.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/api/users.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/App.css": [],
+    "frontend/src/app/colorModeContext.ts": [
+      "frontend/src/app/theme.ts"
+    ],
+    "frontend/src/app/providers.tsx": [
+      "frontend/src/app/colorModeContext.ts",
+      "frontend/src/app/SnackbarProvider.tsx",
+      "frontend/src/app/theme.ts",
+      "frontend/src/config/queryClient.ts",
+      "frontend/src/features/auth/context/AuthContext.tsx"
+    ],
+    "frontend/src/app/router.tsx": [
+      "frontend/src/components/guards/ProtectedRoute.tsx",
+      "frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "frontend/src/components/layout/AppLayout.tsx",
+      "frontend/src/hooks/useAuth.ts",
+      "frontend/src/pages/AuthHomePage.tsx"
+    ],
+    "frontend/src/app/snackbarContext.ts": [],
+    "frontend/src/app/SnackbarProvider.tsx": [
+      "frontend/src/app/snackbarContext.ts"
+    ],
+    "frontend/src/app/theme.ts": [],
+    "frontend/src/components/auth/AuthMarketingPanel.tsx": [],
+    "frontend/src/components/auth/AuthShell.tsx": [],
+    "frontend/src/components/dashboard/DashboardCalendar.tsx": [
+      "frontend/src/api/calendar.ts",
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/components/guards/ProtectedRoute.test.tsx": [
+      "frontend/src/components/guards/ProtectedRoute.tsx"
+    ],
+    "frontend/src/components/guards/ProtectedRoute.tsx": [],
+    "frontend/src/components/guards/RouteErrorBoundary.tsx": [
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx"
+    ],
+    "frontend/src/components/hierarchy/AgentOperatingConsole.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/api/orchestrationGraphql.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/hooks/useLiveSnapshotStream.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/components/hierarchy/HierarchyBuilderCanvas.tsx": [],
+    "frontend/src/components/layout/AppLayout.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/colorModeContext.ts",
+      "frontend/src/components/layout/CommandPalette.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/hooks/useAuth.ts",
+      "frontend/src/hooks/useCanonicalUser.ts",
+      "frontend/src/hooks/usePlatformMetadata.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/components/layout/CommandPalette.tsx": [],
+    "frontend/src/components/runInspector/RunInspectorDataViews.tsx": [
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/components/templates/AgentRegistryPanel.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/TemplateSection.tsx",
+      "frontend/src/components/ui/EmptyState.tsx"
+    ],
+    "frontend/src/components/templates/MyTemplatesView.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/AgentRegistryPanel.tsx"
+    ],
+    "frontend/src/components/templates/SkillPackPicker.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/SkillTemplateCard.tsx": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/components/templates/TeamTemplateCard.tsx": [
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/TemplateBrowseView.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/SkillTemplateCard.tsx",
+      "frontend/src/components/templates/TeamTemplateCard.tsx",
+      "frontend/src/components/templates/TemplateCard.tsx",
+      "frontend/src/components/templates/TemplateSection.tsx",
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/templateBuilderState.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/TemplateBuilderView.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "frontend/src/components/templates/SkillPackPicker.tsx",
+      "frontend/src/components/templates/TemplateSection.tsx",
+      "frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/TemplateCard.tsx": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/components/templates/TemplateDetailDrawer.tsx": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/components/templates/TemplateFilterToolbar.tsx": [
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/TemplateSection.tsx": [
+      "frontend/src/components/ui/SectionCard.tsx"
+    ],
+    "frontend/src/components/templates/TemplateTab.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "frontend/src/components/templates/templateBuilderState.ts",
+      "frontend/src/components/templates/TemplateBuilderView.tsx",
+      "frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "frontend/src/components/templates/TemplateTopBar.tsx",
+      "frontend/src/components/templates/types.ts"
+    ],
+    "frontend/src/components/templates/TemplateTopBar.tsx": [],
+    "frontend/src/components/templates/TemplateValidationPanel.tsx": [],
+    "frontend/src/components/templates/types.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/components/ui/CollapsibleSectionCard.tsx": [
+      "frontend/src/components/ui/SectionCard.tsx"
+    ],
+    "frontend/src/components/ui/EmptyState.tsx": [],
+    "frontend/src/components/ui/PageShell.tsx": [],
+    "frontend/src/components/ui/SectionCard.tsx": [],
+    "frontend/src/components/ui/StatCard.tsx": [],
+    "frontend/src/components/ui/Subsection.tsx": [],
+    "frontend/src/config/queryClient.ts": [
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/config/queryKeys.test.ts": [
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/config/queryKeys.ts": [],
+    "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx": [
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplateImport/types.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/parser.test.ts": [
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplates/formState.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/parser.ts": [
+      "frontend/src/features/agentTemplateImport/schema.ts",
+      "frontend/src/features/agentTemplateImport/types.ts",
+      "frontend/src/features/agentTemplates/formState.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/schema.ts": [
+      "frontend/src/features/agentTemplateImport/types.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/types.ts": [],
+    "frontend/src/features/agentTemplates/formState.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/features/auth/context/authContext.ts": [
+      "frontend/src/api/auth.ts"
+    ],
+    "frontend/src/features/auth/context/AuthContext.tsx": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/api/client.ts",
+      "frontend/src/features/auth/context/authContext.ts"
+    ],
+    "frontend/src/features/auth/schemas.ts": [],
+    "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts": [],
+    "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts": [
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/hooks/useLiveSnapshotStream.ts"
+    ],
+    "frontend/src/features/hierarchy/queries.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/features/hierarchy/validation.test.ts": [
+      "frontend/src/features/hierarchy/validation.ts"
+    ],
+    "frontend/src/features/hierarchy/validation.ts": [],
+    "frontend/src/features/orchestration/project/mutations.test.ts": [
+      "frontend/src/features/orchestration/project/mutations.ts"
+    ],
+    "frontend/src/features/orchestration/project/mutations.ts": [
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/features/orchestration/project/ProjectDetailState.tsx": [
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx"
+    ],
+    "frontend/src/features/orchestration/project/queries.test.ts": [
+      "frontend/src/features/orchestration/project/queries.ts"
+    ],
+    "frontend/src/features/orchestration/project/queries.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/parser.test.ts": [
+      "frontend/src/features/skillTemplateImport/parser.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/parser.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/features/skillTemplateImport/types.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx": [
+      "frontend/src/features/skillTemplateImport/parser.ts",
+      "frontend/src/features/skillTemplateImport/types.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/types.ts": [],
+    "frontend/src/hooks/projectLiveSnapshotSync.test.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/hooks/projectLiveSnapshotSync.ts"
+    ],
+    "frontend/src/hooks/projectLiveSnapshotSync.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/hooks/useLiveSnapshotStream.ts"
+    ],
+    "frontend/src/hooks/useAuth.ts": [],
+    "frontend/src/hooks/useCanonicalUser.ts": [
+      "frontend/src/api/profile.ts",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/hooks/useAuth.ts"
+    ],
+    "frontend/src/hooks/useDebounce.test.ts": [
+      "frontend/src/hooks/useDebounce.ts"
+    ],
+    "frontend/src/hooks/useDebounce.ts": [],
+    "frontend/src/hooks/useLiveSnapshotStream.ts": [
+      "frontend/src/api/client.ts"
+    ],
+    "frontend/src/hooks/usePlatformMetadata.ts": [
+      "frontend/src/api/platform.ts",
+      "frontend/src/config/queryKeys.ts"
+    ],
+    "frontend/src/index.css": [],
+    "frontend/src/main.tsx": [
+      "frontend/src/app/providers.tsx",
+      "frontend/src/app/router.tsx",
+      "frontend/src/index.css"
+    ],
+    "frontend/src/pages/ActivityAuditPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/AdminPlatformPage.tsx": [
+      "frontend/src/api/platform.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx"
+    ],
+    "frontend/src/pages/AdminSettingsPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/api/settings.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/pages/AdminPlatformPage.tsx",
+      "frontend/src/pages/AdminUsersPage.tsx",
+      "frontend/src/pages/CompaniesPage.tsx",
+      "frontend/src/pages/GithubSyncPage.tsx",
+      "frontend/src/pages/ProfilePage.tsx",
+      "frontend/src/pages/ProviderSettingsPanel.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/AdminUsersPage.tsx": [
+      "frontend/src/api/admin.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/hooks/useDebounce.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/AgentLibraryPage.tsx": [],
+    "frontend/src/pages/AgentProfilesPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/utils/apiErrors.ts"
+    ],
+    "frontend/src/pages/AgentRunDetailPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx"
+    ],
+    "frontend/src/pages/AiStudioPage.tsx": [
+      "frontend/src/api/ai.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/utils/apiErrors.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/AuthHomePage.tsx": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "frontend/src/components/auth/AuthShell.tsx",
+      "frontend/src/features/auth/schemas.ts",
+      "frontend/src/hooks/useAuth.ts",
+      "frontend/src/hooks/usePlatformMetadata.ts"
+    ],
+    "frontend/src/pages/BenchmarkPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/BrainstormDetailPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/BrainstormsPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/CalendarPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "frontend/src/components/ui/PageShell.tsx"
+    ],
+    "frontend/src/pages/CompaniesPage.tsx": [
+      "frontend/src/api/companies.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/CompanyMemoryPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/CostAnalyticsPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/DashboardPage.test.tsx": [
+      "frontend/src/api/notifications.ts",
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/pages/DashboardPage.tsx"
+    ],
+    "frontend/src/pages/DashboardPage.tsx": [
+      "frontend/src/api/notifications.ts",
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/utils/apiErrors.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/ExecutionInsightsPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/utils/apiErrors.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/GithubSyncPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/hooks/useLiveSnapshotStream.ts"
+    ],
+    "frontend/src/pages/HierarchyPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx",
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplateImport/types.ts",
+      "frontend/src/features/agentTemplates/formState.ts",
+      "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts",
+      "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "frontend/src/features/hierarchy/queries.ts",
+      "frontend/src/features/hierarchy/validation.ts",
+      "frontend/src/features/skillTemplateImport/parser.ts",
+      "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx",
+      "frontend/src/features/skillTemplateImport/types.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/ModelSettingsPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/pages/ProviderSettingsPanel.tsx"
+    ],
+    "frontend/src/pages/NotificationsPage.tsx": [
+      "frontend/src/api/notifications.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/OrchestrationPortfolioPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/hooks/useLiveSnapshotStream.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/OrchestrationProjectDetailPage.test.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/pages/projectDetail/OrchestrationProjectDetailView.tsx"
+    ],
+    "frontend/src/pages/OrchestrationProjectDetailPage.tsx": [
+      "frontend/src/components/ui/PageShell.tsx"
+    ],
+    "frontend/src/pages/OrchestrationProjectsPage.tsx": [
+      "frontend/src/api/companies.ts",
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/PlatformPage.tsx": [
+      "frontend/src/api/platform.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/StatCard.tsx",
+      "frontend/src/hooks/usePlatformMetadata.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/ProfilePage.tsx": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/api/notifications.ts",
+      "frontend/src/api/profile.ts",
+      "frontend/src/api/users.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/projectDetail/kanbanConstants.ts": [],
+    "frontend/src/pages/projectDetail/OrchestrationProjectDetailView.tsx": [
+      "frontend/src/api/client.ts",
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/features/orchestration/project/mutations.ts",
+      "frontend/src/features/orchestration/project/ProjectDetailState.tsx",
+      "frontend/src/features/orchestration/project/queries.ts",
+      "frontend/src/hooks/projectLiveSnapshotSync.ts",
+      "frontend/src/hooks/useDebounce.ts",
+      "frontend/src/pages/projectDetail/kanbanConstants.ts",
+      "frontend/src/utils/apiErrors.ts",
+      "frontend/src/utils/formatters.ts",
+      "frontend/src/utils/orchestrationSelection.ts"
+    ],
+    "frontend/src/pages/ProviderSettingsPanel.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/ResetPasswordPage.tsx": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "frontend/src/components/auth/AuthShell.tsx",
+      "frontend/src/hooks/usePlatformMetadata.ts"
+    ],
+    "frontend/src/pages/RunInspectorPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/components/runInspector/RunInspectorDataViews.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/utils/formatters.ts",
+      "frontend/src/utils/orchestrationSelection.ts"
+    ],
+    "frontend/src/pages/SemanticMemoryPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/hooks/useDebounce.ts",
+      "frontend/src/utils/apiErrors.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "frontend/src/pages/VerifyEmailPage.tsx": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "frontend/src/components/auth/AuthShell.tsx",
+      "frontend/src/hooks/usePlatformMetadata.ts"
+    ],
+    "frontend/src/pages/WorkflowTemplatesPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/utils/apiErrors.ts"
+    ],
+    "frontend/src/test/setup.ts": [],
+    "frontend/src/types/qrcode.d.ts": [],
+    "frontend/src/utils/apiErrors.test.ts": [
+      "frontend/src/utils/apiErrors.ts"
+    ],
+    "frontend/src/utils/apiErrors.ts": [],
+    "frontend/src/utils/formatters.ts": [],
+    "frontend/src/utils/orchestrationSelection.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/tsconfig.app.json": [],
+    "frontend/tsconfig.json": [],
+    "frontend/tsconfig.node.json": [],
+    "frontend/tsconfig.tsbuildinfo": [],
+    "frontend/vite.config.d.ts": [],
+    "frontend/vite.config.js": [],
+    "frontend/vite.config.ts": [],
+    "frontend/vitest.config.ts": []
+  }
+}

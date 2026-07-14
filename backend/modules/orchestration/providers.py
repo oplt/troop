@@ -10,7 +10,10 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 
+from backend.core.external_http import external_headers
+from backend.core.http_clients import managed_http_client
 from backend.modules.ai.providers import LocalHeuristicProvider
+from backend.modules.observability.decorators import observe_provider_call
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.security import decrypt_secret
 
@@ -52,12 +55,12 @@ def _provider_headers(provider: ProviderConfig) -> dict[str, str]:
         if api_key:
             headers["x-api-key"] = api_key
         headers["anthropic-version"] = "2023-06-01"
-        return headers
+        return external_headers(headers)
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     if provider.organization:
         headers["OpenAI-Organization"] = provider.organization
-    return headers
+    return external_headers(headers)
 
 
 def _bool_value(value: Any, default: bool = False) -> bool:
@@ -97,7 +100,9 @@ def _float_value(value: Any) -> float | None:
     return None
 
 
-def _source_value(source: str, value: Any, *, missing: str = "unavailable_from_provider_api") -> str:
+def _source_value(
+    source: str, value: Any, *, missing: str = "unavailable_from_provider_api"
+) -> str:
     return source if value is not None and value != "" else missing
 
 
@@ -109,6 +114,21 @@ def _provider_health(provider: ProviderConfig) -> tuple[str, int | None]:
     else:
         status = "unknown"
     return status, provider.last_healthcheck_latency_ms
+
+
+def _request_option(request_options: dict[str, Any] | None, key: str, default: Any = None) -> Any:
+    value = (request_options or {}).get(key)
+    return default if value is None else value
+
+
+def _request_int(request_options: dict[str, Any] | None, key: str, default: int) -> int:
+    value = _int_value(_request_option(request_options, key))
+    return value if value is not None and value > 0 else default
+
+
+def _request_float(request_options: dict[str, Any] | None, key: str, default: float) -> float:
+    value = _float_value(_request_option(request_options, key))
+    return value if value is not None else default
 
 
 def _capability_record(
@@ -138,6 +158,22 @@ def _capability_record(
         "model_slug": model_slug,
         "display_name": display_name or model_slug,
         "supports_tools": supports_tools,
+        "supports_tool_calling": supports_tools,
+        "supports_structured_output": provider.provider_type
+        in {
+            "openai",
+            "openai_compatible",
+            "qwen",
+            "ollama",
+            "local",
+        },
+        "supports_reasoning": provider.provider_type
+        in {
+            "openai",
+            "openai_compatible",
+            "qwen",
+            "anthropic",
+        },
         "supports_vision": supports_vision,
         "context_window": context_window,
         "max_output_tokens": max_output_tokens,
@@ -165,7 +201,9 @@ async def discover_provider_capabilities(provider: ProviderConfig) -> list[dict[
     return await _discover_openai_compatible_capabilities(provider)
 
 
-def _fallback_configured_capabilities(provider: ProviderConfig, reason: str) -> list[dict[str, Any]]:
+def _fallback_configured_capabilities(
+    provider: ProviderConfig, reason: str
+) -> list[dict[str, Any]]:
     status, latency = _provider_health(provider)
     models = [provider.default_model]
     if provider.fallback_model and provider.fallback_model not in models:
@@ -196,7 +234,9 @@ def _fallback_configured_capabilities(provider: ProviderConfig, reason: str) -> 
                 "input_cost_per_1m": "unavailable_from_provider_api",
                 "output_cost_per_1m": "unavailable_from_provider_api",
                 "latency_p50": _source_value("provider_healthcheck", latency),
-                "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                "health_status": "provider_healthcheck"
+                if provider.last_healthcheck_at
+                else "unknown",
                 "last_verified_at": "sync_runtime",
                 "override_reason": "sync_runtime",
             },
@@ -216,6 +256,7 @@ async def execute_prompt(
     system_prompt: str,
     user_prompt: str,
     response_format: str = "text",
+    request_options: dict[str, Any] | None = None,
 ) -> ProviderExecutionResult:
     if provider is None or provider.provider_type == "local":
         started = time.perf_counter()
@@ -250,6 +291,7 @@ async def execute_prompt(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             response_format=response_format,
+            request_options=request_options,
         )
     if provider_type == "anthropic":
         return await _execute_anthropic(
@@ -258,6 +300,7 @@ async def execute_prompt(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             response_format=response_format,
+            request_options=request_options,
         )
     if provider_type == "ollama":
         return await _execute_ollama(
@@ -266,6 +309,7 @@ async def execute_prompt(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             response_format=response_format,
+            request_options=request_options,
         )
     raise HTTPException(status_code=422, detail=f"Unsupported provider type: {provider_type}")
 
@@ -305,6 +349,7 @@ async def list_provider_models(provider: ProviderConfig) -> list[dict[str, Any]]
     ]
 
 
+@observe_provider_call("generate")
 async def _execute_openai_compatible(
     provider: ProviderConfig,
     *,
@@ -312,36 +357,48 @@ async def _execute_openai_compatible(
     system_prompt: str,
     user_prompt: str,
     response_format: str,
+    request_options: dict[str, Any] | None = None,
 ) -> ProviderExecutionResult:
     started = time.perf_counter()
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
+    structured_output = bool(_request_option(request_options, "structured_output", False))
+    effective_response_format = "json" if structured_output else response_format
+    body: dict[str, Any] = {
+        "model": model_name,
+        "temperature": _request_float(request_options, "temperature", provider.temperature),
+        "max_tokens": _request_int(request_options, "max_tokens", provider.max_tokens),
+        "response_format": {"type": "json_object"}
+        if effective_response_format == "json"
+        else {"type": "text"},
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    reasoning_effort = str(_request_option(request_options, "reasoning_effort", "") or "").strip()
+    if reasoning_effort and provider.provider_type in {"openai", "openai_compatible", "qwen"}:
+        body["reasoning_effort"] = reasoning_effort
+    if _request_option(request_options, "tool_calling", None) is False:
+        body["tools"] = []
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds),
         base_url=_provider_base_url(provider),
     ) as client:
         response = await client.post(
             "/chat/completions",
             headers=_provider_headers(provider),
-            json={
-                "model": model_name,
-                "temperature": provider.temperature,
-                "max_tokens": provider.max_tokens,
-                "response_format": {"type": "json_object"}
-                if response_format == "json"
-                else {"type": "text"},
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            },
+            json=body,
         )
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Provider request failed: {response.text[:300]}")
+        raise HTTPException(
+            status_code=502, detail=f"Provider request failed: {response.text[:300]}"
+        )
     payload = response.json()
     content = payload["choices"][0]["message"]["content"]
     usage = payload.get("usage", {})
     latency_ms = int((time.perf_counter() - started) * 1000)
     parsed_json = None
-    if response_format == "json":
+    if effective_response_format == "json":
         try:
             parsed_json = json.loads(content)
         except json.JSONDecodeError:
@@ -356,6 +413,7 @@ async def _execute_openai_compatible(
     )
 
 
+@observe_provider_call("generate")
 async def _execute_anthropic(
     provider: ProviderConfig,
     *,
@@ -363,10 +421,12 @@ async def _execute_anthropic(
     system_prompt: str,
     user_prompt: str,
     response_format: str,
+    request_options: dict[str, Any] | None = None,
 ) -> ProviderExecutionResult:
     started = time.perf_counter()
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds),
         base_url=_provider_base_url(provider),
     ) as client:
         response = await client.post(
@@ -375,13 +435,15 @@ async def _execute_anthropic(
             json={
                 "model": model_name,
                 "system": system_prompt,
-                "max_tokens": provider.max_tokens,
-                "temperature": provider.temperature,
+                "max_tokens": _request_int(request_options, "max_tokens", provider.max_tokens),
+                "temperature": _request_float(request_options, "temperature", provider.temperature),
                 "messages": [{"role": "user", "content": user_prompt}],
             },
         )
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Anthropic request failed: {response.text[:300]}")
+        raise HTTPException(
+            status_code=502, detail=f"Anthropic request failed: {response.text[:300]}"
+        )
     payload = response.json()
     parts = payload.get("content") or []
     content = "".join(
@@ -390,7 +452,10 @@ async def _execute_anthropic(
         if isinstance(item, dict) and item.get("type") == "text"
     )
     parsed_json = None
-    if response_format == "json":
+    if (
+        bool(_request_option(request_options, "structured_output", False))
+        or response_format == "json"
+    ):
         try:
             parsed_json = json.loads(content)
         except json.JSONDecodeError:
@@ -429,6 +494,7 @@ def _ollama_extract_text_from_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
+@observe_provider_call("generate")
 async def _execute_ollama(
     provider: ProviderConfig,
     *,
@@ -436,6 +502,7 @@ async def _execute_ollama(
     system_prompt: str,
     user_prompt: str,
     response_format: str,
+    request_options: dict[str, Any] | None = None,
 ) -> ProviderExecutionResult:
     started = time.perf_counter()
     base = _provider_base_url(provider)
@@ -444,8 +511,14 @@ async def _execute_ollama(
     if sys_clean:
         messages.append({"role": "system", "content": sys_clean})
     messages.append({"role": "user", "content": user_prompt})
-    options = {"temperature": provider.temperature, "num_predict": provider.max_tokens}
-    want_json = response_format == "json"
+    options = {
+        "temperature": _request_float(request_options, "temperature", provider.temperature),
+        "num_predict": _request_int(request_options, "max_tokens", provider.max_tokens),
+    }
+    want_json = (
+        bool(_request_option(request_options, "structured_output", False))
+        or response_format == "json"
+    )
 
     async def _post_chat(client: httpx.AsyncClient, *, json_format: bool) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -485,7 +558,10 @@ async def _execute_ollama(
         return payload
 
     payload: dict[str, Any]
-    async with httpx.AsyncClient(timeout=float(provider.timeout_seconds), base_url=base) as client:
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds), base_url=base
+    ) as client:
         payload = await _post_chat(client, json_format=True)
         content = _ollama_extract_text_from_payload(payload)
         if want_json and not str(content).strip():
@@ -518,17 +594,22 @@ async def _execute_ollama(
         model_name=model_name,
         output_text=content,
         output_json=parsed_json,
-        input_tokens=int(payload.get("prompt_eval_count", estimate_tokens(system_prompt + user_prompt))),
+        input_tokens=int(
+            payload.get("prompt_eval_count", estimate_tokens(system_prompt + user_prompt))
+        ),
         output_tokens=int(payload.get("eval_count", estimate_tokens(content))),
         latency_ms=latency_ms,
     )
 
 
-async def _discover_openai_compatible_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
+async def _discover_openai_compatible_capabilities(
+    provider: ProviderConfig,
+) -> list[dict[str, Any]]:
     status, latency = _provider_health(provider)
     source = "provider_api:/models"
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds),
         base_url=_provider_base_url(provider),
     ) as client:
         response = await client.get("/models", headers=_provider_headers(provider))
@@ -561,10 +642,14 @@ async def _discover_openai_compatible_capabilities(provider: ProviderConfig) -> 
         supports_tools = False
         if isinstance(capabilities, dict):
             supports_tools = _bool_value(
-                capabilities.get("tools") or capabilities.get("tool_use") or capabilities.get("function_calling")
+                capabilities.get("tools")
+                or capabilities.get("tool_use")
+                or capabilities.get("function_calling")
             )
         context_window = _int_value(item.get("context_window") or item.get("context_length"))
-        max_output_tokens = _int_value(item.get("max_output_tokens") or item.get("output_token_limit"))
+        max_output_tokens = _int_value(
+            item.get("max_output_tokens") or item.get("output_token_limit")
+        )
         input_cost_per_1k = _float_value(item.get("input_cost_per_1k"))
         output_cost_per_1k = _float_value(item.get("output_cost_per_1k"))
         override_reason = None
@@ -599,7 +684,9 @@ async def _discover_openai_compatible_capabilities(provider: ProviderConfig) -> 
                     "input_cost_per_1m": _source_value(source, input_cost_per_1k),
                     "output_cost_per_1m": _source_value(source, output_cost_per_1k),
                     "latency_p50": _source_value("provider_healthcheck", latency),
-                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "health_status": "provider_healthcheck"
+                    if provider.last_healthcheck_at
+                    else "unknown",
                     "last_verified_at": "sync_runtime",
                     "override_reason": "sync_runtime" if override_reason else "none",
                 },
@@ -614,8 +701,9 @@ async def _discover_openai_compatible_capabilities(provider: ProviderConfig) -> 
 async def _discover_anthropic_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
     status, latency = _provider_health(provider)
     source = "provider_api:/v1/models"
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds),
         base_url=_provider_base_url(provider),
     ) as client:
         response = await client.get("/v1/models", headers=_provider_headers(provider))
@@ -660,7 +748,9 @@ async def _discover_anthropic_capabilities(provider: ProviderConfig) -> list[dic
                     "input_cost_per_1m": "unavailable_from_provider_api",
                     "output_cost_per_1m": "unavailable_from_provider_api",
                     "latency_p50": _source_value("provider_healthcheck", latency),
-                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "health_status": "provider_healthcheck"
+                    if provider.last_healthcheck_at
+                    else "unknown",
                     "last_verified_at": "sync_runtime",
                     "override_reason": "sync_runtime",
                 },
@@ -674,8 +764,9 @@ async def _discover_anthropic_capabilities(provider: ProviderConfig) -> list[dic
 
 async def _discover_ollama_capabilities(provider: ProviderConfig) -> list[dict[str, Any]]:
     status, latency = _provider_health(provider)
-    async with httpx.AsyncClient(
-        timeout=float(provider.timeout_seconds),
+    async with managed_http_client(
+        "orchestration-provider",
+        timeout_seconds=float(provider.timeout_seconds),
         base_url=_provider_base_url(provider),
     ) as client:
         response = await client.get("/api/tags")
@@ -700,7 +791,12 @@ async def _discover_ollama_capabilities(provider: ProviderConfig) -> list[dict[s
             model_info = show_payload.get("model_info") or {}
             parameters = str(show_payload.get("parameters") or "")
             context_window = None
-            for key in ("context_length", "llama.context_length", "gemma3.context_length", "qwen2.context_length"):
+            for key in (
+                "context_length",
+                "llama.context_length",
+                "gemma3.context_length",
+                "qwen2.context_length",
+            ):
                 context_window = _int_value(model_info.get(key))
                 if context_window is not None:
                     break
@@ -736,13 +832,17 @@ async def _discover_ollama_capabilities(provider: ProviderConfig) -> list[dict[s
                         "supports_tools": _source_value("provider_api:/api/show", capabilities),
                         "supports_vision": _source_value("provider_api:/api/show", capabilities),
                         "context_window": _source_value("provider_api:/api/show", context_window),
-                        "max_output_tokens": _source_value("provider_api:/api/show", max_output_tokens),
+                        "max_output_tokens": _source_value(
+                            "provider_api:/api/show", max_output_tokens
+                        ),
                         "input_cost_per_1k": "default:0:local_runtime",
                         "output_cost_per_1k": "default:0:local_runtime",
                         "input_cost_per_1m": "default:0:local_runtime",
                         "output_cost_per_1m": "default:0:local_runtime",
                         "latency_p50": _source_value("provider_healthcheck", latency),
-                        "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                        "health_status": "provider_healthcheck"
+                        if provider.last_healthcheck_at
+                        else "unknown",
                         "last_verified_at": "sync_runtime",
                         "override_reason": "none",
                     },
@@ -786,7 +886,9 @@ def _discover_local_capabilities(provider: ProviderConfig) -> list[dict[str, Any
                     "input_cost_per_1m": "default:0:local_runtime",
                     "output_cost_per_1m": "default:0:local_runtime",
                     "latency_p50": _source_value("provider_healthcheck", latency),
-                    "health_status": "provider_healthcheck" if provider.last_healthcheck_at else "unknown",
+                    "health_status": "provider_healthcheck"
+                    if provider.last_healthcheck_at
+                    else "unknown",
                     "last_verified_at": "sync_runtime",
                     "override_reason": "sync_runtime",
                 },

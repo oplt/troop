@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
+from backend.core.config import settings
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.projects.models import Project, ProjectTask
@@ -87,11 +88,16 @@ async def get_project(
 @router.get("/{project_id}/tasks", response_model=list[ProjectTaskResponse])
 async def list_project_tasks(
     project_id: str,
+    limit: int = Query(
+        settings.PROJECT_LIST_TASKS_DEFAULT_LIMIT,
+        ge=1,
+        le=settings.PROJECT_LIST_TASKS_MAX_LIMIT,
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectsService(db)
-    tasks = await service.list_tasks(current_user.id, project_id)
+    tasks = await service.list_tasks(current_user.id, project_id, limit=limit)
     return [_task_to_response(task, assignee) for task, assignee in tasks]
 
 

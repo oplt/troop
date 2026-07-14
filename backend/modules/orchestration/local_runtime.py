@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import shlex
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.http_clients import managed_http_client
+from backend.core.logging import get_logger
 from backend.modules.orchestration.models import ProviderConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _PROCESSES: dict[str, subprocess.Popen[bytes]] = {}
 
@@ -36,7 +36,7 @@ async def _health_ok(url: str | None) -> bool:
     if not url:
         return False
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
+        async with managed_http_client("local-runtime", timeout_seconds=2.0) as client:
             response = await client.get(url)
         return 200 <= response.status_code < 300
     except Exception:
@@ -104,7 +104,9 @@ async def start_local_runtime(db: AsyncSession, provider: ProviderConfig) -> dic
     config = _runtime_config(provider)
     is_local_runtime = provider.provider_type == "ollama" or config.get("mode") == "managed"
     if not is_local_runtime:
-        await _mark_runtime_status(db, provider, status="not_supported", detail="Provider is not a local server runtime")
+        await _mark_runtime_status(
+            db, provider, status="not_supported", detail="Provider is not a local server runtime"
+        )
         return {"status": "not_supported"}
 
     process = _PROCESSES.get(provider.id)
@@ -115,12 +117,16 @@ async def start_local_runtime(db: AsyncSession, provider: ProviderConfig) -> dic
     health_url = str(config.get("health_url") or "").strip() or _default_health_url(provider)
     if await _health_ok(health_url):
         await _mark_runtime_status(db, provider, status="already_running")
-        logger.info("local_runtime already_running provider_id=%s name=%s", provider.id, provider.name)
+        logger.info(
+            "local_runtime already_running provider_id=%s name=%s", provider.id, provider.name
+        )
         return {"status": "already_running"}
 
     command = _command_for(provider, config)
     if not command:
-        await _mark_runtime_status(db, provider, status="not_configured", detail="Missing local runtime command")
+        await _mark_runtime_status(
+            db, provider, status="not_configured", detail="Missing local runtime command"
+        )
         return {"status": "not_configured"}
 
     log_path = _runtime_log_path(provider)
@@ -136,17 +142,32 @@ async def start_local_runtime(db: AsyncSession, provider: ProviderConfig) -> dic
         )
     except Exception as exc:
         await _mark_runtime_status(db, provider, status="failed", detail=str(exc))
-        logger.warning("local_runtime start_failed provider_id=%s name=%s error=%s", provider.id, provider.name, exc)
+        logger.warning(
+            "local_runtime start_failed provider_id=%s name=%s error=%s",
+            provider.id,
+            provider.name,
+            exc,
+        )
         return {"status": "failed", "detail": str(exc)}
 
     _PROCESSES[provider.id] = process
-    await _mark_runtime_status(db, provider, status="starting", detail=f"Starting; log: {log_path}", pid=process.pid)
-    logger.info("local_runtime starting provider_id=%s name=%s pid=%s", provider.id, provider.name, process.pid)
+    await _mark_runtime_status(
+        db, provider, status="starting", detail=f"Starting; log: {log_path}", pid=process.pid
+    )
+    logger.info(
+        "local_runtime starting provider_id=%s name=%s pid=%s",
+        provider.id,
+        provider.name,
+        process.pid,
+    )
     startup_timeout_seconds = float(config.get("startup_timeout_seconds") or 30)
     deadline = time.monotonic() + startup_timeout_seconds
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            detail = _tail_log(log_path) or f"Process exited with code {process.returncode}; log: {log_path}"
+            detail = (
+                _tail_log(log_path)
+                or f"Process exited with code {process.returncode}; log: {log_path}"
+            )
             await _mark_runtime_status(db, provider, status="exited", detail=detail)
             return {"status": "exited", "detail": detail}
         if await _health_ok(health_url):
@@ -157,7 +178,9 @@ async def start_local_runtime(db: AsyncSession, provider: ProviderConfig) -> dic
         detail = f"Process started but health URL is not ready: {health_url}; log: {log_path}"
         await _mark_runtime_status(db, provider, status="starting", detail=detail, pid=process.pid)
         return {"status": "starting", "pid": process.pid, "detail": detail}
-    detail = _tail_log(log_path) or f"Process exited with code {process.returncode}; log: {log_path}"
+    detail = (
+        _tail_log(log_path) or f"Process exited with code {process.returncode}; log: {log_path}"
+    )
     await _mark_runtime_status(db, provider, status="exited", detail=detail)
     return {"status": "exited", "detail": detail}
 

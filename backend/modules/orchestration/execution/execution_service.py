@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,9 +10,14 @@ from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.cache import redis_client
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 from backend.modules.memory.working_memory import EXECUTION_THREAD_ID_KEY
 from backend.modules.orchestration._helpers import BlockedExecution
+from backend.modules.orchestration.constants import TASK_TRANSITIONS
+from backend.modules.orchestration.execution.durable_execution import (
+    is_run_execution_claimable,
+)
 from backend.modules.orchestration.execution.execution_state import (
     EXECUTION_SNAPSHOT_SCHEMA_VERSION,
     EXECUTION_TRUTH_DESCRIPTION,
@@ -37,7 +41,10 @@ from backend.modules.orchestration.execution.execution_workflow import (
     update_query_snapshot,
     workflow_state,
 )
-
+from backend.modules.orchestration.execution.policies import (
+    is_valid_task_transition,
+    next_retry_numbers,
+)
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import (
@@ -45,9 +52,8 @@ from backend.modules.projects.orchestration_models import (
     OrchestratorTask,
 )
 from backend.modules.team.models import AgentProfile
-from backend.modules.orchestration.constants import TASK_TRANSITIONS
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OrchestrationExecutionServiceMixin:
@@ -60,7 +66,42 @@ class OrchestrationExecutionServiceMixin:
             raise HTTPException(status_code=404, detail="Run not found")
         return run
 
-    def _run_event_tail_payloads(self, events: list[Any], *, limit: int = 12) -> list[dict[str, Any]]:
+    async def _consume_hitl_grant(
+        self,
+        run: TaskRun,
+        approval_type: str,
+        expected_payload: dict[str, Any] | None = None,
+    ) -> bool:
+        """Consume one approved action grant while resuming a blocked run.
+
+        Approval decisions are durable records, not an in-memory bypass. A grant is
+        matched to the exact run/action and marked consumed before the protected
+        operation proceeds, preventing a later retry from reusing it accidentally.
+        """
+        expected = dict(expected_payload or {})
+        approvals = await self.repo.list_approvals_for_run(run.id, status="approved")
+        for approval in approvals:
+            if approval.approval_type != approval_type:
+                continue
+            payload = dict(approval.payload_json or {})
+            if payload.get("_consumed_at"):
+                continue
+            if any(payload.get(key) != value for key, value in expected.items()):
+                continue
+            payload["_consumed_at"] = datetime.now(UTC).isoformat()
+            approval.payload_json = payload
+            await self._emit_run_event(
+                run,
+                event_type="approval_grant_consumed",
+                message=f"Consumed approved HITL action: {approval_type}.",
+                payload={"approval_id": approval.id, "approval_type": approval_type},
+            )
+            return True
+        return False
+
+    def _run_event_tail_payloads(
+        self, events: list[Any], *, limit: int = 12
+    ) -> list[dict[str, Any]]:
         tail = events[-limit:] if len(events) > limit else events
         out: list[dict[str, Any]] = []
         for e in tail:
@@ -120,10 +161,16 @@ class OrchestrationExecutionServiceMixin:
     def _stage_state_payload(self, run: TaskRun) -> dict[str, Any]:
         return {
             "manager_plan": self._workflow_checkpoint_artifact(run, "manager_worker.plan", {}),
-            "routed_sub_tasks": self._workflow_checkpoint_artifact(run, "manager_worker.routed_sub_tasks", []),
-            "branch_results": self._workflow_checkpoint_artifact(run, "manager_worker.branch_results", []),
+            "routed_sub_tasks": self._workflow_checkpoint_artifact(
+                run, "manager_worker.routed_sub_tasks", []
+            ),
+            "branch_results": self._workflow_checkpoint_artifact(
+                run, "manager_worker.branch_results", []
+            ),
             "review": self._workflow_checkpoint_artifact(run, "manager_worker.review_state", {}),
-            "github_sync": self._workflow_checkpoint_artifact(run, "manager_worker.github_action_state", {}),
+            "github_sync": self._workflow_checkpoint_artifact(
+                run, "manager_worker.github_action_state", {}
+            ),
         }
 
     async def _create_child_run(
@@ -174,8 +221,14 @@ class OrchestrationExecutionServiceMixin:
     ) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
         for index, item in enumerate(sub_tasks):
-            branch_id = str(item.get("branch_id") or item.get("id") or f"branch-{index + 1}").strip()
-            dep_indexes = item.get("dependency_indexes") if isinstance(item.get("dependency_indexes"), list) else []
+            branch_id = str(
+                item.get("branch_id") or item.get("id") or f"branch-{index + 1}"
+            ).strip()
+            dep_indexes = (
+                item.get("dependency_indexes")
+                if isinstance(item.get("dependency_indexes"), list)
+                else []
+            )
             dep_ids = [
                 str(item_id).strip()
                 for item_id in (item.get("dependency_ids") or [])
@@ -183,7 +236,11 @@ class OrchestrationExecutionServiceMixin:
             ]
             for dep_index in dep_indexes:
                 if isinstance(dep_index, int) and 0 <= dep_index < len(sub_tasks):
-                    dep_branch_id = str(sub_tasks[dep_index].get("branch_id") or sub_tasks[dep_index].get("id") or f"branch-{dep_index + 1}").strip()
+                    dep_branch_id = str(
+                        sub_tasks[dep_index].get("branch_id")
+                        or sub_tasks[dep_index].get("id")
+                        or f"branch-{dep_index + 1}"
+                    ).strip()
                     if dep_branch_id and dep_branch_id not in dep_ids:
                         dep_ids.append(dep_branch_id)
             normalized.append(
@@ -191,9 +248,17 @@ class OrchestrationExecutionServiceMixin:
                     "branch_id": branch_id,
                     "title": str(item.get("title") or f"Subtask {index + 1}"),
                     "description": str(item.get("description") or ""),
-                    "acceptance_criteria": str(item.get("acceptance_criteria") or (parent_task.acceptance_criteria if parent_task else "") or ""),
-                    "required_tools": [str(x) for x in (item.get("required_tools") or []) if str(x).strip()],
-                    "required_capabilities": [str(x) for x in (item.get("required_capabilities") or []) if str(x).strip()],
+                    "acceptance_criteria": str(
+                        item.get("acceptance_criteria")
+                        or (parent_task.acceptance_criteria if parent_task else "")
+                        or ""
+                    ),
+                    "required_tools": [
+                        str(x) for x in (item.get("required_tools") or []) if str(x).strip()
+                    ],
+                    "required_capabilities": [
+                        str(x) for x in (item.get("required_capabilities") or []) if str(x).strip()
+                    ],
                     "parallelizable": bool(item.get("parallelizable", False)),
                     "manager_notes": str(item.get("manager_notes") or ""),
                     "dependency_ids": dep_ids,
@@ -230,18 +295,28 @@ class OrchestrationExecutionServiceMixin:
             "risks": [str(x) for x in risks if str(x).strip()],
             "evidence_refs": [str(x) for x in evidence_refs if str(x).strip()],
             "blocker_reason": str(payload.get("blocker_reason") or ""),
-            "rework_scope": [str(x) for x in (payload.get("rework_scope") or sub_task.get("rework_scope") or []) if str(x).strip()],
+            "rework_scope": [
+                str(x)
+                for x in (payload.get("rework_scope") or sub_task.get("rework_scope") or [])
+                if str(x).strip()
+            ],
             "raw_output": output_text,
         }
 
-    def _review_state_from_payload(self, review_payload: dict[str, Any], *, round_number: int) -> dict[str, Any]:
+    def _review_state_from_payload(
+        self, review_payload: dict[str, Any], *, round_number: int
+    ) -> dict[str, Any]:
         return {
             "round": round_number,
             "decision": str(review_payload.get("decision") or "rework"),
             "summary": str(review_payload.get("summary") or "")[:1200],
             "reasons": [str(x) for x in (review_payload.get("reasons") or []) if str(x).strip()],
-            "checklist": [str(x) for x in (review_payload.get("checklist") or []) if str(x).strip()],
-            "rework_scope": [str(x) for x in (review_payload.get("rework_scope") or []) if str(x).strip()],
+            "checklist": [
+                str(x) for x in (review_payload.get("checklist") or []) if str(x).strip()
+            ],
+            "rework_scope": [
+                str(x) for x in (review_payload.get("rework_scope") or []) if str(x).strip()
+            ],
             "last_reviewed_at": datetime.now(UTC).isoformat(),
         }
 
@@ -253,7 +328,11 @@ class OrchestrationExecutionServiceMixin:
         review_state: dict[str, Any],
     ) -> list[dict[str, Any]]:
         created: list[dict[str, Any]] = []
-        final_output = str(run.output_payload_json.get("final_output") or run.output_payload_json.get("summary") or "")
+        final_output = str(
+            run.output_payload_json.get("final_output")
+            or run.output_payload_json.get("summary")
+            or ""
+        )
         review_text = json.dumps(review_state, indent=2, default=str)
         evidence_payload = {
             "branches": [
@@ -271,9 +350,17 @@ class OrchestrationExecutionServiceMixin:
             "review": review_state,
         }
         for kind, title, content in [
-            ("summary", "Manager summary", str(run.output_payload_json.get("summary") or final_output)[:5000]),
+            (
+                "summary",
+                "Manager summary",
+                str(run.output_payload_json.get("summary") or final_output)[:5000],
+            ),
             ("implementation", "Implementation bundle", final_output[:12000]),
-            ("evidence", "Evidence bundle", json.dumps(evidence_payload, indent=2, default=str)[:12000]),
+            (
+                "evidence",
+                "Evidence bundle",
+                json.dumps(evidence_payload, indent=2, default=str)[:12000],
+            ),
             ("review", "Reviewer verdict", review_text[:12000]),
         ]:
             await self._write_artifact(
@@ -287,7 +374,6 @@ class OrchestrationExecutionServiceMixin:
         return created
 
     def _run_is_resumable(self, run: TaskRun) -> bool:
-        state = workflow_state(run.checkpoint_json)
         if run.status not in {"failed", "blocked"}:
             return False
         step = current_step(run.checkpoint_json)
@@ -350,14 +436,21 @@ class OrchestrationExecutionServiceMixin:
             "query_snapshot": dict(state.get("query_snapshot") or {}),
             "migration": {
                 "strategy": str(migration.get("strategy") or "checkpoint-first coexistence"),
-                "current_schema_version": str(migration.get("current_schema_version") or state.get("schema_version") or "2.0"),
-                "source_checkpoint_versions": list(migration.get("source_checkpoint_versions") or [state.get("schema_version") or "2.0"]),
+                "current_schema_version": str(
+                    migration.get("current_schema_version") or state.get("schema_version") or "2.0"
+                ),
+                "source_checkpoint_versions": list(
+                    migration.get("source_checkpoint_versions")
+                    or [state.get("schema_version") or "2.0"]
+                ),
                 "external_backend_ready": bool(migration.get("external_backend_ready")),
             },
             "resumable": self._run_is_resumable(run),
         }
 
-    async def get_task_execution_snapshot(self, user: User, project_id: str, task_id: str) -> dict[str, Any]:
+    async def get_task_execution_snapshot(
+        self, user: User, project_id: str, task_id: str
+    ) -> dict[str, Any]:
         """Compose Layer-1 execution snapshot from Postgres only (no embedding search)."""
         task = await self.get_task(user, project_id, task_id)
         active_runs = await self.repo.list_active_runs_for_task(project_id, task_id)
@@ -443,7 +536,11 @@ class OrchestrationExecutionServiceMixin:
             "trace": self._workflow_trace_payload(focal) if focal else [],
             "durable_workflow": self._durable_workflow_payload(focal) if focal else {},
             "child_runs": child_runs,
-            "blocker_queue": [item for item in (stage_state.get("branch_results") or []) if item.get("status") == "blocked"],
+            "blocker_queue": [
+                item
+                for item in (stage_state.get("branch_results") or [])
+                if item.get("status") == "blocked"
+            ],
             "review_state": stage_state.get("review") or {},
             "github_action_state": stage_state.get("github_sync") or {},
         }
@@ -467,7 +564,9 @@ class OrchestrationExecutionServiceMixin:
         }
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
         execution_memory = extract_execution_memory_details(getattr(task, "metadata_json", None))
-        changed_artifacts = await self._changed_artifacts_payload(run.task_id, run_id=run.id) if run.task_id else []
+        changed_artifacts = (
+            await self._changed_artifacts_payload(run.task_id, run_id=run.id) if run.task_id else []
+        )
         stage_state = self._stage_state_payload(run)
         return {
             "meta": meta,
@@ -495,7 +594,9 @@ class OrchestrationExecutionServiceMixin:
                 }
                 for e in pending_sync
             ],
-            "routing_explainability": self._routing_explainability_from_payload(run.input_payload_json),
+            "routing_explainability": self._routing_explainability_from_payload(
+                run.input_payload_json
+            ),
             "execution_memory": execution_memory,
             "changed_artifacts": changed_artifacts,
             "checkpoint_excerpt": checkpoint_excerpt(run.checkpoint_json),
@@ -503,7 +604,11 @@ class OrchestrationExecutionServiceMixin:
             "trace": self._workflow_trace_payload(run),
             "durable_workflow": self._durable_workflow_payload(run),
             "child_runs": child_runs,
-            "blocker_queue": [item for item in (stage_state.get("branch_results") or []) if item.get("status") == "blocked"],
+            "blocker_queue": [
+                item
+                for item in (stage_state.get("branch_results") or [])
+                if item.get("status") == "blocked"
+            ],
             "review_state": stage_state.get("review") or {},
             "github_action_state": stage_state.get("github_sync") or {},
             "resumable": self._run_is_resumable(run),
@@ -627,8 +732,13 @@ class OrchestrationExecutionServiceMixin:
                 return True
         if agent.project_id:
             providers = await self.repo.list_providers(agent.owner_id, agent.project_id)
-            default_provider = next((item for item in providers if item.is_default and item.is_enabled), None)
-            if default_provider is not None and default_provider.provider_type in {"local", "ollama"}:
+            default_provider = next(
+                (item for item in providers if item.is_default and item.is_enabled), None
+            )
+            if default_provider is not None and default_provider.provider_type in {
+                "local",
+                "ollama",
+            }:
                 return True
         # When no explicit provider is pinned, orchestration falls back to runtime default.
         return settings.AI_DEFAULT_PROVIDER == "local"
@@ -651,18 +761,39 @@ class OrchestrationExecutionServiceMixin:
     async def get_runtime_info(self, user: User) -> dict[str, Any]:
         """Non-secret orchestration flags for admin UI (air-gapped / failover toggles)."""
         _ = user
+        from backend.modules.orchestration.execution.durable_execution import durable_backend_status
+
         return {
             "orchestration_provider_failover": settings.ORCHESTRATION_PROVIDER_FAILOVER,
             "orchestration_use_langgraph": settings.ORCHESTRATION_USE_LANGGRAPH,
             "orchestration_durable_queue_backend": settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND,
             "durable_signal_model": "checkpoint_signal_queue",
             "durable_query_model": "checkpoint_query_snapshot",
+            "durable_backend": durable_backend_status(),
+            "execution_topology": {
+                "api_gateway": "FastAPI",
+                "orchestration_service": "modular_monolith",
+                "agent_execution_workers": "Celery workers",
+                "github_integration": "github queue",
+                "model_gateway": "model_gateway queue",
+                "observability": "observability queue",
+                "cpu_jobs": "cpu queue",
+                "system_state": "Postgres",
+                "transient_transport": "Redis",
+            },
+            "realtime_transport": {
+                "protocol": "SSE",
+                "project_stream": "/orchestration/projects/{project_id}/stream",
+                "run_stream": "/orchestration/runs/{run_id}/stream",
+                "delivery": "database-polled event cursor",
+            },
             "celery_queues": {
                 "orchestration": settings.CELERY_TASK_DEFAULT_QUEUE,
                 "email": settings.CELERY_EMAIL_QUEUE,
                 "github": settings.CELERY_QUEUE_GITHUB,
                 "model_gateway": settings.CELERY_QUEUE_MODEL_GATEWAY,
                 "observability": settings.CELERY_QUEUE_OBSERVABILITY,
+                "cpu": settings.CELERY_QUEUE_CPU,
             },
         }
 
@@ -706,17 +837,19 @@ class OrchestrationExecutionServiceMixin:
                 f"{nm} was auto-selected from this project's eligible agents.",
             ]
             if required:
-                parts.append(
-                    f"The task lists these required_tools: {', '.join(sorted(required))}."
-                )
+                parts.append(f"The task lists these required_tools: {', '.join(sorted(required))}.")
                 if overlap:
                     parts.append(
                         f"This agent's allowed_tools cover {len(overlap)} of them ({', '.join(sorted(overlap))})."
                     )
                 else:
-                    parts.append("No agent covered all required_tools; the lowest queue-depth eligible agent was used.")
+                    parts.append(
+                        "No agent covered all required_tools; the lowest queue-depth eligible agent was used."
+                    )
             else:
-                parts.append("No required_tools filter; chose lowest active-run load, then name order.")
+                parts.append(
+                    "No required_tools filter; chose lowest active-run load, then name order."
+                )
             parts.append(f"Queued depth for this agent was {qd} other in-flight runs.")
             rm = execution_settings.get("routing_mode") or "capability_based"
             sb = execution_settings.get("sibling_load_balance") or "queue_depth"
@@ -734,16 +867,16 @@ class OrchestrationExecutionServiceMixin:
                 "(capability overlap, queue depth, then name)."
             )
         elif not worker_agent_id:
-            worker_rationale = "No worker agent is attached to this run (orchestration-only / planner mode)."
+            worker_rationale = (
+                "No worker agent is attached to this run (orchestration-only / planner mode)."
+            )
         else:
             worker_rationale = "Worker routing metadata is unavailable for this run."
 
         if model_source == "payload":
             model_rationale = "The model name was set explicitly on the run API request."
         elif model_source == "project_execution":
-            model_rationale = (
-                "Uses execution.model_name from the orchestration project settings (org-wide default for this project)."
-            )
+            model_rationale = "Uses execution.model_name from the orchestration project settings (org-wide default for this project)."
         else:
             model_rationale = (
                 "No explicit model on the run or project; the worker uses provider defaults or policy routing "
@@ -766,7 +899,8 @@ class OrchestrationExecutionServiceMixin:
             },
             "routing_policy_snapshot": {
                 "routing_mode": execution_settings.get("routing_mode") or "capability_based",
-                "sibling_load_balance": execution_settings.get("sibling_load_balance") or "queue_depth",
+                "sibling_load_balance": execution_settings.get("sibling_load_balance")
+                or "queue_depth",
                 "skip_unhealthy_worker_providers": bool(
                     execution_settings.get("skip_unhealthy_worker_providers", True)
                 ),
@@ -807,14 +941,20 @@ class OrchestrationExecutionServiceMixin:
                 raise HTTPException(400, f"Task has incomplete dependencies: {blocking}")
         execution_settings = self._project_execution_settings(project)
         run_mode = payload.get("run_mode", "single_agent")
-        orchestrator_agent_id = payload.get("orchestrator_agent_id") or execution_settings.get("manager_agent_id")
+        orchestrator_agent_id = payload.get("orchestrator_agent_id") or execution_settings.get(
+            "manager_agent_id"
+        )
         reviewer_agent_id = payload.get("reviewer_agent_id") or task.reviewer_agent_id
         if reviewer_agent_id is None:
             reviewer_ids = execution_settings.get("reviewer_agent_ids", [])
             reviewer_agent_id = reviewer_ids[0] if reviewer_ids else None
         if reviewer_agent_id and task.reviewer_agent_id != reviewer_agent_id:
             task.reviewer_agent_id = reviewer_agent_id
-            chain = [str(item).strip() for item in execution_settings.get("reviewer_agent_ids", []) if str(item).strip()]
+            chain = [
+                str(item).strip()
+                for item in execution_settings.get("reviewer_agent_ids", [])
+                if str(item).strip()
+            ]
             if chain and reviewer_agent_id in chain:
                 meta = dict(task.metadata_json or {})
                 meta["review_chain"] = {
@@ -824,7 +964,9 @@ class OrchestrationExecutionServiceMixin:
                 task.metadata_json = meta
                 orm_attributes.flag_modified(task, "metadata_json")
 
-        worker_explicit = "worker_agent_id" in payload and payload.get("worker_agent_id") is not None
+        worker_explicit = (
+            "worker_agent_id" in payload and payload.get("worker_agent_id") is not None
+        )
         if worker_explicit:
             worker_agent_id = payload.get("worker_agent_id")
             worker_source = "payload"
@@ -878,7 +1020,9 @@ class OrchestrationExecutionServiceMixin:
                 )
             p_agent = await self._load_agent_for_run(worker_agent_id)
             if p_agent is None or not p_agent.is_active:
-                raise HTTPException(status_code=400, detail="Pinned worker agent is missing or inactive.")
+                raise HTTPException(
+                    status_code=400, detail="Pinned worker agent is missing or inactive."
+                )
             if not self._agent_eligible_for_task_by_filters(p_agent, task):
                 raise HTTPException(
                     status_code=400,
@@ -907,9 +1051,13 @@ class OrchestrationExecutionServiceMixin:
         model_name = payload_model or execution_settings.get("model_name")
 
         await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=worker_agent_id)
-        await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=orchestrator_agent_id)
+        await self._enforce_agent_token_budget(
+            owner_id=project.owner_id, agent_id=orchestrator_agent_id
+        )
         await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=worker_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=orchestrator_agent_id)
+        await self._enforce_agent_cost_budget(
+            owner_id=project.owner_id, agent_id=orchestrator_agent_id
+        )
         await self._enforce_orchestration_run_rate_limit(user.id)
 
         selection_meta = await self._run_selection_meta(
@@ -945,7 +1093,8 @@ class OrchestrationExecutionServiceMixin:
             orchestrator_agent_id=orchestrator_agent_id,
             worker_agent_id=worker_agent_id,
             reviewer_agent_id=reviewer_agent_id,
-            provider_config_id=payload.get("provider_config_id") or execution_settings.get("provider_config_id"),
+            provider_config_id=payload.get("provider_config_id")
+            or execution_settings.get("provider_config_id"),
             run_mode=run_mode,
             status="queued",
             model_name=model_name,
@@ -985,7 +1134,9 @@ class OrchestrationExecutionServiceMixin:
         elif "queued" in allowed_next:
             await self._transition_task_status(task, "queued", run=run, reason="run queued")
         elif task.status == "completed" and "planned" in allowed_next:
-            await self._transition_task_status(task, "planned", run=run, reason="run queued after completion")
+            await self._transition_task_status(
+                task, "planned", run=run, reason="run queued after completion"
+            )
         await self._emit_run_event(
             run,
             event_type="queued",
@@ -1016,7 +1167,11 @@ class OrchestrationExecutionServiceMixin:
         run.cancelled_at = datetime.now(UTC)
         run.checkpoint_json = update_query_snapshot(
             run.checkpoint_json,
-            data={"latest_status": "cancelled", "cancelled_at": run.cancelled_at.isoformat(), "run_id": run.id},
+            data={
+                "latest_status": "cancelled",
+                "cancelled_at": run.cancelled_at.isoformat(),
+                "run_id": run.id,
+            },
         )
         for child in child_runs:
             if child.status in {"queued", "in_progress", "blocked"}:
@@ -1049,7 +1204,9 @@ class OrchestrationExecutionServiceMixin:
     async def resume_run(self, user: User, run_id: str):
         run = await self.get_run(user, run_id)
         if not self._run_is_resumable(run):
-            raise HTTPException(status_code=409, detail="Run is not resumable from its current checkpoint.")
+            raise HTTPException(
+                status_code=409, detail="Run is not resumable from its current checkpoint."
+            )
         run.status = "queued"
         run.error_message = None
         run.completed_at = None
@@ -1100,13 +1257,23 @@ class OrchestrationExecutionServiceMixin:
         old_project = await self.db.get(OrchestratorProject, old.project_id)
         if old_project is None:
             raise HTTPException(status_code=404, detail="Project not found")
-        await self._enforce_agent_token_budget(owner_id=old_project.owner_id, agent_id=old.worker_agent_id)
-        await self._enforce_agent_token_budget(owner_id=old_project.owner_id, agent_id=old.orchestrator_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=old_project.owner_id, agent_id=old.worker_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=old_project.owner_id, agent_id=old.orchestrator_agent_id)
+        await self._enforce_agent_token_budget(
+            owner_id=old_project.owner_id, agent_id=old.worker_agent_id
+        )
+        await self._enforce_agent_token_budget(
+            owner_id=old_project.owner_id, agent_id=old.orchestrator_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=old_project.owner_id, agent_id=old.worker_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=old_project.owner_id, agent_id=old.orchestrator_agent_id
+        )
         events = await self.repo.list_run_events(old.id)
         if from_event_index < 0 or from_event_index > len(events):
-            raise HTTPException(status_code=400, detail="from_event_index is out of range for this run")
+            raise HTTPException(
+                status_code=400, detail="from_event_index is out of range for this run"
+            )
         await self._enforce_orchestration_run_rate_limit(user.id)
         prior = events[:from_event_index]
         transcript = "\n".join(f"[{e.event_type}] {e.message}" for e in prior)
@@ -1134,7 +1301,9 @@ class OrchestrationExecutionServiceMixin:
             brainstorm_id=old.brainstorm_id,
             run_mode=old.run_mode,
             status="queued",
-            model_name=(str(model_name).strip() or old.model_name) if model_name is not None else old.model_name,
+            model_name=(str(model_name).strip() or old.model_name)
+            if model_name is not None
+            else old.model_name,
             attempt_number=old.attempt_number + 1,
             retry_count=old.retry_count,
             checkpoint_json=dict(old.checkpoint_json or {}),
@@ -1191,6 +1360,7 @@ class OrchestrationExecutionServiceMixin:
             "period": f"last_{days}_days",
             "by_project": by_project,
             "by_agent": by_agent,
+            "by_task": raw.get("by_task", []),
             "by_provider": by_provider,
             "most_expensive_runs": raw["most_expensive_runs"],
             "total_cost_usd": total_cost,
@@ -1206,9 +1376,21 @@ class OrchestrationExecutionServiceMixin:
     ) -> dict[str, Any]:
         agent = await self.get_agent(user, agent_id)
         cases = scenarios or [
-            {"title": "Bug triage", "description": "Identify likely root cause and first fix.", "acceptance_criteria": "Clear diagnosis + first patch."},
-            {"title": "Spec drafting", "description": "Write a concise API spec with risks.", "acceptance_criteria": "Endpoints + risks + rollout plan."},
-            {"title": "Review response", "description": "Review a patch proposal for correctness.", "acceptance_criteria": "Find at least one risk and test gap."},
+            {
+                "title": "Bug triage",
+                "description": "Identify likely root cause and first fix.",
+                "acceptance_criteria": "Clear diagnosis + first patch.",
+            },
+            {
+                "title": "Spec drafting",
+                "description": "Write a concise API spec with risks.",
+                "acceptance_criteria": "Endpoints + risks + rollout plan.",
+            },
+            {
+                "title": "Review response",
+                "description": "Review a patch proposal for correctness.",
+                "acceptance_criteria": "Find at least one risk and test gap.",
+            },
         ]
         results: list[dict[str, Any]] = []
         pass_count = 0
@@ -1217,7 +1399,9 @@ class OrchestrationExecutionServiceMixin:
                 user,
                 agent_id,
                 {
-                    "prompt": str(case.get("description") or case.get("title") or "Simulation task"),
+                    "prompt": str(
+                        case.get("description") or case.get("title") or "Simulation task"
+                    ),
                     "max_output_tokens": 400,
                     "temperature": 0.2,
                     "simulate_tools": True,
@@ -1240,7 +1424,11 @@ class OrchestrationExecutionServiceMixin:
             )
         avg_cost = sum(float(item["estimated_cost_usd"]) for item in results) / max(len(results), 1)
         avg_latency = sum(int(item["latency_ms"]) for item in results) / max(len(results), 1)
-        readiness = "ready" if pass_count >= max(1, int(len(results) * 0.67)) and avg_cost < 0.5 else "needs_tuning"
+        readiness = (
+            "ready"
+            if pass_count >= max(1, int(len(results) * 0.67)) and avg_cost < 0.5
+            else "needs_tuning"
+        )
         return {
             "agent_id": agent.id,
             "agent_name": agent.name,
@@ -1263,7 +1451,16 @@ class OrchestrationExecutionServiceMixin:
                 continue
             row = by_agent.setdefault(
                 agent_id,
-                {"agent_id": agent_id, "runs": 0, "accepted": 0, "latency": 0, "cost": 0, "escalations": 0, "review_pass": 0, "review_total": 0},
+                {
+                    "agent_id": agent_id,
+                    "runs": 0,
+                    "accepted": 0,
+                    "latency": 0,
+                    "cost": 0,
+                    "escalations": 0,
+                    "review_pass": 0,
+                    "review_total": 0,
+                },
             )
             row["runs"] += 1
             row["latency"] += int(run.latency_ms or 0)
@@ -1275,7 +1472,9 @@ class OrchestrationExecutionServiceMixin:
                 if run.status == "completed":
                     row["review_pass"] += 1
             evs = await self.repo.list_run_events(run.id)
-            row["escalations"] += sum(1 for e in evs if e.event_type in {"rule_escalation", "task_escalation"})
+            row["escalations"] += sum(
+                1 for e in evs if e.event_type in {"rule_escalation", "task_escalation"}
+            )
         output: list[dict[str, Any]] = []
         for aid, row in by_agent.items():
             agent = await self.db.get(AgentProfile, aid)
@@ -1283,7 +1482,11 @@ class OrchestrationExecutionServiceMixin:
             acc_rate = float(row["accepted"]) / runs_n
             avg_cost = float(row["cost"]) / runs_n
             avg_lat = float(row["latency"]) / runs_n
-            review_pass_rate = float(row["review_pass"]) / max(int(row["review_total"]), 1) if row["review_total"] else 1.0
+            review_pass_rate = (
+                float(row["review_pass"]) / max(int(row["review_total"]), 1)
+                if row["review_total"]
+                else 1.0
+            )
             under = acc_rate < 0.6 or review_pass_rate < 0.6 or avg_cost > 2.0
             output.append(
                 {
@@ -1295,27 +1498,37 @@ class OrchestrationExecutionServiceMixin:
                     "review_pass_rate": round(review_pass_rate, 3),
                     "escalation_frequency": round(float(row["escalations"]) / runs_n, 3),
                     "underperforming": under,
-                    "suggestion": "Tune prompts/skills and lower-risk routing." if under else "Performance within target.",
+                    "suggestion": "Tune prompts/skills and lower-risk routing."
+                    if under
+                    else "Performance within target.",
                 }
             )
-        output.sort(key=lambda item: (item["underperforming"], -item["acceptance_rate"]), reverse=True)
+        output.sort(
+            key=lambda item: (item["underperforming"], -item["acceptance_rate"]), reverse=True
+        )
         return output
 
     async def explain_run(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
         events = await self.repo.list_run_events(run.id)
         approvals = await self.repo.list_pending_approvals_for_run(user.id, run.id)
-        tools = [str(e.payload_json.get("tool") or "") for e in events if e.event_type.startswith("tool_call_")]
+        tools = [
+            str(e.payload_json.get("tool") or "")
+            for e in events
+            if e.event_type.startswith("tool_call_")
+        ]
         tools = [t for t in tools if t]
-        
+
         # Extract selection metadata from input payload
         payload = run.input_payload_json or {}
         selection = payload.get("orchestration_meta", {})
-        
+
         # Provide defaults if metadata is missing
-        worker_agent_rationale = selection.get("worker_agent_rationale", "Worker agent selection metadata unavailable.")
+        worker_agent_rationale = selection.get(
+            "worker_agent_rationale", "Worker agent selection metadata unavailable."
+        )
         model_rationale = selection.get("model_rationale", "Model selection metadata unavailable.")
-        
+
         return {
             "run_id": run.id,
             "summary": (
@@ -1362,7 +1575,11 @@ class OrchestrationExecutionServiceMixin:
         agent = await self._load_agent_for_run(run.worker_agent_id or run.orchestrator_agent_id)
         schema = (agent.output_schema_json or {}) if agent else {}
         fmt = str(schema.get("format") or "").strip()
-        final_output = str((run.output_payload_json or {}).get("final_output") or (run.output_payload_json or {}).get("summary") or "")
+        final_output = str(
+            (run.output_payload_json or {}).get("final_output")
+            or (run.output_payload_json or {}).get("summary")
+            or ""
+        )
         if not fmt or not final_output:
             return
         valid = True
@@ -1380,23 +1597,47 @@ class OrchestrationExecutionServiceMixin:
         elif fmt == "adr":
             low = final_output.lower()
             valid = "decision" in low and "context" in low
+        elif fmt == "patch_proposal":
+            low = final_output.lower()
+            valid = "file" in low and "test" in low
+        elif fmt == "issue_reply":
+            low = final_output.lower()
+            valid = "finding" in low or "review" in low
+        else:
+            valid = False
         if not valid:
             raise BlockedExecution(f"Output validation failed for schema format '{fmt}'.")
 
-    async def _detect_and_log_task_output_conflict(self, task: OrchestratorTask, run: TaskRun) -> None:
+    async def _detect_and_log_task_output_conflict(
+        self, task: OrchestratorTask, run: TaskRun
+    ) -> None:
         if not task.id:
             return
         all_runs = await self.repo.list_runs(task.created_by_user_id, task.project_id)
-        related = [r for r in all_runs if r.task_id == task.id and r.id != run.id and r.status == "completed"]
+        related = [
+            r
+            for r in all_runs
+            if r.task_id == task.id and r.id != run.id and r.status == "completed"
+        ]
         if not related:
             return
-        current = str((run.output_payload_json or {}).get("final_output") or (run.output_payload_json or {}).get("summary") or "").strip()
+        current = str(
+            (run.output_payload_json or {}).get("final_output")
+            or (run.output_payload_json or {}).get("summary")
+            or ""
+        ).strip()
         if not current:
             return
-        previous = str((related[-1].output_payload_json or {}).get("final_output") or (related[-1].output_payload_json or {}).get("summary") or "").strip()
+        previous = str(
+            (related[-1].output_payload_json or {}).get("final_output")
+            or (related[-1].output_payload_json or {}).get("summary")
+            or ""
+        ).strip()
         if not previous:
             return
-        contradict = ("approve" in current.lower() and "reject" in previous.lower()) or ("reject" in current.lower() and "approve" in previous.lower())
+        contradict = ("approve" in current.lower() and "reject" in previous.lower()) or (
+            "reject" in current.lower() and "approve" in previous.lower()
+        )
         if not contradict:
             return
         await self.repo.create_approval(
@@ -1414,17 +1655,27 @@ class OrchestrationExecutionServiceMixin:
                 "previous_summary": previous[:500],
             },
         )
-        await self._transition_task_status(task, "blocked", run=run, reason="conflicting agent outputs require resolution")
+        await self._transition_task_status(
+            task, "blocked", run=run, reason="conflicting agent outputs require resolution"
+        )
 
     async def retry_run(self, user: User, run_id: str):
         run = await self.get_run(user, run_id)
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
             raise HTTPException(status_code=404, detail="Project not found")
-        await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
-        await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
+        await self._enforce_agent_token_budget(
+            owner_id=project.owner_id, agent_id=run.worker_agent_id
+        )
+        await self._enforce_agent_token_budget(
+            owner_id=project.owner_id, agent_id=run.orchestrator_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=project.owner_id, agent_id=run.worker_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=project.owner_id, agent_id=run.orchestrator_agent_id
+        )
         new_run = await self.repo.create_run(
             parent_run_id=run.parent_run_id,
             project_id=run.project_id,
@@ -1438,8 +1689,8 @@ class OrchestrationExecutionServiceMixin:
             run_mode=run.run_mode,
             status="queued",
             model_name=run.model_name,
-            attempt_number=run.attempt_number + 1,
-            retry_count=run.retry_count + 1,
+            attempt_number=next_retry_numbers(run.retry_count, run.attempt_number)[1],
+            retry_count=next_retry_numbers(run.retry_count, run.attempt_number)[0],
             input_payload_json=run.input_payload_json,
         )
         task = await self.db.get(OrchestratorTask, new_run.task_id) if new_run.task_id else None
@@ -1479,7 +1730,14 @@ class OrchestrationExecutionServiceMixin:
         if run.status == "cancelled":
             logger.info("execute_run_cancelled run_id=%s", run_id)
             return run
-        logger.info("execute_run_active run_id=%s status=%s run_mode=%s", run_id, run.status, run.run_mode)
+        if not is_run_execution_claimable(run.status):
+            logger.info(
+                "execute_run_duplicate_delivery_ignored run_id=%s status=%s", run_id, run.status
+            )
+            return run
+        logger.info(
+            "execute_run_active run_id=%s status=%s run_mode=%s", run_id, run.status, run.run_mode
+        )
         prior_status = run.status
         workflow = self._ensure_run_workflow(run)
         run.status = "in_progress"
@@ -1505,14 +1763,24 @@ class OrchestrationExecutionServiceMixin:
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
             raise RuntimeError(f"Project {run.project_id} not found")
-        await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
-        await self._enforce_agent_token_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.worker_agent_id)
-        await self._enforce_agent_cost_budget(owner_id=project.owner_id, agent_id=run.orchestrator_agent_id)
+        await self._enforce_agent_token_budget(
+            owner_id=project.owner_id, agent_id=run.worker_agent_id
+        )
+        await self._enforce_agent_token_budget(
+            owner_id=project.owner_id, agent_id=run.orchestrator_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=project.owner_id, agent_id=run.worker_agent_id
+        )
+        await self._enforce_agent_cost_budget(
+            owner_id=project.owner_id, agent_id=run.orchestrator_agent_id
+        )
         # Task "planned" = accepted for execution but workflow not started yet. We keep it until after
         # run setup so the UI can show planned instead of jumping queued → in_progress in one tick.
         if task is not None and task.status == "queued":
-            await self._transition_task_status(task, "planned", run=run, reason="execution planning")
+            await self._transition_task_status(
+                task, "planned", run=run, reason="execution planning"
+            )
         await self._emit_run_event(
             run,
             event_type="started",
@@ -1541,7 +1809,9 @@ class OrchestrationExecutionServiceMixin:
         try:
             await self._compress_run_context_if_needed(run)
             if task is not None and task.status in {"planned", "blocked"}:
-                await self._transition_task_status(task, "in_progress", run=run, reason="execution started")
+                await self._transition_task_status(
+                    task, "in_progress", run=run, reason="execution started"
+                )
             if settings.ORCHESTRATION_USE_LANGGRAPH:
                 from backend.modules.orchestration.execution.langgraph_runner import (
                     run_via_langgraph,
@@ -1590,9 +1860,13 @@ class OrchestrationExecutionServiceMixin:
                 )
                 if task.status not in {"blocked", "approved", "completed", "needs_review"}:
                     next_status = "needs_review" if task.reviewer_agent_id else "completed"
-                    await self._transition_task_status(task, next_status, run=run, reason="run completed")
+                    await self._transition_task_status(
+                        task, next_status, run=run, reason="run completed"
+                    )
                 elif run.run_mode == "manager_worker" and task.status == "approved":
-                    await self._transition_task_status(task, "completed", run=run, reason="manager-worker flow fully completed")
+                    await self._transition_task_status(
+                        task, "completed", run=run, reason="manager-worker flow fully completed"
+                    )
                 self._update_task_execution_memory(task, run)
                 await self._detect_and_log_task_output_conflict(task, run)
             await self._emit_run_event(
@@ -1606,12 +1880,11 @@ class OrchestrationExecutionServiceMixin:
                 await self._load_agent_for_run(run.worker_agent_id or run.orchestrator_agent_id),
                 task,
             )
-            if task:
-                if not (
-                    isinstance(run.output_payload_json.get("github_action_state"), dict)
-                    and run.output_payload_json["github_action_state"].get("completed")
-                ):
-                    await self._sync_run_completion_to_github(run, task)
+            if task and not (
+                isinstance(run.output_payload_json.get("github_action_state"), dict)
+                and run.output_payload_json["github_action_state"].get("completed")
+            ):
+                await self._sync_run_completion_to_github(run, task)
             if task and task.github_issue_link_id and run.run_mode != "brainstorm":
                 await self.repo.create_approval(
                     project_id=run.project_id,
@@ -1637,7 +1910,9 @@ class OrchestrationExecutionServiceMixin:
                 await self._run_task_close_memory_lifecycle(hook_user, project, task)
                 await self._enqueue_classifier_job_for_task(project, task)
             if task:
-                await self._apply_project_escalation_rules(project, run=run, task=task, trigger="run_completed")
+                await self._apply_project_escalation_rules(
+                    project, run=run, task=task, trigger="run_completed"
+                )
             return run
         except BlockedExecution as exc:
             run.status = "blocked"
@@ -1666,7 +1941,9 @@ class OrchestrationExecutionServiceMixin:
             )
             await self.db.commit()
             if task:
-                await self._apply_project_escalation_rules(project, run=run, task=task, trigger="task_blocked")
+                await self._apply_project_escalation_rules(
+                    project, run=run, task=task, trigger="task_blocked"
+                )
             return run
         except Exception as exc:
             run.status = "failed"
@@ -1681,9 +1958,8 @@ class OrchestrationExecutionServiceMixin:
                     message=f"Failure captured for step '{step.get('title')}'.",
                     error=str(exc),
                 )
-            if task:
-                if task.status != "blocked":
-                    await self._transition_task_status(task, "failed", run=run, reason=str(exc))
+            if task and task.status != "blocked":
+                await self._transition_task_status(task, "failed", run=run, reason=str(exc))
             await self._emit_run_event(
                 run,
                 event_type="failed",
@@ -1696,7 +1972,9 @@ class OrchestrationExecutionServiceMixin:
             )
             await self.db.commit()
             if task:
-                await self._apply_project_escalation_rules(project, run=run, task=task, trigger="run_failed")
+                await self._apply_project_escalation_rules(
+                    project, run=run, task=task, trigger="run_failed"
+                )
             return run
 
     async def _execute_single_agent_run(self, run: TaskRun) -> None:
@@ -1714,7 +1992,9 @@ class OrchestrationExecutionServiceMixin:
                 status="in_progress",
                 message="Building task prompt.",
             )
-            await self._emit_run_event(run, event_type="prompt_building", message="Building task prompt...")
+            await self._emit_run_event(
+                run, event_type="prompt_building", message="Building task prompt..."
+            )
             prompt = await self._build_task_prompt(run, agent)
             self._set_workflow_checkpoint_artifact(run, key="single_agent.prompt", value=prompt)
             await self._mark_run_step(
@@ -1739,7 +2019,9 @@ class OrchestrationExecutionServiceMixin:
                 prompt=prompt,
                 purpose="single-agent task execution",
             )
-            self._set_workflow_checkpoint_artifact(run, key="single_agent.plan", value=execution_plan)
+            self._set_workflow_checkpoint_artifact(
+                run, key="single_agent.plan", value=execution_plan
+            )
             await self._mark_run_step(
                 run,
                 step_id="plan_execution",
@@ -1844,22 +2126,28 @@ class OrchestrationExecutionServiceMixin:
     async def _execute_manager_worker_run(self, run: TaskRun) -> None:
         manager = await self._load_agent_for_run(run.orchestrator_agent_id)
         explicit_worker = await self._load_agent_for_run(run.worker_agent_id)
-        if manager and explicit_worker and not self._delegation_edge_allowed(manager, explicit_worker):
-            raise RuntimeError(
-                "Manager cannot delegate to the selected worker (hierarchy or delegation_rules allowlist)."
-            )
         provider = await self._resolve_provider_for_run(run, explicit_worker or manager)
         task = await self.db.get(OrchestratorTask, run.task_id) if run.task_id else None
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
             raise RuntimeError("Run project not found")
+        if (
+            manager
+            and explicit_worker
+            and not self._delegation_edge_allowed(manager, explicit_worker, project=project)
+        ):
+            raise RuntimeError(
+                "Manager cannot delegate to the selected worker (hierarchy or delegation_rules allowlist)."
+            )
         await self._emit_run_event(
             run,
             event_type="manager_planning",
             message="Manager agent building execution graph...",
         )
         manager_plan = self._workflow_checkpoint_artifact(run, "manager_worker.plan")
-        routed_sub_tasks = self._workflow_checkpoint_artifact(run, "manager_worker.routed_sub_tasks")
+        routed_sub_tasks = self._workflow_checkpoint_artifact(
+            run, "manager_worker.routed_sub_tasks"
+        )
         branch_results = self._workflow_checkpoint_artifact(run, "manager_worker.branch_results")
 
         if not isinstance(manager_plan, dict) or not manager_plan:
@@ -1885,7 +2173,9 @@ class OrchestrationExecutionServiceMixin:
                 purpose="manager delegation graph",
                 default_tool_calls=[],
             )
-            self._set_workflow_checkpoint_artifact(run, key="manager_worker.plan", value=manager_plan)
+            self._set_workflow_checkpoint_artifact(
+                run, key="manager_worker.plan", value=manager_plan
+            )
             await self._mark_run_step(
                 run,
                 step_id="planning",
@@ -2037,7 +2327,9 @@ class OrchestrationExecutionServiceMixin:
             )
 
         blocked = [item for item in branch_results if item.get("status") == "blocked"]
-        self._set_workflow_checkpoint_artifact(run, key="manager_worker.blocker_queue", value=blocked)
+        self._set_workflow_checkpoint_artifact(
+            run, key="manager_worker.blocker_queue", value=blocked
+        )
         if blocked:
             await self._mark_run_step(
                 run,
@@ -2061,16 +2353,25 @@ class OrchestrationExecutionServiceMixin:
                     run,
                     event_type="manager_handoff",
                     message="Manager reviewed blocked branches.",
-                    payload={"blocked_count": len(blocked), "resolution": handoff_result.output_text[:1000]},
+                    payload={
+                        "blocked_count": len(blocked),
+                        "resolution": handoff_result.output_text[:1000],
+                    },
                 )
             for item in blocked:
                 await self._escalate_blocker(
                     run,
                     task=task,
-                    reason=str(item.get("blocker_reason") or item.get("reason") or "Delegated branch blocked"),
+                    reason=str(
+                        item.get("blocker_reason")
+                        or item.get("reason")
+                        or "Delegated branch blocked"
+                    ),
                     metadata={"branch": item},
                 )
-            raise BlockedExecution("Delegated sub-task execution is blocked and requires escalation")
+            raise BlockedExecution(
+                "Delegated sub-task execution is blocked and requires escalation"
+            )
         await self._mark_run_step(
             run,
             step_id="blocker_resolution",
@@ -2083,7 +2384,9 @@ class OrchestrationExecutionServiceMixin:
             run,
             provider=provider,
             agent=synth_agent,
-            system_prompt=(manager.system_prompt if manager else "You are an orchestration manager."),
+            system_prompt=(
+                manager.system_prompt if manager else "You are an orchestration manager."
+            ),
             user_prompt=(
                 "Synthesize the delegated worker outputs into a final deliverable with decisions, "
                 "tradeoffs, and next steps.\n\n"
@@ -2103,8 +2406,12 @@ class OrchestrationExecutionServiceMixin:
             key="manager_worker.output_payload",
             value=run.output_payload_json,
         )
-        review_round = int(self._workflow_checkpoint_artifact(run, "manager_worker.review_round", 0) or 0) + 1
-        self._set_workflow_checkpoint_artifact(run, key="manager_worker.review_round", value=review_round)
+        review_round = (
+            int(self._workflow_checkpoint_artifact(run, "manager_worker.review_round", 0) or 0) + 1
+        )
+        self._set_workflow_checkpoint_artifact(
+            run, key="manager_worker.review_round", value=review_round
+        )
         await self._mark_run_step(
             run,
             step_id="review",
@@ -2117,7 +2424,9 @@ class OrchestrationExecutionServiceMixin:
                 run,
                 provider=provider,
                 agent=reviewer,
-                system_prompt=(reviewer.system_prompt if reviewer else "You are a careful reviewer."),
+                system_prompt=(
+                    reviewer.system_prompt if reviewer else "You are a careful reviewer."
+                ),
                 user_prompt=(
                     "Review this manager-worker delivery. Return JSON with decision, summary, reasons, checklist, rework_scope.\n\n"
                     f"Task title: {task.title if task else 'Unknown'}\n"
@@ -2130,7 +2439,8 @@ class OrchestrationExecutionServiceMixin:
             )
             review_payload = (
                 review_result.output_json
-                if isinstance(review_result.output_json, dict) and review_result.output_json.get("decision")
+                if isinstance(review_result.output_json, dict)
+                and review_result.output_json.get("decision")
                 else self._coerce_review_payload(review_result.output_text)
             )
         else:
@@ -2142,15 +2452,21 @@ class OrchestrationExecutionServiceMixin:
                 "rework_scope": [],
             }
         review_state = self._review_state_from_payload(review_payload, round_number=review_round)
-        self._set_workflow_checkpoint_artifact(run, key="manager_worker.review_state", value=review_state)
+        self._set_workflow_checkpoint_artifact(
+            run, key="manager_worker.review_state", value=review_state
+        )
         run.output_payload_json["review_state"] = review_state
         if review_state["decision"] != "approved":
             if task:
                 self._append_structured_reopen_record(task, review_payload, run=run)
-                await self._transition_task_status(task, "planned", run=run, reason="review requested rework")
+                await self._transition_task_status(
+                    task, "planned", run=run, reason="review requested rework"
+                )
             affected_scope = set(review_state.get("rework_scope") or [])
             for child in await self._child_runs_for_parent(run.id):
-                branch_title = str(((child.input_payload_json or {}).get("subtask") or {}).get("title") or "")
+                branch_title = str(
+                    ((child.input_payload_json or {}).get("subtask") or {}).get("title") or ""
+                )
                 if not affected_scope or branch_title in affected_scope:
                     child.status = "planned"
             raise BlockedExecution("Reviewer requested rework on one or more delegated branches")
@@ -2229,9 +2545,9 @@ class OrchestrationExecutionServiceMixin:
             user_prompt=(
                 "Review this task result and return a single JSON object with:\n"
                 '- decision: "approved" or "rework"\n'
-                '- summary: short string\n'
-                '- reasons: array of strings (each a concrete issue or gap)\n'
-                '- checklist: array of actionable strings the worker must verify before resubmitting\n\n'
+                "- summary: short string\n"
+                "- reasons: array of strings (each a concrete issue or gap)\n"
+                "- checklist: array of actionable strings the worker must verify before resubmitting\n\n"
                 f"Task title: {task.title if task else 'Unknown'}\n"
                 f"Task summary: {task.result_summary if task else ''}\n"
                 f"Acceptance criteria: {task.acceptance_criteria if task else ''}\n"
@@ -2260,7 +2576,9 @@ class OrchestrationExecutionServiceMixin:
         if task:
             if review_payload.get("decision") == "approved":
                 project = await self.db.get(OrchestratorProject, task.project_id)
-                advanced = await self._advance_task_reviewer_chain(task, project, run.reviewer_agent_id)
+                advanced = await self._advance_task_reviewer_chain(
+                    task, project, run.reviewer_agent_id
+                )
                 if advanced:
                     run.output_payload_json["next_reviewer_agent_id"] = task.reviewer_agent_id
                     await self._emit_run_event(
@@ -2270,10 +2588,14 @@ class OrchestrationExecutionServiceMixin:
                         payload={"next_reviewer_agent_id": task.reviewer_agent_id},
                     )
                 else:
-                    await self._transition_task_status(task, "approved", run=run, reason="review approved")
+                    await self._transition_task_status(
+                        task, "approved", run=run, reason="review approved"
+                    )
             else:
                 self._append_structured_reopen_record(task, review_payload, run=run)
-                await self._transition_task_status(task, "planned", run=run, reason="review requested rework")
+                await self._transition_task_status(
+                    task, "planned", run=run, reason="review requested rework"
+                )
                 await self._emit_run_event(
                     run,
                     event_type="reopened",
@@ -2361,8 +2683,7 @@ class OrchestrationExecutionServiceMixin:
         current = task.status
         if current == next_status:
             return
-        allowed = TASK_TRANSITIONS.get(current, set())
-        if next_status not in allowed:
+        if not is_valid_task_transition(current, next_status):
             raise HTTPException(
                 status_code=409,
                 detail=f"Invalid task transition from {current} to {next_status}",
@@ -2376,7 +2697,9 @@ class OrchestrationExecutionServiceMixin:
             hid = (task.metadata_json or {}).get("suggested_handoff_agent_id")
             if hid:
                 payload_json["suggested_handoff_agent_id"] = hid
-                payload_json["handoff_suggested_via"] = (task.metadata_json or {}).get("handoff_suggested_via")
+                payload_json["handoff_suggested_via"] = (task.metadata_json or {}).get(
+                    "handoff_suggested_via"
+                )
         target_run_id: str | None = run.id if run is not None else None
         if target_run_id is None:
             latest = await self.repo.get_latest_run_for_task(task.project_id, task.id)
@@ -2468,31 +2791,49 @@ class OrchestrationExecutionServiceMixin:
                 }
                 for call in tool_calls
             ]
-        toolbox = OrchestrationToolbox(db=self.db, repo=self.repo, project=project, task=task, run=run)
+        toolbox = OrchestrationToolbox(
+            db=self.db, repo=self.repo, project=project, task=task, run=run
+        )
         results: list[dict[str, Any]] = []
         failures = 0
         effective_allowed = set(allowed_tools or [])
-        dangerous_tools = {"code_execute", "db_query", "fs_write", "github_create_pr", "github_label_issue"}
+        dangerous_tools = {
+            "code_execute",
+            "db_query",
+            "fs_write",
+            "github_create_pr",
+            "github_label_issue",
+        }
         hitl_settings = (project.settings_json or {}).get("hitl") or {}
         secret_scope = str(hitl_settings.get("secret_scope") or "project_default")
         for index, call in enumerate(tool_calls, start=1):
             tool_name = str(call.get("tool") or "").strip()
             self._tool_allowed_for_agent_permissions(tool_name, agent)
             if self.action_requires_approval(project, "run_tool") and tool_name in dangerous_tools:
-                approval = await self.repo.create_approval(
-                    project_id=project.id,
-                    task_id=task.id if task else None,
-                    run_id=run.id,
-                    issue_link_id=task.github_issue_link_id if task else None,
-                    requested_by_user_id=run.triggered_by_user_id,
-                    approval_type="dangerous_tool_call",
-                    status="pending",
-                    payload_json={"tool": tool_name, "arguments": call.get("arguments") or {}},
+                grant_consumed = await self._consume_hitl_grant(
+                    run,
+                    "dangerous_tool_call",
+                    {"tool": tool_name, "tool_call_index": index},
                 )
-                await self.db.commit()
-                raise BlockedExecution(
-                    f"Dangerous tool '{tool_name}' requires approval (approval_id={approval.id})."
-                )
+                if not grant_consumed:
+                    approval = await self.repo.create_approval(
+                        project_id=project.id,
+                        task_id=task.id if task else None,
+                        run_id=run.id,
+                        issue_link_id=task.github_issue_link_id if task else None,
+                        requested_by_user_id=run.triggered_by_user_id,
+                        approval_type="dangerous_tool_call",
+                        status="pending",
+                        payload_json={
+                            "tool": tool_name,
+                            "tool_call_index": index,
+                            "arguments": call.get("arguments") or {},
+                        },
+                    )
+                    await self.db.commit()
+                    raise BlockedExecution(
+                        f"Dangerous tool '{tool_name}' requires approval (approval_id={approval.id})."
+                    )
             if secret_scope == "deny_external" and tool_name in {
                 "github_comment",
                 "github_label_issue",
@@ -2530,14 +2871,20 @@ class OrchestrationExecutionServiceMixin:
                         reason="Multiple tool failures detected during execution.",
                         metadata={"tool_failures": failures},
                     )
-                    raise BlockedExecution("Task blocked after repeated tool-call failures")
+                    raise BlockedExecution(
+                        "Task blocked after repeated tool-call failures"
+                    ) from exc
                 continue
             results.append({"tool": tool_name, "status": "completed", "result": result})
             await self._emit_run_event(
                 run,
                 event_type="tool_call_completed",
                 message=f"Tool {tool_name} completed.",
-                payload={"index": index, "tool": tool_name, "result_preview": json.dumps(result, default=str)[:500]},
+                payload={
+                    "index": index,
+                    "tool": tool_name,
+                    "result_preview": json.dumps(result, default=str)[:500],
+                },
             )
             await self._write_artifact(
                 run,
@@ -2668,7 +3015,9 @@ class OrchestrationExecutionServiceMixin:
         for rule in rules:
             if not isinstance(rule, dict):
                 continue
-            escalate_to = rule.get("escalate_to") or self._project_execution_settings(project).get("manager_agent_id")
+            escalate_to = rule.get("escalate_to") or self._project_execution_settings(project).get(
+                "manager_agent_id"
+            )
             condition = rule.get("condition")
             if condition == "stuck_for_minutes" and trigger in {"task_blocked", "run_failed"}:
                 threshold = int(rule.get("value", 0) or 0)
@@ -2684,7 +3033,12 @@ class OrchestrationExecutionServiceMixin:
                         requested_by_user_id=run.triggered_by_user_id,
                         approval_type="rule_escalation",
                         status="pending",
-                        payload_json={"condition": condition, "value": threshold, "elapsed_minutes": elapsed_minutes, "escalate_to": escalate_to},
+                        payload_json={
+                            "condition": condition,
+                            "value": threshold,
+                            "elapsed_minutes": elapsed_minutes,
+                            "escalate_to": escalate_to,
+                        },
                     )
             if condition == "cost_exceeds_usd" and trigger == "run_completed":
                 threshold = float(rule.get("value", 0) or 0)
@@ -2697,11 +3051,20 @@ class OrchestrationExecutionServiceMixin:
                         requested_by_user_id=run.triggered_by_user_id,
                         approval_type="rule_escalation",
                         status="pending",
-                        payload_json={"condition": condition, "value": threshold, "cost_usd": cost_usd, "escalate_to": escalate_to},
+                        payload_json={
+                            "condition": condition,
+                            "value": threshold,
+                            "cost_usd": cost_usd,
+                            "escalate_to": escalate_to,
+                        },
                     )
             if condition == "no_consensus_after_rounds" and trigger == "brainstorm_finished":
                 threshold = int(rule.get("value", 0) or 0)
-                if threshold > 0 and consensus_reached is False and (rounds_completed or 0) >= threshold:
+                if (
+                    threshold > 0
+                    and consensus_reached is False
+                    and (rounds_completed or 0) >= threshold
+                ):
                     await self.repo.create_approval(
                         project_id=project.id,
                         task_id=task.id,
@@ -2709,7 +3072,12 @@ class OrchestrationExecutionServiceMixin:
                         requested_by_user_id=run.triggered_by_user_id,
                         approval_type="rule_escalation",
                         status="pending",
-                        payload_json={"condition": condition, "value": threshold, "rounds_completed": rounds_completed, "escalate_to": escalate_to},
+                        payload_json={
+                            "condition": condition,
+                            "value": threshold,
+                            "rounds_completed": rounds_completed,
+                            "escalate_to": escalate_to,
+                        },
                     )
         await self.db.commit()
 

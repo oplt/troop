@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from backend.api.deps.auth import get_current_user
 from backend.api.deps.orchestration import get_approvals_service
 from backend.modules.identity_access.models import User
+from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.schemas import ApprovalDecision, ApprovalResponse
 from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 
@@ -23,7 +24,7 @@ def _approval_response(item) -> ApprovalResponse:
         approval_type=item.approval_type,
         status=item.status,
         reason=item.reason,
-        payload=item.payload_json,
+        payload=redact_approval_payload(item.payload_json),
         created_at=item.created_at,
         resolved_at=item.resolved_at,
     )

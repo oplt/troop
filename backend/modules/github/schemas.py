@@ -95,6 +95,15 @@ class GithubCommentRequest(RequestModel):
     artifact_ids: list[str] | None = None
 
 
+class GithubPrRequest(RequestModel):
+    run_id: str | None = None
+    draft_pr: bool = True
+
+
+class GithubSyncReplayRequest(RequestModel):
+    force: bool = False
+
+
 class GithubAppInstallResponse(BaseModel):
     install_url: str
 

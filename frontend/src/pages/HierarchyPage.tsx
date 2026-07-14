@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
     Alert,
@@ -75,17 +75,10 @@ import {
     deleteTeamTemplate,
     addProjectAgent,
     listAgents,
-    listAgentTemplates,
-    listModelCapabilities,
-    listOrchestrationProjects,
     listProjectAgents,
-    listProviders,
-    listRuns,
-    listSkillCatalog,
-    listTeamTemplates,
-    listTeamProfiles,
     updateAgent,
     updateAgentTemplate,
+    updateHierarchyPolicy,
     updateOrchestrationProject,
     updateProjectAgent,
     updateSkillPack,
@@ -94,15 +87,14 @@ import {
 import type {
     Agent,
     AgentTemplate,
-    ModelCapability,
     OrchestrationProject,
     ProjectAgentMembership,
-    ProviderConfig,
     SkillPack,
     TeamProfile,
     TeamTemplate,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
+import { queryKeys } from "../config/queryKeys";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -114,6 +106,8 @@ import {
 } from "../features/agentTemplateImport/parser";
 import type { AgentTemplateImportDraft } from "../features/agentTemplateImport/types";
 import { SkillTemplateImportReviewDrawer } from "../features/skillTemplateImport/SkillTemplateImportReviewDrawer";
+import { useHierarchyQueries } from "../features/hierarchy/queries";
+import { useHierarchyGraphState } from "../features/hierarchy/graph/useHierarchyGraphState";
 import {
     createSkillImportedSourceSummary,
     draftToSkillTemplateFormState,
@@ -127,19 +121,25 @@ import {
     parseAgentTemplateCsv,
     parseAgentTemplateLooseList,
 } from "../features/agentTemplates/formState";
-import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
+import { useHierarchyLiveState } from "../features/hierarchy/live/useHierarchyLiveState";
+import { buildHierarchyValidationIssues } from "../features/hierarchy/validation";
 import { formatDateTime } from "../utils/formatters";
 
 const MEMORY_SCOPE_OPTIONS = ["none", "project-only", "long-term"] as const;
 const OUTPUT_FORMAT_OPTIONS = ["checklist", "json", "patch_proposal", "issue_reply", "adr"] as const;
 const PERMISSION_OPTIONS = ["read-only", "comment-only", "code-write", "merge-blocked"] as const;
-const ROLE_OPTIONS = ["manager", "specialist", "reviewer"] as const;
+const ROLE_OPTIONS = ["manager", "team_lead", "specialist", "reviewer"] as const;
 
 const AGENT_ROLE_GUIDANCE: Record<(typeof ROLE_OPTIONS)[number], { summary: string; promptHint: string; filtersHint: string }> = {
     manager: {
         summary: "Owns planning, delegation, escalation, and final delivery quality.",
         promptHint: "Define how this manager decomposes work, routes tasks, asks for review, and decides when to escalate.",
         filtersHint: "Use routing rules for work this manager should own first: architecture, triage, roadmap, escalation.",
+    },
+    team_lead: {
+        summary: "Coordinates a delegated branch and can route work to its direct specialists.",
+        promptHint: "Define the branch this lead owns, how it delegates, and when it escalates to the manager.",
+        filtersHint: "Use routing rules for a focused workstream such as API, UI, security, or release operations.",
     },
     specialist: {
         summary: "Executes a scoped domain of work with clear tools, boundaries, and outputs.",
@@ -154,11 +154,9 @@ const AGENT_ROLE_GUIDANCE: Record<(typeof ROLE_OPTIONS)[number], { summary: stri
 };
 
 type BuilderTab = "library" | "hierarchy";
-type TeamGraphRole = "manager" | "specialist" | "reviewer";
+type TeamGraphRole = "manager" | "team_lead" | "specialist" | "reviewer";
 type TeamGraphEdgeSemantic = "delegates_to" | "reviews" | "escalates_to" | "collaborates_with";
 type TeamGraphNodeStatus = "active" | "inactive" | "running" | "blocked" | "queued" | "draft";
-type ValidationSeverity = "error" | "warning";
-
 type TeamGraphNodeData = {
     name: string;
     slug: string;
@@ -187,13 +185,11 @@ type TeamGraphNodeData = {
 type TeamGraphNode = Node<TeamGraphNodeData, TeamGraphRole>;
 type TeamGraphEdge = Edge<{ semantic: TeamGraphEdgeSemantic }>;
 
-type TeamGraphValidationIssue = {
-    id: string;
-    severity: ValidationSeverity;
-    message: string;
-    nodeId?: string;
-    edgeId?: string;
-};
+function normalizeTeamGraphRole(value: string | undefined): TeamGraphRole {
+    return ROLE_OPTIONS.includes(value as (typeof ROLE_OPTIONS)[number])
+        ? (value as TeamGraphRole)
+        : "specialist";
+}
 
 type TeamLayoutSnapshot = {
     savedAt: string;
@@ -376,13 +372,13 @@ function getTemplateBySlug(templates: AgentTemplate[], slug: string) {
 }
 
 function getRoleIcon(role: TeamGraphRole) {
-    if (role === "manager") return <ManagerIcon fontSize="small" />;
+    if (role === "manager" || role === "team_lead") return <ManagerIcon fontSize="small" />;
     if (role === "reviewer") return <ReviewerIcon fontSize="small" />;
     return <SpecialistIcon fontSize="small" />;
 }
 
 function getRoleColor(role: TeamGraphRole) {
-    if (role === "manager") return "primary";
+    if (role === "manager" || role === "team_lead") return "primary";
     if (role === "reviewer") return "warning";
     return "info";
 }
@@ -478,7 +474,7 @@ function buildNodeDataFromTemplate(template: AgentTemplate): TeamGraphNodeData {
     return {
         name: template.name,
         slug: template.slug,
-        role: (template.role === "manager" || template.role === "reviewer" ? template.role : "specialist"),
+        role: normalizeTeamGraphRole(template.role),
         description: template.description ?? "",
         linkedTemplateSlug: template.slug,
         linkedAgentId: "",
@@ -507,7 +503,7 @@ function buildTeamTemplateCanvasGraph(selectedTemplates: AgentTemplate[]): { nod
     const nodes = autoLayoutGraph(
         selectedTemplates.map((template, index) => ({
             id: `team-template-${template.slug}`,
-            type: template.role === "manager" || template.role === "reviewer" ? template.role : "specialist",
+            type: normalizeTeamGraphRole(template.role),
             position: { x: 120 + index * 80, y: 120 },
             data: buildNodeDataFromTemplate(template),
         })),
@@ -601,7 +597,7 @@ function buildNodeDataFromAgent(
     return {
         name: agent.name,
         slug: agent.slug,
-        role: (agent.role === "manager" || agent.role === "reviewer" ? agent.role : "specialist"),
+        role: normalizeTeamGraphRole(agent.role),
         description: agent.description ?? "",
         linkedTemplateSlug: agent.parent_template_slug ?? "",
         linkedAgentId: agent.id,
@@ -658,6 +654,7 @@ function autoLayoutGraph(nodes: TeamGraphNode[]): TeamGraphNode[] {
 
     const grouped: Record<TeamGraphRole, TeamGraphNode[]> = {
         manager: [],
+        team_lead: [],
         specialist: [],
         reviewer: [],
     };
@@ -666,6 +663,7 @@ function autoLayoutGraph(nodes: TeamGraphNode[]): TeamGraphNode[] {
     });
     const rowY: Record<TeamGraphRole, number> = {
         manager: managerY,
+        team_lead: 180,
         specialist: 300,
         reviewer: 520,
     };
@@ -914,7 +912,7 @@ function buildInitialTeamGraph(
     const nodes = autoLayoutGraph(
         agents.map((agent, index) => ({
             id: agent.id,
-            type: agent.role === "manager" || agent.role === "reviewer" ? agent.role : "specialist",
+            type: normalizeTeamGraphRole(agent.role),
             position: { x: 80 + index * 220, y: 120 },
             data: buildNodeDataFromAgent(agent, liveStatus),
         })),
@@ -977,85 +975,6 @@ function createSemanticEdge(source: string, target: string, semantic: TeamGraphE
         },
         data: { semantic },
     };
-}
-
-function buildValidationIssues(
-    nodes: TeamGraphNode[],
-    edges: TeamGraphEdge[],
-    workspaceHasProviders = true,
-): TeamGraphValidationIssue[] {
-    const issues: TeamGraphValidationIssue[] = [];
-    const incomingByNode = new Map<string, TeamGraphEdge[]>();
-
-    edges.forEach((edge) => {
-        incomingByNode.set(edge.target, [...(incomingByNode.get(edge.target) ?? []), edge]);
-        if (edge.source === edge.target) {
-            issues.push({
-                id: `self-loop-${edge.id}`,
-                severity: "error",
-                edgeId: edge.id,
-                nodeId: edge.source,
-                message: "Self-loops are not allowed in the team graph.",
-            });
-        }
-    });
-
-    const managerRoots = nodes.filter((node) => {
-        if (node.data.role !== "manager") return false;
-        const incoming = incomingByNode.get(node.id) ?? [];
-        return !incoming.some((edge) => edge.data?.semantic === "delegates_to");
-    });
-
-    if (nodes.some((node) => node.data.role === "manager") && managerRoots.length !== 1) {
-        issues.push({
-            id: "manager-root-count",
-            severity: "warning",
-            message: `Expected one manager root, found ${managerRoots.length}.`,
-        });
-    }
-
-    nodes.forEach((node) => {
-        if (node.data.role === "manager") return;
-        const incoming = incomingByNode.get(node.id) ?? [];
-        const hasHierarchyParent = incoming.some((edge) => edge.data?.semantic !== "collaborates_with");
-        if (!hasHierarchyParent) {
-            issues.push({
-                id: `orphan-${node.id}`,
-                severity: "error",
-                nodeId: node.id,
-                message: `${node.data.name} has no incoming manager, reviewer, or escalation relationship.`,
-            });
-        }
-
-        if (node.data.escalationPath) {
-            const match = nodes.some(
-                (candidate) =>
-                    candidate.id === node.data.escalationPath ||
-                    candidate.data.slug === node.data.escalationPath ||
-                    candidate.data.name === node.data.escalationPath,
-            );
-            if (!match) {
-                issues.push({
-                    id: `invalid-escalation-${node.id}`,
-                    severity: "warning",
-                    nodeId: node.id,
-                    message: `${node.data.name} has an escalation target that does not exist in this team graph.`,
-                });
-            }
-        }
-
-        const templateSlug = String(node.data.linkedTemplateSlug || "").trim();
-        if (templateSlug && !workspaceHasProviders) {
-            issues.push({
-                id: `template-no-provider-${node.id}`,
-                severity: "warning",
-                nodeId: node.id,
-                message: `${node.data.name} uses agent template "${templateSlug}" but no LLM providers are configured in your workspace.`,
-            });
-        }
-    });
-
-    return issues;
 }
 
 function graphSignature(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): string {
@@ -1384,6 +1303,7 @@ function TeamGraphNodeCard({ data, selected }: NodeProps<TeamGraphNode>) {
 
 const nodeTypes = {
     manager: TeamGraphNodeCard,
+    team_lead: TeamGraphNodeCard,
     specialist: TeamGraphNodeCard,
     reviewer: TeamGraphNodeCard,
 };
@@ -1554,34 +1474,14 @@ export default function AgentLibraryPage() {
         };
     }, [isResizingInspector, isWideHierarchyLayout]);
 
-    const { data: agents = [] } = useQuery({
-        queryKey: ["orchestration", "agents"],
-        queryFn: () => listAgents(),
-    });
-    const { data: runs = [] } = useQuery({
-        queryKey: ["orchestration", "runs"],
-        queryFn: () => listRuns(),
-    });
-    const { data: templates = [] } = useQuery({
-        queryKey: ["orchestration", "agent-templates"],
-        queryFn: listAgentTemplates,
-    });
-    const { data: skills = [] } = useQuery({
-        queryKey: ["orchestration", "skill-catalog"],
-        queryFn: listSkillCatalog,
-    });
-    const { data: teamTemplates = [] } = useQuery({
-        queryKey: ["orchestration", "team-templates"],
-        queryFn: listTeamTemplates,
-    });
-    const { data: teamProfiles = [] } = useQuery({
-        queryKey: ["orchestration", "team-profiles"],
-        queryFn: listTeamProfiles,
-    });
-    const { data: orchestrationProjects = [] } = useQuery({
-        queryKey: ["orchestration", "projects"],
-        queryFn: listOrchestrationProjects,
-    });
+    const hierarchyQueries = useHierarchyQueries(selectedHierarchyProjectId);
+    const { data: agents = [] } = hierarchyQueries.agents;
+    const { data: runs = [] } = hierarchyQueries.runs;
+    const { data: templates = [] } = hierarchyQueries.templates;
+    const { data: skills = [] } = hierarchyQueries.skills;
+    const { data: teamTemplates = [] } = hierarchyQueries.teamTemplates;
+    const { data: teamProfiles = [] } = hierarchyQueries.teamProfiles;
+    const { data: orchestrationProjects = [] } = hierarchyQueries.orchestrationProjects;
     const effectiveHierarchyProjectId = selectedHierarchyProjectId && orchestrationProjects.some((project) => project.id === selectedHierarchyProjectId)
         ? selectedHierarchyProjectId
         : (orchestrationProjects[0]?.id ?? "");
@@ -1593,18 +1493,9 @@ export default function AgentLibraryPage() {
         () => readProjectTeamLayoutSnapshot(selectedHierarchyProject),
         [selectedHierarchyProject],
     );
-    const { data: hierarchyAgents = [] } = useQuery({
-        queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"],
-        queryFn: () => listAgents(effectiveHierarchyProjectId || undefined),
-    });
-    const { data: providerConfigs = [] } = useQuery<ProviderConfig[]>({
-        queryKey: ["orchestration", "providers"],
-        queryFn: () => listProviders(),
-    });
-    const { data: modelCapabilities = [] } = useQuery<ModelCapability[]>({
-        queryKey: ["orchestration", "provider-model-capabilities"],
-        queryFn: listModelCapabilities,
-    });
+    const { data: hierarchyAgents = [] } = hierarchyQueries.hierarchyAgents;
+    const { data: providerConfigs = [] } = hierarchyQueries.providerConfigs;
+    const { data: modelCapabilities = [] } = hierarchyQueries.modelCapabilities;
     const savedProviderModelGroups = useMemo(() => {
         const perProvider = new Map<string, { label: string; models: string[] }>();
         for (const provider of providerConfigs) {
@@ -1677,14 +1568,7 @@ export default function AgentLibraryPage() {
         [savedProviderModelGroups, savedProviderModelsFlat],
     );
 
-    useLiveSnapshotStream("/orchestration/hierarchy/stream", {
-        onSnapshot: () => {
-            void queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
-            void queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
-            void queryClient.invalidateQueries({ queryKey: ["orchestration", "runs"] });
-            void queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
-        },
-    });
+    useHierarchyLiveState(effectiveHierarchyProjectId || null);
 
     useEffect(() => {
         persistSelectedHierarchyProjectId(selectedHierarchyProjectId);
@@ -1735,8 +1619,8 @@ export default function AgentLibraryPage() {
     }, [runs]);
 
     const initialGraph = useMemo(() => buildInitialTeamGraph(hierarchyAgents, agentLiveStatus), [agentLiveStatus, hierarchyAgents]);
-    const [nodes, setNodes, onNodesChange] = useNodesState<TeamGraphNode>(initialGraph.nodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState<TeamGraphEdge>(initialGraph.edges);
+    const { nodes, setNodes, onNodesChange, edges, setEdges, onEdgesChange } =
+        useHierarchyGraphState<TeamGraphNode, TeamGraphEdge>(initialGraph);
     const initialGraphStateSignature = useMemo(
         () => graphSignature(initialGraph.nodes, initialGraph.edges),
         [initialGraph],
@@ -1813,7 +1697,7 @@ export default function AgentLibraryPage() {
 
     const workspaceHasProviders = providerConfigs.length > 0;
     const validationIssues = useMemo(
-        () => buildValidationIssues(nodes, edges, workspaceHasProviders),
+        () => buildHierarchyValidationIssues(nodes, edges, workspaceHasProviders),
         [nodes, edges, workspaceHasProviders],
     );
     const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
@@ -1829,7 +1713,7 @@ export default function AgentLibraryPage() {
     const createAgentTemplateMutation = useMutation({
         mutationFn: createAgentTemplate,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agentTemplates });
             showToast({ message: "Agent template created.", severity: "success" });
         },
     });
@@ -1838,7 +1722,7 @@ export default function AgentLibraryPage() {
         mutationFn: ({ id, payload }: { id: string; payload: Partial<Omit<AgentTemplate, "id">> }) =>
             updateAgentTemplate(id, payload),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agentTemplates });
             showToast({ message: "Agent template updated.", severity: "success" });
         },
     });
@@ -1847,9 +1731,9 @@ export default function AgentLibraryPage() {
         mutationFn: deleteAgentTemplate,
         onSuccess: async () => {
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["orchestration", "agent-templates"] }),
-                queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] }),
-                queryClient.invalidateQueries({ queryKey: ["orchestration", "project"] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agentTemplates }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRoot }),
             ]);
             showToast({ message: "Agent template removed.", severity: "success" });
         },
@@ -1861,42 +1745,42 @@ export default function AgentLibraryPage() {
     const createSkillMutation = useMutation({
         mutationFn: createSkillPack,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "skill-catalog"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.skillCatalog });
             showToast({ message: "Skill template created.", severity: "success" });
         },
     });
     const updateSkillMutation = useMutation({
         mutationFn: ({ slug, payload }: { slug: string; payload: Partial<Omit<SkillPack, "id" | "slug">> }) => updateSkillPack(slug, payload),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "skill-catalog"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.skillCatalog });
             showToast({ message: "Skill template updated.", severity: "success" });
         },
     });
     const deleteSkillMutation = useMutation({
         mutationFn: deleteSkillPack,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "skill-catalog"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.skillCatalog });
             showToast({ message: "Skill template removed.", severity: "success" });
         },
     });
     const createTeamTemplateMutation = useMutation({
         mutationFn: createTeamTemplate,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-templates"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.teamTemplates });
             showToast({ message: "Team template created.", severity: "success" });
         },
     });
     const updateTeamTemplateMutation = useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: Partial<Omit<TeamTemplate, "id" | "slug">> }) => updateTeamTemplate(id, payload),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-templates"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.teamTemplates });
             showToast({ message: "Team template updated.", severity: "success" });
         },
     });
     const deleteTeamTemplateMutation = useMutation({
         mutationFn: deleteTeamTemplate,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-templates"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.teamTemplates });
             showToast({ message: "Team template removed.", severity: "success" });
         },
     });
@@ -1904,7 +1788,7 @@ export default function AgentLibraryPage() {
         mutationFn: ({ templateId, name }: { templateId: string; name?: string }) =>
             createTeamProfileFromTemplate({ template_id: templateId, name }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "team-profiles"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.teamProfiles });
             showToast({ message: "Team profile saved from template.", severity: "success" });
         },
     });
@@ -1933,7 +1817,12 @@ export default function AgentLibraryPage() {
             });
             const templateSlugSet = new Set(templates.map((template) => template.slug));
 
-            for (const node of sortedNodes) {
+            const membershipSaveOrder = [...sortedNodes].sort((a, b) => {
+                const aReviewer = a.data.role === "reviewer" ? 0 : 1;
+                const bReviewer = b.data.role === "reviewer" ? 0 : 1;
+                return aReviewer - bReviewer;
+            });
+            for (const node of membershipSaveOrder) {
                 const existingAgent = node.data.linkedAgentId
                     ? existingGraphAgents.get(node.data.linkedAgentId) ?? agents.find((agent) => agent.id === node.data.linkedAgentId) ?? null
                     : null;
@@ -2163,6 +2052,15 @@ export default function AgentLibraryPage() {
                     },
                 },
             });
+            await updateHierarchyPolicy(effectiveHierarchyProjectId, {
+                manager_agent_id: managerAgentId,
+                edges: remappedEdges.map((edge) => ({
+                    source_agent_id: edge.source,
+                    target_agent_id: edge.target,
+                    relationship: edge.data?.semantic ?? "delegates_to",
+                })),
+                reviewer_agent_ids: reviewerAgentIds,
+            });
 
             return snapshot;
         },
@@ -2172,10 +2070,10 @@ export default function AgentLibraryPage() {
             setSavedLayout(snapshot);
             persistTeamLayoutSnapshot(snapshot);
             setGraphDirty(false);
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "github", "issues"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents(effectiveHierarchyProjectId || "global") });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projects });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.githubIssues });
             showToast({ message: "Team graph saved to project. Agents and manager routing are now persistent.", severity: "success" });
         },
         onError: (error) => {
@@ -2443,7 +2341,7 @@ export default function AgentLibraryPage() {
             data: {
                 ...createDefaultNodeData(
                     role,
-                    role === "manager" ? "Manager" : role === "reviewer" ? "Reviewer" : "Specialist",
+                    role === "manager" ? "Manager" : role === "team_lead" ? "Team Lead" : role === "reviewer" ? "Reviewer" : "Specialist",
                     createUniqueSlug(`${role}-${count}`, nodes.map((node) => node.data.slug)),
                     role === "manager"
                         ? "Routes work, resolves escalation, and owns delivery."
@@ -2519,7 +2417,7 @@ export default function AgentLibraryPage() {
         if (!agent) {
             return;
         }
-        const role = agent.role === "manager" || agent.role === "reviewer" ? agent.role : "specialist";
+        const role = normalizeTeamGraphRole(agent.role);
         const nextNode: TeamGraphNode = {
             id: createUniqueNodeId(`${agent.id}-team-node`, nodes.map((node) => node.id)),
             type: role,
@@ -2541,16 +2439,16 @@ export default function AgentLibraryPage() {
         fitCanvas();
     }
 
-    function addAgentTemplateNode(templateSlug: string) {
+    function addAgentTemplateNode(templateSlug: string, dropPosition?: { x: number; y: number }) {
         const template = templates.find((item) => item.slug === templateSlug);
         if (!template) {
             return;
         }
-        const role = template.role === "manager" || template.role === "reviewer" ? template.role : "specialist";
+        const role = normalizeTeamGraphRole(template.role);
         const nextNode: TeamGraphNode = {
             id: createUniqueNodeId(`template-${template.slug}`, nodes.map((node) => node.id)),
             type: role,
-            position: computeDefaultNodePosition(role, nodes),
+            position: dropPosition ?? computeDefaultNodePosition(role, nodes),
             data: buildNodeDataFromTemplate(template),
         };
         const manager = role !== "manager" ? nodes.find((node) => node.data.role === "manager") ?? null : null;
@@ -2699,8 +2597,8 @@ export default function AgentLibraryPage() {
                     retry_limit: clamp(parsePositiveInteger(teamNodeDraft.retryBudget, existingAgent.retry_limit || 1), 0, 10),
                     task_filters: normalizeTaskFilters(teamNodeDraft.taskFilters),
                 });
-                await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents"] });
-                await queryClient.invalidateQueries({ queryKey: ["orchestration", "agents", effectiveHierarchyProjectId || "global"] });
+                await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() });
+                await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents(effectiveHierarchyProjectId || "global") });
             }
             updateNodeData(editingTeamNodeId, nextNodeData);
             closeTeamNodeDrawer();

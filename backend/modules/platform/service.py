@@ -11,12 +11,14 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.config import settings
 from backend.core.cache import (
     get_cached_platform_metadata,
     invalidate_platform_metadata_cache,
     set_cached_platform_metadata,
 )
+from backend.core.config import settings
+from backend.core.external_http import external_headers
+from backend.core.http_clients import managed_http_client
 from backend.modules.identity_access.models import User
 from backend.modules.platform.models import (
     ApiKey,
@@ -116,7 +118,10 @@ DEFAULT_PLANS = (
         "interval": "month",
         "is_default": False,
         "features_json": [
-            "core_access", "priority_support", "platform_webhooks", "platform_api_keys",
+            "core_access",
+            "priority_support",
+            "platform_webhooks",
+            "platform_api_keys",
         ],
     },
     {
@@ -170,7 +175,7 @@ DEFAULT_EMAIL_TEMPLATES = (
         "subject_template": "{{app_name}}: verify your email address",
         "html_template": (
             "<p>Thanks for joining {{app_name}}.</p>"
-            "<p>Verify your email by opening <a href=\"{{action_url}}\">this link</a>.</p>"
+            '<p>Verify your email by opening <a href="{{action_url}}">this link</a>.</p>'
             "<p>If you did not create an account for"
             " {{recipient_email}}, you can ignore this email.</p>"
         ),
@@ -187,7 +192,7 @@ DEFAULT_EMAIL_TEMPLATES = (
         "subject_template": "{{app_name}}: reset your password",
         "html_template": (
             "<p>We received a password reset request for {{recipient_email}}.</p>"
-            "<p>Use <a href=\"{{action_url}}\">this secure link</a> to choose a new password.</p>"
+            '<p>Use <a href="{{action_url}}">this secure link</a> to choose a new password.</p>'
             "<p>If you did not request this, you can ignore this email.</p>"
         ),
         "text_template": (
@@ -567,15 +572,17 @@ class PlatformService:
         signature = hmac.new(webhook.secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
 
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with managed_http_client("platform", timeout_seconds=10) as client:
                 response = await client.post(
                     webhook.target_url,
                     content=raw_body,
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-Generic-App-Event": payload["event"],
-                        "X-Generic-App-Signature": signature,
-                    },
+                    headers=external_headers(
+                        {
+                            "Content-Type": "application/json",
+                            "X-Generic-App-Event": payload["event"],
+                            "X-Generic-App-Signature": signature,
+                        }
+                    ),
                 )
             webhook.last_tested_at = datetime.now(UTC)
             webhook.last_response_status = response.status_code

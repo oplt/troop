@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import time
 from pathlib import Path
 from typing import Any
 
-import httpx
 import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.external_http import external_headers
+from backend.core.http_clients import managed_http_client
 from backend.modules.orchestration.execution.cpu_executor import execute_code_job_async
 from backend.modules.orchestration.models import (
     GithubConnection,
@@ -100,7 +100,9 @@ class OrchestrationToolbox:
         self, arguments: dict[str, Any]
     ) -> tuple[GithubConnection, GithubRepository, GithubIssueLink | None, int]:
         issue_link: GithubIssueLink | None = None
-        issue_link_id = arguments.get("issue_link_id") or (self.task.github_issue_link_id if self.task else None)
+        issue_link_id = arguments.get("issue_link_id") or (
+            self.task.github_issue_link_id if self.task else None
+        )
         if issue_link_id:
             issue_link = await self.db.get(GithubIssueLink, issue_link_id)
         repository: GithubRepository | None = None
@@ -144,13 +146,18 @@ class OrchestrationToolbox:
             installation_id = int((connection.metadata_json or {}).get("installation_id") or 0)
             if installation_id <= 0:
                 raise ToolExecutionError("GitHub App connection is missing installation_id")
-            async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
+            async with managed_http_client(
+                "github-tools",
+                timeout_seconds=30.0, base_url=connection.api_url
+            ) as client:
                 response = await client.post(
                     f"/app/installations/{installation_id}/access_tokens",
-                    headers={
-                        "Authorization": f"Bearer {self._github_app_jwt()}",
-                        "Accept": "application/vnd.github+json",
-                    },
+                    headers=external_headers(
+                        {
+                            "Authorization": f"Bearer {self._github_app_jwt()}",
+                            "Accept": "application/vnd.github+json",
+                        }
+                    ),
                 )
             if response.status_code >= 400:
                 raise ToolExecutionError("Failed to mint GitHub installation token")
@@ -168,9 +175,14 @@ class OrchestrationToolbox:
         if not body:
             raise ToolExecutionError("GitHub comment body is required")
         close_issue = bool(arguments.get("close_issue", False))
-        connection, repository, issue_link, issue_number = await self._resolve_issue_context(arguments)
+        connection, repository, issue_link, issue_number = await self._resolve_issue_context(
+            arguments
+        )
         headers = await self._github_auth_headers(connection)
-        async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
+        async with managed_http_client(
+            "github-tools",
+            timeout_seconds=30.0, base_url=connection.api_url
+        ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/issues/{issue_number}/comments",
                 headers=headers,
@@ -185,7 +197,9 @@ class OrchestrationToolbox:
                     json={"state": "closed"},
                 )
                 if close_response.status_code >= 400:
-                    raise ToolExecutionError(f"GitHub close issue failed: {close_response.text[:300]}")
+                    raise ToolExecutionError(
+                        f"GitHub close issue failed: {close_response.text[:300]}"
+                    )
         return {
             "repository": repository.full_name,
             "issue_number": issue_number,
@@ -198,9 +212,14 @@ class OrchestrationToolbox:
         labels = [str(item).strip() for item in arguments.get("labels", []) if str(item).strip()]
         if not labels:
             raise ToolExecutionError("At least one label is required")
-        connection, repository, issue_link, issue_number = await self._resolve_issue_context(arguments)
+        connection, repository, issue_link, issue_number = await self._resolve_issue_context(
+            arguments
+        )
         headers = await self._github_auth_headers(connection)
-        async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
+        async with managed_http_client(
+            "github-tools",
+            timeout_seconds=30.0, base_url=connection.api_url
+        ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/issues/{issue_number}/labels",
                 headers=headers,
@@ -240,7 +259,10 @@ class OrchestrationToolbox:
         if connection is None:
             raise ToolExecutionError("GitHub connection not found for repository")
         headers = await self._github_auth_headers(connection)
-        async with httpx.AsyncClient(timeout=30.0, base_url=connection.api_url) as client:
+        async with managed_http_client(
+            "github-tools",
+            timeout_seconds=30.0, base_url=connection.api_url
+        ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/pulls",
                 headers=headers,
@@ -266,7 +288,10 @@ class OrchestrationToolbox:
         url = str(arguments.get("url") or "").strip()
         if not re.match(r"^https?://", url):
             raise ToolExecutionError("web_fetch requires an absolute http(s) URL")
-        async with httpx.AsyncClient(timeout=float(arguments.get("timeout_seconds", 20))) as client:
+        async with managed_http_client(
+            "web-tools",
+            timeout_seconds=float(arguments.get("timeout_seconds", 20))
+        ) as client:
             response = await client.get(url)
         if response.status_code >= 400:
             raise ToolExecutionError(f"Fetch failed with status {response.status_code}")
@@ -283,11 +308,11 @@ class OrchestrationToolbox:
         if not query:
             raise ToolExecutionError("web_search requires a query")
         limit = max(1, min(int(arguments.get("limit", 5)), 10))
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with managed_http_client("web-tools", timeout_seconds=20.0) as client:
             response = await client.get(
                 "https://duckduckgo.com/html/",
                 params={"q": query},
-                headers={"User-Agent": "troop-orchestrator/1.0"},
+                headers=external_headers({"User-Agent": "troop-orchestrator/1.0"}),
             )
         if response.status_code >= 400:
             raise ToolExecutionError(f"Search failed with status {response.status_code}")
@@ -315,18 +340,24 @@ class OrchestrationToolbox:
 
         timeout = max(1, min(int(arguments.get("timeout_seconds", 30)), 120))
         cwd = self._workspace_root()
+        sandbox_mode = str(
+            ((self.project.settings_json or {}).get("hitl") or {}).get("sandbox_mode")
+            or "allow_host_fallback"
+        )
+        require_docker = sandbox_mode == "docker_required"
         if settings.CELERY_TASK_ALWAYS_EAGER:
             result = await execute_code_job_async(
                 shell_cmd=shell_cmd,
                 cwd=str(cwd),
                 timeout=timeout,
                 use_shell_wrap=use_shell_wrap,
+                require_docker=require_docker,
             )
         else:
             from backend.workers.orchestration import run_code_execution
 
             async_result = run_code_execution.apply_async(
-                args=[shell_cmd, str(cwd), timeout, use_shell_wrap],
+                args=[shell_cmd, str(cwd), timeout, use_shell_wrap, require_docker],
                 queue=settings.CELERY_QUEUE_CPU,
             )
             wait_timeout = timeout + 20
@@ -336,16 +367,21 @@ class OrchestrationToolbox:
             try:
                 from backend.workers.celery_async import await_celery_result
 
-                result = await await_celery_result(async_result, timeout_seconds=float(wait_timeout))
+                result = await await_celery_result(
+                    async_result, timeout_seconds=float(wait_timeout)
+                )
             except TimeoutError as exc:
                 raise ToolExecutionError(str(exc)) from exc
             if not isinstance(result, dict):
                 raise ToolExecutionError("CPU worker returned an invalid code execution payload")
-        sandbox_mode = str(((self.project.settings_json or {}).get("hitl") or {}).get("sandbox_mode") or "allow_host_fallback")
         if str(result.get("error") or "") == "docker_required_unavailable":
-            raise ToolExecutionError(str(result.get("stderr") or "Docker sandbox required but unavailable."))
+            raise ToolExecutionError(
+                str(result.get("stderr") or "Docker sandbox required but unavailable.")
+            )
         if sandbox_mode == "docker_required" and str(result.get("sandbox") or "host") != "docker":
-            raise ToolExecutionError("Sandbox policy requires Docker isolation, but execution fell back to host.")
+            raise ToolExecutionError(
+                "Sandbox policy requires Docker isolation, but execution fell back to host."
+            )
         return result
 
     async def _fs_read(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -384,7 +420,13 @@ class OrchestrationToolbox:
         if entity == "tasks":
             stmt = select(OrchestratorTask).where(OrchestratorTask.project_id == self.project.id)
             for key, value in filters.items():
-                if key in {"status", "priority", "assigned_agent_id", "reviewer_agent_id", "task_type"}:
+                if key in {
+                    "status",
+                    "priority",
+                    "assigned_agent_id",
+                    "reviewer_agent_id",
+                    "task_type",
+                }:
                     stmt = stmt.where(getattr(OrchestratorTask, key) == value)
             rows = (await self.db.execute(stmt.limit(limit))).scalars().all()
             items = [
@@ -444,7 +486,11 @@ class OrchestrationToolbox:
             ]
             return {"entity": entity, "items": items}
         if entity == "events":
-            stmt = select(RunEvent).where(RunEvent.run_id == self.run.id).order_by(RunEvent.created_at.desc())
+            stmt = (
+                select(RunEvent)
+                .where(RunEvent.run_id == self.run.id)
+                .order_by(RunEvent.created_at.desc())
+            )
             rows = (await self.db.execute(stmt.limit(limit))).scalars().all()
             items = [
                 {
@@ -494,19 +540,27 @@ class OrchestrationToolbox:
             }
 
         rows = (
-            await self.db.execute(
-                select(ProjectDocumentChunk)
-                .join(ProjectDocument, ProjectDocumentChunk.project_document_id == ProjectDocument.id)
-                .where(
-                    ProjectDocumentChunk.project_id == self.project.id,
-                    ProjectDocument.deleted_at.is_(None),
-                    ProjectDocumentChunk.deleted_at.is_(None),
-                    ProjectDocumentChunk.metadata_json["source_kind"].as_string() == "repo_index",
+            (
+                await self.db.execute(
+                    select(ProjectDocumentChunk)
+                    .join(
+                        ProjectDocument,
+                        ProjectDocumentChunk.project_document_id == ProjectDocument.id,
+                    )
+                    .where(
+                        ProjectDocumentChunk.project_id == self.project.id,
+                        ProjectDocument.deleted_at.is_(None),
+                        ProjectDocumentChunk.deleted_at.is_(None),
+                        ProjectDocumentChunk.metadata_json["source_kind"].as_string()
+                        == "repo_index",
+                    )
+                    .order_by(ProjectDocumentChunk.created_at.desc())
+                    .limit(limit * 10)
                 )
-                .order_by(ProjectDocumentChunk.created_at.desc())
-                .limit(limit * 10)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         query_terms = {term for term in re.findall(r"[a-z0-9_]+", query.lower()) if len(term) > 2}
         matches: list[dict[str, Any]] = []
         for row in rows:

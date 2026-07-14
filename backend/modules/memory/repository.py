@@ -4,10 +4,9 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, or_, select, text
+from sqlalchemy import delete, func, or_, select, text
 
 from backend.core.config import settings
-from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.memory.models import (
     AgentMemoryEntry,
     EpisodicArchiveManifest,
@@ -21,6 +20,7 @@ from backend.modules.memory.models import (
     SemanticMemoryLink,
     normalize_embedding_for_vector,
 )
+from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.orchestration.models import (
     Brainstorm,
     BrainstormMessage,
@@ -121,7 +121,11 @@ class MemoryRepositoryMixin:
             "d.deleted_at IS NULL",
             "c.embedding_vector IS NOT NULL",
         ]
-        params: dict[str, str | int] = {"pid": project_id, "qv": literal, "lim": max(1, min(top_k, 20))}
+        params: dict[str, str | int] = {
+            "pid": project_id,
+            "qv": literal,
+            "lim": max(1, min(top_k, 20)),
+        }
         if task_id is not None:
             clauses.append("(c.task_id = :tid OR c.task_id IS NULL)")
             params["tid"] = task_id
@@ -168,11 +172,14 @@ class MemoryRepositoryMixin:
                 or_(ProjectDocumentChunk.task_id == task_id, ProjectDocumentChunk.task_id.is_(None))
             )
         if source_kind:
-            stmt = stmt.where(ProjectDocumentChunk.metadata_json["source_kind"].as_string() == source_kind)
-        result = await self.db.execute(
-            stmt.order_by(ProjectDocumentChunk.project_document_id.asc(), ProjectDocumentChunk.chunk_index.asc()).limit(
-                cap
+            stmt = stmt.where(
+                ProjectDocumentChunk.metadata_json["source_kind"].as_string() == source_kind
             )
+        result = await self.db.execute(
+            stmt.order_by(
+                ProjectDocumentChunk.project_document_id.asc(),
+                ProjectDocumentChunk.chunk_index.asc(),
+            ).limit(cap)
         )
         return list(result.scalars().all())
 
@@ -218,11 +225,18 @@ class MemoryRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def get_semantic_memory_entry(self, owner_id: str, entry_id: str) -> SemanticMemoryEntry | None:
+    async def get_semantic_memory_entry(
+        self, owner_id: str, entry_id: str
+    ) -> SemanticMemoryEntry | None:
         result = await self.db.execute(
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.id == entry_id,
                 SemanticMemoryEntry.owner_id == owner_id,
+                SemanticMemoryEntry.deleted_at.is_(None),
+                or_(
+                    SemanticMemoryEntry.expires_at.is_(None),
+                    SemanticMemoryEntry.expires_at > func.now(),
+                ),
             )
         )
         return result.scalar_one_or_none()
@@ -238,7 +252,14 @@ class MemoryRepositoryMixin:
         source_task_id: str | None = None,
         limit: int = 100,
     ) -> list[SemanticMemoryEntry]:
-        stmt = select(SemanticMemoryEntry).where(SemanticMemoryEntry.owner_id == owner_id)
+        stmt = select(SemanticMemoryEntry).where(
+            SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.deleted_at.is_(None),
+            or_(
+                SemanticMemoryEntry.expires_at.is_(None),
+                SemanticMemoryEntry.expires_at > func.now(),
+            ),
+        )
         if project_id is not None:
             stmt = stmt.where(SemanticMemoryEntry.project_id == project_id)
         if entry_type:
@@ -249,9 +270,13 @@ class MemoryRepositoryMixin:
             stmt = stmt.where(SemanticMemoryEntry.source_task_id == source_task_id)
         if search:
             q = f"%{search}%"
-            stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
+            stmt = stmt.where(
+                or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q))
+            )
         cap = max(1, min(limit, 500))
-        result = await self.db.execute(stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap))
+        result = await self.db.execute(
+            stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap)
+        )
         return list(result.scalars().all())
 
     async def list_semantic_memory_entries_for_projects(
@@ -268,12 +293,21 @@ class MemoryRepositoryMixin:
         stmt = select(SemanticMemoryEntry).where(
             SemanticMemoryEntry.owner_id == owner_id,
             SemanticMemoryEntry.project_id.in_(ids),
+            SemanticMemoryEntry.deleted_at.is_(None),
+            or_(
+                SemanticMemoryEntry.expires_at.is_(None),
+                SemanticMemoryEntry.expires_at > func.now(),
+            ),
         )
         if search:
             q = f"%{search}%"
-            stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
+            stmt = stmt.where(
+                or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q))
+            )
         cap = max(1, min(limit, 500))
-        result = await self.db.execute(stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap))
+        result = await self.db.execute(
+            stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap)
+        )
         return list(result.scalars().all())
 
     async def find_semantic_by_decision_id(
@@ -331,16 +365,22 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id = :pid
+              AND deleted_at IS NULL
+              AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
             ORDER BY embedding_vector <=> CAST(:qv AS vector)
             LIMIT :lim
             """
         )
-        result = await self.db.execute(sql, {"oid": owner_id, "pid": project_id, "qv": literal, "lim": cap})
+        result = await self.db.execute(
+            sql, {"oid": owner_id, "pid": project_id, "qv": literal, "lim": cap}
+        )
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -359,6 +399,11 @@ class MemoryRepositoryMixin:
             SemanticMemoryEntry.owner_id == owner_id,
             SemanticMemoryEntry.company_id == company_id,
             SemanticMemoryEntry.project_id.is_(None),
+            SemanticMemoryEntry.deleted_at.is_(None),
+            or_(
+                SemanticMemoryEntry.expires_at.is_(None),
+                SemanticMemoryEntry.expires_at > func.now(),
+            ),
         )
         if entry_type:
             stmt = stmt.where(SemanticMemoryEntry.entry_type == entry_type)
@@ -366,9 +411,13 @@ class MemoryRepositoryMixin:
             stmt = stmt.where(SemanticMemoryEntry.namespace.startswith(namespace_prefix))
         if search:
             q = f"%{search}%"
-            stmt = stmt.where(or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q)))
+            stmt = stmt.where(
+                or_(SemanticMemoryEntry.title.ilike(q), SemanticMemoryEntry.body.ilike(q))
+            )
         cap = max(1, min(limit, 200))
-        result = await self.db.execute(stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap))
+        result = await self.db.execute(
+            stmt.order_by(SemanticMemoryEntry.updated_at.desc()).limit(cap)
+        )
         return list(result.scalars().all())
 
     async def search_semantic_memory_by_vector_scoped(
@@ -402,6 +451,8 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id = :pid
+              AND deleted_at IS NULL
+              AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
               {extra}
             ORDER BY embedding_vector <=> CAST(:qv AS vector)
@@ -412,7 +463,9 @@ class MemoryRepositoryMixin:
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -433,6 +486,8 @@ class MemoryRepositoryMixin:
             WHERE owner_id = :oid
               AND company_id = :cid
               AND project_id IS NULL
+              AND deleted_at IS NULL
+              AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
             ORDER BY embedding_vector <=> CAST(:qv AS vector)
             LIMIT :lim
@@ -444,7 +499,9 @@ class MemoryRepositoryMixin:
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -470,6 +527,8 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id IN ({placeholders})
+              AND deleted_at IS NULL
+              AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
             ORDER BY embedding_vector <=> CAST(:qv AS vector)
             LIMIT :lim
@@ -479,7 +538,9 @@ class MemoryRepositoryMixin:
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -517,7 +578,9 @@ class MemoryRepositoryMixin:
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(EpisodicSearchIndex).where(EpisodicSearchIndex.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(EpisodicSearchIndex).where(EpisodicSearchIndex.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -543,7 +606,9 @@ class MemoryRepositoryMixin:
         if gh_ids:
             stmt = (
                 select(ProjectRepositoryLink.project_id)
-                .join(OrchestratorProject, ProjectRepositoryLink.project_id == OrchestratorProject.id)
+                .join(
+                    OrchestratorProject, ProjectRepositoryLink.project_id == OrchestratorProject.id
+                )
                 .where(
                     ProjectRepositoryLink.github_repository_id.in_(gh_ids),
                     ProjectRepositoryLink.project_id != project_id,
@@ -561,7 +626,9 @@ class MemoryRepositoryMixin:
         if agent_id and len(ordered) < cap:
             stmt2 = (
                 select(ProjectAgentMembership.project_id)
-                .join(OrchestratorProject, ProjectAgentMembership.project_id == OrchestratorProject.id)
+                .join(
+                    OrchestratorProject, ProjectAgentMembership.project_id == OrchestratorProject.id
+                )
                 .where(
                     ProjectAgentMembership.agent_id == agent_id,
                     ProjectAgentMembership.project_id != project_id,
@@ -580,7 +647,9 @@ class MemoryRepositoryMixin:
 
         return ordered[:cap]
 
-    async def list_procedural_playbooks(self, owner_id: str, project_id: str) -> list[ProceduralPlaybook]:
+    async def list_procedural_playbooks(
+        self, owner_id: str, project_id: str
+    ) -> list[ProceduralPlaybook]:
         res = await self.db.execute(
             select(ProceduralPlaybook)
             .where(
@@ -807,11 +876,15 @@ class MemoryRepositoryMixin:
             LIMIT :lim
             """
         )
-        result = await self.db.execute(sql, {"oid": owner_id, "pid": project_id, "qv": literal, "lim": cap})
+        result = await self.db.execute(
+            sql, {"oid": owner_id, "pid": project_id, "qv": literal, "lim": cap}
+        )
         ids = [row[0] for row in result.all()]
         if not ids:
             return []
-        r2 = await self.db.execute(select(EpisodicSearchIndex).where(EpisodicSearchIndex.id.in_(ids)))
+        r2 = await self.db.execute(
+            select(EpisodicSearchIndex).where(EpisodicSearchIndex.id.in_(ids))
+        )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
 
@@ -1036,4 +1109,6 @@ class MemoryRepositoryMixin:
         if finished_at is not None:
             vals["finished_at"] = finished_at
         if vals:
-            await self.db.execute(sa_update(MemoryIngestJob).where(MemoryIngestJob.id == job_id).values(**vals))
+            await self.db.execute(
+                sa_update(MemoryIngestJob).where(MemoryIngestJob.id == job_id).values(**vals)
+            )

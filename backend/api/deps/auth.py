@@ -1,21 +1,20 @@
-import logging
-
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Cookie, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.cache import (
     get_cached_session_valid,
     invalidate_session_cache,
-    invalidate_user_session_caches,
     set_cached_session_valid,
 )
 from backend.core.config import settings
+from backend.core.logging import get_logger
+from backend.core.request_context import set_context
 from backend.core.security import decode_token
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.identity_access.repository import IdentityRepository
 
-logger = logging.getLogger("backend.authz")
+logger = get_logger("backend.authz")
 
 
 async def _get_authenticated_user(access_token: str | None, db: AsyncSession) -> User:
@@ -45,14 +44,17 @@ async def _get_authenticated_user(access_token: str | None, db: AsyncSession) ->
             raise HTTPException(status_code=401, detail="Session is no longer valid")
         await set_cached_session_valid(user_id, session_id)
 
+    set_context(user_id=user.id)
     return user
 
 
 async def get_current_user(
+    request: Request,
     access_token: str | None = Cookie(default=None, alias=settings.ACCESS_COOKIE_NAME),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     user = await _get_authenticated_user(access_token, db)
+    request.state.user_id = user.id
     if not user.is_verified:
         logger.warning("authorization_failed action=unverified_access user_id=%s", user.id)
         raise HTTPException(status_code=403, detail="Verify your email before accessing the app")
@@ -60,7 +62,10 @@ async def get_current_user(
 
 
 async def get_authenticated_user(
+    request: Request,
     access_token: str | None = Cookie(default=None, alias=settings.ACCESS_COOKIE_NAME),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    return await _get_authenticated_user(access_token, db)
+    user = await _get_authenticated_user(access_token, db)
+    request.state.user_id = user.id
+    return user

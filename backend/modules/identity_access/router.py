@@ -1,10 +1,9 @@
-import logging
-
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.core.rate_limit import (
     auth_rate_limit_key,
     check_rate_limit,
@@ -32,7 +31,7 @@ from backend.modules.identity_access.schemas import (
 from backend.modules.identity_access.service import IdentityService
 
 router = APIRouter()
-logger = logging.getLogger("backend.auth")
+logger = get_logger("backend.auth")
 
 _REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
 _ACCESS_COOKIE_MAX_AGE = 60 * settings.ACCESS_TOKEN_EXPIRE_MINUTES

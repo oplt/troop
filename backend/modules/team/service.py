@@ -19,6 +19,15 @@ from backend.modules.team.models import (
 )
 
 
+LEGACY_TOOL_ALIASES = {
+    "file_read_stub": "fs_read",
+    "web_search_stub": "web_search",
+    "python_analysis_stub": "code_execute",
+    "github_issue_stub": "github_comment",
+    "geospatial_analysis_stub": "code_execute",
+}
+
+
 class TeamServiceMixin:
     """Agent CRUD + template + skill + team-template methods.
 
@@ -61,6 +70,7 @@ class TeamServiceMixin:
         await self._ensure_catalog_seeded()
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
         payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
+        await self._validate_reporting_line(user, payload.get("project_id"), None, payload)
         payload["is_active"] = bool(payload.get("is_active", False))
         agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
         await self._snapshot_agent(agent, user.id)
@@ -143,12 +153,52 @@ class TeamServiceMixin:
                 raise HTTPException(status_code=422, detail={"errors": errors})
             updates = {**normalized, **updates}
         updates = await self._validate_and_normalize_agent_payload(user, updates, existing_agent_id=agent.id)
+        await self._validate_reporting_line(user, updates.get("project_id", agent.project_id), agent, updates)
         self._apply_agent_updates(agent, updates)
         agent.version += 1
         await self._snapshot_agent(agent, user.id)
         await self.db.commit()
         await self.db.refresh(agent)
         return agent
+
+    async def _validate_reporting_line(
+        self,
+        user: User,
+        project_id: str | None,
+        agent: AgentProfile | None,
+        updates: dict[str, Any],
+    ) -> None:
+        parent_id = updates.get("parent_agent_id")
+        reviewer_id = updates.get("reviewer_agent_id")
+        if agent is not None and parent_id == agent.id:
+            raise HTTPException(status_code=422, detail="An agent cannot report to itself.")
+
+        async def load_related(related_id: str | None, label: str) -> AgentProfile | None:
+            if not related_id:
+                return None
+            related = await self.repo.get_agent(user.id, str(related_id))
+            if related is None:
+                raise HTTPException(status_code=422, detail=f"{label} agent was not found.")
+            if project_id and related.project_id and related.project_id != project_id:
+                raise HTTPException(status_code=422, detail=f"{label} agent must belong to the same project.")
+            return related
+
+        parent = await load_related(parent_id, "Parent")
+        reviewer = await load_related(reviewer_id, "Reviewer")
+        if reviewer is not None and reviewer.role not in {"reviewer", "manager", "team_lead"}:
+            raise HTTPException(status_code=422, detail="Reviewer relationship must target a reviewer, manager, or team lead.")
+
+        if parent is None or agent is None:
+            return
+        seen = {agent.id}
+        cursor = parent
+        while cursor is not None:
+            if cursor.id in seen:
+                raise HTTPException(status_code=422, detail="Reporting lines cannot contain cycles.")
+            seen.add(cursor.id)
+            if not cursor.parent_agent_id:
+                break
+            cursor = await self.repo.get_agent(user.id, cursor.parent_agent_id)
 
     async def delete_agent(self, user: User, agent_id: str) -> None:
         await self._ensure_catalog_seeded()
@@ -265,6 +315,14 @@ class TeamServiceMixin:
         existing = await self.repo.get_agent_template_by_slug(payload["slug"])
         if existing is not None:
             raise HTTPException(status_code=409, detail="Template slug already exists")
+        model_policy = dict(payload.get("model_policy") or {})
+        if payload.get("permissions") is not None:
+            model_policy["permissions"] = payload["permissions"]
+        if payload.get("escalation_path") is not None:
+            model_policy["escalation_path"] = payload["escalation_path"]
+        metadata = dict(payload.get("metadata") or {})
+        if payload.get("task_filters") is not None:
+            metadata["task_filters"] = list(payload["task_filters"])
         data = {
             "slug": payload["slug"],
             "name": payload["name"],
@@ -279,11 +337,11 @@ class TeamServiceMixin:
             "allowed_tools_json": payload.get("allowed_tools", []),
             "skills_json": payload.get("skills", []),
             "tags_json": payload.get("tags", []),
-            "model_policy_json": payload.get("model_policy", {}),
+            "model_policy_json": model_policy,
             "budget_json": payload.get("budget", {}),
             "memory_policy_json": payload.get("memory_policy", {}),
             "output_schema_json": payload.get("output_schema", {}),
-            "metadata_json": payload.get("metadata", {}),
+            "metadata_json": metadata,
         }
         template = await self.repo.create_agent_template(**data)
         await self.db.commit()
@@ -298,6 +356,18 @@ class TeamServiceMixin:
             existing = await self.repo.get_agent_template_by_slug(payload["slug"])
             if existing is not None and existing.id != template.id:
                 raise HTTPException(status_code=409, detail="Template slug already exists")
+        payload = dict(payload)
+        model_policy = dict(payload.get("model_policy") or template.model_policy_json or {})
+        if "permissions" in payload:
+            model_policy["permissions"] = payload.pop("permissions")
+        if "escalation_path" in payload:
+            model_policy["escalation_path"] = payload.pop("escalation_path")
+        if "model_policy" in payload:
+            payload["model_policy"] = model_policy
+        if "task_filters" in payload:
+            metadata = dict(payload.get("metadata") or template.metadata_json or {})
+            metadata["task_filters"] = list(payload.pop("task_filters") or [])
+            payload["metadata"] = metadata
         field_map = {
             "slug": "slug",
             "name": "name",
@@ -611,6 +681,14 @@ class TeamServiceMixin:
         )
 
     def _agent_payload_to_model(self, payload: dict[str, Any]) -> dict[str, Any]:
+        model_policy = dict(payload.get("model_policy") or {})
+        if payload.get("permissions") is not None:
+            model_policy["permissions"] = payload["permissions"]
+        if payload.get("escalation_path") is not None:
+            model_policy["escalation_path"] = payload["escalation_path"]
+        metadata = dict(payload.get("metadata") or {})
+        if payload.get("task_filters") is not None:
+            metadata["task_filters"] = list(payload["task_filters"])
         return {
             "project_id": payload.get("project_id"),
             "parent_agent_id": payload.get("parent_agent_id"),
@@ -629,7 +707,7 @@ class TeamServiceMixin:
             "capabilities_json": payload.get("capabilities", []),
             "allowed_tools_json": payload.get("allowed_tools", []),
             "skills_json": payload.get("skills", []),
-            "model_policy_json": payload.get("model_policy", {}),
+            "model_policy_json": model_policy,
             "visibility": payload.get("visibility", "private"),
             "is_active": payload.get("is_active", True),
             "tags_json": payload.get("tags", []),
@@ -639,13 +717,12 @@ class TeamServiceMixin:
             "memory_policy_json": payload.get("memory_policy", {}),
             "output_schema_json": payload.get("output_schema", {}),
             "version": payload.get("version", 1),
-            "metadata_json": {
-                **payload.get("metadata", {}),
-                "task_filters": payload.get("task_filters", []),
-            },
+            "metadata_json": metadata,
         }
 
     def _agent_model_to_payload(self, agent: AgentProfile) -> dict[str, Any]:
+        model_policy = dict(agent.model_policy_json or {})
+        metadata = dict(agent.metadata_json or {})
         return {
             "project_id": agent.project_id,
             "parent_agent_id": agent.parent_agent_id,
@@ -664,7 +741,9 @@ class TeamServiceMixin:
             "capabilities_json": agent.capabilities_json,
             "allowed_tools_json": agent.allowed_tools_json,
             "skills_json": agent.skills_json,
-            "model_policy_json": agent.model_policy_json,
+            "model_policy_json": model_policy,
+            "permissions": model_policy.get("permissions"),
+            "escalation_path": model_policy.get("escalation_path"),
             "visibility": agent.visibility,
             "is_active": agent.is_active,
             "tags_json": agent.tags_json,
@@ -674,10 +753,23 @@ class TeamServiceMixin:
             "memory_policy_json": agent.memory_policy_json,
             "output_schema_json": agent.output_schema_json,
             "version": agent.version,
-            "metadata_json": agent.metadata_json,
+            "task_filters": list(metadata.get("task_filters") or []),
+            "metadata_json": metadata,
         }
 
     def _apply_agent_updates(self, agent: AgentProfile, updates: dict[str, Any]) -> None:
+        updates = dict(updates)
+        model_policy = dict(updates.get("model_policy") or agent.model_policy_json or {})
+        if "permissions" in updates:
+            model_policy["permissions"] = updates.pop("permissions")
+        if "escalation_path" in updates:
+            model_policy["escalation_path"] = updates.pop("escalation_path")
+        if "model_policy" in updates:
+            updates["model_policy"] = model_policy
+        if "task_filters" in updates:
+            metadata = dict(updates.get("metadata") or agent.metadata_json or {})
+            metadata["task_filters"] = list(updates.pop("task_filters") or [])
+            updates["metadata"] = metadata
         mapping = {
             "capabilities": "capabilities_json",
             "allowed_tools": "allowed_tools_json",
@@ -847,7 +939,9 @@ class TeamServiceMixin:
         if output_format and output_format not in {"checklist", "json", "patch_proposal", "issue_reply", "adr"}:
             errors.append("output_schema.format is not supported.")
 
-        permission_level = (payload.get("model_policy") or {}).get("permissions")
+        permission_level = payload.get("permissions")
+        if permission_level is None:
+            permission_level = (payload.get("model_policy") or {}).get("permissions")
         if isinstance(permission_level, str) and permission_level not in {"read-only", "comment-only", "code-write", "merge-blocked"}:
             errors.append("permissions must be one of: read-only, comment-only, code-write, merge-blocked.")
         if not str(payload.get("description") or "").strip():
@@ -876,7 +970,7 @@ class TeamServiceMixin:
             warnings.append("Task filters are empty.")
         if not output_format:
             warnings.append("Output schema format is not configured.")
-        if not (payload.get("model_policy") or {}).get("escalation_path"):
+        if not payload.get("escalation_path") and not (payload.get("model_policy") or {}).get("escalation_path"):
             warnings.append("Escalation path is not configured.")
         return {
             "errors": errors,
@@ -922,18 +1016,38 @@ class TeamServiceMixin:
             if str(item).strip()
         ]
         normalized["allowed_tools"] = [
-            str(item).strip()
+            LEGACY_TOOL_ALIASES.get(str(item).strip(), str(item).strip())
             for item in normalized.get("allowed_tools", [])
             if str(item).strip()
         ]
         normalized["tags"] = [
             str(item).strip() for item in normalized.get("tags", []) if str(item).strip()
         ]
-        normalized["budget"] = normalized.get("budget") or {}
-        normalized["memory_policy"] = normalized.get("memory_policy") or {}
-        normalized["model_policy"] = normalized.get("model_policy") or {}
-        normalized["output_schema"] = normalized.get("output_schema") or {}
-        normalized["metadata"] = normalized.get("metadata") or {}
+        for key in ("budget", "memory_policy", "model_policy", "output_schema", "metadata"):
+            if key in normalized:
+                normalized[key] = normalized.get(key) or {}
+        model_policy = dict(normalized.get("model_policy") or {})
+        has_permissions = "permissions" in normalized or "permissions" in model_policy
+        has_escalation = "escalation_path" in normalized or "escalation_path" in model_policy
+        if has_permissions:
+            if normalized.get("permissions") is None:
+                normalized["permissions"] = model_policy.get("permissions")
+            else:
+                model_policy["permissions"] = normalized["permissions"]
+        if has_escalation:
+            if normalized.get("escalation_path") is None:
+                normalized["escalation_path"] = model_policy.get("escalation_path")
+            else:
+                model_policy["escalation_path"] = normalized["escalation_path"]
+        if "model_policy" in normalized:
+            normalized["model_policy"] = model_policy
+        if "task_filters" in normalized or "metadata" in normalized:
+            metadata = normalized.get("metadata") or {}
+            normalized["task_filters"] = list(
+                normalized.get("task_filters")
+                or metadata.get("task_filters")
+                or []
+            )
         return normalized
 
     async def _resolve_template_effective_profile(self, template: AgentTemplateCatalog) -> dict[str, Any]:
@@ -966,6 +1080,9 @@ class TeamServiceMixin:
             "model_policy": {**inherited.get("model_policy", {}), **(template.model_policy_json or {})},
             "metadata": {**inherited.get("metadata", {}), **(template.metadata_json or {})},
         }
+        effective["permissions"] = effective["model_policy"].get("permissions")
+        effective["escalation_path"] = effective["model_policy"].get("escalation_path")
+        effective["task_filters"] = list(effective["metadata"].get("task_filters") or [])
         skill_map = {item.slug: item for item in await self.repo.list_skill_packs()}
         for skill_slug in effective["skills"]:
             skill = skill_map.get(skill_slug)
@@ -997,6 +1114,12 @@ class TeamServiceMixin:
             "output_schema": {**inherited.get("output_schema", {}), **(agent.output_schema_json or {})},
             "model_policy": {**inherited.get("model_policy", {}), **(agent.model_policy_json or {})},
         }
+        effective["permissions"] = effective["model_policy"].get("permissions")
+        effective["escalation_path"] = effective["model_policy"].get("escalation_path")
+        effective["task_filters"] = list(
+            (agent.metadata_json or {}).get("task_filters")
+            or inherited.get("task_filters", [])
+        )
         return effective
 
     def _compute_overridden_fields(self, agent: AgentProfile, inherited: dict[str, Any]) -> dict[str, Any]:
@@ -1010,6 +1133,9 @@ class TeamServiceMixin:
             "output_schema": dict(agent.output_schema_json or {}),
             "budget": dict(agent.budget_json or {}),
             "model_policy": dict(agent.model_policy_json or {}),
+            "permissions": (agent.model_policy_json or {}).get("permissions"),
+            "escalation_path": (agent.model_policy_json or {}).get("escalation_path"),
+            "task_filters": list((agent.metadata_json or {}).get("task_filters") or []),
         }
         overrides = {}
         for key, value in explicit_fields.items():
@@ -1028,6 +1154,8 @@ class TeamServiceMixin:
         return merged
 
     def _template_model_to_payload(self, template: AgentTemplateCatalog) -> dict[str, Any]:
+        model_policy = dict(template.model_policy_json or {})
+        metadata = dict(template.metadata_json or {})
         return {
             "id": template.id,
             "slug": template.slug,
@@ -1043,11 +1171,14 @@ class TeamServiceMixin:
             "allowed_tools": list(template.allowed_tools_json or []),
             "skills": list(template.skills_json or []),
             "tags": list(template.tags_json or []),
-            "model_policy": dict(template.model_policy_json or {}),
+            "model_policy": model_policy,
+            "permissions": model_policy.get("permissions"),
+            "escalation_path": model_policy.get("escalation_path"),
             "budget": dict(template.budget_json or {}),
             "memory_policy": dict(template.memory_policy_json or {}),
             "output_schema": dict(template.output_schema_json or {}),
-            "metadata": dict(template.metadata_json or {}),
+            "task_filters": list(metadata.get("task_filters") or []),
+            "metadata": metadata,
         }
 
     def _skill_model_to_payload(self, skill: SkillPack) -> dict[str, Any]:

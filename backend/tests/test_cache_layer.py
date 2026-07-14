@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from backend.core.cache import (
     embedding_cache_key,
     rag_retrieval_cache_key,
@@ -50,13 +50,17 @@ async def test_get_cached_session_valid_returns_none_on_miss():
 async def test_ai_provider_registry_uses_embedding_cache():
     registry = AiProviderRegistry()
     provider = registry.get("local")
-    with patch.object(provider, "embed_texts", new=AsyncMock(return_value=[[0.1, 0.2]])) as embed_mock:
-        with patch(
+    with (
+        patch.object(
+            provider, "embed_texts", new=AsyncMock(return_value=[[0.1, 0.2]])
+        ) as embed_mock,
+        patch(
             "backend.modules.ai.providers.get_cached_embeddings",
             new=AsyncMock(return_value=[None]),
-        ):
-            with patch("backend.modules.ai.providers.set_cached_embeddings", new=AsyncMock()) as set_mock:
-                vectors = await registry.embed_texts(["cached text"])
+        ),
+        patch("backend.modules.ai.providers.set_cached_embeddings", new=AsyncMock()) as set_mock,
+    ):
+        vectors = await registry.embed_texts(["cached text"])
     assert vectors == [[0.1, 0.2]]
     embed_mock.assert_awaited_once()
     set_mock.assert_awaited_once()
@@ -90,10 +94,12 @@ async def test_rag_retrieval_cache_roundtrip_helpers():
     async def _get(name):
         return stored.get(name)
 
-    with patch("backend.core.cache.redis_client.setex", side_effect=_setex):
-        with patch("backend.core.cache.redis_client.get", side_effect=_get):
-            await set_cached_rag_retrieval(key, [match])
-            payload = await get_cached_rag_retrieval(key)
+    with (
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+    ):
+        await set_cached_rag_retrieval(key, [match])
+        payload = await get_cached_rag_retrieval(key)
     assert payload is not None
     assert payload[0]["chunk_id"] == "c1"
     assert payload[0]["content"] == "Troop retrieval cache"
@@ -111,13 +117,15 @@ async def test_project_acl_cache_roundtrip():
     async def _get(name):
         return stored.get(name)
 
-    with patch("backend.core.cache.redis_client.setex", side_effect=_setex):
-        with patch("backend.core.cache.redis_client.get", side_effect=_get):
-            assert await get_cached_project_acl("u1", "p1") is None
-            await set_cached_project_acl("u1", "p1", allowed=True)
-            assert await get_cached_project_acl("u1", "p1") is True
-            await set_cached_project_acl("u1", "p1", allowed=False)
-            assert await get_cached_project_acl("u1", "p1") is False
+    with (
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+    ):
+        assert await get_cached_project_acl("u1", "p1") is None
+        await set_cached_project_acl("u1", "p1", allowed=True)
+        assert await get_cached_project_acl("u1", "p1") is True
+        await set_cached_project_acl("u1", "p1", allowed=False)
+        assert await get_cached_project_acl("u1", "p1") is False
 
 
 @pytest.mark.asyncio
@@ -133,16 +141,156 @@ async def test_memory_settings_cache_roundtrip():
         return stored.get(name)
 
     payload = {"deep_recall_mode": True}
-    with patch("backend.core.cache.redis_client.setex", side_effect=_setex):
-        with patch("backend.core.cache.redis_client.get", side_effect=_get):
-            await set_cached_memory_settings("p1", payload)
-            assert await get_cached_memory_settings("p1") == payload
+    with (
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+    ):
+        await set_cached_memory_settings("p1", payload)
+        assert await get_cached_memory_settings("p1") == payload
+
+
+@pytest.mark.asyncio
+async def test_singleflight_coalesces_concurrent_cache_fills():
+    from backend.core.cache import CachePolicy, cache_get_or_set_json
+
+    stored: dict[str, str] = {}
+    fills = 0
+
+    async def _get(name):
+        return stored.get(name)
+
+    async def _setex(name, _ttl, value):
+        stored[name] = value
+
+    async def _fill():
+        nonlocal fills
+        fills += 1
+        await asyncio.sleep(0)
+        return {"value": "filled"}
+
+    policy = CachePolicy("test_fill", ttl_seconds=60, jitter_ratio=0)
+    with (
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+    ):
+        values = await asyncio.gather(
+            *(cache_get_or_set_json("shared", _fill, policy=policy) for _ in range(100))
+        )
+    assert fills == 1
+    assert values == [{"value": "filled"}] * 100
+
+
+@pytest.mark.asyncio
+async def test_read_through_policy_stores_negative_result_with_short_policy():
+    from backend.core.cache import CachePolicy, cache_get_or_set_json
+
+    stored: dict[str, tuple[int, str]] = {}
+    fills = 0
+
+    async def _get(name):
+        entry = stored.get(name)
+        return entry[1] if entry else None
+
+    async def _setex(name, ttl, value):
+        stored[name] = (ttl, value)
+
+    async def _fill():
+        nonlocal fills
+        fills += 1
+        return None
+
+    policy = CachePolicy("negative_test", ttl_seconds=100, negative_ttl_seconds=7, jitter_ratio=0)
+    with (
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+    ):
+        assert await cache_get_or_set_json("missing", _fill, policy=policy) is None
+        assert await cache_get_or_set_json("missing", _fill, policy=policy) is None
+    assert fills == 1
+    assert stored["missing"][0] == 7
+
+
+@pytest.mark.asyncio
+async def test_project_acl_generation_invalidation_does_not_scan_keys():
+    from backend.core.cache import (
+        get_cached_project_acl,
+        invalidate_project_acl_cache_for_project,
+        set_cached_project_acl,
+    )
+
+    stored: dict[str, str] = {}
+    generations: dict[str, int] = {}
+
+    async def _get(name):
+        if name.startswith("cache:generation:"):
+            return str(generations.get(name, 1))
+        return stored.get(name)
+
+    async def _setex(name, _ttl, value):
+        stored[name] = value
+
+    async def _incr(name):
+        generations[name] = generations.get(name, 1) + 1
+        return generations[name]
+
+    with (
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.incr", side_effect=_incr),
+    ):
+        await set_cached_project_acl("u1", "p1", allowed=True)
+        assert await get_cached_project_acl("u1", "p1") is True
+        await invalidate_project_acl_cache_for_project("p1")
+        assert await get_cached_project_acl("u1", "p1") is None
+
+
+@pytest.mark.asyncio
+async def test_versioned_rag_invalidation_uses_generation_bump():
+    from backend.core.cache import (
+        get_cached_rag_retrieval,
+        invalidate_project_rag_retrieval_cache,
+        rag_retrieval_cache_key,
+        set_cached_rag_retrieval,
+    )
+
+    stored: dict[str, str] = {}
+    generations: dict[str, int] = {}
+
+    async def _get(name):
+        if name.startswith("cache:generation:"):
+            return str(generations.get(name, 1))
+        return stored.get(name)
+
+    async def _setex(name, _ttl, value):
+        stored[name] = value
+
+    async def _incr(name):
+        generations[name] = generations.get(name, 1) + 1
+        return generations[name]
+
+    key = rag_retrieval_cache_key(
+        "p1", "query", task_id=None, source_kind=None, include_decisions=False, limit=3
+    )
+    with (
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.incr", side_effect=_incr),
+    ):
+        await set_cached_rag_retrieval(key, [])
+        assert await get_cached_rag_retrieval(key) == []
+        await invalidate_project_rag_retrieval_cache("p1")
+        assert await get_cached_rag_retrieval(key) is None
 
 
 def test_compute_documents_etag_changes_when_rows_change():
-    from backend.core.http_cache import compute_documents_etag
     from types import SimpleNamespace
 
-    row_a = SimpleNamespace(id="d1", updated_at=None, created_at=None, chunk_count=1, ingestion_status="completed")
-    row_b = SimpleNamespace(id="d1", updated_at=None, created_at=None, chunk_count=2, ingestion_status="completed")
+    from backend.core.http_cache import compute_documents_etag
+
+    row_a = SimpleNamespace(
+        id="d1", updated_at=None, created_at=None, chunk_count=1, ingestion_status="completed"
+    )
+    row_b = SimpleNamespace(
+        id="d1", updated_at=None, created_at=None, chunk_count=2, ingestion_status="completed"
+    )
     assert compute_documents_etag([row_a]) != compute_documents_etag([row_b])

@@ -52,15 +52,19 @@ describe("DashboardPage", () => {
         vi.mocked(getOrchestrationOverview).mockResolvedValue({
             active_runs: [],
             pending_approvals: [],
-            recent_failures: 0,
-            runs_by_status: {},
             agents: [],
             projects: [],
+            github_events: [],
         });
         vi.mocked(getExecutionInsights).mockResolvedValue({
             since: "2026-06-18T00:00:00.000Z",
+            days: 30,
             by_event_type: [],
             tool_failures_by_tool: [],
+            reopen_events: 0,
+            brainstorm_round_summary_events: 0,
+            blocked_events: 0,
+            tool_call_failed_events: 0,
         });
     });
 

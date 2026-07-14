@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -6,25 +6,39 @@ import {
     Box,
     Button,
     Chip,
+    Divider,
+    MenuItem,
     Paper,
     Stack,
+    TextField,
     Typography,
 } from "@mui/material";
 import {
     Assignment as TaskIcon,
     Description as DocumentIcon,
+    DeleteOutline as RemoveIcon,
+    PlayArrow as StartIcon,
     Rule as AdrIcon,
+    Summarize as SummaryIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+    addBrainstormParticipant,
+    exportBrainstormArtifact,
+    forceBrainstormSummary,
     getBrainstorm,
     getBrainstormDiscourseInsights,
     listAgents,
     listBrainstormMessages,
     listBrainstormParticipants,
+    listProjectAgents,
     promoteBrainstorm,
     promoteBrainstormAdr,
     promoteBrainstormDocument,
+    removeBrainstormParticipant,
+    startBrainstorm,
+    startBrainstormNextRound,
+    updateBrainstormParticipant,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
@@ -70,6 +84,15 @@ export default function BrainstormDetailPage() {
         queryKey: ["orchestration", "agents"],
         queryFn: () => listAgents(),
     });
+    const { data: projectMembers = [] } = useQuery({
+        queryKey: ["orchestration", "project", brainstorm?.project_id, "agents"],
+        queryFn: () => listProjectAgents(brainstorm!.project_id),
+        enabled: Boolean(brainstorm?.project_id),
+    });
+    const projectAgentIds = useMemo(() => new Set(projectMembers.map((member) => member.agent_id)), [projectMembers]);
+    const projectAgents = agents.filter((agent) => projectAgentIds.has(agent.id));
+    const [newParticipantId, setNewParticipantId] = useState("");
+    const [participantStances, setParticipantStances] = useState<Record<string, string>>({});
     const groupedMessages = useMemo(() => {
         const grouped = new Map<number, typeof messages>();
         messages.forEach((message) => {
@@ -128,6 +151,51 @@ export default function BrainstormDetailPage() {
         onSuccess: async () => {
             await refreshAll();
             showToast({ message: "Brainstorm promoted to project document.", severity: "success" });
+        },
+    });
+    const startMutation = useMutation({
+        mutationFn: () => startBrainstorm(brainstormId),
+        onSuccess: async () => {
+            await refreshAll();
+            showToast({ message: "Brainstorm round queued.", severity: "success" });
+        },
+    });
+    const nextRoundMutation = useMutation({
+        mutationFn: () => startBrainstormNextRound(brainstormId),
+        onSuccess: async () => {
+            await refreshAll();
+            showToast({ message: "Next brainstorm round queued.", severity: "success" });
+        },
+    });
+    const summaryMutation = useMutation({
+        mutationFn: () => forceBrainstormSummary(brainstormId),
+        onSuccess: async () => {
+            await refreshAll();
+            showToast({ message: "Final recommendation generated.", severity: "success" });
+        },
+    });
+    const addParticipantMutation = useMutation({
+        mutationFn: () => addBrainstormParticipant(brainstormId, { agent_id: newParticipantId }),
+        onSuccess: async () => {
+            setNewParticipantId("");
+            await refreshAll();
+            showToast({ message: "Participant added.", severity: "success" });
+        },
+    });
+    const removeParticipantMutation = useMutation({
+        mutationFn: (participantId: string) => removeBrainstormParticipant(brainstormId, participantId),
+        onSuccess: refreshAll,
+    });
+    const stanceMutation = useMutation({
+        mutationFn: ({ participantId, stance }: { participantId: string; stance: string }) =>
+            updateBrainstormParticipant(brainstormId, participantId, { stance: stance.trim() || null }),
+        onSuccess: refreshAll,
+    });
+    const exportArtifactMutation = useMutation({
+        mutationFn: () => exportBrainstormArtifact(brainstormId),
+        onSuccess: async (artifact) => {
+            await refreshAll();
+            showToast({ message: `${humanizeKey(artifact.output_type)} exported to ${humanizeKey(artifact.artifact_kind)}.`, severity: "success" });
         },
     });
 
@@ -190,6 +258,26 @@ export default function BrainstormDetailPage() {
                             <Typography variant="body2" color="text.secondary">
                                 Participants: {participants.length}
                             </Typography>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap>
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    startIcon={<StartIcon />}
+                                    onClick={() => (brainstorm.current_round === 0 ? startMutation : nextRoundMutation).mutate()}
+                                    disabled={startMutation.isPending || nextRoundMutation.isPending || brainstorm.status === "completed" || brainstorm.current_round >= brainstorm.max_rounds}
+                                >
+                                    {brainstorm.current_round === 0 ? "Start round" : "Run another round"}
+                                </Button>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<SummaryIcon />}
+                                    onClick={() => summaryMutation.mutate()}
+                                    disabled={summaryMutation.isPending || brainstorm.status === "completed" || participants.length < 2}
+                                >
+                                    Force final recommendation
+                                </Button>
+                            </Stack>
                             <Typography variant="body2" color="text.secondary">
                                 Last updated: {formatDateTime(brainstorm.updated_at)}
                             </Typography>
@@ -313,17 +401,60 @@ export default function BrainstormDetailPage() {
 
                     <SectionCard title="Participants" description="Agents currently taking part in the room.">
                         <Stack spacing={1}>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Add project agent"
+                                    value={newParticipantId}
+                                    onChange={(event) => setNewParticipantId(event.target.value)}
+                                    disabled={brainstorm.status === "running" || brainstorm.status === "completed"}
+                                    fullWidth
+                                >
+                                    <MenuItem value="">Select an agent</MenuItem>
+                                    {projectAgents
+                                        .filter((agent) => !participants.some((participant) => participant.agent_id === agent.id))
+                                        .map((agent) => (
+                                            <MenuItem key={agent.id} value={agent.id}>{agent.name}</MenuItem>
+                                        ))}
+                                </TextField>
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => addParticipantMutation.mutate()}
+                                    disabled={!newParticipantId || addParticipantMutation.isPending || brainstorm.status === "running" || brainstorm.status === "completed"}
+                                >
+                                    Add
+                                </Button>
+                            </Stack>
+                            <Divider />
                             {participants.map((participant) => {
                                 const agent = agents.find((item) => item.id === participant.agent_id);
+                                const stance = participantStances[participant.id] ?? participant.stance ?? "";
                                 return (
                                     <Stack key={participant.id} direction="row" spacing={1} alignItems="center">
                                         <Avatar sx={{ width: 28, height: 28 }}>{initials(agent?.name || "AI")}</Avatar>
-                                        <Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Typography variant="body2">{agent?.name || participant.agent_id}</Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {agent?.role || "participant"}
-                                            </Typography>
+                                            <TextField
+                                                size="small"
+                                                variant="standard"
+                                                placeholder="Optional stance or focus"
+                                                value={stance}
+                                                onChange={(event) => setParticipantStances((current) => ({ ...current, [participant.id]: event.target.value }))}
+                                                onBlur={() => stanceMutation.mutate({ participantId: participant.id, stance })}
+                                                disabled={brainstorm.status === "running" || brainstorm.status === "completed"}
+                                                fullWidth
+                                            />
                                         </Box>
+                                        <Button
+                                            size="small"
+                                            color="error"
+                                            aria-label={`Remove ${agent?.name || "participant"}`}
+                                            onClick={() => removeParticipantMutation.mutate(participant.id)}
+                                            disabled={participants.length <= 2 || removeParticipantMutation.isPending || brainstorm.status === "running" || brainstorm.status === "completed"}
+                                        >
+                                            <RemoveIcon fontSize="small" />
+                                        </Button>
                                     </Stack>
                                 );
                             })}
@@ -340,6 +471,14 @@ export default function BrainstormDetailPage() {
                             </Button>
                             <Button startIcon={<DocumentIcon />} variant="outlined" onClick={() => promoteDocumentMutation.mutate()} disabled={promoteDocumentMutation.isPending}>
                                 Promote to project document
+                            </Button>
+                            <Button
+                                startIcon={<DocumentIcon />}
+                                variant="outlined"
+                                onClick={() => exportArtifactMutation.mutate()}
+                                disabled={exportArtifactMutation.isPending || !brainstorm.final_recommendation}
+                            >
+                                Export as first-class artifact
                             </Button>
                             {brainstorm.project_id && (
                                 <Button variant="text" onClick={() => navigate(`/agent-projects/${brainstorm.project_id}`)}>

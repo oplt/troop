@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T23:11:05.362Z",
+  "dist": "frontend/dist",
+  "file_count": 75,
+  "total_bytes": 2017383,
+  "total_kibibytes": 1970,
+  "javascript_bytes": 1809915,
+  "css_bytes": 20108,
+  "largest_assets": [
+    {
+      "path": "assets/mui-DxDAQy71.js",
+      "bytes": 444263,
+      "kibibytes": 434
+    },
+    {
+      "path": "assets/HierarchyPage-XtIC4elu.js",
+      "bytes": 321321,
+      "kibibytes": 314
+    },
+    {
+      "path": "assets/index-DFKBiJuY.js",
+      "bytes": 278902,
+      "kibibytes": 272
+    },
+    {
+      "path": "assets/OrchestrationProjectDetailView-F5szSqj6.js",
+      "bytes": 144959,
+      "kibibytes": 142
+    },
+    {
+      "path": "assets/forms-B4PnjuXU.js",
+      "bytes": 92774,
+      "kibibytes": 91
+    },
+    {
+      "path": "assets/DashboardCalendar-DZiYvrDi.js",
+      "bytes": 68115,
+      "kibibytes": 67
+    },
+    {
+      "path": "assets/query-CuO9324W.js",
+      "bytes": 45059,
+      "kibibytes": 44
+    },
+    {
+      "path": "assets/RunInspectorPage-B3oDDE-T.js",
+      "bytes": 39242,
+      "kibibytes": 38
+    },
+    {
+      "path": "assets/ProfilePage-DsFjzqOI.js",
+      "bytes": 39201,
+      "kibibytes": 38
+    },
+    {
+      "path": "assets/router-CCnRFxi3.js",
+      "bytes": 38309,
+      "kibibytes": 37
+    },
+    {
+      "path": "assets/AiStudioPage-D0C5yrkg.js",
+      "bytes": 24089,
+      "kibibytes": 24
+    },
+    {
+      "path": "assets/SemanticMemoryPage-C7QwFEkK.js",
+      "bytes": 21514,
+      "kibibytes": 21
+    },
+    {
+      "path": "assets/OrchestrationProjectsPage-BQu2TgqV.js",
+      "bytes": 20959,
+      "kibibytes": 20
+    },
+    {
+      "path": "assets/ProviderSettingsPanel-Bog7NYyN.js",
+      "bytes": 20353,
+      "kibibytes": 20
+    },
+    {
+      "path": "assets/GithubSyncPage-C_PewDxX.js",
+      "bytes": 17544,
+      "kibibytes": 17
+    },
+    {
+      "path": "assets/AdminPlatformPage-B2jvIlnr.js",
+      "bytes": 16944,
+      "kibibytes": 17
+    },
+    {
+      "path": "assets/AgentProfilesPage-CN7EiLvL.js",
+      "bytes": 16778,
+      "kibibytes": 16
+    },
+    {
+      "path": "assets/HierarchyPage-BZV40eAE.css",
+      "bytes": 15851,
+      "kibibytes": 15
+    },
+    {
+      "path": "workbox-3105ea8d.js",
+      "bytes": 15123,
+      "kibibytes": 15
+    },
+    {
+      "path": "assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2",
+      "bytes": 14888,
+      "kibibytes": 15
+    }
+  ]
+}

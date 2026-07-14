@@ -315,25 +315,25 @@ class Mutation:
     async def create_hierarchy_task(self, info: Info, input: TaskInput) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
         task = await service.create_task(info.context["current_user"], input.__dict__)
-        return _task(service._serialize_task(task, []))
+        return _task(service.serialize_task(task))
 
     @strawberry.mutation
     async def assign_task(self, info: Info, project_id: str, task_id: str, member_id: str) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
         task = await service.assign_task(info.context["current_user"], project_id, task_id, member_id)
-        return _task(service._serialize_task(task, []))
+        return _task(service.serialize_task(task))
 
     @strawberry.mutation
     async def update_task_status(self, info: Info, project_id: str, task_id: str, status: str) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
         task = await service.update_task_status(info.context["current_user"], project_id, task_id, status)
-        return _task(service._serialize_task(task, []))
+        return _task(service.serialize_task(task))
 
     @strawberry.mutation
     async def request_task_revision(self, info: Info, project_id: str, task_id: str, notes: str) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
         task = await service.request_task_revision(info.context["current_user"], project_id, task_id, notes)
-        return _task(service._serialize_task(task, []))
+        return _task(service.serialize_task(task))
 
     @strawberry.mutation
     async def approve_task_output(
@@ -345,13 +345,13 @@ class Mutation:
     ) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
         task = await service.approve_task_output(info.context["current_user"], project_id, task_id, summary)
-        return _task(service._serialize_task(task, []))
+        return _task(service.serialize_task(task))
 
     @strawberry.mutation
     async def launch_task_run(self, info: Info, project_id: str, task_id: str, member_id: str | None = None) -> RunType:
         service = HierarchyControlPlaneService(info.context["db"])
         run = await service.launch_task_run(info.context["current_user"], project_id, task_id, member_id)
-        return _run(service._serialize_run(run))
+        return _run(service.serialize_run(run))
 
     @strawberry.mutation
     async def start_brainstorm(
@@ -370,7 +370,7 @@ class Mutation:
             participant_ids,
             task_id=task_id,
         )
-        return _brainstorm(service._serialize_brainstorm(result["brainstorm"]))
+        return _brainstorm(service.serialize_brainstorm(result["brainstorm"]))
 
 
 @strawberry.type

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -23,16 +23,21 @@ type CommandPaletteProps = {
 };
 
 export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPaletteProps) {
+    return (
+        <CommandPaletteContent
+            key={open ? "open" : "closed"}
+            open={open}
+            onClose={onClose}
+            routes={routes}
+            onNavigate={onNavigate}
+        />
+    );
+}
+
+function CommandPaletteContent({ open, onClose, routes, onNavigate }: CommandPaletteProps) {
     const [q, setQ] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const listboxId = useId();
-
-    useEffect(() => {
-        if (open) {
-            setQ("");
-            setActiveIndex(0);
-        }
-    }, [open]);
 
     const filtered = useMemo(() => {
         const needle = q.trim().toLowerCase();
@@ -42,15 +47,7 @@ export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPal
         );
     }, [q, routes]);
 
-    useEffect(() => {
-        setActiveIndex(0);
-    }, [q]);
-
-    useEffect(() => {
-        if (activeIndex >= filtered.length) {
-            setActiveIndex(Math.max(filtered.length - 1, 0));
-        }
-    }, [activeIndex, filtered.length]);
+    const safeActiveIndex = Math.min(activeIndex, Math.max(filtered.length - 1, 0));
 
     function selectRoute(path: string) {
         onNavigate(path);
@@ -63,22 +60,22 @@ export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPal
         }
         if (event.key === "ArrowDown") {
             event.preventDefault();
-            setActiveIndex((current) => (current + 1) % filtered.length);
+            setActiveIndex((current) => (Math.min(current, filtered.length - 1) + 1) % filtered.length);
             return;
         }
         if (event.key === "ArrowUp") {
             event.preventDefault();
-            setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+            setActiveIndex((current) => (Math.min(current, filtered.length - 1) - 1 + filtered.length) % filtered.length);
             return;
         }
         if (event.key === "Enter") {
             event.preventDefault();
-            selectRoute(filtered[activeIndex].path);
+            selectRoute(filtered[safeActiveIndex].path);
         }
     }
 
     const activeDescendantId =
-        filtered.length > 0 ? `${listboxId}-option-${activeIndex}` : undefined;
+        filtered.length > 0 ? `${listboxId}-option-${safeActiveIndex}` : undefined;
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -113,8 +110,8 @@ export function CommandPalette({ open, onClose, routes, onNavigate }: CommandPal
                             key={route.path}
                             id={`${listboxId}-option-${index}`}
                             role="option"
-                            aria-selected={index === activeIndex}
-                            selected={index === activeIndex}
+                            aria-selected={index === safeActiveIndex}
+                            selected={index === safeActiveIndex}
                             onMouseEnter={() => setActiveIndex(index)}
                             onClick={() => selectRoute(route.path)}
                         >

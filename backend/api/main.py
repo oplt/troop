@@ -6,11 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.core.cache import redis_client
 from backend.core.config import settings
 from backend.core.error_handler import register_exception_handlers
+from backend.core.http_clients import external_http_clients
 from backend.core.logging import setup_logging
 from backend.core.storage import object_storage
 from backend.core.telemetry import setup_telemetry
 from backend.db.session import SessionLocal, engine
 from backend.modules.github.router import public_router as github_public_router
+from backend.modules.observability.middleware import ObservabilityMiddleware
+from backend.modules.observability.router import observability_router
 from backend.modules.orchestration.graphql_router import graphql_router
 from backend.modules.orchestration.router import public_router as orchestration_public_router
 from backend.modules.platform.service import PlatformService
@@ -34,6 +37,7 @@ async def lifespan(app: FastAPI):
         platform_service = PlatformService(db)
         await platform_service.ensure_defaults()
     yield
+    await external_http_clients.aclose()
     await redis_client.aclose()
     await engine.dispose()
 
@@ -46,6 +50,7 @@ app = FastAPI(
 )
 
 app.add_middleware(CorrelationIdMiddleware)
+app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(PublicRateLimitMiddleware)
@@ -72,3 +77,4 @@ app.include_router(graphql_router, prefix="/api/v1/graphql")
 app.include_router(github_public_router)
 app.include_router(orchestration_public_router)
 app.include_router(health_router)
+app.include_router(observability_router)

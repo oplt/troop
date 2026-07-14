@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
 
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.models import (
     EvalRecord,
     ProviderConfig,
 )
+from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.models import AgentProfile
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
@@ -53,7 +54,9 @@ class OrchestrationEvalsServiceMixin:
         item = {
             "id": str(payload.get("id") or uuid.uuid4()),
             "name": str(payload.get("name") or "Custom workflow"),
+            "description": str(payload.get("description") or "Custom project workflow"),
             "stages": list(payload.get("stages") or []),
+            "suggested_execution": dict(payload.get("suggested_execution") or {}),
             "forked_from": payload.get("forked_from"),
             "updated_at": datetime.now(UTC).isoformat(),
         }
@@ -64,6 +67,58 @@ class OrchestrationEvalsServiceMixin:
         await self.db.commit()
         await self.db.refresh(project)
         return item
+
+    async def apply_workflow_template(
+        self, user: User, project_id: str, template_id: str
+    ) -> dict[str, Any]:
+        project = await self.get_project(user, project_id)
+        requested_id = str(template_id or "").strip()
+        template = next((item for item in BUILTIN_WORKFLOW_TEMPLATES if item["id"] == requested_id), None)
+        if template is None and requested_id.startswith("custom:"):
+            custom_id = requested_id.removeprefix("custom:")
+            custom = next(
+                (
+                    item
+                    for item in list((project.settings_json or {}).get("custom_workflow_templates") or [])
+                    if str(item.get("id")) == custom_id
+                ),
+                None,
+            )
+            if custom is not None:
+                template = {
+                    "id": requested_id,
+                    "name": str(custom.get("name") or "Custom workflow"),
+                    "description": str(custom.get("description") or "Custom project workflow"),
+                    "suggested_execution": dict(custom.get("suggested_execution") or {}),
+                }
+        if template is None:
+            raise HTTPException(status_code=404, detail="Workflow template not found")
+
+        settings = dict(project.settings_json or {})
+        execution = dict(settings.get("execution") or {})
+        suggested_execution = dict(template.get("suggested_execution") or {})
+        execution.update(suggested_execution)
+        applied_at = datetime.now(UTC)
+        execution["workflow_template_id"] = template["id"]
+        execution["workflow_template_name"] = template["name"]
+        execution["workflow_template_applied_at"] = applied_at.isoformat()
+        settings["execution"] = execution
+        project.settings_json = self._normalize_project_settings(settings)
+        await self.audit_repo.log(
+            "orchestration.workflow_template.applied",
+            user_id=user.id,
+            resource_type="orchestrator_project",
+            resource_id=project.id,
+            metadata={"template_id": template["id"], "template_name": template["name"]},
+        )
+        await self.db.commit()
+        await self.db.refresh(project)
+        return {
+            "project_id": project.id,
+            "template": template,
+            "applied_execution": dict((project.settings_json or {}).get("execution") or {}),
+            "applied_at": applied_at,
+        }
 
     async def list_agent_schedules(self, user: User, project_id: str) -> list[dict[str, Any]]:
         project = await self.get_project(user, project_id)

@@ -39,8 +39,12 @@ class ProjectDocument(Base):
     ingestion_status: Mapped[str] = mapped_column(String(32), default="pending")
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     ttl_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -74,7 +78,9 @@ class ProjectDocumentChunk(Base):
         nullable=True,
     )
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -110,8 +116,12 @@ class AgentMemoryEntry(Base):
         index=True,
     )
     ttl_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -166,6 +176,17 @@ class SemanticMemoryEntry(Base):
         nullable=True,
         index=True,
     )
+    ttl_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    retention_policy: Mapped[str] = mapped_column(String(64), default="default")
+    memory_version: Mapped[int] = mapped_column(Integer, default=1)
+    embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    embedding_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_vector: Mapped[list[float] | None] = mapped_column(
         Vector(EMBEDDING_VECTOR_DIMENSIONS),
         nullable=True,

@@ -1,3 +1,5 @@
+from backend.modules.orchestration.services.application import OrchestrationApplicationService
+from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 from backend.modules.orchestration.services.base import (
     GITHUB_WEBHOOK_EVENT_ALLOWLIST,
     SEMANTIC_ENTRY_TYPES,
@@ -5,7 +7,6 @@ from backend.modules.orchestration.services.base import (
     OrchestrationRunQueryMixin,
     OrchestrationServiceBase,
 )
-from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 from backend.modules.orchestration.services.brainstorm_domain import BrainstormService
 from backend.modules.orchestration.services.evals_domain import EvalsService
 from backend.modules.orchestration.services.execution_domain import ExecutionService
@@ -16,6 +17,7 @@ from backend.modules.orchestration.services.service import OrchestrationService
 
 __all__ = [
     "ApprovalsService",
+    "OrchestrationApplicationService",
     "BrainstormService",
     "EvalsService",
     "ExecutionService",

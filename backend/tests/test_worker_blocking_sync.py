@@ -46,6 +46,24 @@ def test_execute_code_job_allows_host_fallback_when_docker_not_required() -> Non
     run_mock.assert_called_once()
 
 
+def test_project_sandbox_policy_requires_docker_before_host_execution() -> None:
+    with (
+        patch("backend.modules.orchestration.execution.cpu_executor.settings.ORCHESTRATION_CPU_REQUIRE_DOCKER", False),
+        patch("backend.modules.orchestration.execution.cpu_executor.docker_available", return_value=False),
+        patch("backend.modules.orchestration.execution.cpu_executor.subprocess.run") as run_mock,
+    ):
+        result = execute_code_job(
+            shell_cmd="echo should-not-run",
+            cwd="/tmp",
+            timeout=5,
+            use_shell_wrap=True,
+            require_docker=True,
+        )
+
+    assert result["error"] == "docker_required_unavailable"
+    run_mock.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_await_celery_result_polls_until_ready() -> None:
     async_result = MagicMock()

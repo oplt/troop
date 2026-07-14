@@ -13,7 +13,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Check as ApproveIcon,
@@ -22,12 +22,13 @@ import {
     PlayArrow as RunIcon,
     Info as InfoIcon,
 } from "@mui/icons-material";
-import type { Approval } from "../api/orchestration";
+import type { Approval, HITLAuditLog } from "../api/orchestration";
 import {
     decideApproval,
     listAgents,
     listApprovals,
     listGithubSyncEvents,
+    listHITLAuditLogs,
     listOrchestrationProjects,
     listRuns,
 } from "../api/orchestration";
@@ -102,10 +103,22 @@ function ApprovalCard({ approval }: { approval: Approval }) {
     const mutation = useMutation({
         mutationFn: ({ status, reason: r }: { status: "approved" | "rejected"; reason?: string }) =>
             decideApproval(approval.id, { status, reason: r }),
-        onSuccess: async () => {
+        onSuccess: async (decision) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals", "pending-count"] });
-            showToast({ message: "Approval decision saved.", severity: "success" });
+            await queryClient.invalidateQueries({ queryKey: ["orchestration", "runs"] });
+            showToast({
+                message: decision.run_id && decision.status === "approved"
+                    ? "Approval saved; the blocked run is being queued to resume."
+                    : "Approval decision saved.",
+                severity: "success",
+            });
+        },
+        onError: (error) => {
+            showToast({
+                message: error instanceof Error ? error.message : "Couldn't save the approval decision.",
+                severity: "error",
+            });
         },
     });
 
@@ -141,9 +154,20 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                     {approval.task_id && (
                         <Stack direction="row" spacing={0.5} alignItems="center">
                             <TaskIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                            <Typography variant="caption" color="text.secondary">
-                                Task: {approval.task_id.slice(0, 8)}
-                            </Typography>
+                            {approval.project_id ? (
+                                <Button
+                                    size="small"
+                                    variant="text"
+                                    sx={{ p: 0, minWidth: "auto", fontSize: "0.75rem" }}
+                                    onClick={() => navigate(`/agent-projects/${approval.project_id}`)}
+                                >
+                                    Task {approval.task_id.slice(0, 8)}
+                                </Button>
+                            ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                    Task: {approval.task_id.slice(0, 8)}
+                                </Typography>
+                            )}
                         </Stack>
                     )}
                     {approval.run_id && (
@@ -198,10 +222,11 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                     <>
                         <TextField
                             size="small"
-                            label="Reason (optional)"
+                            label="Decision note"
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             disabled={mutation.isPending}
+                            helperText="A rejection requires a reason."
                         />
                         <Stack direction="row" spacing={1}>
                             <Button
@@ -218,7 +243,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                                 variant="outlined"
                                 color="error"
                                 startIcon={mutation.isPending ? <CircularProgress size={16} /> : <RejectIcon />}
-                                disabled={mutation.isPending}
+                                disabled={mutation.isPending || !reason.trim()}
                                 onClick={() => mutation.mutate({ status: "rejected", reason: reason || undefined })}
                             >
                                 Reject
@@ -233,7 +258,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
 
 export default function ActivityAuditPage() {
     const navigate = useNavigate();
-    const [mainTab, setMainTab] = useState<"approvals" | "ledger">("approvals");
+    const [mainTab, setMainTab] = useState<"approvals" | "ledger" | "audit">("approvals");
     const [approvalSubTab, setApprovalSubTab] = useState<"pending" | "history">("pending");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
@@ -260,16 +285,20 @@ export default function ActivityAuditPage() {
         queryKey: ["orchestration", "github-sync-events", "all"],
         queryFn: () => listGithubSyncEvents(),
     });
+    const { data: auditLogs = [], isLoading: auditLoading } = useQuery({
+        queryKey: ["orchestration", "hitl", "audit-logs"],
+        queryFn: () => listHITLAuditLogs(),
+    });
 
     const fromMs = parseDateBoundary(dateFrom, false);
     const toMs = parseDateBoundary(dateTo, true);
 
-    const filterByDate = (iso: string) => {
+    const filterByDate = useCallback((iso: string) => {
         const t = new Date(iso).getTime();
         if (fromMs != null && t < fromMs) return false;
         if (toMs != null && t > toMs) return false;
         return true;
-    };
+    }, [fromMs, toMs]);
 
     const filteredApprovals = useMemo(() => {
         return approvals.filter((a) => {
@@ -289,7 +318,7 @@ export default function ActivityAuditPage() {
             }
             return true;
         });
-    }, [approvals, agentFilter, projectFilter, fromMs, toMs, runs]);
+    }, [approvals, agentFilter, projectFilter, filterByDate, runs]);
 
     const filteredRuns = useMemo(() => {
         return runs.filter((run) => {
@@ -301,11 +330,19 @@ export default function ActivityAuditPage() {
             }
             return true;
         });
-    }, [runs, projectFilter, agentFilter, fromMs, toMs]);
+    }, [runs, projectFilter, agentFilter, filterByDate]);
 
     const filteredSync = useMemo(() => {
         return syncEvents.filter((e) => filterByDate(e.created_at));
-    }, [syncEvents, fromMs, toMs]);
+    }, [syncEvents, filterByDate]);
+
+    const filteredAuditLogs = useMemo(() => {
+        return auditLogs.filter((log: HITLAuditLog) => {
+            if (!filterByDate(log.created_at)) return false;
+            const projectId = log.metadata.project_id as string | undefined;
+            return !projectFilter || projectId === projectFilter;
+        });
+    }, [auditLogs, filterByDate, projectFilter]);
 
     const { pending, resolved } = useMemo(() => {
         const pendingList: Approval[] = [];
@@ -378,6 +415,7 @@ export default function ActivityAuditPage() {
                 <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)}>
                     <Tab label="Approvals" value="approvals" />
                     <Tab label={`Run ledger (${filteredRuns.length})`} value="ledger" />
+                    <Tab label={`HITL audit (${filteredAuditLogs.length})`} value="audit" />
                 </Tabs>
             </Paper>
 
@@ -498,6 +536,38 @@ export default function ActivityAuditPage() {
                         </Stack>
                     </SectionCard>
                 </Stack>
+            )}
+
+            {mainTab === "audit" && (
+                <SectionCard
+                    title="Human-in-the-loop audit log"
+                    description="Approval requests, decisions, and project control changes. Sensitive payload values are intentionally excluded."
+                >
+                    {auditLoading && <CircularProgress size={22} />}
+                    <Stack spacing={1.25}>
+                        {filteredAuditLogs.map((log) => (
+                            <Paper key={log.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
+                                    <Box>
+                                        <Typography variant="body2">{humanizeKey(log.action)}</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {log.resource_type ?? "resource"}{log.resource_id ? ` • ${log.resource_id.slice(0, 8)}` : ""}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary">{formatDateTime(log.created_at)}</Typography>
+                                </Stack>
+                                {Object.keys(log.metadata).length > 0 && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                                        {Object.entries(log.metadata).map(([key, value]) => `${humanizeKey(key)}: ${String(value)}`).join(" • ")}
+                                    </Typography>
+                                )}
+                            </Paper>
+                        ))}
+                        {filteredAuditLogs.length === 0 && !auditLoading && (
+                            <Typography variant="body2" color="text.secondary">No HITL audit entries match the current filters.</Typography>
+                        )}
+                    </Stack>
+                </SectionCard>
             )}
         </PageShell>
     );

@@ -1,11 +1,10 @@
-import logging
-
 from fastapi import Depends, HTTPException
 
 from backend.api.deps.auth import get_current_user
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 
-logger = logging.getLogger("backend.authz")
+logger = get_logger("backend.authz")
 
 
 async def get_admin_user(current_user: User = Depends(get_current_user)) -> User:

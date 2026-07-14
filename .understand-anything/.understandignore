@@ -1,0 +1,103 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# *~
+# .fuse_hidden*
+# .directory
+# .Trash-*
+# .nfs*
+# .idea/**/workspace.xml
+# .idea/**/tasks.xml
+# .idea/**/usage.statistics.xml
+# .idea/**/dictionaries
+# .idea/**/shelf
+# .idea/**/aws.xml
+# .idea/**/contentModel.xml
+# .idea/**/dataSources/
+# .idea/**/dataSources.ids
+# .idea/**/dataSources.local.xml
+# .idea/**/sqlDataSources.xml
+# .idea/**/dynamic.xml
+# .idea/**/uiDesigner.xml
+# .idea/**/gradle.xml
+# .idea/**/libraries
+# cmake-build-*/
+# .idea/**/mongoSettings.xml
+# *.iws
+# out/
+# .idea_modules/
+# atlassian-ide-plugin.xml
+# .idea/replstate
+# .idea/sonarlint/
+# com_crashlytics_export_strings.xml
+# crashlytics.properties
+# crashlytics-build.properties
+# fabric.properties
+# .idea/httpRequests
+# .idea/caches/build_file_checksums.ser
+# .idea/**/sonarIssues.xml
+# .idea/**/markdown-navigator/
+# .idea/$CACHE_FILE$
+# .idea/codestream.xml
+# .idea/**/azureSettings.xml
+# __pycache__/
+# *.py[cod]
+# *$py.class
+# *.so
+# .Python
+# downloads/
+# eggs/
+# .eggs/
+# lib/
+# lib64/
+# parts/
+# sdist/
+# var/
+# wheels/
+# share/python-wheels/
+# *.egg-info/
+# .installed.cfg
+# *.egg
+# MANIFEST
+# *.manifest
+# *.spec
+# pip-log.txt
+# pip-delete-this-directory.txt
+# htmlcov/
+# .tox/
+# .nox/
+# .coverage
+# .coverage.*
+# .cache
+# nosetests.xml
+# coverage.xml
+# *.cover
+# *.py,cover
+# .hypothesis/
+# .pytest_cache/
+# cover/
+# *.mo
+# *.pot
+# *.log
+# local_settings.py
+# db.sqlite3
+# db.sqlite3-journal
+# instance/
+# .webassets-cache
+
+# --- Detected directories (uncomment to exclude) ---
+
+# docs/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap

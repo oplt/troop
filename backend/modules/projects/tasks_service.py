@@ -36,9 +36,9 @@ class OrchestrationTasksServiceMixin:
     execution/github/memory helpers used by task lifecycle transitions.
     """
 
-    async def list_tasks(self, user: User, project_id: str):
+    async def list_tasks(self, user: User, project_id: str, *, limit: int | None = None):
         await self.get_project(user, project_id)
-        return await self.repo.list_tasks(project_id)
+        return await self.repo.list_tasks(project_id, limit=limit)
 
     async def get_task(self, user: User, project_id: str, task_id: str):
         await self.get_project(user, project_id)
@@ -50,10 +50,14 @@ class OrchestrationTasksServiceMixin:
     async def create_task(self, user: User, project_id: str, payload: dict[str, Any]):
         project = await self.get_project(user, project_id)
         if payload.get("assigned_agent_id"):
-            await self.get_agent(user, payload["assigned_agent_id"])
+            await self._ensure_project_agent_member(user, project.id, payload["assigned_agent_id"], "Owner")
         if payload.get("reviewer_agent_id"):
-            await self.get_agent(user, payload["reviewer_agent_id"])
-        metadata = self._normalized_task_metadata(payload.get("metadata"))
+            await self._ensure_project_agent_member(user, project.id, payload["reviewer_agent_id"], "Reviewer")
+        metadata = self._normalized_task_metadata(
+            payload.get("metadata"),
+            required_tools=payload.get("required_tools"),
+            external_links=payload.get("external_links"),
+        )
         position = await self.repo.get_next_task_position(project.id)
         task = await self.repo.create_task(
             project_id=project.id,
@@ -83,13 +87,24 @@ class OrchestrationTasksServiceMixin:
         await self.db.refresh(task)
         return task
 
-    async def update_task(self, user: User, project_id: str, task_id: str, updates: dict[str, Any]):
+    async def update_task(
+        self,
+        user: User,
+        project_id: str,
+        task_id: str,
+        updates: dict[str, Any],
+        *,
+        assignment_source: str = "manual_update",
+    ):
         task = await self.get_task(user, project_id, task_id)
         project = await self.db.get(OrchestratorProject, project_id)
         if project is None:
             raise HTTPException(status_code=404, detail="Project not found")
-        if "assigned_agent_id" in updates and updates.get("assigned_agent_id") != task.assigned_agent_id:
-            if self.action_requires_approval(project, "change_task_ownership"):
+        if (
+            "assigned_agent_id" in updates
+            and updates.get("assigned_agent_id") != task.assigned_agent_id
+            and self.action_requires_approval(project, "change_task_ownership")
+        ):
                 approval = await self.repo.create_approval(
                     project_id=project.id,
                     task_id=task.id,
@@ -112,8 +127,11 @@ class OrchestrationTasksServiceMixin:
                         "approval_id": approval.id,
                     },
                 )
-        if "status" in updates and updates.get("status") in {"completed", "approved"}:
-            if self.action_requires_approval(project, "mark_complete"):
+        if (
+            "status" in updates
+            and updates.get("status") in {"completed", "approved"}
+            and self.action_requires_approval(project, "mark_complete")
+        ):
                 approval = await self.repo.create_approval(
                     project_id=project.id,
                     task_id=task.id,
@@ -144,9 +162,9 @@ class OrchestrationTasksServiceMixin:
         }
         prev_status = task.status
         if "assigned_agent_id" in updates and updates["assigned_agent_id"]:
-            await self.get_agent(user, updates["assigned_agent_id"])
+            await self._ensure_project_agent_member(user, project.id, updates["assigned_agent_id"], "Owner")
         if "reviewer_agent_id" in updates and updates["reviewer_agent_id"]:
-            await self.get_agent(user, updates["reviewer_agent_id"])
+            await self._ensure_project_agent_member(user, project.id, updates["reviewer_agent_id"], "Reviewer")
 
         if "assigned_agent_id" in updates:
             next_meta = dict(task.metadata_json or {})
@@ -154,10 +172,10 @@ class OrchestrationTasksServiceMixin:
             if assigned_agent_id:
                 agent = await self.get_agent(user, assigned_agent_id)
                 next_meta["routing_explainability"] = {
-                    "agent_selection_reason": f"Task assigned manually to {agent.name}.",
+                    "agent_selection_reason": f"Task assigned to {agent.name} via {assignment_source.replace('_', ' ')}.",
                     "model_selection_reason": "",
                     "routing_inputs": {
-                        "assignment_source": "manual_update",
+                        "assignment_source": assignment_source,
                         "assigned_agent_id": assigned_agent_id,
                     },
                     "routing_policy_snapshot": {},
@@ -176,6 +194,16 @@ class OrchestrationTasksServiceMixin:
                 task.result_payload_json = value
             elif field == "metadata":
                 task.metadata_json = self._normalized_task_metadata(value)
+            elif field == "required_tools":
+                metadata = dict(task.metadata_json or {})
+                metadata["required_tools"] = self._normalized_required_tools(value)
+                task.metadata_json = self._normalized_task_metadata(metadata)
+                orm_attributes.flag_modified(task, "metadata_json")
+            elif field == "external_links":
+                metadata = dict(task.metadata_json or {})
+                metadata["external_links"] = self._normalized_external_links(value)
+                task.metadata_json = self._normalized_task_metadata(metadata)
+                orm_attributes.flag_modified(task, "metadata_json")
             elif field == "dependency_ids":
                 dependency_ids = list(value or [])
                 await self._validate_task_dependencies(project_id, task.id, dependency_ids)
@@ -231,6 +259,21 @@ class OrchestrationTasksServiceMixin:
             await self._enqueue_classifier_job_for_task(project, task)
         await self.db.commit()
         return task
+
+    async def _ensure_project_agent_member(
+        self,
+        user: User,
+        project_id: str,
+        agent_id: str,
+        relationship: str,
+    ) -> None:
+        await self.get_agent(user, agent_id)
+        membership = await self.repo.get_project_membership(project_id, agent_id)
+        if membership is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{relationship} agent must be assigned to this project before it can own the task.",
+            )
 
     async def start_agent_work_session(
         self,
@@ -455,6 +498,86 @@ class OrchestrationTasksServiceMixin:
                 }
             )
         return ready
+
+    async def get_task_blockers(self, user: User, project_id: str, task_id: str) -> dict[str, Any]:
+        task = await self.get_task(user, project_id, task_id)
+        project = await self.get_project(user, project_id)
+        blockers: list[dict[str, Any]] = []
+        warnings: list[dict[str, Any]] = []
+        terminal = {"approved", "completed", "synced_to_github", "archived"}
+
+        for dependency in await self.repo.list_task_dependencies_for_task(task.id):
+            dependency_task = await self.repo.get_task_by_id(dependency.depends_on_task_id)
+            if dependency_task is not None and dependency_task.status not in terminal:
+                blockers.append(
+                    {
+                        "kind": "dependency",
+                        "task_id": dependency_task.id,
+                        "title": dependency_task.title,
+                        "status": dependency_task.status,
+                        "message": f"Dependency '{dependency_task.title}' is not complete.",
+                    }
+                )
+
+        memberships = await self.repo.list_project_memberships(project.id)
+        member_ids = {item.agent_id for item in memberships}
+        if task.assigned_agent_id:
+            owner = await self.get_agent(user, task.assigned_agent_id)
+            if task.assigned_agent_id not in member_ids:
+                blockers.append({"kind": "owner", "message": "The assigned owner is not a project member."})
+            elif not owner.is_active:
+                blockers.append({"kind": "owner", "message": "The assigned owner is inactive."})
+            missing_tools = sorted(
+                set(self._normalized_required_tools((task.metadata_json or {}).get("required_tools")))
+                - set(owner.allowed_tools_json or [])
+            )
+            if missing_tools:
+                blockers.append(
+                    {
+                        "kind": "required_tools",
+                        "missing_tools": missing_tools,
+                        "message": f"Owner lacks required tools: {', '.join(missing_tools)}.",
+                    }
+                )
+        elif task.status in {"planned", "in_progress"}:
+            warnings.append({"kind": "owner", "message": "Task has no pinned owner; runtime routing will select one."})
+
+        if task.status == "needs_review" and not task.reviewer_agent_id:
+            blockers.append({"kind": "reviewer", "message": "Task needs review but has no reviewer assigned."})
+        elif task.reviewer_agent_id:
+            reviewer = await self.get_agent(user, task.reviewer_agent_id)
+            if task.reviewer_agent_id not in member_ids or not reviewer.is_active:
+                blockers.append({"kind": "reviewer", "message": "The assigned reviewer is unavailable."})
+
+        deadline = self._task_effective_sla_deadline(task)
+        if deadline is not None:
+            now = datetime.now(UTC)
+            if now > deadline and task.status not in terminal:
+                blockers.append({"kind": "sla", "deadline": deadline.isoformat(), "message": "Task SLA is overdue."})
+            elif deadline - now <= timedelta(hours=24) and task.status not in terminal:
+                warnings.append({"kind": "sla", "deadline": deadline.isoformat(), "message": "Task SLA is due within 24 hours."})
+
+        latest_run = await self.repo.get_latest_run_for_task(project.id, task.id)
+        if latest_run is not None and latest_run.status in {"failed", "blocked"}:
+            warnings.append(
+                {
+                    "kind": "run",
+                    "run_id": latest_run.id,
+                    "status": latest_run.status,
+                    "message": latest_run.error_message or f"Latest run is {latest_run.status}.",
+                }
+            )
+        if task.status == "blocked":
+            metadata = task.metadata_json or {}
+            blockers.append(
+                {
+                    "kind": "task_status",
+                    "message": str(metadata.get("handoff_blocked_reason") or "Task is marked blocked."),
+                    "suggested_handoff_agent_id": metadata.get("suggested_handoff_agent_id"),
+                }
+            )
+
+        return {"task_id": task.id, "can_start": not blockers, "blockers": blockers, "warnings": warnings}
 
     async def start_parallel_dag_ready_runs(
         self,
@@ -871,7 +994,7 @@ class OrchestrationTasksServiceMixin:
             )
         blueprint = self._generate_subtask_blueprint(parent, max_subtasks=max_subtasks, context=context)
         subtasks = []
-        for i, item in enumerate(blueprint):
+        for item in blueprint:
             position = await self.repo.get_next_task_position(project_id)
             task = await self.repo.create_task(
                 project_id=project_id,
@@ -954,6 +1077,7 @@ class OrchestrationTasksServiceMixin:
                 else f"Status '{task.status}' is not a terminal state",
             }
         )
+        checks.append(await self._acceptance_output_schema_check(task, output_text))
 
         dep_rows = await self.repo.list_task_dependencies_for_task(task.id)
         if dep_rows:
@@ -1190,6 +1314,49 @@ class OrchestrationTasksServiceMixin:
             "evidence_excerpt": self._acceptance_evidence_excerpt(item, output_text) if passed else "",
         }
 
+    async def _acceptance_output_schema_check(self, task: OrchestratorTask, output_text: str) -> dict[str, Any]:
+        assigned_agent_id = str(getattr(task, "assigned_agent_id", None) or "").strip()
+        if not assigned_agent_id:
+            return {
+                "name": "output_schema",
+                "passed": True,
+                "detail": "No assigned agent schema configured.",
+            }
+        get_agent = getattr(self.repo, "get_agent", None)
+        agent = await get_agent(task.created_by_user_id, assigned_agent_id) if callable(get_agent) else None
+        schema = dict(getattr(agent, "output_schema_json", None) or {}) if agent else {}
+        fmt = str(schema.get("format") or "").strip().lower()
+        if not fmt:
+            return {"name": "output_schema", "passed": True, "detail": "No output schema configured."}
+        payload = getattr(task, "result_payload_json", None) or {}
+        valid = bool(output_text.strip())
+        if fmt == "json":
+            structured = payload.get("structured_output_json") if isinstance(payload, dict) else None
+            if not isinstance(structured, (dict, list)):
+                try:
+                    json.loads(str(payload.get("final_output") or payload.get("summary") or output_text))
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    valid = False
+        elif fmt == "checklist":
+            valid = valid and ("- " in output_text or "1." in output_text)
+        elif fmt == "adr":
+            lowered = output_text.lower()
+            valid = valid and "decision" in lowered and "context" in lowered
+        elif fmt == "patch_proposal":
+            lowered = output_text.lower()
+            valid = valid and "file" in lowered and "test" in lowered
+        elif fmt == "issue_reply":
+            lowered = output_text.lower()
+            valid = valid and ("finding" in lowered or "review" in lowered)
+        else:
+            valid = False
+        return {
+            "name": "output_schema",
+            "passed": valid,
+            "detail": f"Output matches '{fmt}' schema." if valid else f"Output does not match '{fmt}' schema.",
+            "format": fmt,
+        }
+
     def _acceptance_evidence_excerpt(self, item: str, output_text: str) -> str:
         lowered = output_text.lower()
         for token in re.findall(r"[a-z0-9]+", item.lower()):
@@ -1228,9 +1395,31 @@ class OrchestrationTasksServiceMixin:
             )
         return rows
 
-    def _normalized_task_metadata(self, raw: Any) -> dict[str, Any]:
+    def _normalized_required_tools(self, raw: Any) -> list[str]:
+        values = raw if isinstance(raw, (list, tuple, set)) else str(raw or "").split(",")
+        result: list[str] = []
+        for value in values:
+            tool = str(value).strip()
+            if tool and tool not in result:
+                result.append(tool[:120])
+        return result[:64]
+
+    def _normalized_task_metadata(
+        self,
+        raw: Any,
+        *,
+        required_tools: Any = None,
+        external_links: Any = None,
+    ) -> dict[str, Any]:
         meta = dict(raw or {}) if isinstance(raw, dict) else {}
-        meta["external_links"] = self._normalized_external_links(meta.get("external_links"))
+        if required_tools is not None:
+            meta["required_tools"] = self._normalized_required_tools(required_tools)
+        else:
+            meta["required_tools"] = self._normalized_required_tools(meta.get("required_tools"))
+        if external_links is not None:
+            meta["external_links"] = self._normalized_external_links(external_links)
+        else:
+            meta["external_links"] = self._normalized_external_links(meta.get("external_links"))
         bundle_raw = meta.get("evidence_bundle")
         bundle = dict(bundle_raw) if isinstance(bundle_raw, dict) else {}
         bundle["accepted_artifact_ids"] = [

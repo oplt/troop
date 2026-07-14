@@ -3,22 +3,28 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import math
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-import httpx
 from fastapi import HTTPException
 
 from backend.core.cache import (
+    cache_singleflight,
     embedding_cache_key,
     get_cached_embeddings,
     set_cached_embeddings,
 )
 from backend.core.config import settings
+from backend.core.external_http import external_headers
+from backend.core.http_clients import managed_http_client
+from backend.core.logging import get_logger
+from backend.modules.observability.decorators import (
+    observe_provider_call,
+    observe_provider_stream,
+)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -50,6 +56,7 @@ class BaseAiProvider:
     async def generate(self, request: ProviderGenerateRequest) -> ProviderGenerateResult:
         raise NotImplementedError
 
+    @observe_provider_stream("stream_generate")
     async def stream_generate(self, request: ProviderGenerateRequest) -> AsyncIterator[str]:
         result = await self.generate(request)
         if result.output_text:
@@ -87,8 +94,12 @@ def _heuristic_json_payload(*, model: str, system_prompt: str, user_prompt: str)
     """Minimal JSON when no remote LLM runs: no invented answers, only task-derived labels + explicit stub flag."""
     prompt = user_prompt.strip()
     system = system_prompt.strip()
-    title = _line_value_after_prefix(prompt, "Task title:") or _line_value_after_prefix(prompt, "task title:")
-    desc = _line_value_after_prefix(prompt, "Task description:") or _line_value_after_prefix(prompt, "task description:")
+    title = _line_value_after_prefix(prompt, "Task title:") or _line_value_after_prefix(
+        prompt, "task title:"
+    )
+    desc = _line_value_after_prefix(prompt, "Task description:") or _line_value_after_prefix(
+        prompt, "task description:"
+    )
     stub_notice = (
         "No remote language model executed this step (local heuristic / missing provider). "
         "Configure an OpenAI-compatible, Anthropic, or Ollama provider on the project to get real LLM output."
@@ -114,6 +125,7 @@ def _heuristic_json_payload(*, model: str, system_prompt: str, user_prompt: str)
 class LocalHeuristicProvider(BaseAiProvider):
     key = "local"
 
+    @observe_provider_call("generate")
     async def generate(self, request: ProviderGenerateRequest) -> ProviderGenerateResult:
         prompt = request.user_prompt.strip()
         system = request.system_prompt.strip()
@@ -143,6 +155,7 @@ class LocalHeuristicProvider(BaseAiProvider):
             output_tokens=0,
         )
 
+    @observe_provider_call("embed")
     async def embed_texts(self, texts: list[str], model: str | None = None) -> list[list[float]]:
         return [_hash_embedding(text) for text in texts]
 
@@ -150,13 +163,17 @@ class LocalHeuristicProvider(BaseAiProvider):
 class OpenAIProvider(BaseAiProvider):
     key = "openai"
 
+    @observe_provider_call("generate")
     async def generate(self, request: ProviderGenerateRequest) -> ProviderGenerateResult:
         if not settings.OPENAI_API_KEY:
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
-        async with httpx.AsyncClient(timeout=60.0, base_url=settings.OPENAI_BASE_URL) as client:
+        async with managed_http_client(
+            "ai-openai",
+            timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+        ) as client:
             response = await client.post(
                 "/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                headers=external_headers({"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}),
                 json={
                     "model": request.model,
                     "temperature": request.temperature,
@@ -192,14 +209,19 @@ class OpenAIProvider(BaseAiProvider):
             output_tokens=int(usage.get("completion_tokens", 0)),
         )
 
+    @observe_provider_stream("stream_generate")
     async def stream_generate(self, request: ProviderGenerateRequest) -> AsyncIterator[str]:
         if not settings.OPENAI_API_KEY:
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
-        async with httpx.AsyncClient(timeout=60.0, base_url=settings.OPENAI_BASE_URL) as client:
-            async with client.stream(
+        async with (
+            managed_http_client(
+                "ai-openai",
+                timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+            ) as client,
+            client.stream(
                 "POST",
                 "/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                headers=external_headers({"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}),
                 json={
                     "model": request.model,
                     "temperature": request.temperature,
@@ -209,34 +231,39 @@ class OpenAIProvider(BaseAiProvider):
                         {"role": "user", "content": request.user_prompt},
                     ],
                 },
-            ) as response:
-                if response.status_code >= 400:
-                    body = await response.aread()
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"OpenAI stream failed: {body.decode(errors='replace')[:300]}",
-                    )
-                async for line in response.aiter_lines():
-                    if not line or not line.startswith("data: "):
-                        continue
-                    payload_text = line[6:].strip()
-                    if payload_text == "[DONE]":
-                        break
-                    try:
-                        payload = json.loads(payload_text)
-                        delta = payload["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-                        continue
-                    if delta:
-                        yield str(delta)
+            ) as response,
+        ):
+            if response.status_code >= 400:
+                body = await response.aread()
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"OpenAI stream failed: {body.decode(errors='replace')[:300]}",
+                )
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                payload_text = line[6:].strip()
+                if payload_text == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(payload_text)
+                    delta = payload["choices"][0]["delta"].get("content")
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+                if delta:
+                    yield str(delta)
 
+    @observe_provider_call("embed")
     async def embed_texts(self, texts: list[str], model: str | None = None) -> list[list[float]]:
         if not settings.OPENAI_API_KEY:
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
-        async with httpx.AsyncClient(timeout=60.0, base_url=settings.OPENAI_BASE_URL) as client:
+        async with managed_http_client(
+            "ai-openai",
+            timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+        ) as client:
             response = await client.post(
                 "/embeddings",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                headers=external_headers({"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}),
                 json={
                     "model": model or settings.OPENAI_EMBEDDING_MODEL,
                     "input": texts,
@@ -254,16 +281,22 @@ class OpenAIProvider(BaseAiProvider):
 class AnthropicProvider(BaseAiProvider):
     key = "anthropic"
 
+    @observe_provider_call("generate")
     async def generate(self, request: ProviderGenerateRequest) -> ProviderGenerateResult:
         if not settings.ANTHROPIC_API_KEY:
             raise HTTPException(status_code=422, detail="ANTHROPIC_API_KEY is not configured")
-        async with httpx.AsyncClient(timeout=60.0, base_url=settings.ANTHROPIC_BASE_URL) as client:
+        async with managed_http_client(
+            "ai-anthropic",
+            timeout_seconds=60.0, base_url=settings.ANTHROPIC_BASE_URL
+        ) as client:
             response = await client.post(
                 "/messages",
-                headers={
-                    "x-api-key": settings.ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                },
+                headers=external_headers(
+                    {
+                        "x-api-key": settings.ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                    }
+                ),
                 json={
                     "model": request.model,
                     "system": request.system_prompt,
@@ -347,7 +380,13 @@ class AiProviderRegistry:
 
         results: list[list[float] | None] = list(cached)
         missing_texts = [texts[index] for index in missing_indices]
-        fresh_vectors = await provider.embed_texts(missing_texts, model=model_name)
+        batch_key = "embedding-fill:" + hashlib.sha256(
+            json.dumps({"model": model_name, "keys": [keys[index] for index in missing_indices]}, sort_keys=True).encode()
+        ).hexdigest()
+        fresh_vectors = await cache_singleflight(
+            batch_key,
+            lambda: provider.embed_texts(missing_texts, model=model_name),
+        )
         to_store: list[tuple[str, list[float]]] = []
         for index, vector in zip(missing_indices, fresh_vectors, strict=True):
             results[index] = vector

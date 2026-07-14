@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "dev"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
+    INSTANCE_ID: str = ""
     LOG_LEVEL: str = "INFO"
     CORE_DOMAIN_SINGULAR: str = "Project"
     CORE_DOMAIN_PLURAL: str = "Projects"
@@ -41,6 +42,8 @@ class Settings(BaseSettings):
     DATABASE_POOL_RECYCLE_SECONDS: int = 1800
     DATABASE_POOL_TIMEOUT_SECONDS: int = 30
     REDIS_URL: str
+    REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS: float = 2.0
+    REDIS_SOCKET_TIMEOUT_SECONDS: float = 5.0
     CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
     CELERY_TASK_ALWAYS_EAGER: bool = False
@@ -52,6 +55,13 @@ class Settings(BaseSettings):
     CELERY_QUEUE_OBSERVABILITY: str = "observability"
     CELERY_QUEUE_CPU: str = "cpu"
     CELERY_RESULT_EXPIRES_SECONDS: int = 3600
+    CELERY_TASK_ACKS_LATE: bool = True
+    CELERY_TASK_REJECT_ON_WORKER_LOST: bool = True
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
+    CELERY_BROKER_VISIBILITY_TIMEOUT_SECONDS: int = 3600
+    CELERY_TASK_SOFT_TIME_LIMIT_SECONDS: int = 3300
+    CELERY_TASK_TIME_LIMIT_SECONDS: int = 3600
+    DISTRIBUTED_LOCK_TTL_SECONDS: int = 300
     PROVIDER_HEALTHCHECK_INTERVAL_MINUTES: int = 5
     GITHUB_ISSUE_POLL_INTERVAL_MINUTES: int = 15
     # Run event query bounds (orchestration snapshots, API, replay, classifier).
@@ -67,6 +77,8 @@ class Settings(BaseSettings):
     ORCHESTRATION_LIST_RUNS_MAX_LIMIT: int = 5000
     ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT: int = 200
     ORCHESTRATION_LIST_DOCUMENTS_MAX_LIMIT: int = 2000
+    PROJECT_LIST_TASKS_DEFAULT_LIMIT: int = 500
+    PROJECT_LIST_TASKS_MAX_LIMIT: int = 5000
 
     ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE: int = 120
     ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES: int = 20
@@ -75,7 +87,8 @@ class Settings(BaseSettings):
     ORCHESTRATION_PROVIDER_FAILOVER: bool = True
     # When true, execute_run routes run modes through a LangGraph StateGraph (see langgraph_runner).
     ORCHESTRATION_USE_LANGGRAPH: bool = False
-    # Durable enqueue backend label (future: temporal). Celery is the only implementation today.
+    # Durable enqueue backend. Celery is active; unsupported values fail closed until a worker
+    # adapter is installed and registered.
     ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
     ORCHESTRATION_CPU_JOB_TIMEOUT_SECONDS: int | None = None
     ORCHESTRATION_CPU_REQUIRE_DOCKER: bool | None = None
@@ -112,7 +125,7 @@ class Settings(BaseSettings):
     REQUIRE_EMAIL_VERIFICATION: bool = True
 
     # Email verification / password reset token TTLs (seconds)
-    VERIFICATION_TOKEN_TTL: int = 86400   # 24 h
+    VERIFICATION_TOKEN_TTL: int = 86400  # 24 h
     PASSWORD_RESET_TOKEN_TTL: int = 3600  # 1 h
 
     # SMTP — leave empty to skip sending (useful in dev)
@@ -124,9 +137,15 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = True
 
     # Observability
+    OBSERVABILITY_ENABLED: bool = True
+    METRICS_ENABLED: bool = True
+    METRICS_PUBLIC: bool = False
+    METRICS_QUEUE_REFRESH_ENABLED: bool = False
+    METRICS_REFRESH_TIMEOUT_SECONDS: float = 0.5
+    HEALTH_READY_TIMEOUT_SECONDS: float = 2.0
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.2
-    OTLP_ENDPOINT: str = ""   # e.g. http://localhost:4317
+    OTLP_ENDPOINT: str = ""  # e.g. http://localhost:4317
     OTLP_INSECURE: bool = True
 
     # Object storage (S3-compatible, e.g. AWS S3 or MinIO)
@@ -174,6 +193,24 @@ class Settings(BaseSettings):
     MEMORY_DEDUP_ENABLED: bool = True
     MEMORY_MIN_EXTRACTION_CONFIDENCE: float = 0.45
     MEMORY_LOG_CONTENT_IN_DEV: bool = False
+    MEMORY_DEFAULT_TTL_DAYS: int = 0
+    MEMORY_MAX_TTL_DAYS: int = 3650
+    MEMORY_CONTEXT_MAX_TOKENS: int = 700
+    MEMORY_RETENTION_SWEEP_BATCH_SIZE: int = 500
+    # Outbound HTTP defaults. Individual provider operations may use a larger
+    # read/write budget, but every phase remains explicitly bounded.
+    EXTERNAL_HTTP_TIMEOUT_SECONDS: float = 30.0
+    EXTERNAL_HTTP_CONNECT_TIMEOUT_SECONDS: float = 10.0
+    EXTERNAL_HTTP_POOL_TIMEOUT_SECONDS: float = 10.0
+    EXTERNAL_HTTP_MAX_RETRIES: int = 2
+    EXTERNAL_HTTP_MAX_CONNECTIONS: int = 100
+    EXTERNAL_HTTP_MAX_KEEPALIVE_CONNECTIONS: int = 20
+    EXTERNAL_HTTP_MAX_CLIENTS: int = 64
+    EXTERNAL_HTTP_MAX_TIMEOUT_SECONDS: float = 300.0
+    SMTP_TIMEOUT_SECONDS: float = 30.0
+    STORAGE_CONNECT_TIMEOUT_SECONDS: float = 10.0
+    STORAGE_READ_TIMEOUT_SECONDS: float = 30.0
+    STORAGE_MAX_ATTEMPTS: int = 2
 
     # RAG layer (LangChain-inspired facade over project documents + pgvector)
     RAG_ENABLED: bool = True
@@ -195,10 +232,16 @@ class Settings(BaseSettings):
     AI_RETRIEVE_PYTHON_FALLBACK_ENABLED: bool = False
     RAG_ANSWER_TIMEOUT_SECONDS: int = 90
     RAG_BULK_INGEST_CONCURRENCY: int = 4
+    RAG_BULK_INGEST_BATCH_SIZE: int = 8
+    RAG_BULK_INGEST_MAX_DOCUMENTS: int = 50
+    SSE_MAX_CONNECTIONS: int = 100
+    SSE_MAX_DURATION_SECONDS: int = 1800
+    SSE_HEARTBEAT_SECONDS: int = 20
+    SSE_POLL_INTERVAL_SECONDS: float = 2.0
+    SSE_MAX_PAYLOAD_BYTES: int = 1_000_000
     MEMORY_INGEST_JOB_CONCURRENCY: int = 3
 
     CORS_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
-
 
     @property
     def celery_broker_url(self) -> str:
@@ -277,8 +320,8 @@ class Settings(BaseSettings):
                 parsed = json.loads(normalized)
                 if not isinstance(parsed, list):
                     raise ValueError(
-                    "CORS_ALLOWED_ORIGINS must be a list or comma-separated string"
-                )
+                        "CORS_ALLOWED_ORIGINS must be a list or comma-separated string"
+                    )
                 return [str(item).strip() for item in parsed if str(item).strip()]
             return [item.strip() for item in normalized.split(",") if item.strip()]
         return value

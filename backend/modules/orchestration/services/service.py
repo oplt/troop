@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import logging
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.logging import get_logger
+from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 from backend.modules.orchestration.services.base import (
     GITHUB_WEBHOOK_EVENT_ALLOWLIST,
-    OrchestrationRunQueryMixin,
-    OrchestrationServiceBase,
     SEMANTIC_ENTRY_TYPES,
     TASK_TRANSITIONS,
+    OrchestrationRunQueryMixin,
+    OrchestrationServiceBase,
 )
-from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 from backend.modules.orchestration.services.brainstorm_domain import BrainstormService
 from backend.modules.orchestration.services.evals_domain import EvalsService
 from backend.modules.orchestration.services.execution_domain import ExecutionService
@@ -22,7 +21,7 @@ from backend.modules.projects.service import OrchestrationProjectsServiceMixin
 from backend.modules.projects.tasks_service import OrchestrationTasksServiceMixin
 from backend.modules.team.service import TeamServiceMixin
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 __all__ = [
     "ApprovalsService",

@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import logging
+import re
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.orchestration._helpers import BlockedExecution
+from backend.modules.orchestration.execution.policies import RetryPolicy
+from backend.modules.orchestration.hierarchy_policy import policy_from_execution
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.providers import execute_prompt
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 GLOBAL_POLICY_ROUTING_RULES: list[dict[str, Any]] = [
@@ -103,14 +110,22 @@ class OrchestrationRoutingServiceMixin:
     def _normalize_policy_routing(self, value: dict[str, Any] | None) -> dict[str, Any]:
         raw = dict(self._global_policy_routing())
         incoming = dict(value or {})
-        raw.update({key: incoming[key] for key in {"cheap_model_slug", "strong_model_slug", "local_model_slug"} if key in incoming})
+        raw.update(
+            {
+                key: incoming[key]
+                for key in {"cheap_model_slug", "strong_model_slug", "local_model_slug"}
+                if key in incoming
+            }
+        )
         if isinstance(incoming.get("rules"), list):
             raw["rules"] = incoming["rules"]
         return raw
 
     def _normalize_execution_model_policy(self, execution: dict[str, Any]) -> dict[str, Any]:
         return {
-            "enforce_project_model_policy": bool(execution.get("enforce_project_model_policy", False)),
+            "enforce_project_model_policy": bool(
+                execution.get("enforce_project_model_policy", False)
+            ),
             "offline_local_only_mode": bool(execution.get("offline_local_only_mode", False)),
             "allowed_provider_types": [
                 str(item).strip().lower()
@@ -135,7 +150,10 @@ class OrchestrationRoutingServiceMixin:
             return list(task.labels_json or []) if task else []
         if field == "project.is_sensitive":
             settings_json = project.settings_json if project else {}
-            return bool(settings_json.get("is_sensitive") or (settings_json.get("security") or {}).get("is_sensitive"))
+            return bool(
+                settings_json.get("is_sensitive")
+                or (settings_json.get("security") or {}).get("is_sensitive")
+            )
         return None
 
     def _matches_policy_rule(self, actual: Any, operator: str, expected: Any) -> bool:
@@ -155,18 +173,31 @@ class OrchestrationRoutingServiceMixin:
         provider: ProviderConfig | None,
     ) -> tuple[ProviderConfig | None, str | None, str | None]:
         policy = self._normalize_policy_routing(
-            ((project.settings_json or {}).get("execution") or {}).get("policy_routing") if project else None
+            ((project.settings_json or {}).get("execution") or {}).get("policy_routing")
+            if project
+            else None
         )
         for rule in policy.get("rules", []):
             actual = self._policy_field_value(project, task, str(rule.get("field") or ""))
-            if not self._matches_policy_rule(actual, str(rule.get("operator") or "equals"), rule.get("value")):
+            if not self._matches_policy_rule(
+                actual, str(rule.get("operator") or "equals"), rule.get("value")
+            ):
                 continue
             route_key = str(rule.get("route_to") or "")
             model_name = policy.get(route_key)
             target_provider = provider
             if route_key == "local_model_slug":
-                providers = await self.repo.list_providers(project.owner_id if project else "", project.id if project else None)
-                target_provider = next((item for item in providers if item.provider_type == "ollama" and item.is_enabled), provider)
+                providers = await self.repo.list_providers(
+                    project.owner_id if project else "", project.id if project else None
+                )
+                target_provider = next(
+                    (
+                        item
+                        for item in providers
+                        if item.provider_type == "ollama" and item.is_enabled
+                    ),
+                    provider,
+                )
             return target_provider, model_name, route_key
         return provider, None, None
 
@@ -220,15 +251,31 @@ class OrchestrationRoutingServiceMixin:
                     payload={"source": "agent.model_policy.model"},
                 )
         if not target_model:
-            target_model = (
-                effective_policy.get("model")
-                or (target_provider.default_model if target_provider else None)
+            target_model = effective_policy.get("model") or (
+                target_provider.default_model if target_provider else None
             )
         fallback_model = (
             effective_policy.get("fallback_model")
             or run_payload.get("fallback_model")
             or (target_provider.fallback_model if target_provider else None)
         )
+        request_options = {
+            key: effective_policy[key]
+            for key in (
+                "max_tokens",
+                "temperature",
+                "reasoning_effort",
+                "tool_calling",
+                "structured_output",
+            )
+            if effective_policy.get(key) is not None
+        }
+        if effective_policy.get("structured_output") is True:
+            response_format = "json"
+        retry_count = RetryPolicy.from_agent_policy(
+            effective_policy,
+            agent.retry_limit if agent else 0,
+        ).max_retries
         model_candidates = []
         for candidate in [target_model, fallback_model]:
             if candidate and candidate not in model_candidates:
@@ -239,7 +286,9 @@ class OrchestrationRoutingServiceMixin:
             model_candidates = [self._global_policy_routing().get("local_model_slug"), None]
         if enforce_project_model_policy and allowed_model_slugs:
             model_candidates = [
-                candidate for candidate in model_candidates if candidate is None or candidate in allowed_model_slugs
+                candidate
+                for candidate in model_candidates
+                if candidate is None or candidate in allowed_model_slugs
             ]
             if not model_candidates:
                 raise HTTPException(
@@ -260,38 +309,46 @@ class OrchestrationRoutingServiceMixin:
             )
             first_candidate = model_candidates[0]
             if first_candidate:
-                est_for_1k = self._estimate_cost_micros(
-                    target_provider, 1000, 1000, model_name=first_candidate
-                ) / 1_000_000
-                if est_for_1k >= expensive_threshold:
-                    approval = await self.repo.create_approval(
-                        project_id=project.id,
-                        task_id=task.id if task else None,
-                        run_id=run.id,
-                        issue_link_id=task.github_issue_link_id if task else None,
-                        requested_by_user_id=run.triggered_by_user_id,
-                        approval_type="expensive_model_use",
-                        status="pending",
-                        payload_json={
-                            "model_name": first_candidate,
-                            "estimated_cost_per_1k_usd": est_for_1k,
-                            "threshold_per_1k_usd": expensive_threshold,
-                            "purpose": purpose,
-                        },
+                est_for_1k = (
+                    self._estimate_cost_micros(
+                        target_provider, 1000, 1000, model_name=first_candidate
                     )
-                    await self.db.commit()
-                    raise BlockedExecution(
-                        f"Model '{first_candidate}' exceeds expensive-model threshold and requires approval "
-                        f"(approval_id={approval.id})."
-                    )
-        if policy_reason:
-            if run is not None:
-                await self._emit_run_event(
-                    run,
-                    event_type="policy_routed",
-                    message=f"Policy routing selected {target_model} for {purpose}.",
-                    payload={"reason": policy_reason, "model_name": target_model},
+                    / 1_000_000
                 )
+                if est_for_1k >= expensive_threshold:
+                    grant_consumed = await self._consume_hitl_grant(
+                        run,
+                        "expensive_model_use",
+                        {"model_name": first_candidate},
+                    )
+                    if not grant_consumed:
+                        approval = await self.repo.create_approval(
+                            project_id=project.id,
+                            task_id=task.id if task else None,
+                            run_id=run.id,
+                            issue_link_id=task.github_issue_link_id if task else None,
+                            requested_by_user_id=run.triggered_by_user_id,
+                            approval_type="expensive_model_use",
+                            status="pending",
+                            payload_json={
+                                "model_name": first_candidate,
+                                "estimated_cost_per_1k_usd": est_for_1k,
+                                "threshold_per_1k_usd": expensive_threshold,
+                                "purpose": purpose,
+                            },
+                        )
+                        await self.db.commit()
+                        raise BlockedExecution(
+                            f"Model '{first_candidate}' exceeds expensive-model threshold and requires approval "
+                            f"(approval_id={approval.id})."
+                        )
+        if policy_reason and run is not None:
+            await self._emit_run_event(
+                run,
+                event_type="policy_routed",
+                message=f"Policy routing selected {target_model} for {purpose}.",
+                payload={"reason": policy_reason, "model_name": target_model},
+            )
 
         provider_chain: list[ProviderConfig | None] = [target_provider]
         if (
@@ -346,28 +403,51 @@ class OrchestrationRoutingServiceMixin:
                         )
                     errors.append(f"Skipped unhealthy provider {tp.name}")
                     continue
-                try:
-                    result = await execute_prompt(
-                        tp,
-                        model_name=candidate,
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        response_format=response_format,
-                    )
-                except Exception as exc:
-                    errors.append(_format_routing_attempt_error(exc))
-                    if index + 1 < len(cands):
-                        if run is not None:
-                            await self._emit_run_event(
-                                run,
-                                event_type="model_fallback",
-                                level="warning",
-                                message=f"Model {candidate} failed; trying fallback.",
-                                payload={"error": str(exc), "failed_model": candidate},
-                            )
-                        continue
-                    outer_errors.extend(errors)
-                    return None
+                result = None
+                for attempt in range(retry_count + 1):
+                    try:
+                        result = await execute_prompt(
+                            tp,
+                            model_name=candidate,
+                            system_prompt=system_prompt,
+                            user_prompt=user_prompt,
+                            response_format=response_format,
+                            request_options=request_options,
+                        )
+                    except Exception as exc:
+                        error_text = _format_routing_attempt_error(exc)
+                        errors.append(error_text)
+                        if attempt < retry_count:
+                            if run is not None:
+                                await self._emit_run_event(
+                                    run,
+                                    event_type="model_retry",
+                                    level="warning",
+                                    message=f"Model {candidate} failed; retrying request ({attempt + 1}/{retry_count}).",
+                                    payload={
+                                        "error": error_text,
+                                        "model_name": candidate,
+                                        "attempt": attempt + 1,
+                                        "retry_count": retry_count,
+                                    },
+                                )
+                            continue
+                        if index + 1 < len(cands):
+                            if run is not None:
+                                await self._emit_run_event(
+                                    run,
+                                    event_type="model_fallback",
+                                    level="warning",
+                                    message=f"Model {candidate} failed; trying fallback.",
+                                    payload={"error": error_text, "failed_model": candidate},
+                                )
+                            break
+                        outer_errors.extend(errors)
+                        return None
+                    else:
+                        break
+                if result is None:
+                    continue
                 if run is not None:
                     run.model_name = result.model_name
                     run.provider_config_id = tp.id if tp else None
@@ -402,14 +482,13 @@ class OrchestrationRoutingServiceMixin:
                         output_tokens=result.output_tokens,
                         cost_usd_micros=micros,
                     )
-                if index > 0:
-                    if run is not None:
-                        await self._emit_run_event(
-                            run,
-                            event_type="model_fallback_used",
-                            message=f"Fallback model {result.model_name} completed {purpose}.",
-                            payload={"attempt_errors": errors[:-1] if len(errors) > 1 else errors},
-                        )
+                if index > 0 and run is not None:
+                    await self._emit_run_event(
+                        run,
+                        event_type="model_fallback_used",
+                        message=f"Fallback model {result.model_name} completed {purpose}.",
+                        payload={"attempt_errors": errors[:-1] if len(errors) > 1 else errors},
+                    )
                 return tp, result
             outer_errors.extend(errors)
             return None
@@ -419,8 +498,10 @@ class OrchestrationRoutingServiceMixin:
             if prov_index == 0:
                 candidate_list = list(model_candidates) if model_candidates else [None]
             else:
-                tm2 = (run.model_name if run else None) or effective_policy.get("model") or (
-                    target_provider.default_model if target_provider else None
+                tm2 = (
+                    (run.model_name if run else None)
+                    or effective_policy.get("model")
+                    or (target_provider.default_model if target_provider else None)
                 )
                 fb2 = (
                     effective_policy.get("fallback_model")
@@ -472,9 +553,7 @@ class OrchestrationRoutingServiceMixin:
                 "raise timeout_seconds on the provider, or use a smaller/faster model."
             )
         elif has_real_provider and attempt_messages:
-            advice = (
-                " Hint: check the upstream error, model slugs vs discovery, provider health, and API keys for cloud providers."
-            )
+            advice = " Hint: check the upstream error, model slugs vs discovery, provider health, and API keys for cloud providers."
         elif has_real_provider:
             advice = " Hint: no per-attempt error text was captured; verify provider resolution and execution model policy."
         else:
@@ -482,7 +561,9 @@ class OrchestrationRoutingServiceMixin:
                 " Hint: no resolved LLM provider — add an enabled orchestration provider on the project or agent, "
                 "set default/fallback models, and refresh provider model discovery."
             )
-        detail_base = "; ".join(attempt_messages) if attempt_messages else "No provider model available"
+        detail_base = (
+            "; ".join(attempt_messages) if attempt_messages else "No provider model available"
+        )
         detail = f"{detail_base} — {chain_ctx} {advice}"
         raise HTTPException(status_code=502, detail=detail)
 
@@ -490,7 +571,9 @@ class OrchestrationRoutingServiceMixin:
         if task is None:
             return []
         metadata = task.metadata_json or {}
-        required = [str(item).strip() for item in metadata.get("required_tools", []) if str(item).strip()]
+        required = [
+            str(item).strip() for item in metadata.get("required_tools", []) if str(item).strip()
+        ]
         label_required = [
             label.split("tool:", 1)[1].strip()
             for label in (task.labels_json or [])
@@ -529,7 +612,9 @@ class OrchestrationRoutingServiceMixin:
             return pattern.lower() in hay
         return pattern.lower() in hay
 
-    def _agent_eligible_for_task_by_filters(self, agent: AgentProfile, task: OrchestratorTask) -> bool:
+    def _agent_eligible_for_task_by_filters(
+        self, agent: AgentProfile, task: OrchestratorTask
+    ) -> bool:
         patterns = self._agent_task_filter_patterns(agent)
         if not patterns:
             return True
@@ -543,12 +628,23 @@ class OrchestrationRoutingServiceMixin:
         allowed = set(agent.allowed_tools_json or [])
         return all(tool in allowed for tool in required)
 
-    def _tool_allowed_for_agent_permissions(self, tool_name: str, agent: AgentProfile | None) -> None:
+    def _tool_allowed_for_agent_permissions(
+        self, tool_name: str, agent: AgentProfile | None
+    ) -> None:
         if not agent:
             return
-        perm = str((agent.model_policy_json or {}).get("permissions") or "code-write")
+        raw_permission = (agent.model_policy_json or {}).get("permissions")
+        if isinstance(raw_permission, dict):
+            raw_permission = (
+                raw_permission.get(tool_name)
+                or raw_permission.get("default")
+                or raw_permission.get("level")
+            )
+        # Missing permissions are deliberately read-only. Write access must be explicit in the
+        # agent contract, even for legacy profiles created before HITL permissions existed.
+        perm = str(raw_permission or "read-only")
         if perm not in self._PERMISSION_RANK:
-            return
+            perm = "read-only"
         if perm == "merge-blocked" and tool_name in self._MERGE_BLOCKED_TOOLS:
             raise BlockedExecution(
                 f"Tool '{tool_name}' is blocked for merge-blocked agents (no PR/label mutations)."
@@ -562,7 +658,12 @@ class OrchestrationRoutingServiceMixin:
             )
 
     async def _candidate_workers(
-        self, project_id: str, *, manager=None, explicit_worker=None, task: OrchestratorTask | None = None
+        self,
+        project_id: str,
+        *,
+        manager=None,
+        explicit_worker=None,
+        task: OrchestratorTask | None = None,
     ) -> list:
         if explicit_worker is not None:
             return [explicit_worker]
@@ -570,7 +671,11 @@ class OrchestrationRoutingServiceMixin:
         allowed_agent_ids: set[str] | None = None
         if task is not None:
             repo_pool = await self._task_repo_pool_config(task)
-            configured = [str(item).strip() for item in (repo_pool.get("worker_agent_ids") or []) if str(item).strip()]
+            configured = [
+                str(item).strip()
+                for item in (repo_pool.get("worker_agent_ids") or [])
+                if str(item).strip()
+            ]
             if configured:
                 allowed_agent_ids = set(configured)
         workers = []
@@ -599,13 +704,19 @@ class OrchestrationRoutingServiceMixin:
         exe = self._project_execution_settings(project) if project else {}
         workers = list(candidate_workers)
         if manager:
-            allowed = [w for w in workers if self._delegation_edge_allowed(manager, w)]
+            allowed = [
+                w for w in workers if self._delegation_edge_allowed(manager, w, project=project)
+            ]
             if allowed:
                 workers = allowed
-        queue_depths = await self.repo.count_active_runs_by_worker(
-            project_id,
-            [agent.id for agent in workers],
-        ) if workers else {}
+        queue_depths = (
+            await self.repo.count_active_runs_by_worker(
+                project_id,
+                [agent.id for agent in workers],
+            )
+            if workers
+            else {}
+        )
         for item in self._normalize_subtask_graph(sub_tasks, parent_task=parent_task):
             required_capabilities = {
                 str(value).strip()
@@ -666,7 +777,9 @@ class OrchestrationRoutingServiceMixin:
             )
         return routed
 
-    def _partition_subtasks(self, sub_tasks: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def _partition_subtasks(
+        self, sub_tasks: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         parallel = [item for item in sub_tasks if item.get("parallelizable")]
         sequential = [item for item in sub_tasks if not item.get("parallelizable")]
         return parallel, sequential
@@ -810,7 +923,9 @@ class OrchestrationRoutingServiceMixin:
         )
         candidates = await self._candidate_workers(project_id, task=task)
         if task is not None:
-            candidates = [a for a in candidates if self._agent_eligible_for_task_by_filters(a, task)]
+            candidates = [
+                a for a in candidates if self._agent_eligible_for_task_by_filters(a, task)
+            ]
         ranked = await self._rank_worker_candidates(project_id, task_ns, candidates)
         for agent in ranked:
             if agent not in chosen:
@@ -837,9 +952,13 @@ class OrchestrationRoutingServiceMixin:
         if not candidates:
             return None
         required = set(self._extract_required_tools(task))
-        ranked = await self._rank_worker_candidates(project_id, task, candidates, execution_settings=exe)
+        ranked = await self._rank_worker_candidates(
+            project_id, task, candidates, execution_settings=exe
+        )
         if required:
-            eligible = [agent for agent in ranked if required.issubset(set(agent.allowed_tools_json or []))]
+            eligible = [
+                agent for agent in ranked if required.issubset(set(agent.allowed_tools_json or []))
+            ]
             return eligible[0] if eligible else None
         return ranked[0]
 
@@ -859,15 +978,32 @@ class OrchestrationRoutingServiceMixin:
             if agent.id not in exclude and self._agent_eligible_for_task_by_filters(agent, task)
         ]
         if len(candidates) <= 2:
-            return candidates[:2]
+            if len(candidates) == 2 and self._brainstorm_pair_allowed(
+                candidates[0], candidates[1], project=project
+            ):
+                return candidates
+            return []
         required = set(self._extract_required_tools(task))
-        ranked = await self._rank_worker_candidates(project_id, task, candidates, execution_settings=exe)
+        ranked = await self._rank_worker_candidates(
+            project_id, task, candidates, execution_settings=exe
+        )
         if required:
-            ranked = [a for a in ranked if required.issubset(set(a.allowed_tools_json or []))] or ranked
+            ranked = [
+                a for a in ranked if required.issubset(set(a.allowed_tools_json or []))
+            ] or ranked
         if len(ranked) < 2:
-            return ranked[:2]
+            return []
         first = ranked[0]
-        second = next((a for a in ranked[1:] if a.id != first.id), ranked[1])
+        second = next(
+            (
+                a
+                for a in ranked[1:]
+                if a.id != first.id and self._brainstorm_pair_allowed(first, a, project=project)
+            ),
+            None,
+        )
+        if second is None:
+            return [first]
         return [first, second]
 
     async def _project_default_manager(
@@ -883,18 +1019,46 @@ class OrchestrationRoutingServiceMixin:
                     return manager
         memberships = await self.repo.list_project_memberships(project_id)
         manager_membership = next(
-            (item for item in memberships if item.is_default_manager or item.role in {"manager", "team_lead"}),
+            (
+                item
+                for item in memberships
+                if item.is_default_manager or item.role in {"manager", "team_lead"}
+            ),
             None,
         )
         if manager_membership is None:
             return None
         return await self._load_agent_for_run(manager_membership.agent_id)
 
-    def _delegation_edge_allowed(self, manager: AgentProfile | None, worker: AgentProfile | None) -> bool:
+    def _delegation_edge_allowed(
+        self,
+        manager: AgentProfile | None,
+        worker: AgentProfile | None,
+        *,
+        project: OrchestratorProject | None = None,
+    ) -> bool:
         if manager is None or worker is None:
             return True
         if manager.id != worker.id and not self._is_agent_descendant(manager, worker):
             return False
+        if project is not None:
+            policy = policy_from_execution(self._project_execution_settings(project))
+            explicit = {
+                edge["target_agent_id"]
+                for edge in policy.get("edges", [])
+                if edge.get("relationship") == "delegates_to"
+                and edge.get("source_agent_id") == manager.id
+            }
+            if explicit and worker.id not in explicit:
+                return False
+            configured = policy.get("delegation_rules", {}).get(manager.id)
+            if (
+                configured is not None
+                and configured
+                and worker.id not in configured
+                and worker.slug not in configured
+            ):
+                return False
         rules = (manager.model_policy_json or {}).get("delegation_rules") or {}
         allowed = rules.get("allowed_delegate_to")
         if not allowed or not isinstance(allowed, list):
@@ -904,7 +1068,13 @@ class OrchestrationRoutingServiceMixin:
             return True
         return worker.slug in allowed_set or worker.id in allowed_set
 
-    def _brainstorm_pair_allowed(self, agent_a: AgentProfile, agent_b: AgentProfile) -> bool:
+    def _brainstorm_pair_allowed(
+        self,
+        agent_a: AgentProfile,
+        agent_b: AgentProfile,
+        *,
+        project: OrchestratorProject | None = None,
+    ) -> bool:
         def one_way(left: AgentProfile, right: AgentProfile) -> bool:
             rules = (left.model_policy_json or {}).get("delegation_rules") or {}
             raw = rules.get("allowed_brainstorm_with")
@@ -915,7 +1085,29 @@ class OrchestrationRoutingServiceMixin:
                 return True
             return right.slug in s or right.id in s
 
-        return one_way(agent_a, agent_b) and one_way(agent_b, agent_a)
+        if not (one_way(agent_a, agent_b) and one_way(agent_b, agent_a)):
+            return False
+        if project is None:
+            return True
+        policy = policy_from_execution(self._project_execution_settings(project))
+        collaboration_edges = {
+            frozenset((edge["source_agent_id"], edge["target_agent_id"]))
+            for edge in policy.get("edges", [])
+            if edge.get("relationship") == "collaborates_with"
+        }
+        if collaboration_edges and frozenset((agent_a.id, agent_b.id)) not in collaboration_edges:
+            return False
+        rules = policy.get("brainstorm_rules", {})
+        for left, right in ((agent_a, agent_b), (agent_b, agent_a)):
+            allowed = rules.get(left.id)
+            if (
+                allowed is not None
+                and allowed
+                and right.id not in allowed
+                and right.slug not in allowed
+            ):
+                return False
+        return True
 
     async def _apply_blocked_handoff_suggestion(
         self,
@@ -962,10 +1154,9 @@ class OrchestrationRoutingServiceMixin:
             esc = (worker.model_policy_json or {}).get("escalation_path")
             if esc:
                 target = await self.repo.get_agent_by_slug(project.owner_id, str(esc).strip())
-                if target and target.is_active:
-                    if target.id in member_ids:
-                        handoff_id = target.id
-                        handoff_via = "escalation_path"
+                if target and target.is_active and target.id in member_ids:
+                    handoff_id = target.id
+                    handoff_via = "escalation_path"
         if handoff_id is None and bool(blocked_handoff.get("fallback_to_manager", True)):
             mgr = execution.get("manager_agent_id")
             if mgr:
@@ -999,7 +1190,9 @@ class OrchestrationRoutingServiceMixin:
         skip_unhealthy = bool(exe.get("skip_unhealthy_worker_providers", True))
 
         required = set(self._extract_required_tools(task))
-        queue_depths = await self.repo.count_active_runs_by_worker(project_id, [a.id for a in candidates])
+        queue_depths = await self.repo.count_active_runs_by_worker(
+            project_id, [a.id for a in candidates]
+        )
         health_snapshots = await self._provider_health_snapshots(candidates)
 
         now = datetime.now(UTC)
@@ -1014,7 +1207,13 @@ class OrchestrationRoutingServiceMixin:
                     return 2.0 if getattr(task, "priority", "normal") in {"high", "urgent"} else 1.0
                 if hours_to_due <= 0:
                     return 5.0
-                priority_boost = 2.0 if getattr(task, "priority", "normal") == "urgent" else 1.5 if getattr(task, "priority", "normal") == "high" else 1.0
+                priority_boost = (
+                    2.0
+                    if getattr(task, "priority", "normal") == "urgent"
+                    else 1.5
+                    if getattr(task, "priority", "normal") == "high"
+                    else 1.0
+                )
                 return priority_boost * max(1.0, min(72.0, 24.0 / max(hours_to_due, 0.25)))
             if routing_mode == "throughput":
                 return 0.75
@@ -1025,7 +1224,9 @@ class OrchestrationRoutingServiceMixin:
 
         def tie_key(agent: AgentProfile) -> tuple[Any, ...]:
             if sibling_mode == "round_robin":
-                digest = hashlib.md5(f"{task_id}:{agent.parent_agent_id or ''}:{agent.id}".encode()).hexdigest()
+                digest = hashlib.md5(
+                    f"{task_id}:{agent.parent_agent_id or ''}:{agent.id}".encode()
+                ).hexdigest()
                 return (int(digest[:8], 16) % 10000,)
             return (agent.name,)
 
@@ -1041,7 +1242,11 @@ class OrchestrationRoutingServiceMixin:
                 snap = health_snapshots.get(agent.provider_config_id)
                 if snap and snap[1] is not None:
                     if snap[0] is False:
-                        unhealthy_penalty = 10_000 if skip_unhealthy or routing_mode == "model_availability" else 100
+                        unhealthy_penalty = (
+                            10_000
+                            if skip_unhealthy or routing_mode == "model_availability"
+                            else 100
+                        )
                         health_rank = 1
                     else:
                         health_rank = -1
@@ -1071,4 +1276,8 @@ class OrchestrationRoutingServiceMixin:
         if project is None:
             return []
         execution = self._project_execution_settings(project)
-        return [str(item).strip() for item in execution.get("reviewer_agent_ids") or [] if str(item).strip()]
+        return [
+            str(item).strip()
+            for item in execution.get("reviewer_agent_ids") or []
+            if str(item).strip()
+        ]

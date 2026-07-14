@@ -14,12 +14,15 @@ from backend.modules.github.schemas import (
     GithubConnectionResponse,
     GithubIssueImportRequest,
     GithubIssueLinkResponse,
+    GithubPrRequest,
     GithubRepositoryResponse,
+    GithubSyncReplayRequest,
     GithubSyncEventResponse,
     GithubWebhookResponse,
 )
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.schemas import ApprovalResponse, TaskResponse
+from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.services.service import OrchestrationService
 
 router = APIRouter()
@@ -102,17 +105,15 @@ def _approval(item) -> ApprovalResponse:
         project_id=item.project_id,
         task_id=item.task_id,
         run_id=item.run_id,
+        issue_link_id=item.issue_link_id,
         approval_type=item.approval_type,
         status=item.status,
-        title=item.title,
-        summary=item.summary,
-        detail=item.detail,
-        payload=item.payload_json,
+        reason=item.reason,
+        payload=redact_approval_payload(item.payload_json),
         requested_by_user_id=item.requested_by_user_id,
         approved_by_user_id=item.approved_by_user_id,
-        decision_reason=item.decision_reason,
         created_at=item.created_at,
-        updated_at=item.updated_at,
+        resolved_at=item.resolved_at,
     )
 
 
@@ -304,6 +305,39 @@ async def request_github_comment(
         artifact_ids=payload.artifact_ids,
     )
     return _approval(approval)
+
+
+@router.post("/github/issues/{issue_link_id}/pr", response_model=ApprovalResponse, status_code=201)
+async def request_github_pr(
+    issue_link_id: str,
+    payload: GithubPrRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    approval = await service.create_github_pr_approval(
+        current_user,
+        issue_link_id,
+        run_id=payload.run_id,
+        draft_pr=payload.draft_pr,
+    )
+    return _approval(approval)
+
+
+@router.post("/github/sync-events/{sync_event_id}/replay", response_model=GithubSyncEventResponse)
+async def replay_github_sync_event(
+    sync_event_id: str,
+    payload: GithubSyncReplayRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = OrchestrationService(db)
+    event = await service.replay_github_sync_event(
+        current_user,
+        sync_event_id,
+        force=bool(payload.force) if payload else False,
+    )
+    return _github_sync_event(event)
 
 
 @public_router.post("/webhooks/github", response_model=GithubWebhookResponse)

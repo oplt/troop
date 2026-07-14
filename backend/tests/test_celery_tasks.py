@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from backend.workers import orchestration as orch_workers
+from backend.workers.celery_app import celery_app
 from backend.workers.retry import CELERY_TRANSIENT_EXCEPTIONS
 
 
@@ -17,6 +16,11 @@ def test_orchestration_celery_tasks_use_transient_autoretry():
     ]
     for task in tasks:
         assert task.autoretry_for == CELERY_TRANSIENT_EXCEPTIONS
+
+
+def test_code_execution_is_routed_to_cpu_queue():
+    route = celery_app.conf.task_routes["backend.workers.orchestration.run_code_execution"]
+    assert route["queue"] == orch_workers.settings.CELERY_QUEUE_CPU
 
 
 def test_queue_orchestration_run_eager_executes_inline():

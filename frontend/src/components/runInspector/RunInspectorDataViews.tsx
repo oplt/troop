@@ -54,7 +54,7 @@ export function CollapsibleRawJson({
                     {summary}
                 </Typography>
             )}
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", useFlexGap: true }}>
+            <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
                 <Button size="small" variant="text" onClick={() => setOpen((o) => !o)} sx={{ minWidth: 0, px: 0 }}>
                     {open ? "Hide raw JSON" : "View raw JSON"}
                 </Button>

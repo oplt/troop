@@ -19,9 +19,36 @@ from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.schemas import TaskAnalysisOutput, TaskAnalysisResponse
 
 
-def _fingerprint_task(task: OrchestratorTask) -> str:
-    """Generate content fingerprint for caching."""
-    content = f"{task.title}|{task.description or ''}|{task.objective or ''}|{task.acceptance_criteria or ''}"
+def _fingerprint_task(
+    task: OrchestratorTask,
+    *,
+    project: Any | None = None,
+    catalog_fingerprint: str = "",
+) -> str:
+    """Generate content fingerprint for caching — includes project/catalog context."""
+    parts = [
+        task.title or "",
+        task.description or "",
+        task.objective or "",
+        task.acceptance_criteria or "",
+        getattr(task, "expected_output", None) or "",
+        json.dumps(getattr(task, "acceptance_criteria_json", None) or [], sort_keys=True),
+        json.dumps(getattr(task, "labels_json", None) or [], sort_keys=True),
+        getattr(task, "task_type", None) or "",
+        getattr(task, "risk_level", None) or "",
+    ]
+    if project is not None:
+        parts.extend(
+            [
+                getattr(project, "id", "") or "",
+                getattr(project, "company_id", "") or "",
+                getattr(project, "department_id", "") or "",
+                getattr(project, "goals_markdown", None) or "",
+                getattr(project, "description", None) or "",
+            ]
+        )
+    parts.append(catalog_fingerprint or "")
+    content = "|".join(str(p) for p in parts)
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
@@ -222,14 +249,35 @@ class TaskAnalyzerService:
         if task is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
 
-        fingerprint = _fingerprint_task(task)
+        from backend.modules.projects.orchestration_models import OrchestratorProject
+
+        project = await self.db.get(OrchestratorProject, task.project_id)
+        tools = await self.repo.list_tool_definitions(is_active=True)
+        skills = await self.repo.list_skills(owner_id, status="active")
+        catalog_fp = hashlib.sha256(
+            ("|".join(sorted(t.slug for t in tools)) + "|" + "|".join(sorted(s.slug for s in skills))).encode()
+        ).hexdigest()[:12]
+        fingerprint = _fingerprint_task(
+            task, project=project, catalog_fingerprint=catalog_fp
+        )
         cached = await self.repo.get_task_analysis_by_fingerprint(fingerprint, task_id)
         if cached:
             return TaskAnalysisResponse.model_validate(cached)
 
+        context = {
+            "project_goals": getattr(project, "goals_markdown", None) if project else None,
+            "project_description": getattr(project, "description", None) if project else None,
+            "department_id": getattr(project, "department_id", None) if project else None,
+            "company_id": getattr(project, "company_id", None) if project else None,
+            "available_tools": [t.slug for t in tools[:80]],
+            "available_skills": [s.slug for s in skills[:80]],
+        }
+
         if use_llm and provider:
             try:
-                analysis_output = await self._llm_analyze(task, model_name, provider)
+                analysis_output = await self._llm_analyze(
+                    task, model_name, provider, context=context
+                )
                 model_used = model_name or provider.default_model
             except Exception:
                 analysis_output = _heuristic_analyze(task)
@@ -290,10 +338,17 @@ class TaskAnalyzerService:
         return TaskAnalysisResponse.model_validate(analysis)
 
     async def _llm_analyze(
-        self, task: OrchestratorTask, model_name: str | None, provider: ProviderConfig
+        self,
+        task: OrchestratorTask,
+        model_name: str | None,
+        provider: ProviderConfig,
+        *,
+        context: dict[str, Any] | None = None,
     ) -> TaskAnalysisOutput:
         """Use LLM for structured analysis."""
         system_prompt = """You are a task analysis expert. Analyze the task and return structured JSON.
+
+Only recommend tools from available_tools when provided. Prefer existing skill slugs from available_skills.
 
 Output JSON schema:
 {
@@ -310,12 +365,26 @@ Output JSON schema:
   "approval_requirements": ["array of strings"]
 }"""
 
+        ctx = context or {}
         user_prompt = f"""Analyze this task:
 
 Title: {task.title}
 Description: {task.description or 'N/A'}
 Objective: {task.objective or 'N/A'}
+Expected output: {getattr(task, 'expected_output', None) or 'N/A'}
 Acceptance Criteria: {task.acceptance_criteria or 'N/A'}
+Labels: {json.dumps(getattr(task, 'labels_json', None) or [])}
+Task type: {getattr(task, 'task_type', None) or 'N/A'}
+Risk level hint: {getattr(task, 'risk_level', None) or 'N/A'}
+
+Project context:
+- goals: {ctx.get('project_goals') or 'N/A'}
+- description: {ctx.get('project_description') or 'N/A'}
+- department_id: {ctx.get('department_id') or 'N/A'}
+- company_id: {ctx.get('company_id') or 'N/A'}
+
+Available tools: {json.dumps(ctx.get('available_tools') or [])}
+Available skills: {json.dumps(ctx.get('available_skills') or [])}
 
 Return only valid JSON matching the schema."""
 
@@ -329,7 +398,13 @@ Return only valid JSON matching the schema."""
         )
 
         if result.output_json:
-            return TaskAnalysisOutput(**result.output_json)
-        else:
+            output = TaskAnalysisOutput(**result.output_json)
+            allowed = set(ctx.get("available_tools") or [])
+            if allowed:
+                filtered = [t for t in output.required_tools if t in allowed]
+                output.required_tools = filtered or ["knowledge_search"]
+            return output
+        if result.output_text:
             data = json.loads(result.output_text)
             return TaskAnalysisOutput(**data)
+        return _heuristic_analyze(task)

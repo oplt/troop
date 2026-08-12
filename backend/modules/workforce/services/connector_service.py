@@ -2,16 +2,48 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
 from backend.modules.workforce.catalog import CONNECTOR_CATALOG
 from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation
 from backend.modules.workforce.services.a2a_client import A2AClient, A2AClientError
 from backend.modules.workforce.services.mcp_client import MCPClient, MCPClientError
+from backend.modules.workforce.services.outbound_url import UnsafeURLError, validate_outbound_url
+
+_SECRET_KEYS = ("auth_token", "api_key", "password", "secret", "token")
+
+
+def _split_secrets(config: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    public: dict[str, Any] = {}
+    secrets: dict[str, Any] = {}
+    for key, value in (config or {}).items():
+        if key in _SECRET_KEYS and value:
+            secrets[key] = value
+        else:
+            public[key] = value
+    return public, secrets
+
+
+def resolve_installation_config(installation: ConnectorInstallation) -> dict[str, Any]:
+    """Merge public config with decrypted secrets for runtime use."""
+    config = dict(installation.config_json or {})
+    secrets_ref = installation.secrets_ref
+    if secrets_ref and isinstance(secrets_ref, str):
+        raw = decrypt_secret(secrets_ref)
+        if raw:
+            try:
+                secrets = json.loads(raw)
+            except json.JSONDecodeError:
+                secrets = {"auth_token": raw}
+            if isinstance(secrets, dict):
+                config.update(secrets)
+    return config
 
 
 class ConnectorService:
@@ -90,11 +122,21 @@ class ConnectorService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="connector definition not found")
 
         config = dict(config_json or {})
-        if not str(config.get("base_url") or config.get("url") or "").strip():
+        base_url = str(config.get("base_url") or config.get("url") or "").strip()
+        if not base_url:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="config_json.base_url is required",
             )
+        try:
+            validate_outbound_url(base_url, allow_http=True)
+            if config.get("card_url"):
+                validate_outbound_url(str(config["card_url"]), allow_http=True)
+        except UnsafeURLError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+        public_config, secrets = _split_secrets(config)
+        secrets_ref = encrypt_secret(json.dumps(secrets)) if secrets else None
 
         installation = ConnectorInstallation(
             connector_definition_id=definition.id,
@@ -102,7 +144,8 @@ class ConnectorService:
             company_id=company_id,
             name=name.strip() or definition.name,
             status="active",
-            config_json=config,
+            config_json=public_config,
+            secrets_ref=secrets_ref,
             metadata_json={"provider_type": definition.provider_type},
         )
         self.db.add(installation)
@@ -139,7 +182,18 @@ class ConnectorService:
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid status")
             installation.status = status
         if config_json is not None:
-            installation.config_json = dict(config_json)
+            base_url = str(config_json.get("base_url") or config_json.get("url") or "").strip()
+            if base_url:
+                try:
+                    validate_outbound_url(base_url, allow_http=True)
+                except UnsafeURLError as exc:
+                    raise HTTPException(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                    ) from exc
+            public_config, secrets = _split_secrets(dict(config_json))
+            installation.config_json = public_config
+            if secrets:
+                installation.secrets_ref = encrypt_secret(json.dumps(secrets))
         await self.db.commit()
         await self.db.refresh(installation)
         return installation
@@ -147,8 +201,12 @@ class ConnectorService:
     async def test_installation(self, owner_id: str, installation_id: str) -> dict[str, Any]:
         installation = await self.get_installation(owner_id, installation_id)
         definition = await self.get_definition(installation.connector_definition_id)
-        config = dict(installation.config_json or {})
+        config = resolve_installation_config(installation)
         base_url = str(config.get("base_url") or config.get("url") or "").strip()
+        try:
+            validate_outbound_url(base_url, allow_http=True)
+        except UnsafeURLError as exc:
+            return {"ok": False, "error": str(exc)}
         headers: dict[str, str] = {}
         token = config.get("auth_token") or config.get("api_key")
         if token:

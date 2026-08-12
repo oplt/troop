@@ -104,6 +104,22 @@ class SkillResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     current_version: SkillVersionResponse | None = None
+    # Flattened current_version fields for UI consumers
+    purpose: str = ""
+    when_to_use: str = ""
+    instructions: str = ""
+    instructions_markdown: str = ""
+    capabilities: list[Any] = Field(default_factory=list)
+    tools: list[Any] = Field(default_factory=list)
+    knowledge: list[Any] = Field(default_factory=list)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    constraints: list[Any] = Field(default_factory=list)
+    risk_level: str = "low"
+    examples: list[Any] = Field(default_factory=list)
+    evaluation_criteria: list[Any] = Field(default_factory=list)
+    version: int = 0
+    parent_skill_id: str | None = None
 
 
 class SkillDraftCreate(RequestModel):
@@ -166,6 +182,7 @@ class SkillDraftResponse(BaseModel):
     source_type: str
     source_task_id: str | None = None
     source_project_id: str | None = None
+    project_id: str | None = None
     status: str
     name: str
     slug: str
@@ -173,6 +190,7 @@ class SkillDraftResponse(BaseModel):
     purpose: str = ""
     when_to_use: str = ""
     instructions_markdown: str = ""
+    instructions: str = ""
     scope: str
     risk_level: str
     capabilities_json: list[Any] = Field(default_factory=list)
@@ -192,6 +210,19 @@ class SkillDraftResponse(BaseModel):
     generation_metadata_json: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+    # FE-friendly aliases
+    capabilities: list[Any] = Field(default_factory=list)
+    tools: list[Any] = Field(default_factory=list)
+    knowledge: list[Any] = Field(default_factory=list)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    constraints: list[Any] = Field(default_factory=list)
+    examples: list[Any] = Field(default_factory=list)
+    evaluation_criteria: list[Any] = Field(default_factory=list)
+    validation_errors: list[Any] = Field(default_factory=list)
+    validation_warnings: list[Any] = Field(default_factory=list)
+    duplicate_matches: list[Any] = Field(default_factory=list)
+    is_valid: bool = False
 
 
 class SkillPromoteRequest(RequestModel):
@@ -305,7 +336,7 @@ class SkillGenerationOutput(BaseModel):
     examples: list[Any] = Field(default_factory=list)
     evaluation_criteria: list[Any] = Field(default_factory=list)
     recommended_scope: SkillScope = "project"
-    confidence: float = 0.8
+    confidence: float | None = None
 
 
 class SkillGenerationBatchResult(BaseModel):

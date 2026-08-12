@@ -58,11 +58,11 @@ async def create_department(
 async def update_department(
     department_id: str,
     payload: DepartmentUpdate,
-    company_id: str,
+    company_id: str | None = None,
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> DepartmentResponse:
-    """Update a department."""
+    """Update a department (company_id optional — resolved from ownership)."""
     service = DepartmentService(db)
     kwargs = {}
     if payload.name is not None:
@@ -86,17 +86,23 @@ async def update_department(
     if payload.is_archived is not None:
         kwargs["is_archived"] = payload.is_archived
 
-    dept = await service.update(user.id, company_id, department_id, **kwargs)
+    if company_id:
+        dept = await service.update(user.id, company_id, department_id, **kwargs)
+    else:
+        dept = await service.update_for_owner(user.id, department_id, **kwargs)
     return DepartmentResponse.model_validate(dept)
 
 
 @router.post("/{department_id}/archive", status_code=204)
 async def archive_department(
     department_id: str,
-    company_id: str,
+    company_id: str | None = None,
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Archive a department."""
+    """Archive a department (company_id optional — resolved from ownership)."""
     service = DepartmentService(db)
-    await service.update(user.id, company_id, department_id, is_archived=True)
+    if company_id:
+        await service.update(user.id, company_id, department_id, is_archived=True)
+    else:
+        await service.update_for_owner(user.id, department_id, is_archived=True)

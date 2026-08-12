@@ -290,9 +290,12 @@ class AgentMatcherService:
         )
 
         ids = skill_ids if skill_ids is not None else list(proposal.skill_ids or [])
+        uncovered: list[str] = []
+        assigned = 0
         for idx, skill_id in enumerate(ids):
             skill = await self.repo.get_skill(skill_id, user.id)
             if not skill or skill.status not in {"active", "testing"}:
+                uncovered.append(str(skill_id))
                 continue
             await self.repo.create_agent_skill_assignment(
                 agent_id=agent.id,
@@ -302,6 +305,37 @@ class AgentMatcherService:
                 priority=idx,
                 enabled=True,
             )
+            assigned += 1
+
+        # Ensure project membership
+        existing = await team.repo.get_project_membership(project_id, agent.id)
+        if existing is None:
+            await team.repo.create_project_membership(
+                project_id=project_id,
+                agent_id=agent.id,
+            )
+
+        # Resolve provider / model policy when empty
+        if not agent.model_policy_json:
+            from backend.modules.workforce.services.provider_resolution import (
+                resolve_owner_provider,
+            )
+
+            provider = await resolve_owner_provider(
+                self.db, user.id, project_id=project_id, purpose="default"
+            )
+            if provider:
+                agent.model_policy_json = {
+                    "provider_config_id": provider.id,
+                    "model": provider.default_model,
+                }
+                agent.provider_config_id = getattr(agent, "provider_config_id", None) or provider.id
+
+        meta = dict(agent.metadata_json or {})
+        meta["uncovered_skill_ids"] = uncovered
+        meta["assigned_skill_count"] = assigned
+        agent.metadata_json = meta
+
         await self.db.commit()
         await self.db.refresh(agent)
         return agent

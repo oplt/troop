@@ -46,7 +46,10 @@ class WorkflowStartRequest(RequestModel):
 
 
 class WorkflowResumeRequest(RequestModel):
-    approval_granted: bool = False
+    approval_request_id: str | None = None
+    human_input: dict = Field(default_factory=dict)
+    # Deprecated: client-asserted approval is ignored; keep for compat parsing only.
+    approval_granted: bool | None = None
 
 
 class WorkflowRunResponse(BaseModel):
@@ -227,7 +230,11 @@ async def resume_workflow_run(
     runtime = WorkflowRuntimeService(db)
     try:
         run = await runtime.resume_run(
-            user.id, run_id, approval_granted=payload.approval_granted
+            user.id,
+            run_id,
+            approval_request_id=payload.approval_request_id,
+            human_input=payload.human_input or {},
+            actor_user_id=user.id,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc

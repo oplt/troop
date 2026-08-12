@@ -140,3 +140,22 @@ class DepartmentService:
         if dept is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="department not found")
         return dept
+
+    async def get_for_owner(self, owner_id: str, department_id: str) -> Department:
+        """Resolve department by id, verifying the company is owned by the user."""
+        dept = await self.repo.get_department_by_id(department_id)
+        if dept is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="department not found")
+        company = await self.company_repo.get(owner_id, dept.company_id)
+        if company is None:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="company access denied")
+        return dept
+
+    async def update_for_owner(
+        self,
+        owner_id: str,
+        department_id: str,
+        **kwargs: Any,
+    ) -> Department:
+        dept = await self.get_for_owner(owner_id, department_id)
+        return await self.update(owner_id, dept.company_id, department_id, **kwargs)

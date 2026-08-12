@@ -50,6 +50,12 @@ class WorkforceRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_department_by_id(self, department_id: str) -> Department | None:
+        result = await self.db.execute(
+            select(Department).where(Department.id == department_id)
+        )
+        return result.scalar_one_or_none()
+
     async def find_department_by_slug(self, company_id: str, slug: str) -> Department | None:
         result = await self.db.execute(
             select(Department).where(

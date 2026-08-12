@@ -142,7 +142,14 @@ class WorkflowRuntimeService:
         return run
 
     async def resume_run(
-        self, owner_id: str, run_id: str, *, approval_granted: bool = False
+        self,
+        owner_id: str,
+        run_id: str,
+        *,
+        approval_request_id: str | None = None,
+        human_input: dict | None = None,
+        actor_user_id: str | None = None,
+        approval_granted: bool = False,  # deprecated; ignored
     ) -> WorkflowRun:
         result = await self.db.execute(select(WorkflowRun).where(WorkflowRun.id == run_id))
         run = result.scalar_one_or_none()
@@ -158,8 +165,49 @@ class WorkflowRuntimeService:
             raise ValueError("workflow version missing")
         ctx = dict(run.context_json or {})
         vars_ = dict(ctx.get("vars") or {})
-        if approval_granted:
+
+        node = None
+        if run.current_node_id and version.nodes_json:
+            node = next(
+                (
+                    n
+                    for n in version.nodes_json
+                    if isinstance(n, dict) and n.get("id") == run.current_node_id
+                ),
+                None,
+            )
+        ntype = str((node or {}).get("type") or "")
+
+        if ntype == "approval":
+            if not approval_request_id:
+                raise ValueError(
+                    "approval_request_id required — client-asserted approval_granted is not accepted"
+                )
+            from backend.modules.orchestration.models import ApprovalRequest
+
+            approval = await self.db.get(ApprovalRequest, approval_request_id)
+            if approval is None or approval.status != "approved":
+                raise ValueError("approval_request_id must reference an approved ApprovalRequest")
+            if approval.project_id and run.project_id and approval.project_id != run.project_id:
+                raise ValueError("approval does not match workflow run project")
+            payload = dict(approval.payload_json or {})
+            if payload.get("workflow_run_id") and payload.get("workflow_run_id") != run.id:
+                raise ValueError("approval does not match workflow run")
             vars_["approval_granted"] = True
+            vars_["approval_request_id"] = approval_request_id
+            vars_["approved_by"] = approval.approved_by_user_id or actor_user_id
+        elif ntype == "human_input":
+            if not isinstance(human_input, dict) or not human_input:
+                raise ValueError("human_input payload required for human_input nodes")
+            vars_["human_input"] = human_input
+            vars_["human_input_by"] = actor_user_id
+            vars_["approval_granted"] = True  # allow node to proceed after input
+        elif approval_granted:
+            # Explicitly reject legacy client-asserted approvals for non-input nodes
+            raise ValueError(
+                "approval_granted is not accepted; submit approval_request_id or human_input"
+            )
+
         ctx["vars"] = vars_
         run.context_json = ctx
         run.status = "running"

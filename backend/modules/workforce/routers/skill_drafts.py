@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.deps.auth import get_authenticated_user
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
+from backend.modules.workforce.dto import enrich_skill_response, skill_draft_response
 from backend.modules.workforce.schemas import (
     SkillDraftCreate,
     SkillDraftResponse,
@@ -26,7 +27,7 @@ async def list_skill_drafts(
     """List skill drafts owned by the current user."""
     service = SkillService(db)
     drafts = await service.list_drafts(user.id, status=status)
-    return [SkillDraftResponse.model_validate(d) for d in drafts]
+    return [skill_draft_response(d) for d in drafts]
 
 
 @router.post("", response_model=SkillDraftResponse, status_code=201)
@@ -76,7 +77,7 @@ async def create_skill_draft(
         unmatched_sections_json=payload.unmatched_sections,
         warnings_json=payload.warnings,
     )
-    return SkillDraftResponse.model_validate(draft)
+    return skill_draft_response(draft)
 
 
 @router.post("/import-markdown", response_model=SkillDraftResponse, status_code=201)
@@ -103,7 +104,7 @@ async def import_skill_markdown(
         company_id=company_id,
         scope=str(payload.get("scope") or "organization"),
     )
-    return SkillDraftResponse.model_validate(draft)
+    return skill_draft_response(draft)
 
 
 @router.get("/{draft_id}", response_model=SkillDraftResponse)
@@ -115,7 +116,7 @@ async def get_skill_draft(
     """Get a single skill draft by ID."""
     service = SkillService(db)
     draft = await service.get_draft(user.id, draft_id)
-    return SkillDraftResponse.model_validate(draft)
+    return skill_draft_response(draft)
 
 
 @router.patch("/{draft_id}", response_model=SkillDraftResponse)
@@ -166,7 +167,7 @@ async def update_skill_draft(
         kwargs["evaluation_criteria_json"] = payload.evaluation_criteria
 
     draft = await service.update_draft(user.id, draft_id, **kwargs)
-    return SkillDraftResponse.model_validate(draft)
+    return skill_draft_response(draft)
 
 
 @router.post("/{draft_id}/validate", response_model=SkillDraftResponse)
@@ -181,7 +182,7 @@ async def validate_skill_draft(
     service = SkillService(db)
     draft = await service.get_draft(user.id, draft_id)
     result = await SkillValidationService(db).validate_draft(user.id, draft)
-    return SkillDraftResponse.model_validate(result["draft"])
+    return skill_draft_response(result["draft"])
 
 
 @router.post("/{draft_id}/publish", response_model=SkillResponse)
@@ -191,20 +192,6 @@ async def publish_skill_draft(
     db: AsyncSession = Depends(get_db),
 ) -> SkillResponse:
     """Publish a skill draft as an active skill (fails on validation errors)."""
-    from backend.modules.workforce.services.skill_validation import SkillValidationService
-
     service = SkillService(db)
-    draft = await service.get_draft(user.id, draft_id)
-    result = await SkillValidationService(db).validate_draft(user.id, draft)
-    if not result["is_valid"]:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "message": "draft failed validation",
-                "validation_errors": result["validation_errors"],
-                "validation_warnings": result["validation_warnings"],
-                "duplicate_matches": result["duplicate_matches"],
-            },
-        )
     skill = await service.publish_draft(user.id, draft_id, created_by=user.id)
-    return SkillResponse.model_validate(skill)
+    return await enrich_skill_response(db, skill)

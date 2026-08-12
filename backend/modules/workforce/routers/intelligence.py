@@ -56,7 +56,9 @@ async def analyze_task(
 
     provider = None
     if not deterministic:
-        provider = await resolve_owner_provider(db, user.id, project_id=project.id)
+        provider = await resolve_owner_provider(
+            db, user.id, project_id=project.id, purpose="task_analysis"
+        )
     # Default: use LLM when a provider is configured unless caller forces heuristics.
     effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
 
@@ -138,6 +140,9 @@ async def find_skill_matches(
         required_capabilities=analysis.required_capabilities_json or [],
         required_tools=analysis.required_tools_json or [],
         task_scope="task",
+        task_id=task.id,
+        project_id=task.project_id,
+        company_id=project.company_id,
     )
 
     requirements = await repo.list_task_requirements(analysis.id)
@@ -220,7 +225,8 @@ async def find_skill_matches(
 @router.post("/tasks/{task_id}/generate-skills", response_model=list[SkillDraftResponse])
 async def generate_missing_skills(
     task_id: str,
-    use_llm: bool = False,
+    use_llm: bool | None = None,
+    deterministic: bool = False,
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[SkillDraftResponse]:
@@ -241,6 +247,7 @@ async def generate_missing_skills(
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
     
     from backend.modules.workforce.repository import WorkforceRepository
+    from backend.modules.workforce.dto import skill_draft_response
     repo = WorkforceRepository(db)
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
@@ -273,13 +280,18 @@ async def generate_missing_skills(
 
     from backend.modules.workforce.services.provider_resolution import resolve_owner_provider
 
-    provider = await resolve_owner_provider(db, user.id, project_id=project.id) if use_llm else None
+    provider = None
+    if not deterministic:
+        provider = await resolve_owner_provider(
+            db, user.id, project_id=project.id, purpose="skill_generation"
+        )
+    effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
     generator_service = SkillGeneratorService(db)
     result = await generator_service.generate_skills(
         owner_id=user.id,
         company_id=project.company_id,
         missing_requirements=missing_reqs,
-        use_llm=bool(use_llm and provider),
+        use_llm=bool(effective_use_llm and provider),
         model_name=(provider.default_model if provider else None),
         provider=provider,
     )
@@ -289,7 +301,7 @@ async def generate_missing_skills(
     for draft_info in result.drafts:
         draft = await repo.get_skill_draft(draft_info["id"], user.id)
         if draft:
-            drafts.append(SkillDraftResponse.model_validate(draft))
+            drafts.append(skill_draft_response(draft))
     
     return drafts
 
@@ -321,12 +333,21 @@ async def find_agent_matches(
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first")
-    
+
+    requirements = await repo.list_task_requirements(analysis.id)
+    matched_skill_slugs: list[str] = []
+    for req in requirements:
+        if req.matched_skill_id and req.coverage_status in {"covered", "partial"}:
+            skill = await repo.get_skill(req.matched_skill_id, user.id)
+            if skill:
+                matched_skill_slugs.append(skill.slug)
+
     matcher_service = AgentMatcherService(db)
     matches = await matcher_service.match_agents(
         owner_id=user.id,
-        required_capabilities=analysis.required_capabilities_json,
-        required_skills=[],
+        required_capabilities=analysis.required_capabilities_json or [],
+        required_skills=matched_skill_slugs,
+        required_tools=analysis.required_tools_json or [],
     )
     
     return [
@@ -456,7 +477,8 @@ async def recommend_workforce(
 @router.post("/projects/{project_id}/analyze", response_model=ProjectAnalysisResponse)
 async def analyze_project(
     project_id: str,
-    use_llm: bool = False,
+    use_llm: bool | None = None,
+    deterministic: bool = False,
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> ProjectAnalysisResponse:
@@ -472,11 +494,16 @@ async def analyze_project(
     service = ProjectAnalyzerService(db)
     from backend.modules.workforce.services.provider_resolution import resolve_owner_provider
 
-    provider = await resolve_owner_provider(db, user.id, project_id=project.id) if use_llm else None
+    provider = None
+    if not deterministic:
+        provider = await resolve_owner_provider(
+            db, user.id, project_id=project.id, purpose="project_analysis"
+        )
+    effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
     analysis = await service.analyze_project(
         project_id=project_id,
         owner_id=user.id,
-        use_llm=bool(use_llm and provider),
+        use_llm=bool(effective_use_llm and provider),
         model_name=(provider.default_model if provider else None),
         provider=provider,
     )

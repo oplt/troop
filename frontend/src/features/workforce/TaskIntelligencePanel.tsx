@@ -427,9 +427,17 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
                                                 {draft.name}
                                             </Typography>
                                             <Chip
-                                                label={`${Math.round(draft.confidence_score * 100)}% confidence`}
+                                                label={
+                                                    draft.confidence_score != null
+                                                        ? `${Math.round(draft.confidence_score * 100)}% confidence`
+                                                        : "Not evaluated"
+                                                }
                                                 size="small"
-                                                color={draft.confidence_score >= 0.8 ? "success" : "default"}
+                                                color={
+                                                    draft.confidence_score != null && draft.confidence_score >= 0.8
+                                                        ? "success"
+                                                        : "default"
+                                                }
                                             />
                                         </Stack>
                                         <Typography variant="caption" color="text.secondary">

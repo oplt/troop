@@ -28,6 +28,7 @@ import {
 } from "../api/workforce";
 import { getDefaultCompany } from "../api/companies";
 import { useSnackbar } from "../app/snackbarContext";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 
 type TabKey = "skills" | "workflows" | "departments" | "agents" | "connectors";
@@ -170,10 +171,11 @@ export default function MarketplacePage() {
     }, [catalog, tab]);
 
     return (
-        <PageShell
-            title="Marketplace"
-            subtitle="Install skills, workflows, departments, agent templates, and MCP/A2A connectors."
-        >
+        <PageShell>
+            <PageHeader
+                title="Marketplace"
+                description="Install skills, workflows, departments, agent templates, and MCP/A2A connectors."
+            />
             <Stack spacing={2}>
                 {error ? <Alert severity="error">{(error as Error).message}</Alert> : null}
                 {summary ? (

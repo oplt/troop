@@ -31,14 +31,14 @@ def _is_json_schema(value: Any) -> bool:
         return False
     if not value:
         return True
-    # Minimal JSON Schema check
-    if "type" in value or "properties" in value or "$schema" in value or "items" in value:
-        return True
     try:
-        json.dumps(value)
+        from jsonschema import Draft202012Validator
+
+        Draft202012Validator.check_schema(value)
         return True
-    except (TypeError, ValueError):
-        return False
+    except Exception:
+        # Fallback: require at least one schema keyword
+        return any(k in value for k in ("type", "properties", "$schema", "items", "anyOf", "oneOf"))
 
 
 class SkillValidationService:
@@ -85,15 +85,24 @@ class SkillValidationService:
         if not _is_json_schema(draft.output_schema_json):
             errors.append("output_schema_json must be a valid JSON Schema object")
 
-        # Tool existence
+        # Tool existence — allow ecosystem prefixes
         known_tools = {t.slug for t in await self.repo.list_tool_definitions(is_active=True)}
-        unknown = [t for t in tools if t not in known_tools]
+        unknown = [
+            t
+            for t in tools
+            if t not in known_tools and not t.startswith("mcp.") and not t.startswith("a2a.")
+        ]
         if unknown:
             # Unknown tools block publish unless catalog empty (pre-seed)
             if known_tools:
                 errors.append(f"unknown tools: {', '.join(unknown)}")
             else:
                 warnings.append(f"tool catalog empty; cannot verify tools: {', '.join(unknown)}")
+        ecosystem = [t for t in tools if t.startswith("mcp.") or t.startswith("a2a.")]
+        if ecosystem:
+            warnings.append(
+                f"ecosystem tools require active connectors/grants: {', '.join(ecosystem)}"
+            )
 
         dangerous = [t for t in tools if t in _DANGEROUS_TOOLS]
         if dangerous and risk in {"low"}:

@@ -159,6 +159,7 @@ async def test_mcp_provider_execute_uses_installation():
     installation.id = "inst-1"
     installation.name = "local-mcp"
     installation.config_json = {"base_url": "http://mcp.test/rpc"}
+    installation.secrets_ref = None
 
     provider = MCPToolProvider(db=MagicMock())
     provider._installations = AsyncMock(return_value=[installation])
@@ -179,11 +180,17 @@ async def test_mcp_provider_execute_uses_installation():
 
 
 @pytest.mark.asyncio
-async def test_a2a_provider_execute_sends_message():
+async def test_a2a_provider_execute_sends_message(monkeypatch):
+    monkeypatch.setenv("TROOP_ALLOW_PRIVATE_CONNECTOR_URLS", "1")
+    monkeypatch.setattr(
+        "backend.modules.workforce.services.ecosystem_providers.validate_outbound_url",
+        lambda url, allow_http=False: url,
+    )
     installation = MagicMock()
     installation.id = "a2a-inst-99"
     installation.name = "partner-agent"
     installation.config_json = {"base_url": "http://a2a.test"}
+    installation.secrets_ref = None
 
     provider = A2AToolProvider(db=MagicMock())
     provider._installations = AsyncMock(return_value=[installation])

@@ -55,7 +55,10 @@ jobs:
       - name: Install backend
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e "backend[dev]"
+          python -m pip install -e "./backend[dev]"
+          python -c "import backend.modules.workforce; print('backend import ok')"
+        env:
+          PYTHONPATH: .
       - name: Ruff lint (backend package + workforce)
         working-directory: backend
         run: >
@@ -95,6 +98,7 @@ jobs:
           backend/tests/test_action_policy.py
           backend/tests/test_workforce_acceptance.py
           backend/tests/test_workforce_ecosystem_p3.py
+          backend/tests/test_incomplete_p0_fixes.py
           backend/tests/test_task_orchestration_contract.py
           backend/tests/test_phase6_modularization.py
           -q

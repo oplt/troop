@@ -1,0 +1,78 @@
+The remaining work I recommend, in order, is:
+
+1. **[P0] Fix CI before doing anything else.** The backend job failed at **Install backend**, so Ruff, Alembic and all backend tests were skipped. The frontend passed install, typecheck, lint and tests, but failed at the production build.  One concrete frontend failure is the new `MarketplacePage`: it passes `title` and `subtitle` to `PageShell`, but `PageShellProps` supports only `children`, `maxWidth`, and `sx`.    Fix the backend editable-install problem, fix the Marketplace build error, and do not mark the P0 verification tasks complete until the actual GitHub Action is green.
+
+2. **[P0] The Skill frontend/backend contract is still broken at runtime.** Backend `SkillResponse` returns the skill identity plus optional `current_version`; it does not flatten `purpose`, `capabilities`, `instructions`, `version`, etc.  But frontend `Skill` assumes those flattened fields exist, and `SkillsPage` directly calls things like `skill.purpose.toLowerCase()`, `skill.capabilities.slice(...)`, and `skill.version`.   This can typecheck because of the declared TypeScript type while crashing against real API data. Either make the backend return a canonical enriched DTO such as:
+   `Skill + current_version fields`,
+   or normalize every response in `workforce.ts`. I prefer an explicit `SkillDetailResponse`/`SkillSummaryResponse`.
+
+3. **[P0] SkillDraft frontend contracts have the same problem.** Backend returns `capabilities_json`, `input_schema_json`, `instructions_markdown`, `validation_errors_json`, etc.  Frontend expects `capabilities`, `inputs`, `instructions`, `validation_errors`, `is_valid`, etc., and `SkillBuilderPage` immediately performs `.join()` on those assumed fields.  `getSkillDraft()`, `validateSkillDraft()` and `listSkillDrafts()` currently do not normalize the raw backend object.  Add one canonical mapper and test the API response end-to-end.
+
+4. **[P0] `updateSkillDraft()` is especially problematic.** Creation converts frontend fields into backend names, but update currently sends the frontend payload directly. Backend expects fields like `instructions_markdown`, `required_tools`, `knowledge_requirements`, `input_schema`, `output_schema`; frontend payload contains `instructions`, `tools`, `knowledge`, `inputs`, `outputs`.   Use the same serializer for create and update.
+
+5. **[P0] Remove the remaining fabricated skill confidence.** `normalizeGeneratedDraft()` still defaults missing confidence to `0.8`.  If the generator did not compute a calibrated confidence, return `null` and display “Not evaluated”. Cursor correctly removed the fake assembled-agent success probability; do the same here.
+
+6. **[P0] Project → Department persistence is still not fixed.** The project form still sends the selected department inside:
+   `settings.department_id`
+   instead of the first-class `department_id` field. It also does not send the selected `company_id` as a first-class project field in that create payload.  Therefore the new relational `OrchestratorProject.department_id` can remain null even though the user selected a department. Move both `company_id` and `department_id` to the top-level request.
+
+7. **[P0] Department edit/archive is still incorrectly wired.** Backend PATCH/archive endpoints require `company_id` as a query parameter.  Frontend `updateDepartment()` and `archiveDepartment()` still do not send it.  Either pass `companyId` from the frontend or, better, let the backend resolve the department by `department_id + authenticated owner`, eliminating unnecessary client-supplied company identity.
+
+8. **[P0/security] Do not let an LLM grant itself tool permissions.** This is the most important runtime security issue I found. `OrchestrationToolbox.execute()` derives:
+   `allowed_tools` from `call.get("allowed_tools")`
+   and
+   `approval_granted` from `call.get("approval_granted")`.  If `call` is model-generated, the model can potentially emit `"approval_granted": true`. These values must never come from the tool-call payload. Construct a server-owned `ToolExecutionContext` from AgentSkillAssignment, ToolGrant, project/task policy and a durable ApprovalRequest/HITL grant.
+
+9. **[P0/security] Tool authorization currently fails open.** The policy section catches arbitrary exceptions and then continues executing:
+   `except Exception: pass`.  A database failure, programming error or missing policy table should not silently authorize `fs_write`, `code_execute`, GitHub actions, MCP or A2A. Fail closed for governed actions. If legacy compatibility is required, make it an explicit server configuration and restrict it to known low-risk tools.
+
+10. **[P0/security] MCP/A2A credentials are stored in plaintext JSON.** Connector installation currently persists the full supplied `config_json`, including `auth_token` or `api_key`, directly into `ConnectorInstallation.config_json`.  The API masks them when returning them, but masking the HTTP response does not encrypt the database value.  Use the existing secret/encryption infrastructure and the connector `secrets_ref` concept instead. Persist only non-secret configuration in JSON.
+
+11. **[P0/security] MCP/A2A introduces an SSRF surface.** Users can provide arbitrary `base_url`, and Troop later sends server-side HTTP requests there.   Add URL validation that blocks loopback, link-local, cloud metadata endpoints, private/internal ranges unless explicitly allowed, redirect-to-private-IP tricks, and unsafe schemes. Prefer Troop's managed external HTTP abstraction rather than raw `httpx.AsyncClient`.
+
+12. **[P0] Do not rewrite an already-published Alembic revision in place.** Cursor repaired `e8a1c2d3f4b5`, but it changed the same migration revision that was already present in the previous `main`.  If any environment applied the old revision, Alembic will consider it already applied and never run the corrected migration. If there is any possibility it was run anywhere, freeze that migration and introduce a corrective migration.
+
+13. **[P0] Legacy SkillPack ownership migration is still unsafe.** The new migration is better than “first user”, but an unreferenced SkillPack is assigned to the user with the largest number of agents—the “modal owner”.  That is still invented ownership. Also, the migration calls `json.loads()` on `skills_json`; PostgreSQL JSON columns may already yield Python lists, in which case the `TypeError` path causes those references to be skipped. Use explicit system/organization ownership or a migration bridge table when true ownership cannot be inferred.
+
+14. **[P1] Skill validation is much better, but JSON Schema validation is not actually JSON Schema validation yet.** `_is_json_schema()` considers almost any JSON-serializable dict valid.  Use a real JSON Schema checker such as `jsonschema.Draft202012Validator.check_schema()`. Also validate that required connectors/tool grants can actually satisfy the skill, not merely that the tool slug exists.
+
+15. **[P1] Put the validation invariant inside `SkillService.publish_draft()`.** The HTTP publish route correctly validates first.  But `SkillService.publish_draft()` itself can still be called internally without validation.  Domain invariants should live at service/domain level, not only the router.
+
+16. **[P1] Task analysis is still much less contextual than intended.** Provider selection now exists, which is good, but `TaskAnalyzerService` still fingerprints and prompts from only task title, description, objective and acceptance criteria.  It does not incorporate project goals, department, organization knowledge, available SkillVersions, ToolDefinitions/connectors, ToolGrants, policies, labels, expected output or knowledge context. Therefore the LLM can still recommend tools Troop cannot use, and cached analysis will remain “valid” after project/tool/knowledge context changes.
+
+17. **[P1] Provider selection is not yet real model routing.** `resolve_owner_provider()` simply chooses the first active provider/default.  Reuse Troop's existing routing/capability/cost/fallback infrastructure. Task classification can use a cheaper model, skill generation a stronger model, and structured output should require a model that supports it.
+
+18. **[P1] Skill generation and Project Analysis still default to heuristics from the UI.** Task analysis now intelligently defaults to an LLM when a provider exists.  But `/generate-skills` still defaults `use_llm=False`, and `/projects/{id}/analyze` also defaults it to false.  Frontend calls both without requesting LLM mode.  So “Generate missing skills” and “Analyze this project with AI” may actually run heuristics. Make their semantics match task analysis: provider available → AI by default; explicit `deterministic=true` → heuristic.
+
+19. **[P1] The direct Skill Matching endpoint is accidentally excluding task/project-scoped skills.** `SkillMatcherService` correctly requires `task_id`/`project_id` for scoped skills.  But `/skill-matches` calls it without `task_id`, `project_id` or `company_id`.  Therefore task/project-scoped skills cannot pass `_scope_allowed()` from this path. The workforce recommendation service does pass context correctly. Make all call sites consistent.
+
+20. **[P1] Skill matching is still only the first version of the scoring engine.** It now does capability/tool/scope/status and avoids the previous N+1 version lookup—good.  Still missing are input/output compatibility, knowledge availability, ToolGrant compatibility, risk/approval compatibility, historical evaluation, cost/latency and optional semantic similarity. Those are valuable next improvements after the correctness issues above.
+
+21. **[P1] Agent matching remains incomplete.** It now batches SkillAssignments and includes tool coverage.  But it does not score project membership, department access, knowledge permissions, ToolGrants/action-policy compatibility, model capability, run load/availability, evaluation history, latency or cost. Furthermore the direct `/agent-matches` route still calls it with `required_skills=[]` and does not pass `required_tools`.  So the UI's “Recommend agent” path is weaker than the underlying matcher.
+
+22. **[P1] Composed-agent creation should create full project membership and provider configuration.** `create_composed_agent()` creates an `AgentProfile` and SkillAssignments, but I do not see a `ProjectAgentMembership` being created there. It also sets `model_policy={}`.  Add the project membership explicitly, resolve an appropriate model/provider, validate required tool grants, and return any uncovered requirements instead of silently skipping invalid skill IDs.
+
+23. **[P1] Canonical SkillVersions are still not clearly the source of truth for actual execution.** The new `load_assigned_skill_versions()` implementation is good.  `get_runtime_profile()` now uses it, but other paths such as hierarchy snapshot still call `build_agent_runtime_profile()` using the legacy `SkillPack/skills_json` path.  More importantly, the actual `execution_service.py` does not itself resolve assigned SkillVersions. Make the exact set of SkillVersion IDs part of each `TaskRun` snapshot and use that same immutable set for prompting, tool resolution, auditing and evaluation.
+
+24. **[P1] Workflow execution is still scaffolding, not a workflow engine.** `WorkflowRuntimeService` explicitly describes itself as a “Minimal” runner. Agent, skill, tool, router, trigger and subworkflow nodes merely return `delegated: true`; parallel does not execute parallel work; delay does not delay; conditions are simple booleans.  The tracker should change this item from `[x]` to `[~]`. Connect these nodes to the existing durable orchestration engine instead of maintaining a second pseudo-runtime.
+
+25. **[P0/P1] Workflow approval is not secure/durable yet.** The workflow resume API accepts:
+    `{"approval_granted": true}`
+    and resumes the approval node.  That is not the ApprovalRequest/HITL architecture we designed. Resume must consume an actual approved, authorized, auditable approval record. Human-input nodes also need an actual input payload, schema and submitter identity.
+
+26. **[P1] Generic execution is still only partially generic.** The new result contract adds `artifacts`, `evidence`, `decisions`, `external_actions`, etc., which is correct. But manager-worker runtime still hard-codes a `github_sync` stage, `changed_files`, GitHub state and an `"Implementation bundle"` artifact.  Replace these with generic stages/artifacts. Engineering workflows should add GitHub/changed-file specialization through workflow/tool adapters.
+
+27. **[P1] Evaluation currently measures assigned skills, not necessarily used skills.** On run completion/failure, the hook loads every SkillVersion assigned to the agent and records the same success/failure against all of them.  That will corrupt learning data if an agent has 10 skills but the task uses only 2. Record the exact SkillVersion set selected for each run, then evaluate only those. Also populate `criteria_scores_json` from each SkillVersion's evaluation criteria and stop silently swallowing evaluation failures.
+
+28. **[P1] Project duplication is still not actually removed.** `tasks.txt` itself acknowledges that the legacy `projects` / `project_tasks` tables and models remain.  Keeping a temporary migration adapter is fine, but the end target should still be exactly one canonical Project and Task domain. Once data migration is proven, delete the old tables/models and eventually stop exposing `OrchestratorProject`/`OrchestratorTask` as product-domain names.
+
+29. **[P1] SkillPack duplication is also still only partially retired.** The runtime still imports `SkillPack`, and hierarchy/control-plane paths still use `skills_json` compatibility.  That compatibility layer is acceptable temporarily, but it should have a defined removal milestone. New code must never write SkillPack/skills_json.
+
+30. **[P1] Add real end-to-end tests instead of mostly deterministic contract tests.** `tasks.txt` itself admits there is no full live HTTP E2E against realistic DB fixtures.  Build at least one PostgreSQL integration test for:
+    `project → task → AI/deterministic analysis → match → generate → validate → publish → create agent → run → governed tool → artifact → review → evaluation`.
+    Add a second regression flow for GitHub engineering. Do this before expanding the marketplace further.
+
+31. **[P2] MCP/A2A should be considered beta/experimental, not “done”.** There is real HTTP execution now, so Cursor did more than scaffolding.   But credential storage, SSRF protection, durable authorization, connector-specific ToolDefinitions, lifecycle management, protocol compatibility testing and production integration still need work. I would change P3 statuses from `[x]` to `[~]`.
+
+32. **[P2] Rework `tasks.txt` again.** Right now it significantly overstates implementation. At minimum, I would change CI, project department persistence, workflow runtime, generic execution, frontend Skill contracts, MCP/A2A and full E2E to `[!]` or `[~]`.  `[x]` should mean the feature works through the actual production path—not that a class or endpoint now exists.
+

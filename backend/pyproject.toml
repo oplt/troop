@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "app-backend"
 version = "0.1.0"
@@ -37,7 +41,18 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "jsonschema>=4.0",
 ]
+
+[tool.setuptools.package-dir]
+"" = "."
+"backend" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "app*", "core*", "db*", "modules*", "workers*", "backend*"]
+namespaces = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

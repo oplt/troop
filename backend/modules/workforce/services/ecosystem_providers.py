@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation
 from backend.modules.workforce.services.a2a_client import A2AClient, A2AClientError
+from backend.modules.workforce.services.connector_service import resolve_installation_config
 from backend.modules.workforce.services.mcp_client import MCPClient, MCPClientError
+from backend.modules.workforce.services.outbound_url import UnsafeURLError, validate_outbound_url
 from backend.modules.workforce.services.tool_registry import NativeToolProvider
 
 
@@ -22,6 +24,13 @@ def _auth_headers(config: dict[str, Any]) -> dict[str, str]:
     if isinstance(extra, dict):
         headers.update({str(k): str(v) for k, v in extra.items()})
     return headers
+
+
+def _client_config(installation: ConnectorInstallation) -> dict[str, Any]:
+    config = resolve_installation_config(installation)
+    base_url = str(config.get("base_url") or config.get("url") or "").strip()
+    validate_outbound_url(base_url, allow_http=True)
+    return config
 
 
 class MCPToolProvider:
@@ -50,7 +59,7 @@ class MCPToolProvider:
         return [row[0] for row in result.all()]
 
     def _client_for(self, installation: ConnectorInstallation) -> MCPClient:
-        config = dict(installation.config_json or {})
+        config = _client_config(installation)
         base_url = str(config.get("base_url") or config.get("url") or "").strip()
         if not base_url:
             raise MCPClientError(f"MCP installation {installation.id} missing base_url")
@@ -122,7 +131,7 @@ class MCPToolProvider:
                 "connector_installation_id": selected.id,
                 "result": result,
             }
-        except Exception as exc:  # noqa: BLE001
+        except (MCPClientError, UnsafeURLError, Exception) as exc:  # noqa: BLE001
             return {
                 "status": "failed",
                 "provider": "mcp",
@@ -227,7 +236,7 @@ class A2AToolProvider:
             selected = installations[0]
         if selected is None:
             return {"status": "error", "provider": "a2a", "error": "no active A2A connector"}
-        config = dict(selected.config_json or {})
+        config = _client_config(selected)
         base_url = str(config.get("base_url") or config.get("url") or "").strip()
         if not base_url:
             return {"status": "error", "provider": "a2a", "error": "missing base_url"}
@@ -252,7 +261,7 @@ class A2AToolProvider:
                 "connector_installation_id": selected.id,
                 "result": result,
             }
-        except (A2AClientError, Exception) as exc:  # noqa: BLE001
+        except (A2AClientError, UnsafeURLError, Exception) as exc:  # noqa: BLE001
             return {
                 "status": "failed",
                 "provider": "a2a",

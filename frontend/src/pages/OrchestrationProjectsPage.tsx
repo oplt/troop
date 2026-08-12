@@ -408,12 +408,11 @@ export default function OrchestrationProjectsPage() {
             slug,
             description: values.description?.trim() || null,
             goals_markdown: values.goals_markdown ?? "",
+            ...(values.company_id ? { company_id: values.company_id } : {}),
+            ...(values.department_id ? { department_id: values.department_id } : {}),
             settings: {
                 ...(values.team_profile_id
                     ? { execution: { team_profile_id: values.team_profile_id } }
-                    : {}),
-                ...(values.department_id
-                    ? { department_id: values.department_id }
                     : {}),
                 local_repo: localRepo,
             },

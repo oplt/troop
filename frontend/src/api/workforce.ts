@@ -188,12 +188,12 @@ export type GeneratedSkillDraft = {
     slug: string;
     purpose?: string;
     description?: string;
-    confidence?: number;
+    confidence?: number | null;
     capabilities_json?: string[];
     /** aliases */
     draft_id: string;
     capabilities: string[];
-    confidence_score: number;
+    confidence_score?: number | null;
     reasoning: string;
 };
 
@@ -295,12 +295,145 @@ export async function archiveDepartment(departmentId: string): Promise<void> {
 
 // ─── Skill API ───────────────────────────────────────────────
 
+function asStringList(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item)).filter(Boolean);
+    }
+    if (typeof value === "string" && value.trim()) {
+        return value.split("\n").map((line) => line.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+export function normalizeSkill(raw: Record<string, unknown>): Skill {
+    const version = asRecord(raw.current_version);
+    const purpose = String(raw.purpose ?? version.purpose ?? "");
+    const capabilities = asStringList(raw.capabilities ?? version.capabilities_json);
+    const tools = asStringList(raw.tools ?? version.required_tools_json);
+    const knowledge = asStringList(raw.knowledge ?? version.knowledge_requirements_json);
+    const instructions = String(
+        raw.instructions ?? raw.instructions_markdown ?? version.instructions_markdown ?? ""
+    );
+    const constraints = asStringList(raw.constraints ?? version.constraints_markdown);
+    return {
+        id: String(raw.id),
+        owner_id: String(raw.owner_id || ""),
+        company_id: (raw.company_id as string | null) ?? null,
+        project_id: (raw.project_id as string | null) ?? null,
+        name: String(raw.name || ""),
+        slug: String(raw.slug || ""),
+        scope: (raw.scope as SkillScope) || "organization",
+        status: (raw.status as SkillStatus) || "draft",
+        purpose,
+        when_to_use: String(raw.when_to_use ?? version.when_to_use ?? ""),
+        capabilities,
+        inputs: asRecord(raw.inputs ?? version.input_schema_json),
+        outputs: asRecord(raw.outputs ?? version.output_schema_json),
+        instructions,
+        tools,
+        knowledge,
+        constraints,
+        risk_level: String(raw.risk_level ?? version.risk_level ?? "low"),
+        examples: asStringList(raw.examples ?? version.examples_json),
+        evaluation_criteria: asStringList(
+            raw.evaluation_criteria ?? version.evaluation_criteria_json
+        ),
+        version: Number(raw.version ?? version.version_number ?? 0),
+        parent_skill_id: (raw.parent_skill_id as string | null) ?? null,
+        created_at: String(raw.created_at || ""),
+        updated_at: String(raw.updated_at || ""),
+    };
+}
+
+export function normalizeSkillDraft(raw: Record<string, unknown>): SkillDraft {
+    const errors = asStringList(raw.validation_errors ?? raw.validation_errors_json);
+    const warnings = asStringList(raw.validation_warnings ?? raw.warnings_json);
+    const capabilities = asStringList(raw.capabilities ?? raw.capabilities_json);
+    const tools = asStringList(raw.tools ?? raw.required_tools_json);
+    const knowledge = asStringList(raw.knowledge ?? raw.knowledge_requirements_json);
+    const instructions = String(raw.instructions ?? raw.instructions_markdown ?? "");
+    return {
+        id: String(raw.id),
+        owner_id: String(raw.owner_id || ""),
+        company_id: (raw.company_id as string | null) ?? null,
+        project_id: (raw.project_id as string | null) ?? (raw.source_project_id as string | null) ?? null,
+        name: String(raw.name || ""),
+        slug: String(raw.slug || ""),
+        scope: (raw.scope as SkillScope) || "project",
+        purpose: String(raw.purpose || ""),
+        when_to_use: String(raw.when_to_use || ""),
+        capabilities,
+        inputs: asRecord(raw.inputs ?? raw.input_schema_json),
+        outputs: asRecord(raw.outputs ?? raw.output_schema_json),
+        instructions,
+        tools,
+        knowledge,
+        constraints: asStringList(raw.constraints ?? raw.constraints_markdown),
+        risk_level: String(raw.risk_level || "low"),
+        examples: asStringList(raw.examples ?? raw.examples_json),
+        evaluation_criteria: asStringList(
+            raw.evaluation_criteria ?? raw.evaluation_criteria_json
+        ),
+        validation_errors: errors,
+        validation_warnings: warnings,
+        duplicate_matches: Array.isArray(raw.duplicate_matches)
+            ? (raw.duplicate_matches as SkillDraft["duplicate_matches"])
+            : Array.isArray(raw.duplicate_matches_json)
+              ? (raw.duplicate_matches_json as SkillDraft["duplicate_matches"])
+              : [],
+        is_valid: Boolean(raw.is_valid ?? (errors.length === 0 && Boolean(raw.purpose))),
+        created_at: String(raw.created_at || ""),
+        updated_at: String(raw.updated_at || ""),
+        target_scope: (raw.scope as SkillScope) || undefined,
+    };
+}
+
+function toBackendDraftPayload(
+    payload: SkillDraftCreatePayload | SkillDraftUpdatePayload
+): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+    if ("company_id" in payload) body.company_id = payload.company_id ?? null;
+    if ("project_id" in payload && payload.project_id !== undefined) {
+        body.source_project_id = payload.project_id;
+    }
+    if (payload.name !== undefined) body.name = payload.name;
+    if (payload.slug !== undefined) body.slug = payload.slug;
+    if (payload.scope !== undefined) body.scope = payload.scope;
+    if (payload.purpose !== undefined) body.purpose = payload.purpose;
+    if (payload.when_to_use !== undefined) body.when_to_use = payload.when_to_use;
+    if (payload.instructions !== undefined) body.instructions_markdown = payload.instructions;
+    if (payload.capabilities !== undefined) body.capabilities = payload.capabilities;
+    if (payload.tools !== undefined) body.required_tools = payload.tools;
+    if (payload.knowledge !== undefined) body.knowledge_requirements = payload.knowledge;
+    if (payload.inputs !== undefined) body.input_schema = payload.inputs;
+    if (payload.outputs !== undefined) body.output_schema = payload.outputs;
+    if (payload.constraints !== undefined) {
+        body.constraints_markdown = Array.isArray(payload.constraints)
+            ? payload.constraints.join("\n")
+            : payload.constraints;
+    }
+    if (payload.risk_level !== undefined) body.risk_level = payload.risk_level;
+    if (payload.examples !== undefined) body.examples = payload.examples;
+    if (payload.evaluation_criteria !== undefined) {
+        body.evaluation_criteria = payload.evaluation_criteria;
+    }
+    return body;
+}
+
 export async function listSkills(): Promise<Skill[]> {
-    return apiFetch("/workforce/skills");
+    const raw = await apiFetch<Array<Record<string, unknown>>>("/workforce/skills");
+    return (raw || []).map(normalizeSkill);
 }
 
 export async function getSkill(skillId: string): Promise<Skill> {
-    return apiFetch(`/workforce/skills/${skillId}`);
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skills/${skillId}`);
+    return normalizeSkill(raw);
 }
 
 export async function listSkillVersions(skillId: string): Promise<SkillVersion[]> {
@@ -312,71 +445,56 @@ export async function getSkillUsage(skillId: string): Promise<SkillUsage> {
 }
 
 export async function promoteSkill(skillId: string, targetScope: SkillScope): Promise<Skill> {
-    return apiFetch(`/workforce/skills/${skillId}/promote`, {
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skills/${skillId}/promote`, {
         method: "POST",
         body: JSON.stringify({ target_scope: targetScope }),
     });
+    return normalizeSkill(raw);
 }
 
 // ─── Skill Draft API ─────────────────────────────────────────
 
 export async function listSkillDrafts(): Promise<SkillDraft[]> {
-    return apiFetch("/workforce/skill-drafts");
+    const raw = await apiFetch<Array<Record<string, unknown>>>("/workforce/skill-drafts");
+    return (raw || []).map(normalizeSkillDraft);
 }
 
 export async function getSkillDraft(draftId: string): Promise<SkillDraft> {
-    return apiFetch(`/workforce/skill-drafts/${draftId}`);
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skill-drafts/${draftId}`);
+    return normalizeSkillDraft(raw);
 }
 
 export async function createSkillDraft(payload: SkillDraftCreatePayload): Promise<SkillDraft> {
-    const body = {
-        company_id: payload.company_id ?? null,
-        source_project_id: payload.project_id ?? null,
-        name: payload.name,
-        slug: payload.slug,
-        scope: payload.scope,
-        purpose: payload.purpose,
-        when_to_use: payload.when_to_use,
-        instructions_markdown: payload.instructions ?? "",
-        capabilities: payload.capabilities ?? [],
-        required_tools: payload.tools ?? [],
-        knowledge_requirements: payload.knowledge ?? [],
-        input_schema: payload.inputs ?? {},
-        output_schema: payload.outputs ?? {},
-        constraints_markdown: Array.isArray(payload.constraints)
-            ? payload.constraints.join("\n")
-            : "",
-        risk_level: payload.risk_level ?? "medium",
-        examples: payload.examples ?? [],
-        evaluation_criteria: payload.evaluation_criteria ?? [],
-        source_type: "manual",
-    };
-    return apiFetch("/workforce/skill-drafts", {
+    const raw = await apiFetch<Record<string, unknown>>("/workforce/skill-drafts", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...toBackendDraftPayload(payload), source_type: "manual" }),
     });
+    return normalizeSkillDraft(raw);
 }
 
 export async function updateSkillDraft(
     draftId: string,
     payload: SkillDraftUpdatePayload
 ): Promise<SkillDraft> {
-    return apiFetch(`/workforce/skill-drafts/${draftId}`, {
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skill-drafts/${draftId}`, {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(toBackendDraftPayload(payload)),
     });
+    return normalizeSkillDraft(raw);
 }
 
 export async function validateSkillDraft(draftId: string): Promise<SkillDraft> {
-    return apiFetch(`/workforce/skill-drafts/${draftId}/validate`, {
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skill-drafts/${draftId}/validate`, {
         method: "POST",
     });
+    return normalizeSkillDraft(raw);
 }
 
 export async function publishSkillDraft(draftId: string): Promise<Skill> {
-    return apiFetch(`/workforce/skill-drafts/${draftId}/publish`, {
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skill-drafts/${draftId}/publish`, {
         method: "POST",
     });
+    return normalizeSkill(raw);
 }
 
 // ─── Task Intelligence API ───────────────────────────────────
@@ -419,7 +537,13 @@ function normalizeSkillMatch(raw: Record<string, unknown>): SkillMatch {
 function normalizeGeneratedDraft(raw: Record<string, unknown>): GeneratedSkillDraft {
     const id = String(raw.id || raw.draft_id || "");
     const caps = (raw.capabilities_json as string[]) || (raw.capabilities as string[]) || [];
-    const confidence = Number(raw.confidence ?? raw.confidence_score ?? 0.8);
+    const confidenceRaw = raw.confidence ?? raw.confidence_score;
+    const confidence =
+        confidenceRaw === null || confidenceRaw === undefined || confidenceRaw === ""
+            ? null
+            : Number(confidenceRaw);
+    const calibrated =
+        confidence !== null && Number.isFinite(confidence) ? confidence : null;
     return {
         id,
         draft_id: id,
@@ -429,8 +553,8 @@ function normalizeGeneratedDraft(raw: Record<string, unknown>): GeneratedSkillDr
         description: raw.description ? String(raw.description) : undefined,
         capabilities_json: caps,
         capabilities: caps,
-        confidence,
-        confidence_score: confidence,
+        confidence: calibrated ?? undefined,
+        confidence_score: calibrated ?? undefined,
         reasoning: String(raw.purpose || raw.description || "Generated from task gaps"),
     };
 }
@@ -541,10 +665,11 @@ export async function importSkillMarkdown(payload: {
     company_id?: string | null;
     scope?: SkillScope;
 }): Promise<SkillDraft> {
-    return apiFetch("/workforce/skill-drafts/import-markdown", {
+    const raw = await apiFetch<Record<string, unknown>>("/workforce/skill-drafts/import-markdown", {
         method: "POST",
         body: JSON.stringify(payload),
     });
+    return normalizeSkillDraft(raw);
 }
 
 export async function migrateSkillPacks(publish = true): Promise<{

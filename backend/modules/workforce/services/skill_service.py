@@ -97,9 +97,24 @@ class SkillService:
     async def publish_draft(
         self, owner_id: str, draft_id: str, created_by: str | None = None
     ) -> Skill:
+        from backend.modules.workforce.services.skill_validation import SkillValidationService
+
         draft = await self.repo.get_skill_draft(draft_id, owner_id)
         if draft is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="draft not found")
+
+        validation = await SkillValidationService(self.db).validate_draft(owner_id, draft)
+        if not validation.get("is_valid"):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "draft failed validation",
+                    "validation_errors": validation.get("validation_errors") or [],
+                    "validation_warnings": validation.get("validation_warnings") or [],
+                    "duplicate_matches": validation.get("duplicate_matches") or [],
+                },
+            )
+        draft = validation["draft"]
 
         if draft.skill_id:
             skill = await self.repo.get_skill(draft.skill_id, owner_id)

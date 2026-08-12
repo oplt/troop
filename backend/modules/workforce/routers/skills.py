@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.deps.auth import get_authenticated_user
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
+from backend.modules.workforce.dto import enrich_skill_response, enrich_skills
 from backend.modules.workforce.schemas import (
     SkillDraftResponse,
     SkillImproveRequest,
@@ -29,7 +30,7 @@ async def list_skills(
     """List skills owned by the current user."""
     service = SkillService(db)
     skills = await service.list(user.id, status=status)
-    return [SkillResponse.model_validate(s) for s in skills]
+    return await enrich_skills(db, skills)
 
 
 @router.post("/migrate-skill-packs")
@@ -63,7 +64,7 @@ async def get_skill(
     """Get a single skill by ID."""
     service = SkillService(db)
     skill = await service.get(user.id, skill_id)
-    return SkillResponse.model_validate(skill)
+    return await enrich_skill_response(db, skill)
 
 
 @router.get("/{skill_id}/versions", response_model=list[SkillVersionResponse])
@@ -139,7 +140,7 @@ async def promote_skill(
     """Promote a skill to a broader scope."""
     service = SkillService(db)
     skill = await service.promote_scope(user.id, skill_id, payload.target_scope, reason=None)
-    return SkillResponse.model_validate(skill)
+    return await enrich_skill_response(db, skill)
 
 
 @router.post("/{skill_id}/improve", response_model=SkillDraftResponse)
@@ -150,6 +151,8 @@ async def improve_skill(
     db: AsyncSession = Depends(get_db),
 ) -> SkillDraftResponse:
     """Create an improvement SkillDraft from the active published SkillVersion."""
+    from backend.modules.workforce.dto import skill_draft_response
+
     service = SkillService(db)
     draft = await service.improve_skill(
         user.id,
@@ -158,4 +161,4 @@ async def improve_skill(
         evaluation_id=payload.evaluation_id,
         created_by=user.id,
     )
-    return SkillDraftResponse.model_validate(draft)
+    return skill_draft_response(draft)

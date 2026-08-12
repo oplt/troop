@@ -67,7 +67,6 @@ import "@xyflow/react/dist/style.css";
 import {
     createAgent,
     createAgentTemplate,
-    createSkillPack,
     createTeamProfileFromTemplate,
     createTeamTemplate,
     deleteAgentTemplate,
@@ -1677,13 +1676,6 @@ export default function AgentLibraryPage() {
         },
     });
 
-    const createSkillMutation = useMutation({
-        mutationFn: createSkillPack,
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.skillCatalog });
-            showToast({ message: "Skill template created.", severity: "success" });
-        },
-    });
     const updateSkillMutation = useMutation({
         mutationFn: ({ slug, payload }: { slug: string; payload: Partial<Omit<SkillPack, "id" | "slug">> }) => updateSkillPack(slug, payload),
         onSuccess: async () => {
@@ -2100,33 +2092,49 @@ export default function AgentLibraryPage() {
     function saveSkillTemplate() {
         const existingSkill = editingSkillSlug ? skills.find((item) => item.slug === editingSkillSlug) ?? null : null;
         const nextSlug = existingSkill?.slug ?? (skillForm.slug.trim() || createUniqueSlug(skillForm.name || "Untitled skill", skills.map((item) => item.slug)));
-        const payload: Omit<SkillPack, "id"> = {
-            slug: nextSlug,
-            name: skillForm.name.trim() || existingSkill?.name || "Untitled skill",
-            description: skillForm.description.trim(),
-            capabilities: skillForm.capabilities,
-            allowed_tools: skillForm.allowed_tools,
-            tags: skillForm.tags,
-            rules_markdown: skillForm.rules_markdown.trim(),
-        };
-
+        // Canonical path: SkillDraft (not SkillPack). Legacy pack update remains only for edits of already-imported packs.
         if (existingSkill) {
             updateSkillMutation.mutate({
                 slug: existingSkill.slug,
                 payload: {
-                    name: payload.name,
-                    description: payload.description,
-                    capabilities: payload.capabilities,
-                    allowed_tools: payload.allowed_tools,
-                    tags: payload.tags,
-                    rules_markdown: payload.rules_markdown,
+                    name: skillForm.name.trim() || existingSkill.name || "Untitled skill",
+                    description: skillForm.description.trim(),
+                    capabilities: skillForm.capabilities,
+                    allowed_tools: skillForm.allowed_tools,
+                    tags: skillForm.tags,
+                    rules_markdown: skillForm.rules_markdown.trim(),
                 },
             });
-        } else {
-            createSkillMutation.mutate(payload);
+            setSkillTemplateImportBanner(null);
+            setSkillTemplateDrawerOpen(false);
+            return;
         }
-        setSkillTemplateImportBanner(null);
-        setSkillTemplateDrawerOpen(false);
+
+        void (async () => {
+            try {
+                const { createSkillDraft } = await import("../api/workforce");
+                const draft = await createSkillDraft({
+                    name: skillForm.name.trim() || "Untitled skill",
+                    slug: nextSlug,
+                    scope: "organization",
+                    purpose: skillForm.description.trim() || skillForm.name.trim() || "Imported skill",
+                    when_to_use: "Use when the task matches this skill's capabilities.",
+                    instructions: skillForm.rules_markdown.trim() || skillForm.description.trim() || "Follow the skill instructions.",
+                    capabilities: skillForm.capabilities,
+                    tools: skillForm.allowed_tools,
+                    risk_level: "medium",
+                });
+                showToast({ message: "Saved as SkillDraft (canonical). Open Skills Builder to validate/publish.", severity: "success" });
+                setSkillTemplateImportBanner(null);
+                setSkillTemplateDrawerOpen(false);
+                navigate(`/skills/builder?draftId=${draft.id}`);
+            } catch (error) {
+                showToast({
+                    message: error instanceof Error ? error.message : "Failed to save skill draft",
+                    severity: "error",
+                });
+            }
+        })();
     }
 
     function openTeamTemplateDrawer(template?: TeamTemplate) {
@@ -3020,7 +3028,7 @@ export default function AgentLibraryPage() {
                         action={(
                             <Button
                                 variant="outlined"
-                                onClick={() => navigate("/agent-projects")}
+                                onClick={() => navigate("/projects")}
                             >
                                 Open Agent Projects
                             </Button>

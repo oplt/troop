@@ -291,9 +291,15 @@ class OrchestrationExecutionServiceMixin:
             "status": status,
             "summary": str(payload.get("summary") or output_text[:1200]),
             "completion_status": status,
-            "changed_files": [str(x) for x in changed_files if str(x).strip()],
+            # Generic execution contract (domain-neutral).
+            "artifacts": list(payload.get("artifacts") or []),
+            "evidence": list(payload.get("evidence") or payload.get("evidence_refs") or []),
+            "decisions": list(payload.get("decisions") or []),
             "risks": [str(x) for x in risks if str(x).strip()],
-            "evidence_refs": [str(x) for x in evidence_refs if str(x).strip()],
+            "tool_calls": list(payload.get("tool_calls") or []),
+            "external_actions": list(payload.get("external_actions") or []),
+            "blockers": list(payload.get("blockers") or []),
+            "metrics": dict(payload.get("metrics") or {}),
             "blocker_reason": str(payload.get("blocker_reason") or ""),
             "rework_scope": [
                 str(x)
@@ -301,6 +307,9 @@ class OrchestrationExecutionServiceMixin:
                 if str(x).strip()
             ],
             "raw_output": output_text,
+            # Engineering specialization may still emit changed_files as artifact metadata.
+            "changed_files": [str(x) for x in changed_files if str(x).strip()],
+            "evidence_refs": [str(x) for x in evidence_refs if str(x).strip()],
         }
 
     def _review_state_from_payload(
@@ -1832,6 +1841,30 @@ class OrchestrationExecutionServiceMixin:
             await self._enforce_run_output_schema(run)
             run.status = "completed"
             run.completed_at = datetime.now(UTC)
+            try:
+                from backend.modules.orchestration.skill_evaluation_hooks import (
+                    record_skill_usage_for_run,
+                )
+
+                agent_id = (
+                    getattr(run, "worker_agent_id", None)
+                    or getattr(run, "agent_id", None)
+                    or (task.assigned_agent_id if task else None)
+                )
+                latency_ms = None
+                if run.started_at and run.completed_at:
+                    latency_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
+                await record_skill_usage_for_run(
+                    self.db,
+                    agent_id=agent_id,
+                    task_id=run.task_id,
+                    run_id=run.id,
+                    success=True,
+                    latency_ms=latency_ms,
+                    notes="auto-recorded on run completion",
+                )
+            except Exception:
+                pass
             run.checkpoint_json = set_workflow_artifact(
                 mark_step(
                     run.checkpoint_json,
@@ -1940,6 +1973,26 @@ class OrchestrationExecutionServiceMixin:
                 data={"latest_status": "blocked", "last_error": str(exc), "task_id": run.task_id},
             )
             await self.db.commit()
+            try:
+                from backend.modules.orchestration.skill_evaluation_hooks import (
+                    record_skill_usage_for_run,
+                )
+
+                agent_id = (
+                    getattr(run, "worker_agent_id", None)
+                    or getattr(run, "agent_id", None)
+                    or (task.assigned_agent_id if task else None)
+                )
+                await record_skill_usage_for_run(
+                    self.db,
+                    agent_id=agent_id,
+                    task_id=run.task_id,
+                    run_id=run.id,
+                    success=False,
+                    notes=f"auto-recorded on run blocked: {exc}",
+                )
+            except Exception:
+                pass
             if task:
                 await self._apply_project_escalation_rules(
                     project, run=run, task=task, trigger="task_blocked"
@@ -1971,6 +2024,26 @@ class OrchestrationExecutionServiceMixin:
                 data={"latest_status": "failed", "last_error": str(exc), "task_id": run.task_id},
             )
             await self.db.commit()
+            try:
+                from backend.modules.orchestration.skill_evaluation_hooks import (
+                    record_skill_usage_for_run,
+                )
+
+                agent_id = (
+                    getattr(run, "worker_agent_id", None)
+                    or getattr(run, "agent_id", None)
+                    or (task.assigned_agent_id if task else None)
+                )
+                await record_skill_usage_for_run(
+                    self.db,
+                    agent_id=agent_id,
+                    task_id=run.task_id,
+                    run_id=run.id,
+                    success=False,
+                    notes=f"auto-recorded on run failure: {exc}",
+                )
+            except Exception:
+                pass
             if task:
                 await self._apply_project_escalation_rules(
                     project, run=run, task=task, trigger="run_failed"
@@ -2853,28 +2926,69 @@ class OrchestrationExecutionServiceMixin:
                 payload={"index": index, "tool": tool_name},
             )
             try:
-                result = await toolbox.execute(call)
-            except ToolExecutionError as exc:
-                failures += 1
-                await self._emit_run_event(
-                    run,
-                    event_type="tool_call_failed",
-                    level="warning",
-                    message=str(exc),
-                    payload={"tool": tool_name, "index": index},
+                result = await toolbox.execute(
+                    {
+                        **call,
+                        "allowed_tools": list(effective_allowed) if effective_allowed else None,
+                        "approval_granted": bool(call.get("approval_granted")),
+                    }
                 )
-                results.append({"tool": tool_name, "status": "failed", "error": str(exc)})
-                if failures >= 2:
-                    await self._escalate_blocker(
+            except ToolExecutionError as exc:
+                message = str(exc)
+                if message.startswith("APPROVAL_REQUIRED:"):
+                    grant_consumed = await self._consume_hitl_grant(
                         run,
-                        task=task,
-                        reason="Multiple tool failures detected during execution.",
-                        metadata={"tool_failures": failures},
+                        "dangerous_tool_call",
+                        {"tool": tool_name, "tool_call_index": index},
                     )
-                    raise BlockedExecution(
-                        "Task blocked after repeated tool-call failures"
-                    ) from exc
-                continue
+                    if not grant_consumed:
+                        approval = await self.repo.create_approval(
+                            project_id=project.id,
+                            task_id=task.id if task else None,
+                            run_id=run.id,
+                            issue_link_id=task.github_issue_link_id if task else None,
+                            requested_by_user_id=run.triggered_by_user_id,
+                            approval_type="dangerous_tool_call",
+                            status="pending",
+                            payload_json={
+                                "tool": tool_name,
+                                "tool_call_index": index,
+                                "arguments": call.get("arguments") or {},
+                                "source": "action_policy",
+                            },
+                        )
+                        await self.db.commit()
+                        raise BlockedExecution(
+                            f"Tool '{tool_name}' requires approval (approval_id={approval.id})."
+                        )
+                    result = await toolbox.execute(
+                        {
+                            **call,
+                            "allowed_tools": list(effective_allowed) if effective_allowed else None,
+                            "approval_granted": True,
+                        }
+                    )
+                else:
+                    failures += 1
+                    await self._emit_run_event(
+                        run,
+                        event_type="tool_call_failed",
+                        level="warning",
+                        message=message,
+                        payload={"tool": tool_name, "index": index},
+                    )
+                    results.append({"tool": tool_name, "status": "failed", "error": message})
+                    if failures >= 2:
+                        await self._escalate_blocker(
+                            run,
+                            task=task,
+                            reason="Multiple tool failures detected during execution.",
+                            metadata={"tool_failures": failures},
+                        )
+                        raise BlockedExecution(
+                            "Task blocked after repeated tool-call failures"
+                        ) from exc
+                    continue
             results.append({"tool": tool_name, "status": "completed", "result": result})
             await self._emit_run_event(
                 run,

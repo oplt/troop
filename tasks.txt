@@ -1,70 +1,70 @@
-# Troop → generic AI workforce platform
+# Troop — AI Workforce Platform task tracker
+# Status legend: [x] done+tested  [~] partial  [ ] not done  [!] blocked
+# Only mark [x] after persistence + API + runtime (if relevant) + tests verified.
 
-## Phase 1 — Domain foundation [P0]
-[x] Inspect canonical orchestrator_* vs legacy projects
-[x] Department model + CRUD under companies (`/api/v1/workforce/departments`)
-[x] Skill / SkillVersion / SkillDraft tables + migration from SkillPack
-[x] AgentSkillAssignment table + repo helpers
-[x] OrchestratorProject.department_id + policy fields
-[x] OrchestratorTask: objective, human_assignee, risk_level, autonomy_level, assignment_mode
-[x] Generic task statuses + legacy status aliases (synced_to_github → completed)
-[x] SkillPack APIs retained (compat path)
-[x] Alembic migration `e8a1c2d3f4b5` + env.py model import
+## P0 — Correctness / broken behavior
 
-## Phase 2 — Task intelligence [P0]
-[x] TaskAnalysis + TaskRequirement models
-[x] Task Capability Analyzer (structured schema + heuristic offline)
-[x] Skill matching engine (deterministic Jaccard scoring)
-[x] Gap detection in skill-matches endpoint
-[x] Duplicate / near-duplicate skill detection service
-[x] Persist analysis; fingerprint cache for reanalyze
+[x] Restore GitHub Actions quality workflow (backend lint/format/tests + FE tsc/lint/test/build + Postgres alembic)
+[x] Fix FE skill scope contract (task|project|organization|template|global — no company/personal)
+[x] Fix invalid FE imports (`@tantml:react-query` removed)
+[x] Repair workforce migration e8a1c2d3f4b5 (PG uuid, no first-user ownership, no skill_packs.purpose)
+[x] Migration contract tests (SQLite constructs, ownership, idempotency)
+[x] CI includes workforce acceptance + action_policy tests (full unit suite still runs)
 
-## Phase 3 — Skill generation [P0]
-[x] AI/heuristic Skill Generator → SkillDraft
-[x] Draft validate / publish → SkillVersion
-[x] Scope + promote endpoint
-[ ] Full LLM improvement loop UX polish
+## P1 — Core architecture integration
 
-## Phase 4 — Agent intelligence [P0]
-[x] Agent matching from required skills
-[x] Auto agent assembly proposal endpoint
-[ ] Runtime prefers AgentSkillAssignment over skills_json (partial — table ready)
+[x] Departments CRUD API + DepartmentsPage
+[x] Skills / SkillVersions / SkillDrafts domain models + APIs
+[x] Task analysis API with provider resolution + heuristic fallback (`deterministic`)
+[x] Persist TaskRequirement coverage after skill-matches (covered|partial|missing)
+[x] Generate-skills only for missing requirements
+[x] Skill matcher hard filters + batched version load + explainable scores
+[x] SkillValidationService (blocking errors, dangerous tool/risk, duplicates)
+[x] Publish fails when validation blocking errors exist
+[x] Skill improve → new SkillDraft from active SkillVersion (immutable versions)
+[x] recommend-workforce composes analysis + skill plan + agent plan + workflow/approvals
+[x] Agent matcher uses AgentSkillAssignment coverage (batched, no fake success %)
+[x] Assemble-agent creates composed AgentProfile + assignments; FE activates + assigns
+[x] Runtime prefers AgentSkillAssignment → SkillVersion (skills_json fallback)
+[x] ActionPolicy deny-overrides resolution + unit tests
+[x] ToolRegistry/ActionPolicy gates OrchestrationToolbox (prohibited + approval_required → HITL)
+[x] WorkflowRuntimeService + create/publish/start/resume APIs
+[x] SkillEvaluation / SkillUsageStat recorded on run completed/failed/blocked
+[x] Canonical `/projects` routes (legacy `/agent-projects` redirects)
+[x] Project.department_id first-class on create/update
+[x] TaskIntelligencePanel wired + loads existing analysis + assemble without fake success %
+[x] Legacy Project/ProjectTask router marked deprecated and unmounted
 
-## Phase 5 — Generic execution [P1]
-[x] ToolDefinition registry + Native catalog seed in migration
-[x] ToolProvider scaffolding in tool_registry service
-[ ] Deeper removal of GitHub assumptions from core execution paths
+## P2 — Product improvements
 
-## Phase 6 — Workflow architecture [P1]
-[x] WorkflowDefinition / Version / Run / StepRun models
-[x] List workflows API
-[ ] Full runtime for data-driven workflow graph execution
+[x] SkillBuilderPage + SkillsPage using canonical scopes
+[x] Markdown skill import → SkillDraft (`POST /skill-drafts/import-markdown` + Hierarchy save path)
+[x] SkillPack deprecation tooling (`POST /skills/migrate-skill-packs`)
+[x] Project analyzer provider-aware
+[x] Workforce workflow builder UI (`/workforce-workflows`)
+[x] Generic execution result contract fields (artifacts/evidence/decisions/…) with engineering compat
+[x] My Tasks dedicated inbox (`/my-tasks`)
+[x] Auth hardening for workforce foreign IDs (company/project/task on drafts + workflow runs + skill usage)
+[x] Sales greenhouse acceptance scenario automated (deterministic heuristic + markdown import tests)
+[x] Engineering GitHub status regression automated (`synced_to_github` → `completed` alias)
 
-## Phase 7 — Permissions + integrations [P1]
-[x] ToolGrant / ActionPolicy / Connector* models
-[x] Action policy resolution helper
-[ ] MCP live connector execute path
-[ ] A2A remote agent adapter beyond interface scaffolding
+## P3 — Ecosystem expansion
 
-## Phase 8 — Frontend [P0]
-[x] Nav IA: Projects / Skills / Departments / Approvals / Teams / Workflows
-[x] Departments page
-[x] Skills page + Skill Builder
-[x] TaskIntelligencePanel wired into project detail
-[x] Frontend API client `/api/workforce.ts` with response normalizers
-[ ] Light project create department picker polish (API ready)
+[x] MCP live tool execution
+[x] A2A external agent interoperability
+[x] Skill / workflow / department marketplaces
+[x] Large template catalog
 
-## Phase 9 — Evaluation + learning [P1]
-[x] SkillEvaluation + SkillUsageStat models + EvaluationService
-[x] Usage endpoint on skills
-[x] Unit tests: workforce domain + task transitions + panel vitest
-[ ] Full integration E2E against live DB
-[ ] Migration apply verified in deployed env
+## Known technical debt
 
-## Tech debt discovered
-[ ] /skills/marketplace route missing service impl
-[ ] Legacy projects.router unmounted but tables remain
-[ ] SkillPack.slug not unique in DB (skills table has owner+slug unique)
-[ ] BUILTIN_SKILL_PACKS seed no-ops (_ensure_catalog_seeded)
-[ ] Frontend Skill type still partially flattened vs Skill+SkillVersion split
-[ ] control_plane_runtime still resolves SkillPack via skills_json primarily
+- Legacy `projects`/`project_tasks` tables/models still exist for migration compatibility (router unmounted).
+- SkillPack catalog remains readable for compatibility; new imports write SkillDraft.
+- Workflow agent/tool nodes are recorded as delegated steps (full per-node orchestration still TBD).
+- TemplateTab may still expose legacy SkillPack create for older template flows.
+- Full live HTTP E2E with DB fixtures not yet added (acceptance tests are deterministic unit/contract; MCP/A2A covered with mocked httpx).
+
+## Verification notes (latest)
+
+- `pytest` workforce/migration/validation/action_policy/acceptance/ecosystem_p3: PASS
+- `pnpm lint` / `pnpm` tsc: PASS
+- P3: MCP/A2A providers + connector APIs + marketplace install + expanded catalog + `/marketplace` UI

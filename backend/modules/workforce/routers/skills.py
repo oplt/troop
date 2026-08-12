@@ -7,6 +7,7 @@ from backend.api.deps.auth import get_authenticated_user
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.workforce.schemas import (
+    SkillDraftResponse,
     SkillImproveRequest,
     SkillPromoteRequest,
     SkillResponse,
@@ -29,6 +30,28 @@ async def list_skills(
     service = SkillService(db)
     skills = await service.list(user.id, status=status)
     return [SkillResponse.model_validate(s) for s in skills]
+
+
+@router.post("/migrate-skill-packs")
+async def migrate_skill_packs(
+    publish: bool = True,
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Migrate legacy SkillPack catalog into SkillDraft/Skill for the current user."""
+    from backend.modules.workforce.services.skillpack_deprecation import (
+        SkillPackDeprecationService,
+    )
+
+    results = await SkillPackDeprecationService(db).migrate_all_for_owner(
+        user.id, publish=publish
+    )
+    return {
+        "migrated": sum(1 for r in results if r.get("status") == "migrated"),
+        "drafts": sum(1 for r in results if r.get("status") == "draft_created"),
+        "skipped": sum(1 for r in results if r.get("status") == "skipped"),
+        "results": results,
+    }
 
 
 @router.get("/{skill_id}", response_model=SkillResponse)
@@ -62,6 +85,8 @@ async def get_skill_usage(
     db: AsyncSession = Depends(get_db),
 ) -> SkillUsageResponse:
     """Get usage statistics for a skill."""
+    service = SkillService(db)
+    await service.get(user.id, skill_id)
     eval_service = EvaluationService(db)
     stats = await eval_service.get_usage_stats(skill_id)
     
@@ -117,15 +142,20 @@ async def promote_skill(
     return SkillResponse.model_validate(skill)
 
 
-@router.post("/{skill_id}/improve", response_model=SkillResponse)
+@router.post("/{skill_id}/improve", response_model=SkillDraftResponse)
 async def improve_skill(
     skill_id: str,
     payload: SkillImproveRequest,
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
-) -> SkillResponse:
-    """Create an improved version of a skill based on feedback (placeholder)."""
+) -> SkillDraftResponse:
+    """Create an improvement SkillDraft from the active published SkillVersion."""
     service = SkillService(db)
-    skill = await service.get(user.id, skill_id)
-    # TODO: Implement skill improvement logic
-    return SkillResponse.model_validate(skill)
+    draft = await service.improve_skill(
+        user.id,
+        skill_id,
+        feedback=payload.feedback,
+        evaluation_id=payload.evaluation_id,
+        created_by=user.id,
+    )
+    return SkillDraftResponse.model_validate(draft)

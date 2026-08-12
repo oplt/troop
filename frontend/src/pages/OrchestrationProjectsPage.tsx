@@ -137,6 +137,7 @@ export default function OrchestrationProjectsPage() {
         queryFn: listCompanies,
     });
     const selectedCompanyId = useWatch({ control, name: "company_id" });
+    const selectedDepartmentId = useWatch({ control, name: "department_id" }) || "";
     const selectedTeamProfileId = useWatch({ control, name: "team_profile_id" });
     const { data: departments = [] } = useQuery({
         queryKey: ["workforce", "departments", selectedCompanyId],
@@ -319,7 +320,7 @@ export default function OrchestrationProjectsPage() {
                 }
             }
             
-            navigate(`/agent-projects/${project.id}`);
+            navigate(`/projects/${project.id}`);
         },
     });
     const bootstrapMutation = useMutation({
@@ -331,7 +332,7 @@ export default function OrchestrationProjectsPage() {
         onSuccess: async (project) => {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
             showToast({ message: "Project created from draft.", severity: "success" });
-            navigate(`/agent-projects/${project.id}`);
+            navigate(`/projects/${project.id}`);
         },
     });
     const archiveProjectMutation = useMutation({
@@ -637,7 +638,7 @@ export default function OrchestrationProjectsPage() {
                                                 {localRepo?.enabled ? localRepo.repo_path ?? "Local repo" : "None"}
                                             </Typography>
 
-                                            <Button size="small" variant={activeRuns > 0 ? "contained" : "outlined"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/agent-projects/${project.id}`)}>
+                                            <Button size="small" variant={activeRuns > 0 ? "contained" : "outlined"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/projects/${project.id}`)}>
                                                 {actionLabel}
                                             </Button>
 
@@ -960,7 +961,7 @@ export default function OrchestrationProjectsPage() {
                                     <TextField
                                         select
                                         label="Department"
-                                        value={watch("department_id")}
+                                        value={selectedDepartmentId}
                                         onChange={(e) => setValue("department_id", e.target.value)}
                                         helperText="Optional department for organizational tracking"
                                         fullWidth

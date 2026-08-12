@@ -235,3 +235,78 @@ class SkillService:
         if skill is None:
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
         return version
+
+    async def improve_skill(
+        self,
+        owner_id: str,
+        skill_id: str,
+        *,
+        feedback: str = "",
+        evaluation_id: str | None = None,
+        created_by: str | None = None,
+    ) -> SkillDraft:
+        """Create a new SkillDraft from the active SkillVersion + feedback.
+
+        Never mutates published SkillVersion rows.
+        """
+        skill = await self.get(owner_id, skill_id)
+        if not skill.current_version_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="skill has no published version to improve",
+            )
+        version = await self.repo.get_skill_version(skill.current_version_id)
+        if version is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="current version not found")
+
+        feedback_clean = (feedback or "").strip()
+        notes = [
+            f"## Improvement draft from SkillVersion v{version.version_number}",
+            f"Source skill: `{skill.slug}` ({skill.id})",
+        ]
+        if evaluation_id:
+            notes.append(f"Evaluation id: `{evaluation_id}`")
+        if feedback_clean:
+            notes.append("### Reviewer feedback\n" + feedback_clean)
+        notes.append(
+            "### Current instructions\n" + (version.instructions_markdown or "").strip()
+        )
+        improved_instructions = "\n\n".join(notes)
+
+        draft = await self.repo.create_skill_draft(
+            owner_id=owner_id,
+            company_id=skill.company_id,
+            skill_id=skill.id,
+            name=skill.name,
+            slug=skill.slug,
+            description=skill.description,
+            purpose=version.purpose,
+            when_to_use=version.when_to_use,
+            instructions_markdown=improved_instructions,
+            input_schema_json=dict(version.input_schema_json or {}),
+            output_schema_json=dict(version.output_schema_json or {}),
+            capabilities_json=list(version.capabilities_json or []),
+            required_tools_json=list(version.required_tools_json or []),
+            knowledge_requirements_json=list(version.knowledge_requirements_json or []),
+            constraints_markdown=version.constraints_markdown or "",
+            risk_level=version.risk_level or "medium",
+            approval_policy_json=dict(version.approval_policy_json or {}),
+            examples_json=list(version.examples_json or []),
+            evaluation_criteria_json=list(version.evaluation_criteria_json or []),
+            scope=skill.scope,
+            status="draft",
+            source_type="improvement",
+            source_task_id=None,
+            source_project_id=skill.project_id,
+            generation_metadata_json={
+                "source_skill_id": skill.id,
+                "source_skill_version_id": version.id,
+                "source_version_number": version.version_number,
+                "evaluation_id": evaluation_id,
+                "feedback_present": bool(feedback_clean),
+                "created_by": created_by or owner_id,
+            },
+        )
+        await self.db.commit()
+        await self.db.refresh(draft)
+        return draft

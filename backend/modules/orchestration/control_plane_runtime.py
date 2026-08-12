@@ -161,12 +161,56 @@ def build_agent_runtime_profile(
     provider: ProviderConfig | None,
     model_capabilities: list[ModelCapability],
     skills: list[SkillPack],
+    assigned_skill_versions: list[dict[str, Any]] | None = None,
 ) -> AgentRuntimeProfile:
     model_policy = dict(agent.model_policy_json or {})
     memory_policy = dict(agent.memory_policy_json or {})
     metadata = dict(agent.metadata_json or {})
     skill_lookup = _skill_map(skills)
-    resolved_skills = [skill_lookup[item] for item in agent.skills_json if item in skill_lookup]
+
+    # Canonical path: AgentSkillAssignment → SkillVersion instructions.
+    # Fallback: legacy skills_json → SkillPack.rules_markdown.
+    instruction_extras: list[str] = []
+    skill_slugs: list[str] = []
+    skill_tool_slugs: set[str] = set()
+
+    if assigned_skill_versions:
+        for item in assigned_skill_versions:
+            slug = str(item.get("slug") or "")
+            if slug:
+                skill_slugs.append(slug)
+            purpose = str(item.get("purpose") or "").strip()
+            instructions = str(item.get("instructions_markdown") or "").strip()
+            when_to_use = str(item.get("when_to_use") or "").strip()
+            constraints = str(item.get("constraints_markdown") or "").strip()
+            block_parts = [
+                part
+                for part in [
+                    f"## Skill: {item.get('name') or slug}".strip(),
+                    f"Purpose: {purpose}" if purpose else "",
+                    f"When to use: {when_to_use}" if when_to_use else "",
+                    instructions,
+                    f"Constraints:\n{constraints}" if constraints else "",
+                ]
+                if part
+            ]
+            if block_parts:
+                instruction_extras.append("\n".join(block_parts))
+            for tool in item.get("required_tools") or []:
+                if tool:
+                    skill_tool_slugs.add(str(tool))
+    else:
+        resolved_skills = [skill_lookup[item] for item in agent.skills_json if item in skill_lookup]
+        skill_slugs = list(agent.skills_json or [])
+        instruction_extras = [
+            item.rules_markdown.strip()
+            for item in resolved_skills
+            if item.rules_markdown.strip()
+        ]
+        for item in resolved_skills:
+            for tool in item.allowed_tools_json or []:
+                if tool:
+                    skill_tool_slugs.add(str(tool))
 
     instruction_stack = [
         line
@@ -174,18 +218,19 @@ def build_agent_runtime_profile(
             agent.system_prompt.strip(),
             agent.mission_markdown.strip(),
             agent.rules_markdown.strip(),
-            *[item.rules_markdown.strip() for item in resolved_skills if item.rules_markdown.strip()],
+            *instruction_extras,
         ]
         if line
     ]
 
+    allowed_tools = list(agent.allowed_tools_json or [])
     tool_bindings = [
         RuntimeToolBinding(
             slug=tool_slug,
-            source="skill" if any(tool_slug in item.allowed_tools_json for item in resolved_skills) else "agent",
+            source="skill" if tool_slug in skill_tool_slugs else "agent",
             description=f"Allowed tool `{tool_slug}` for role execution.",
         )
-        for tool_slug in agent.allowed_tools_json
+        for tool_slug in allowed_tools
     ]
 
     primary_model_slug = str(model_policy.get("model") or provider.default_model if provider else model_policy.get("model") or "")
@@ -242,7 +287,7 @@ def build_agent_runtime_profile(
             "name": agent.name,
             "role": agent.role,
             "objective": metadata.get("objective") or agent.description or agent.mission_markdown,
-            "skills": agent.skills_json,
+            "skills": skill_slugs or list(agent.skills_json or []),
         },
         instruction_stack=instruction_stack,
         memory_policy={
@@ -250,8 +295,9 @@ def build_agent_runtime_profile(
             "scope": metadata.get("memory_scope") or memory_policy.get("scope") or "project",
         },
         tool_policy={
-            "allowed_tools": agent.allowed_tools_json,
+            "allowed_tools": allowed_tools,
             "bindings": [item.model_dump() for item in tool_bindings],
+            "skill_required_tools": sorted(skill_tool_slugs),
         },
         primary_model=primary_profile,
         fallback_model=fallback_profile,

@@ -160,7 +160,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                                     size="small"
                                     variant="text"
                                     sx={{ p: 0, minWidth: "auto", fontSize: "0.75rem" }}
-                                    onClick={() => navigate(`/agent-projects/${approval.project_id}`)}
+                                    onClick={() => navigate(`/projects/${approval.project_id}`)}
                                 >
                                     Task {approval.task_id.slice(0, 8)}
                                 </Button>

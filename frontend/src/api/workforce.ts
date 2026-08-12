@@ -83,7 +83,7 @@ export type SkillDraft = {
     project_id: string | null;
     name: string;
     slug: string;
-    target_scope: SkillScope;
+    scope: SkillScope;
     purpose: string;
     when_to_use: string;
     capabilities: string[];
@@ -106,6 +106,8 @@ export type SkillDraft = {
     is_valid: boolean;
     created_at: string;
     updated_at: string;
+    /** @deprecated Use scope instead */
+    target_scope?: SkillScope;
 };
 
 export type SkillDraftCreatePayload = {
@@ -113,7 +115,7 @@ export type SkillDraftCreatePayload = {
     project_id?: string | null;
     name: string;
     slug: string;
-    target_scope: SkillScope;
+    scope: SkillScope;
     purpose: string;
     when_to_use: string;
     capabilities?: string[];
@@ -219,11 +221,13 @@ export type AssembledAgent = {
     tools?: string[];
     rationale?: string;
     recommended_agents?: string[];
+    assembly_type?: string;
+    historical_success?: string;
     /** aliases for panel */
     agent_id: string;
     agent_name: string;
     recommended_skills: string[];
-    estimated_success_probability: number;
+    estimated_success_probability: number | null;
     notes: string;
 };
 
@@ -252,9 +256,12 @@ export type WorkflowDefinition = {
     id: string;
     name: string;
     description: string;
-    stages: Array<Record<string, unknown>>;
-    required_skills: string[];
-    created_at: string;
+    status?: string;
+    slug?: string;
+    category?: string;
+    stages?: Array<Record<string, unknown>>;
+    required_skills?: string[];
+    created_at?: string;
 };
 
 // ─── Department API ──────────────────────────────────────────
@@ -317,10 +324,36 @@ export async function listSkillDrafts(): Promise<SkillDraft[]> {
     return apiFetch("/workforce/skill-drafts");
 }
 
+export async function getSkillDraft(draftId: string): Promise<SkillDraft> {
+    return apiFetch(`/workforce/skill-drafts/${draftId}`);
+}
+
 export async function createSkillDraft(payload: SkillDraftCreatePayload): Promise<SkillDraft> {
+    const body = {
+        company_id: payload.company_id ?? null,
+        source_project_id: payload.project_id ?? null,
+        name: payload.name,
+        slug: payload.slug,
+        scope: payload.scope,
+        purpose: payload.purpose,
+        when_to_use: payload.when_to_use,
+        instructions_markdown: payload.instructions ?? "",
+        capabilities: payload.capabilities ?? [],
+        required_tools: payload.tools ?? [],
+        knowledge_requirements: payload.knowledge ?? [],
+        input_schema: payload.inputs ?? {},
+        output_schema: payload.outputs ?? {},
+        constraints_markdown: Array.isArray(payload.constraints)
+            ? payload.constraints.join("\n")
+            : "",
+        risk_level: payload.risk_level ?? "medium",
+        examples: payload.examples ?? [],
+        evaluation_criteria: payload.evaluation_criteria ?? [],
+        source_type: "manual",
+    };
     return apiFetch("/workforce/skill-drafts", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
     });
 }
 
@@ -470,25 +503,89 @@ export async function findAgentMatches(taskId: string): Promise<AgentMatch[]> {
 
 export async function assembleAgent(
     taskId: string,
-    payload?: { preferred_skills?: string[]; constraints?: Record<string, unknown> }
+    payload?: {
+        name?: string;
+        slug?: string;
+        assign_to_task?: boolean;
+        activate?: boolean;
+        preferred_skills?: string[];
+        constraints?: Record<string, unknown>;
+    }
 ): Promise<AssembledAgent> {
     const raw = await apiFetch<Record<string, unknown>>(`/workforce/tasks/${taskId}/assemble-agent`, {
         method: "POST",
-        body: JSON.stringify(payload ?? {}),
+        body: JSON.stringify(payload ?? { activate: true, assign_to_task: true }),
     });
     const name = String(raw.proposed_name || raw.agent_name || "Proposed agent");
     const skills = (raw.skill_slugs as string[]) || (raw.recommended_skills as string[]) || [];
+    const agents = (raw.recommended_agents as string[]) || [];
     return {
         ...(raw as unknown as AssembledAgent),
-        agent_id: String(raw.agent_id || raw.proposed_slug || ""),
+        agent_id: String(agents[0] || raw.agent_id || raw.proposed_slug || ""),
         agent_name: name,
         recommended_skills: skills,
-        estimated_success_probability: Number(raw.estimated_success_probability ?? 0.7),
+        // Never fabricate success probability — backend does not return one.
+        estimated_success_probability: null,
+        historical_success: "Not enough historical data",
         notes: String(raw.rationale || raw.notes || ""),
         proposed_name: name,
         skill_slugs: skills,
         rationale: String(raw.rationale || ""),
+        assembly_type: String(raw.assembly_type || ""),
     };
+}
+
+export async function importSkillMarkdown(payload: {
+    content: string;
+    file_name?: string;
+    company_id?: string | null;
+    scope?: SkillScope;
+}): Promise<SkillDraft> {
+    return apiFetch("/workforce/skill-drafts/import-markdown", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function migrateSkillPacks(publish = true): Promise<{
+    migrated: number;
+    drafts: number;
+    skipped: number;
+}> {
+    return apiFetch(`/workforce/skills/migrate-skill-packs?publish=${publish ? "true" : "false"}`, {
+        method: "POST",
+    });
+}
+
+export async function listWorkforceWorkflows(): Promise<WorkflowDefinition[]> {
+    return apiFetch("/workforce/workflows");
+}
+
+export async function createWorkforceWorkflow(payload: Record<string, unknown>): Promise<WorkflowDefinition> {
+    return apiFetch("/workforce/workflows", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function publishWorkforceWorkflow(
+    workflowId: string,
+    payload: Record<string, unknown> = {}
+): Promise<WorkflowDefinition> {
+    return apiFetch(`/workforce/workflows/${workflowId}/publish`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function startWorkforceWorkflowRun(
+    workflowId: string,
+    payload: Record<string, unknown> = {}
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/workforce/workflows/${workflowId}/runs`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
 }
 
 export async function analyzeProject(projectId: string): Promise<ProjectAnalysis> {
@@ -505,4 +602,131 @@ export async function listWorkforceTools(): Promise<WorkforceTool[]> {
 
 export async function listWorkflows(): Promise<WorkflowDefinition[]> {
     return apiFetch("/workforce/workflows");
+}
+
+// ─── Marketplace & Connectors ────────────────────────────────
+
+export type MarketplaceCatalog = {
+    skills: Array<Record<string, unknown>>;
+    workflows: Array<Record<string, unknown>>;
+    departments: Array<Record<string, unknown>>;
+    agent_templates: Array<Record<string, unknown>>;
+    summary: {
+        skills: number;
+        workflows: number;
+        departments: number;
+        agent_templates: number;
+    };
+};
+
+export type MarketplaceInstallResult = {
+    status: string;
+    kind: string;
+    slug: string;
+    skill_id?: string;
+    draft_id?: string;
+    workflow_id?: string;
+    department_id?: string;
+    template_id?: string;
+};
+
+export type ConnectorDefinition = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    provider_type: string;
+    config_schema_json: Record<string, unknown>;
+};
+
+export type ConnectorInstallation = {
+    id: string;
+    connector_definition_id: string;
+    owner_id: string;
+    company_id: string | null;
+    name: string;
+    status: string;
+    config_json: Record<string, unknown>;
+    metadata_json: Record<string, unknown>;
+};
+
+export async function getMarketplaceCatalog(): Promise<MarketplaceCatalog> {
+    return apiFetch("/workforce/marketplace");
+}
+
+export async function installMarketplaceSkill(payload: {
+    slug: string;
+    company_id?: string | null;
+    publish?: boolean;
+}): Promise<MarketplaceInstallResult> {
+    return apiFetch("/workforce/marketplace/skills/install", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function installMarketplaceWorkflow(payload: {
+    slug: string;
+    company_id?: string | null;
+    publish?: boolean;
+}): Promise<MarketplaceInstallResult> {
+    return apiFetch("/workforce/marketplace/workflows/install", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function installMarketplaceDepartment(payload: {
+    slug: string;
+    company_id: string;
+}): Promise<MarketplaceInstallResult> {
+    return apiFetch("/workforce/marketplace/departments/install", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function installMarketplaceAgentTemplate(payload: {
+    slug: string;
+}): Promise<MarketplaceInstallResult> {
+    return apiFetch("/workforce/marketplace/agent-templates/install", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function seedMarketplaceAgentTemplates(): Promise<{
+    installed: number;
+    skipped: number;
+}> {
+    return apiFetch("/workforce/marketplace/agent-templates/seed", { method: "POST" });
+}
+
+export async function listConnectorDefinitions(): Promise<ConnectorDefinition[]> {
+    return apiFetch("/workforce/connectors/definitions");
+}
+
+export async function listConnectorInstallations(): Promise<ConnectorInstallation[]> {
+    return apiFetch("/workforce/connectors/installations");
+}
+
+export async function installConnector(payload: {
+    name: string;
+    connector_slug?: string;
+    connector_definition_id?: string;
+    company_id?: string | null;
+    config_json: Record<string, unknown>;
+}): Promise<ConnectorInstallation> {
+    return apiFetch("/workforce/connectors/installations", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function testConnectorInstallation(
+    installationId: string
+): Promise<{ ok: boolean; error?: string; provider_type?: string; tool_count?: number }> {
+    return apiFetch(`/workforce/connectors/installations/${installationId}/test`, {
+        method: "POST",
+    });
 }

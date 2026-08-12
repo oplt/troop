@@ -611,7 +611,7 @@ function TaskMemoryInspector({
                 ) : (
                     semanticRows.map((row) => (
                         <Typography key={row.id} variant="caption" sx={{ display: "block" }}>
-                            <Link component={RouterLink} to={`/agent-projects/${projectId}/memory`} underline="hover">
+                            <Link component={RouterLink} to={`/projects/${projectId}/memory`} underline="hover">
                                 [{row.entry_type}]
                             </Link>{" "}
                             {row.title} · {(row.confidence * 100).toFixed(0)}%

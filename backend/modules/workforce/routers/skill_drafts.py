@@ -1,6 +1,6 @@
 """Skill draft management endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
@@ -36,6 +36,16 @@ async def create_skill_draft(
     db: AsyncSession = Depends(get_db),
 ) -> SkillDraftResponse:
     """Create a new skill draft."""
+    from backend.modules.workforce.authz import (
+        assert_company_owned,
+        assert_project_owned,
+        assert_task_owned,
+    )
+
+    await assert_company_owned(db, user.id, payload.company_id)
+    await assert_project_owned(db, user.id, payload.source_project_id)
+    await assert_task_owned(db, user.id, payload.source_task_id)
+
     service = SkillService(db)
     draft = await service.create_draft(
         owner_id=user.id,
@@ -65,6 +75,33 @@ async def create_skill_draft(
         generation_metadata_json=payload.generation_metadata,
         unmatched_sections_json=payload.unmatched_sections,
         warnings_json=payload.warnings,
+    )
+    return SkillDraftResponse.model_validate(draft)
+
+
+@router.post("/import-markdown", response_model=SkillDraftResponse, status_code=201)
+async def import_skill_markdown(
+    payload: dict,
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> SkillDraftResponse:
+    """Create a SkillDraft from markdown (canonical import path; not SkillPack)."""
+    from backend.modules.workforce.authz import assert_company_owned
+    from backend.modules.workforce.services.markdown_skill_import import (
+        MarkdownSkillImportService,
+    )
+
+    content = str(payload.get("content") or payload.get("markdown") or "")
+    if not content.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="content required")
+    company_id = payload.get("company_id")
+    await assert_company_owned(db, user.id, company_id)
+    draft = await MarkdownSkillImportService(db).import_markdown(
+        user.id,
+        content,
+        file_name=payload.get("file_name") or payload.get("filename"),
+        company_id=company_id,
+        scope=str(payload.get("scope") or "organization"),
     )
     return SkillDraftResponse.model_validate(draft)
 
@@ -138,11 +175,13 @@ async def validate_skill_draft(
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> SkillDraftResponse:
-    """Validate a skill draft (placeholder - returns draft as-is)."""
+    """Validate a skill draft and persist errors/warnings/duplicates."""
+    from backend.modules.workforce.services.skill_validation import SkillValidationService
+
     service = SkillService(db)
     draft = await service.get_draft(user.id, draft_id)
-    # TODO: Implement validation logic
-    return SkillDraftResponse.model_validate(draft)
+    result = await SkillValidationService(db).validate_draft(user.id, draft)
+    return SkillDraftResponse.model_validate(result["draft"])
 
 
 @router.post("/{draft_id}/publish", response_model=SkillResponse)
@@ -151,7 +190,21 @@ async def publish_skill_draft(
     user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db),
 ) -> SkillResponse:
-    """Publish a skill draft as an active skill."""
+    """Publish a skill draft as an active skill (fails on validation errors)."""
+    from backend.modules.workforce.services.skill_validation import SkillValidationService
+
     service = SkillService(db)
+    draft = await service.get_draft(user.id, draft_id)
+    result = await SkillValidationService(db).validate_draft(user.id, draft)
+    if not result["is_valid"]:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": "draft failed validation",
+                "validation_errors": result["validation_errors"],
+                "validation_warnings": result["validation_warnings"],
+                "duplicate_matches": result["duplicate_matches"],
+            },
+        )
     skill = await service.publish_draft(user.id, draft_id, created_by=user.id)
     return SkillResponse.model_validate(skill)

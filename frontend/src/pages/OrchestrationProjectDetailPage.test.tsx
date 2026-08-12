@@ -99,9 +99,9 @@ function renderProjectDetail() {
 
     return render(
         <QueryClientProvider client={queryClient}>
-            <MemoryRouter initialEntries={["/agent-projects/project-1"]}>
+            <MemoryRouter initialEntries={["/projects/project-1"]}>
                 <Routes>
-                    <Route path="/agent-projects/:projectId" element={<OrchestrationProjectDetailView />} />
+                    <Route path="/projects/:projectId" element={<OrchestrationProjectDetailView />} />
                 </Routes>
             </MemoryRouter>
         </QueryClientProvider>,

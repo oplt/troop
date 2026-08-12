@@ -58,6 +58,43 @@ class OrchestrationToolbox:
         if not tool_name:
             raise ToolExecutionError("Tool call is missing a tool name")
 
+        # Workforce ActionPolicy gate (deny-overrides). Soft-fail open only when
+        # workforce tables are unavailable; otherwise honor prohibited/approval.
+        try:
+            from backend.modules.workforce.services.tool_registry import ToolRegistryService
+
+            registry = ToolRegistryService(self.db)
+            owner_id = getattr(self.project, "owner_id", None)
+            if owner_id:
+                context = {
+                    "owner_id": owner_id,
+                    "project_id": self.project.id,
+                    "task_id": self.task.id if self.task else None,
+                    "company_id": getattr(self.project, "company_id", None),
+                    "department_id": getattr(self.project, "department_id", None),
+                    "agent_id": getattr(self.run, "agent_id", None)
+                    or getattr(self.run, "worker_agent_id", None),
+                    "allowed_tools": call.get("allowed_tools"),
+                    "approval_granted": bool(call.get("approval_granted")),
+                }
+                auth = await registry.authorize_tool(str(owner_id), tool_name, context)
+                decision = auth.get("decision")
+                if decision == "prohibited":
+                    raise ToolExecutionError(
+                        f"Tool `{tool_name}` is prohibited by action policy "
+                        f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
+                    )
+                if decision == "approval_required" and not context["approval_granted"]:
+                    raise ToolExecutionError(
+                        f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
+                        f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
+                    )
+        except ToolExecutionError:
+            raise
+        except Exception:
+            # Do not break legacy runs if workforce policy tables are missing.
+            pass
+
         if tool_name == "github_comment":
             return await self._github_comment(arguments)
         if tool_name == "github_label_issue":
@@ -80,6 +117,39 @@ class OrchestrationToolbox:
             return await self._repo_search(arguments)
         if tool_name == "knowledge_search":
             return await self._knowledge_search(arguments)
+
+        # Ecosystem providers: MCP / A2A live execution
+        if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
+            from backend.modules.workforce.services.tool_registry import ToolRegistryService
+
+            owner_id = getattr(self.project, "owner_id", None)
+            if not owner_id:
+                raise ToolExecutionError("MCP/A2A tools require a project owner")
+            registry = ToolRegistryService(self.db)
+            result = await registry.execute_tool(
+                str(owner_id),
+                tool_name,
+                arguments if isinstance(arguments, dict) else {},
+                {
+                    "owner_id": owner_id,
+                    "project_id": self.project.id,
+                    "task_id": self.task.id if self.task else None,
+                    "company_id": getattr(self.project, "company_id", None),
+                    "department_id": getattr(self.project, "department_id", None),
+                    "approval_granted": bool(call.get("approval_granted")),
+                    "allowed_tools": call.get("allowed_tools"),
+                },
+            )
+            if result.get("status") == "approval_required":
+                raise ToolExecutionError(
+                    f"APPROVAL_REQUIRED: {tool_name} requires approval before execution"
+                )
+            if result.get("status") in {"denied", "failed", "error"}:
+                raise ToolExecutionError(
+                    f"{tool_name} {result.get('status')}: {result.get('error') or result.get('decision')}"
+                )
+            return result
+
         raise ToolExecutionError(f"Unsupported tool: {tool_name}")
 
     def _workspace_root(self) -> Path:

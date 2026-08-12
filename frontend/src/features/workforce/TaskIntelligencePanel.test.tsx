@@ -13,6 +13,7 @@ vi.mock("../../api/workforce", () => ({
     findAgentMatches: vi.fn(),
     assembleAgent: vi.fn(),
     getTaskAnalysis: vi.fn(),
+    getLastSkillGap: vi.fn(),
 }));
 
 vi.mock("../../app/snackbarContext", () => ({
@@ -128,9 +129,6 @@ describe("TaskIntelligencePanel", () => {
         vi.mocked(workforceApi.getTaskAnalysis).mockResolvedValue(mockAnalysis);
 
         renderPanel();
-
-        const analyzeButton = screen.getByRole("button", { name: /analyze task/i });
-        await userEvent.click(analyzeButton);
 
         await waitFor(() => {
             expect(screen.getByText(/analysis results/i)).toBeInTheDocument();

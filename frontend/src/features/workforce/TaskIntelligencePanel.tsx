@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -34,7 +33,6 @@ import {
     type AgentMatch,
     type GeneratedSkillDraft,
     type SkillMatch,
-    type TaskAnalysis,
 } from "../../api/workforce";
 import { useSnackbar } from "../../app/snackbarContext";
 
@@ -43,21 +41,18 @@ type TaskIntelligencePanelProps = {
     taskId: string;
 };
 
-export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePanelProps) {
+export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
     const {
         data: analysis,
-        isLoading: isLoadingAnalysis,
         error: analysisError,
-        refetch: refetchAnalysis,
     } = useQuery({
         queryKey: ["workforce", "task-analysis", taskId],
         queryFn: () => getTaskAnalysis(taskId),
         retry: false,
-        enabled: false,
+        enabled: Boolean(taskId),
     });
 
     const {
@@ -95,7 +90,6 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
         onSuccess: (data) => {
             queryClient.setQueryData(["workforce", "task-analysis", taskId], data);
             showToast({ message: "Task analyzed successfully", severity: "success" });
-            setExpandedSection("analysis");
         },
         onError: (error: Error) => {
             showToast({ message: `Analysis failed: ${error.message}`, severity: "error" });
@@ -115,7 +109,6 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
                 });
             }
             showToast({ message: "Found skill matches", severity: "success" });
-            setExpandedSection("skills");
         },
         onError: (error: Error) => {
             showToast({ message: `Skill search failed: ${error.message}`, severity: "error" });
@@ -127,7 +120,6 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
         onSuccess: (data) => {
             queryClient.setQueryData(["workforce", "generated-skills", taskId], data);
             showToast({ message: `Generated ${data.length} skill draft(s)`, severity: "success" });
-            setExpandedSection("generated");
         },
         onError: (error: Error) => {
             showToast({ message: `Generation failed: ${error.message}`, severity: "error" });
@@ -139,7 +131,6 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
         onSuccess: (data) => {
             queryClient.setQueryData(["workforce", "agent-matches", taskId], data);
             showToast({ message: "Found agent recommendations", severity: "success" });
-            setExpandedSection("agents");
         },
         onError: (error: Error) => {
             showToast({ message: `Agent search failed: ${error.message}`, severity: "error" });
@@ -147,10 +138,15 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
     });
 
     const assembleAgentMutation = useMutation({
-        mutationFn: () => assembleAgent(taskId),
+        mutationFn: () =>
+            assembleAgent(taskId, {
+                activate: true,
+                assign_to_task: true,
+            }),
         onSuccess: (data) => {
+            const history = data.historical_success || "Not enough historical data";
             showToast({
-                message: `Agent assembled: ${data.agent_name} (${Math.round(data.estimated_success_probability * 100)}% success probability)`,
+                message: `Agent assembled: ${data.agent_name}. ${history}.`,
                 severity: "success",
             });
         },
@@ -159,7 +155,7 @@ export function TaskIntelligencePanel({ projectId, taskId }: TaskIntelligencePan
         },
     });
 
-    const isAnalyzing = analyzeMutation.isPending || isLoadingAnalysis;
+    const isAnalyzing = analyzeMutation.isPending;
     const isFindingSkills = findSkillsMutation.isPending || isLoadingSkills;
     const isGeneratingSkills = generateSkillsMutation.isPending || isLoadingGenerated;
     const isRecommendingAgent = recommendAgentMutation.isPending || isLoadingAgents;

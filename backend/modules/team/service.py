@@ -850,8 +850,12 @@ class TeamServiceMixin:
             "knowledge_search",
         }
         for tool in payload.get("allowed_tools", []):
-            if tool not in allowed_tools:
-                errors.append(f"Tool '{tool}' is not available in the orchestration runtime.")
+            if tool in allowed_tools:
+                continue
+            # Ecosystem tools: MCP / A2A live providers
+            if isinstance(tool, str) and (tool.startswith("mcp.") or tool.startswith("a2a.")):
+                continue
+            errors.append(f"Tool '{tool}' is not available in the orchestration runtime.")
 
         skill_map = {skill.slug: skill for skill in await self.repo.list_skill_packs()}
         for skill_slug in payload.get("skills", []):

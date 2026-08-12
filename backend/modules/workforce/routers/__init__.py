@@ -3,8 +3,10 @@
 from fastapi import APIRouter
 
 from backend.modules.workforce.routers import (
+    connectors,
     departments,
     intelligence,
+    marketplace,
     skill_drafts,
     skills,
     tools,
@@ -19,5 +21,7 @@ router.include_router(skill_drafts.router, tags=["workforce-skill-drafts"])
 router.include_router(intelligence.router, tags=["workforce-intelligence"])
 router.include_router(tools.router, tags=["workforce-tools"])
 router.include_router(workflows.router, tags=["workforce-workflows"])
+router.include_router(marketplace.router, tags=["workforce-marketplace"])
+router.include_router(connectors.router, tags=["workforce-connectors"])
 
 __all__ = ["router"]

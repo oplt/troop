@@ -172,7 +172,7 @@ export default function DashboardPage() {
                         </Typography>
                     </Box>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", md: "auto" } }}>
-                        <Button variant="contained" onClick={() => navigate("/agent-projects")}>
+                        <Button variant="contained" onClick={() => navigate("/projects")}>
                             Open projects
                         </Button>
                         <Button variant="outlined" onClick={() => navigate("/activity")}>
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                     title="Orchestration"
                     info="Projects, runs, approvals, and GitHub activity from the execution workspace."
                     action={
-                        <Button size="small" variant="text" onClick={() => navigate("/agent-projects")}>
+                        <Button size="small" variant="text" onClick={() => navigate("/projects")}>
                             Open
                         </Button>
                     }
@@ -594,7 +594,7 @@ export default function DashboardPage() {
                             title={`No ${canonicalProjectLower} yet`}
                             description="Create your first project to begin."
                             action={
-                                <Button variant="contained" onClick={() => navigate("/agent-projects")}>
+                                <Button variant="contained" onClick={() => navigate("/projects")}>
                                     Create
                                 </Button>
                             }

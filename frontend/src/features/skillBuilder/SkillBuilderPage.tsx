@@ -22,6 +22,7 @@ import {
 import { Save as SaveIcon, Publish as PublishIcon, CheckCircle as CheckIcon } from "@mui/icons-material";
 import {
     createSkillDraft,
+    getSkillDraft,
     publishSkillDraft,
     updateSkillDraft,
     validateSkillDraft,
@@ -86,13 +87,12 @@ export default function SkillBuilderPage() {
         register,
         handleSubmit,
         reset,
-        watch,
         formState: { errors },
     } = useForm<SkillBuilderForm>({
         defaultValues: {
             name: "",
             slug: "",
-            target_scope: "company",
+            target_scope: "organization",
             purpose: "",
             when_to_use: "",
             capabilities: "",
@@ -110,36 +110,32 @@ export default function SkillBuilderPage() {
 
     const { data: loadedDraft, isLoading: isLoadingDraft } = useQuery({
         queryKey: ["workforce", "skill-draft", draftId],
-        queryFn: async () => {
-            const response = await fetch(`/api/v1/workforce/skill-drafts/${draftId}`);
-            if (!response.ok) throw new Error("Failed to load draft");
-            return response.json() as Promise<SkillDraft>;
-        },
+        queryFn: () => getSkillDraft(draftId!),
         enabled: Boolean(draftId),
     });
 
     useEffect(() => {
-        if (loadedDraft) {
-            reset({
-                name: loadedDraft.name,
-                slug: loadedDraft.slug,
-                target_scope: loadedDraft.target_scope,
-                purpose: loadedDraft.purpose,
-                when_to_use: loadedDraft.when_to_use,
-                capabilities: loadedDraft.capabilities.join("\n"),
-                inputs: JSON.stringify(loadedDraft.inputs, null, 2),
-                outputs: JSON.stringify(loadedDraft.outputs, null, 2),
-                instructions: loadedDraft.instructions,
-                tools: loadedDraft.tools.join("\n"),
-                knowledge: loadedDraft.knowledge.join("\n"),
-                constraints: loadedDraft.constraints.join("\n"),
-                risk_level: loadedDraft.risk_level,
-                examples: loadedDraft.examples.join("\n"),
-                evaluation_criteria: loadedDraft.evaluation_criteria.join("\n"),
-            });
-            setValidationResult(loadedDraft);
-        }
+        if (!loadedDraft) return;
+        reset({
+            name: loadedDraft.name,
+            slug: loadedDraft.slug,
+            target_scope: loadedDraft.scope || loadedDraft.target_scope || "organization",
+            purpose: loadedDraft.purpose,
+            when_to_use: loadedDraft.when_to_use,
+            capabilities: loadedDraft.capabilities.join("\n"),
+            inputs: JSON.stringify(loadedDraft.inputs, null, 2),
+            outputs: JSON.stringify(loadedDraft.outputs, null, 2),
+            instructions: loadedDraft.instructions,
+            tools: loadedDraft.tools.join("\n"),
+            knowledge: loadedDraft.knowledge.join("\n"),
+            constraints: loadedDraft.constraints.join("\n"),
+            risk_level: loadedDraft.risk_level,
+            examples: loadedDraft.examples.join("\n"),
+            evaluation_criteria: loadedDraft.evaluation_criteria.join("\n"),
+        });
     }, [loadedDraft, reset]);
+
+    const draftValidation = validationResult ?? loadedDraft ?? null;
 
     const createMutation = useMutation({
         mutationFn: (payload: SkillDraftCreatePayload) => createSkillDraft(payload),
@@ -201,7 +197,7 @@ export default function SkillBuilderPage() {
             company_id: defaultCompany?.id ?? null,
             name: data.name,
             slug: data.slug,
-            target_scope: data.target_scope,
+            scope: data.target_scope,
             purpose: data.purpose,
             when_to_use: data.when_to_use,
             capabilities: parseListSafe(data.capabilities),
@@ -250,39 +246,39 @@ export default function SkillBuilderPage() {
                     </Typography>
                 </Box>
 
-                {validationResult && (
+                {draftValidation && (
                     <Stack spacing={2}>
-                        {validationResult.validation_errors.length > 0 && (
+                        {draftValidation.validation_errors.length > 0 && (
                             <Alert severity="error">
                                 <Typography variant="subtitle2" gutterBottom>
                                     Validation Errors
                                 </Typography>
                                 <ul style={{ margin: 0, paddingLeft: 20 }}>
-                                    {validationResult.validation_errors.map((error, idx) => (
+                                    {draftValidation.validation_errors.map((error, idx) => (
                                         <li key={idx}>{error}</li>
                                     ))}
                                 </ul>
                             </Alert>
                         )}
-                        {validationResult.validation_warnings.length > 0 && (
+                        {draftValidation.validation_warnings.length > 0 && (
                             <Alert severity="warning">
                                 <Typography variant="subtitle2" gutterBottom>
                                     Warnings
                                 </Typography>
                                 <ul style={{ margin: 0, paddingLeft: 20 }}>
-                                    {validationResult.validation_warnings.map((warning, idx) => (
+                                    {draftValidation.validation_warnings.map((warning, idx) => (
                                         <li key={idx}>{warning}</li>
                                     ))}
                                 </ul>
                             </Alert>
                         )}
-                        {validationResult.duplicate_matches.length > 0 && (
+                        {draftValidation.duplicate_matches.length > 0 && (
                             <Alert severity="info">
                                 <Typography variant="subtitle2" gutterBottom>
                                     Similar Skills Found
                                 </Typography>
                                 <Stack spacing={1}>
-                                    {validationResult.duplicate_matches.map((match) => (
+                                    {draftValidation.duplicate_matches.map((match) => (
                                         <Box key={match.skill_id}>
                                             <Typography variant="body2">
                                                 {match.skill_name} -{" "}
@@ -296,7 +292,7 @@ export default function SkillBuilderPage() {
                                 </Stack>
                             </Alert>
                         )}
-                        {validationResult.is_valid && (
+                        {draftValidation.is_valid && (
                             <Alert severity="success" icon={<CheckIcon />}>
                                 This skill is valid and ready to publish
                             </Alert>
@@ -341,14 +337,14 @@ export default function SkillBuilderPage() {
                                     control={control}
                                     render={({ field }) => (
                                         <Select {...field} label="Scope">
-                                            <MenuItem value="personal">Personal</MenuItem>
+                                            <MenuItem value="task">Task</MenuItem>
                                             <MenuItem value="project">Project</MenuItem>
-                                            <MenuItem value="company">Company</MenuItem>
+                                            <MenuItem value="organization">Organization</MenuItem>
                                         </Select>
                                     )}
                                 />
                                 <FormHelperText>
-                                    Who can use this skill (personal, project, or company-wide)
+                                    Who can use this skill (task, project, or organization-wide)
                                 </FormHelperText>
                             </FormControl>
 
@@ -514,7 +510,7 @@ export default function SkillBuilderPage() {
                                             disabled={
                                                 isPublishing ||
                                                 isSaving ||
-                                                !validationResult?.is_valid
+                                                !draftValidation?.is_valid
                                             }
                                         >
                                             Publish

@@ -6,6 +6,7 @@ Create Date: 2026-08-12 18:49:00.000000
 """
 
 from collections.abc import Sequence
+import uuid
 
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -602,91 +603,146 @@ def upgrade() -> None:
     op.create_index("ix_project_analyses_project_id", "project_analyses", ["project_id"])
 
     # Data migrations
+    # Ownership strategy: For each skill_pack, create a Skill owned by an agent owner that
+    # references the pack's slug in their skills_json. If no agent references it, use the
+    # agent owner with the most agent_profiles (modal owner). This avoids arbitrary "first user"
+    # ownership and properly reflects skill usage in the system.
     connection = op.get_bind()
+    import json
 
     # 1. Backfill skills from skill_packs
     result = connection.execute(text("SELECT COUNT(*) FROM users")).scalar()
     if result and result > 0:
-        # Get the first user ID for skill ownership
-        first_user = connection.execute(
-            text("SELECT id FROM users ORDER BY created_at LIMIT 1")
-        ).scalar()
+        # Build a map: skill_pack_slug -> list of owner_ids who use it
+        agents = connection.execute(
+            text("SELECT owner_id, skills_json FROM agent_profiles WHERE skills_json IS NOT NULL")
+        ).fetchall()
 
-        if first_user:
-            # Fetch all skill_packs
-            skill_packs = connection.execute(
+        skill_slug_to_owners = {}
+        owner_agent_counts = {}
+
+        for agent_row in agents:
+            owner_id, skills_json_str = agent_row[0], agent_row[1]
+            owner_agent_counts[owner_id] = owner_agent_counts.get(owner_id, 0) + 1
+
+            if skills_json_str:
+                try:
+                    skill_slugs = json.loads(skills_json_str)
+                    if isinstance(skill_slugs, list):
+                        for slug in skill_slugs:
+                            if slug not in skill_slug_to_owners:
+                                skill_slug_to_owners[slug] = []
+                            if owner_id not in skill_slug_to_owners[slug]:
+                                skill_slug_to_owners[slug].append(owner_id)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+        # Determine modal owner (owner with most agent_profiles) as fallback
+        modal_owner = None
+        if owner_agent_counts:
+            modal_owner = max(owner_agent_counts, key=owner_agent_counts.get)
+
+        # Fetch all skill_packs (note: no purpose column)
+        skill_packs = connection.execute(
+            text(
+                """
+                SELECT id, slug, name, description, rules_markdown,
+                       capabilities_json, allowed_tools_json, created_at
+                FROM skill_packs
+                """
+            )
+        ).fetchall()
+
+        for sp in skill_packs:
+            pack_id, slug, name, description, rules_markdown = sp[0], sp[1], sp[2], sp[3], sp[4]
+            capabilities_json, allowed_tools_json, created_at = sp[5], sp[6], sp[7]
+
+            # Determine owner for this skill_pack
+            owners_for_slug = skill_slug_to_owners.get(slug, [])
+            if owners_for_slug:
+                # Use first referencing owner
+                owner_id = owners_for_slug[0]
+            elif modal_owner:
+                # Use modal owner as fallback
+                owner_id = modal_owner
+            else:
+                # No agents exist; skip this pack
+                continue
+
+            # Check if skill already exists (idempotency)
+            existing_skill = connection.execute(
+                text(
+                    "SELECT id FROM skills WHERE owner_id = :owner_id AND slug = :slug"
+                ),
+                {"owner_id": owner_id, "slug": slug},
+            ).scalar()
+
+            if existing_skill:
+                continue  # Skip if already migrated
+
+            # Create Skill record with Python-generated UUID
+            skill_id = str(uuid.uuid4())
+            connection.execute(
                 text(
                     """
-                    SELECT id, slug, name, description, purpose, rules_markdown,
-                           capabilities_json, allowed_tools_json, created_at
-                    FROM skill_packs
+                    INSERT INTO skills (id, owner_id, slug, name, description, scope, status,
+                                      legacy_skill_pack_id, created_at, updated_at)
+                    VALUES (
+                        :skill_id, :owner_id, :slug, :name, :description, 'organization', 'active',
+                        :skill_pack_id, :created_at, :created_at
+                    )
                     """
-                )
-            ).fetchall()
+                ),
+                {
+                    "skill_id": skill_id,
+                    "owner_id": owner_id,
+                    "slug": slug,
+                    "name": name,
+                    "description": description or "",
+                    "skill_pack_id": pack_id,
+                    "created_at": created_at,
+                },
+            )
 
-            for sp in skill_packs:
-                # Create Skill record
-                skill_id = connection.execute(
-                    text(
-                        """
-                        INSERT INTO skills (id, owner_id, slug, name, description, scope, status,
-                                          legacy_skill_pack_id, created_at, updated_at)
-                        VALUES (
-                            lower(hex(randomblob(16))),
-                            :owner_id, :slug, :name, :description, 'organization', 'active',
-                            :skill_pack_id, :created_at, :created_at
-                        )
-                        RETURNING id
-                        """
-                    ),
-                    {
-                        "owner_id": first_user,
-                        "slug": sp[1],
-                        "name": sp[2],
-                        "description": sp[3] or "",
-                        "skill_pack_id": sp[0],
-                        "created_at": sp[8],
-                    },
-                ).scalar()
+            # Create SkillVersion record (use description as purpose)
+            version_id = str(uuid.uuid4())
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO skill_versions (
+                        id, skill_id, version_number, purpose, when_to_use,
+                        instructions_markdown, input_schema_json, output_schema_json,
+                        capabilities_json, required_tools_json, knowledge_requirements_json,
+                        constraints_markdown, risk_level, approval_policy_json, examples_json,
+                        evaluation_criteria_json, source_type, source_task_id, source_project_id,
+                        generated_by_model, generation_metadata_json, is_published, created_by,
+                        created_at
+                    )
+                    VALUES (
+                        :version_id, :skill_id, 1, :purpose, '', :instructions,
+                        '{}', '{}', :capabilities, :tools, '[]', '', 'low', '{}', '[]', '[]',
+                        'migrated_skill_pack', NULL, NULL, NULL, '{}', true, NULL, :created_at
+                    )
+                    """
+                ),
+                {
+                    "version_id": version_id,
+                    "skill_id": skill_id,
+                    "purpose": description or "",
+                    "instructions": rules_markdown or "",
+                    "capabilities": capabilities_json or "[]",
+                    "tools": allowed_tools_json or "[]",
+                    "created_at": created_at,
+                },
+            )
 
-                # Create SkillVersion record
-                version_id = connection.execute(
-                    text(
-                        """
-                        INSERT INTO skill_versions (
-                            id, skill_id, version_number, purpose, when_to_use,
-                            instructions_markdown, input_schema_json, output_schema_json,
-                            capabilities_json, required_tools_json, knowledge_requirements_json,
-                            constraints_markdown, risk_level, approval_policy_json, examples_json,
-                            evaluation_criteria_json, source_type, source_task_id, source_project_id,
-                            generated_by_model, generation_metadata_json, is_published, created_by,
-                            created_at
-                        )
-                        VALUES (
-                            lower(hex(randomblob(16))), :skill_id, 1, :purpose, '', :instructions,
-                            '{}', '{}', :capabilities, :tools, '[]', '', 'low', '{}', '[]', '[]',
-                            'migrated_skill_pack', NULL, NULL, NULL, '{}', 1, NULL, :created_at
-                        )
-                        RETURNING id
-                        """
-                    ),
-                    {
-                        "skill_id": skill_id,
-                        "purpose": sp[4] or sp[3] or "",
-                        "instructions": sp[5] or "",
-                        "capabilities": sp[6] or "[]",
-                        "tools": sp[7] or "[]",
-                        "created_at": sp[8],
-                    },
-                ).scalar()
+            # Update skills.current_version_id
+            connection.execute(
+                text("UPDATE skills SET current_version_id = :version_id WHERE id = :skill_id"),
+                {"version_id": version_id, "skill_id": skill_id},
+            )
 
-                # Update skills.current_version_id
-                connection.execute(
-                    text("UPDATE skills SET current_version_id = :version_id WHERE id = :skill_id"),
-                    {"version_id": version_id, "skill_id": skill_id},
-                )
-
-    # 2. Seed native tool definitions
+    # 2. Seed native tool definitions (idempotent)
     native_tools = [
         {
             "slug": "web_search",
@@ -779,12 +835,13 @@ def upgrade() -> None:
     ]
 
     for tool in native_tools:
-        # Check if tool already exists
+        # Check if tool already exists (idempotency)
         existing = connection.execute(
             text("SELECT id FROM tool_definitions WHERE slug = :slug"), {"slug": tool["slug"]}
         ).scalar()
 
         if not existing:
+            tool_id = str(uuid.uuid4())
             connection.execute(
                 text(
                     """
@@ -793,23 +850,21 @@ def upgrade() -> None:
                         risk_level, requires_approval, is_active, metadata_json, created_at
                     )
                     VALUES (
-                        lower(hex(randomblob(16))), :slug, :name, :description, :provider_type,
-                        '{}', :risk_level, :requires_approval, 1, '{}', datetime('now')
+                        :tool_id, :slug, :name, :description, :provider_type,
+                        '{}', :risk_level, :requires_approval, true, '{}', CURRENT_TIMESTAMP
                     )
                     """
                 ),
-                tool,
+                {**tool, "tool_id": tool_id},
             )
 
-    # 3. Backfill agent_skill_assignments from agent_profiles.skills_json
+    # 3. Backfill agent_skill_assignments from agent_profiles.skills_json (idempotent)
     agents = connection.execute(
-        text("SELECT id, skills_json FROM agent_profiles WHERE skills_json IS NOT NULL")
+        text("SELECT id, owner_id, skills_json FROM agent_profiles WHERE skills_json IS NOT NULL")
     ).fetchall()
 
-    import json
-
     for agent_row in agents:
-        agent_id, skills_json_str = agent_row[0], agent_row[1]
+        agent_id, agent_owner_id, skills_json_str = agent_row[0], agent_row[1], agent_row[2]
         if not skills_json_str:
             continue
 
@@ -821,13 +876,26 @@ def upgrade() -> None:
             continue
 
         for slug in skill_slugs:
-            # Find skill by slug (prefer first match)
+            # Find skill by slug owned by this agent's owner (or any if not found)
             skill_id = connection.execute(
-                text("SELECT id FROM skills WHERE slug = :slug LIMIT 1"), {"slug": slug}
+                text(
+                    """
+                    SELECT id FROM skills 
+                    WHERE slug = :slug AND owner_id = :owner_id
+                    LIMIT 1
+                    """
+                ),
+                {"slug": slug, "owner_id": agent_owner_id},
             ).scalar()
 
+            if not skill_id:
+                # Fallback: find any skill with this slug
+                skill_id = connection.execute(
+                    text("SELECT id FROM skills WHERE slug = :slug LIMIT 1"), {"slug": slug}
+                ).scalar()
+
             if skill_id:
-                # Check if assignment already exists
+                # Check if assignment already exists (idempotency)
                 existing_assignment = connection.execute(
                     text(
                         """
@@ -839,6 +907,7 @@ def upgrade() -> None:
                 ).scalar()
 
                 if not existing_assignment:
+                    assignment_id = str(uuid.uuid4())
                     connection.execute(
                         text(
                             """
@@ -847,12 +916,12 @@ def upgrade() -> None:
                                 priority, enabled, created_at
                             )
                             VALUES (
-                                lower(hex(randomblob(16))), :agent_id, :skill_id, NULL,
-                                'latest_active', 100, 1, datetime('now')
+                                :assignment_id, :agent_id, :skill_id, NULL,
+                                'latest_active', 100, true, CURRENT_TIMESTAMP
                             )
                             """
                         ),
-                        {"agent_id": agent_id, "skill_id": skill_id},
+                        {"assignment_id": assignment_id, "agent_id": agent_id, "skill_id": skill_id},
                     )
 
 

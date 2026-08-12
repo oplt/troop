@@ -58,6 +58,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BusinessIcon from '@mui/icons-material/Business';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
@@ -272,7 +273,8 @@ export function AppLayout() {
     const navItems = useMemo<NavItem[]>(
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-            { label: "Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
+            { label: "Projects", icon: <AgentProjectsIcon />, path: "/projects", group: "workspace" },
+            { label: "My tasks", icon: <ActivityIcon />, path: "/my-tasks", group: "workspace" },
             {
                 label: "Approvals",
                 icon: <ActivityIcon />,
@@ -286,8 +288,10 @@ export function AppLayout() {
             },
             { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
             { label: "Skills", icon: <PsychologyIcon />, path: "/skills", group: "workspace" },
+            { label: "Marketplace", icon: <StorefrontIcon />, path: "/marketplace", group: "workspace" },
             { label: "Teams", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
-            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
+            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workforce-workflows", group: "workspace" },
+            { label: "Workflow templates", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
             { label: "Departments", icon: <BusinessIcon />, path: "/departments", group: "workspace" },
             { label: "Knowledge", icon: <AutoAwesomeIcon />, path: "/companies", group: "workspace" },
             { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
@@ -340,7 +344,7 @@ export function AppLayout() {
         item.path === "/dashboard" ? location.pathname === item.path : location.pathname.startsWith(item.path)
     );
     const projectIdFromPath = useMemo(() => {
-        const match = location.pathname.match(/^\/agent-projects\/([^/]+)/);
+        const match = location.pathname.match(/^\/(?:projects|agent-projects)\/([^/]+)/);
         return match?.[1] ?? null;
     }, [location.pathname]);
     const { data: breadcrumbProject } = useQuery({
@@ -353,7 +357,7 @@ export function AppLayout() {
     const breadcrumbs = useMemo(
         () =>
             buildBreadcrumbs(location.pathname, visibleNavItems, (segment, index, segments) => {
-                if (index > 0 && segments[index - 1] === "agent-projects") {
+                if (index > 0 && (segments[index - 1] === "agent-projects" || segments[index - 1] === "projects")) {
                     if (segment === projectIdFromPath && breadcrumbProject?.name) {
                         return breadcrumbProject.name;
                     }

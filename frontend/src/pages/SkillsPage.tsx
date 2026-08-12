@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tantml:react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
     Box,
@@ -61,7 +61,7 @@ export default function SkillsPage() {
     const [promoteDialog, setPromoteDialog] = useState<PromoteDialogState>({
         open: false,
         skill: null,
-        targetScope: "company",
+        targetScope: "organization",
     });
 
     const {
@@ -79,7 +79,7 @@ export default function SkillsPage() {
         onSuccess: () => {
             showToast({ message: "Skill promoted successfully", severity: "success" });
             queryClient.invalidateQueries({ queryKey: ["workforce", "skills"] });
-            setPromoteDialog({ open: false, skill: null, targetScope: "company" });
+            setPromoteDialog({ open: false, skill: null, targetScope: "organization" });
         },
         onError: (error: Error) => {
             showToast({ message: `Failed to promote: ${error.message}`, severity: "error" });
@@ -87,7 +87,7 @@ export default function SkillsPage() {
     });
 
     const handleOpenPromote = (skill: Skill) => {
-        const nextScope = skill.scope === "personal" ? "project" : "company";
+        const nextScope = skill.scope === "task" ? "project" : "organization";
         setPromoteDialog({
             open: true,
             skill,
@@ -115,12 +115,16 @@ export default function SkillsPage() {
 
     const getScopeColor = (scope: SkillScope) => {
         switch (scope) {
-            case "personal":
+            case "task":
                 return "default";
             case "project":
                 return "info";
-            case "company":
+            case "organization":
                 return "success";
+            case "template":
+                return "warning";
+            case "global":
+                return "error";
             default:
                 return "default";
         }
@@ -176,9 +180,9 @@ export default function SkillsPage() {
                             label="Scope"
                         >
                             <MenuItem value="all">All Scopes</MenuItem>
-                            <MenuItem value="personal">Personal</MenuItem>
+                            <MenuItem value="task">Task</MenuItem>
                             <MenuItem value="project">Project</MenuItem>
-                            <MenuItem value="company">Company</MenuItem>
+                            <MenuItem value="organization">Organization</MenuItem>
                         </Select>
                     </FormControl>
                 </Stack>
@@ -301,7 +305,7 @@ export default function SkillsPage() {
                                                         <ViewIcon fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
-                                                {skill.scope !== "company" && (
+                                                {skill.scope !== "organization" && (
                                                     <Tooltip title="Promote skill">
                                                         <IconButton
                                                             size="small"
@@ -323,7 +327,7 @@ export default function SkillsPage() {
                 <Dialog
                     open={promoteDialog.open}
                     onClose={() =>
-                        setPromoteDialog({ open: false, skill: null, targetScope: "company" })
+                        setPromoteDialog({ open: false, skill: null, targetScope: "organization" })
                     }
                 >
                     <DialogTitle>Promote Skill</DialogTitle>
@@ -344,17 +348,17 @@ export default function SkillsPage() {
                                 }
                                 label="Target Scope"
                             >
-                                {promoteDialog.skill?.scope === "personal" && (
+                                {promoteDialog.skill?.scope === "task" && (
                                     <MenuItem value="project">Project</MenuItem>
                                 )}
-                                <MenuItem value="company">Company</MenuItem>
+                                <MenuItem value="organization">Organization</MenuItem>
                             </Select>
                         </FormControl>
                     </DialogContent>
                     <DialogActions>
                         <Button
                             onClick={() =>
-                                setPromoteDialog({ open: false, skill: null, targetScope: "company" })
+                                setPromoteDialog({ open: false, skill: null, targetScope: "organization" })
                             }
                         >
                             Cancel

@@ -12,7 +12,7 @@ export function ProjectDetailMissingState() {
                 icon={<ProjectIcon />}
                 title="Project not found"
                 description="This page needs a project id in the URL."
-                action={<Button variant="contained" component={RouterLink} to="/agent-projects">Back to projects</Button>}
+                action={<Button variant="contained" component={RouterLink} to="/projects">Back to projects</Button>}
             />
         </PageShell>
     );
@@ -46,7 +46,7 @@ export function ProjectDetailErrorState({ message, notFound, retrying, onRetry }
                         <Button variant="contained" startIcon={<RefreshIcon />} disabled={retrying} onClick={onRetry}>
                             {retrying ? "Retrying…" : "Try again"}
                         </Button>
-                        <Button variant="outlined" component={RouterLink} to="/agent-projects">Back to projects</Button>
+                        <Button variant="outlined" component={RouterLink} to="/projects">Back to projects</Button>
                     </Stack>
                 }
             />

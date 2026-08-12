@@ -481,7 +481,7 @@ export default function BrainstormDetailPage() {
                                 Export as first-class artifact
                             </Button>
                             {brainstorm.project_id && (
-                                <Button variant="text" onClick={() => navigate(`/agent-projects/${brainstorm.project_id}`)}>
+                                <Button variant="text" onClick={() => navigate(`/projects/${brainstorm.project_id}`)}>
                                     Open project
                                 </Button>
                             )}

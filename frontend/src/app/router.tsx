@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import { Box, Skeleton, Stack } from "@mui/material";
 import { ProtectedRoute } from "../components/guards/ProtectedRoute";
 import { RouteErrorBoundary } from "../components/guards/RouteErrorBoundary";
@@ -39,6 +39,9 @@ const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 const DepartmentsPage = lazy(() => import("../pages/DepartmentsPage"));
 const SkillsPage = lazy(() => import("../pages/SkillsPage"));
 const SkillBuilderPage = lazy(() => import("../features/skillBuilder/SkillBuilderPage"));
+const MyTasksPage = lazy(() => import("../pages/MyTasksPage"));
+const WorkforceWorkflowsPage = lazy(() => import("../pages/WorkforceWorkflowsPage"));
+const MarketplacePage = lazy(() => import("../pages/MarketplacePage"));
 
 function PageLoader() {
     return (
@@ -71,6 +74,14 @@ function RedirectToAdminSettingsTab({ tab }: { tab: string }) {
     return <Navigate to={`/admin/settings?${next.toString()}`} replace />;
 }
 
+function RedirectLegacyProjectPath({ suffix = "" }: { suffix?: string }) {
+    const { projectId } = useParams();
+    if (!projectId) {
+        return <Navigate to="/projects" replace />;
+    }
+    return <Navigate to={`/projects/${projectId}${suffix}`} replace />;
+}
+
 export function AppRouter() {
     const { isReady, isAuthenticated, isAdmin } = useAuth();
 
@@ -101,15 +112,20 @@ export function AppRouter() {
                     <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
-                    <Route path="/projects" element={<Navigate to="/agent-projects" replace />} />
-                    <Route path="/work/projects" element={<Navigate to="/agent-projects" replace />} />
-                    <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
-                    <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
+                    <Route path="/projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
+                    <Route path="/projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
+                    <Route path="/projects/:projectId/benchmark" element={<SuspensePage><BenchmarkPage /></SuspensePage>} />
+                    <Route path="/projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
+                    <Route path="/agent-projects" element={<Navigate to="/projects" replace />} />
+                    <Route path="/agent-projects/:projectId" element={<RedirectLegacyProjectPath />} />
+                    <Route path="/work/projects" element={<Navigate to="/projects" replace />} />
                     <Route path="/skills" element={<SuspensePage><SkillsPage /></SuspensePage>} />
                     <Route path="/skills/builder" element={<SuspensePage><SkillBuilderPage /></SuspensePage>} />
                     <Route path="/skills/builder/:draftId" element={<SuspensePage><SkillBuilderPage /></SuspensePage>} />
                     <Route path="/departments" element={<SuspensePage><DepartmentsPage /></SuspensePage>} />
-                    <Route path="/my-tasks" element={<Navigate to="/agent-projects" replace />} />
+                    <Route path="/my-tasks" element={<SuspensePage><MyTasksPage /></SuspensePage>} />
+                    <Route path="/workforce-workflows" element={<SuspensePage><WorkforceWorkflowsPage /></SuspensePage>} />
+                    <Route path="/marketplace" element={<SuspensePage><MarketplacePage /></SuspensePage>} />
                     <Route path="/github" element={<RedirectToAdminSettingsTab tab="integrations" />} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
@@ -117,8 +133,14 @@ export function AppRouter() {
                     <Route path="/activity" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />
                     <Route path="/analytics/execution" element={<SuspensePage><ExecutionInsightsPage /></SuspensePage>} />
-                    <Route path="/agent-projects/:projectId/benchmark" element={<SuspensePage><BenchmarkPage /></SuspensePage>} />
-                    <Route path="/agent-projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
+                    <Route
+                        path="/agent-projects/:projectId/benchmark"
+                        element={<RedirectLegacyProjectPath suffix="/benchmark" />}
+                    />
+                    <Route
+                        path="/agent-projects/:projectId/memory"
+                        element={<RedirectLegacyProjectPath suffix="/memory" />}
+                    />
                     <Route path="/runs/:runId" element={<SuspensePage><RunInspectorPage /></SuspensePage>} />
                     <Route path="/profile" element={<SuspensePage><ProfilePage /></SuspensePage>} />
                     <Route path="/notifications" element={<SuspensePage><NotificationsPage /></SuspensePage>} />

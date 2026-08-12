@@ -1,3 +1,10 @@
+"""Legacy Project / ProjectTask HTTP API.
+
+DEPRECATED: Prefer orchestrator projects/tasks under /api/v1/orchestration.
+This router is intentionally not mounted in backend/api/router.py. Models remain
+for migration compatibility until tables are dropped.
+"""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +25,9 @@ from backend.modules.projects.schemas import (
 from backend.modules.projects.service import ProjectsService
 
 router = APIRouter()
+DEPRECATION_NOTICE = (
+    "Legacy Project/ProjectTask API is deprecated. Use OrchestratorProject/OrchestratorTask."
+)
 
 
 def _project_to_response(project: Project) -> ProjectResponse:

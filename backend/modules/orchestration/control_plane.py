@@ -224,17 +224,21 @@ class HierarchyControlPlaneService:
         return result
 
     async def get_runtime_profile(self, user: User, agent_id: str) -> AgentRuntimeProfile:
+        from backend.modules.orchestration.skill_runtime import load_assigned_skill_versions
+
         agent = await self.service.get_agent(user, agent_id)
         provider = None
         if agent.provider_config_id:
             provider = await self.repo.get_provider(user.id, agent.provider_config_id)
         capabilities = await self.service.list_model_capabilities()
         skills = await self.repo.list_skill_packs()
+        assigned = await load_assigned_skill_versions(self.service.db, agent.id)
         return build_agent_runtime_profile(
             agent,
             provider=provider,
             model_capabilities=capabilities,
             skills=skills,
+            assigned_skill_versions=assigned or None,
         )
 
     async def create_team_member(self, user: User, payload: dict[str, Any]) -> AgentProfile:

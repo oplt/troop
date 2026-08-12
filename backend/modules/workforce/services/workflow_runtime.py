@@ -11,10 +11,12 @@ systems:
 - parallel → branch status in parallel_branches with join policies
 - delay → durable resume_at + Celery resume hook
 - subworkflow → nested WorkflowRun with parent pause until child completes
+- WorkflowChildExecution → indexed parent wake on child terminal events
 """
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -26,6 +28,7 @@ from backend.core.logging import get_logger
 from backend.modules.workforce.models import (
     Skill,
     SkillVersion,
+    WorkflowChildExecution,
     WorkflowDefinition,
     WorkflowRun,
     WorkflowStepRun,
@@ -51,6 +54,7 @@ SUPPORTED_NODE_TYPES = frozenset(
 _TASK_RUN_TERMINAL = frozenset({"completed", "failed", "cancelled"})
 _RUN_TERMINAL = frozenset({"completed", "failed", "cancelled"})
 _SIMPLE_PARALLEL_TYPES = frozenset({"tool", "skill", "condition", "trigger"})
+_ASYNC_PARALLEL_TYPES = frozenset({"agent", "subworkflow", "delay"})
 
 logger = get_logger(__name__)
 
@@ -75,6 +79,10 @@ def _parse_parallel_join_config(config: dict[str, Any]) -> tuple[str, int | None
     if policy == "n_of_m" or raw_policy.lower().replace("-", "_") == "n_of_m":
         policy = "n_of_m"
     return policy, n
+
+
+def _normalize_merge_policy(policy: str) -> str:
+    return str(policy or "namespaced").lower().replace("-", "_")
 
 
 def _utcnow() -> datetime:
@@ -162,9 +170,58 @@ class WorkflowRuntimeService:
         try:
             from backend.modules.workforce.services.workflow_hooks import on_workflow_run_completed
 
-            await on_workflow_run_completed(self.db, run.id)
+            await on_workflow_run_completed(self.db, run.id, status=run.status)
         except Exception:
             logger.exception("workflow_run_completed_hook_failed run_id=%s", run.id)
+
+    async def _upsert_child_execution(
+        self,
+        *,
+        workflow_run_id: str,
+        workflow_node_id: str,
+        child_type: str,
+        child_run_id: str | None = None,
+        branch_key: str | None = None,
+        status: str = "pending",
+        output_json: dict[str, Any] | None = None,
+    ) -> WorkflowChildExecution:
+        stmt = select(WorkflowChildExecution).where(
+            WorkflowChildExecution.workflow_run_id == workflow_run_id,
+            WorkflowChildExecution.workflow_node_id == workflow_node_id,
+        )
+        if child_run_id:
+            stmt = stmt.where(WorkflowChildExecution.child_run_id == str(child_run_id))
+        elif branch_key:
+            stmt = stmt.where(WorkflowChildExecution.branch_key == str(branch_key))
+        else:
+            stmt = stmt.where(WorkflowChildExecution.child_type == child_type)
+
+        existing = (await self.db.execute(stmt)).scalar_one_or_none()
+        if existing is not None:
+            existing.child_type = child_type
+            existing.status = status
+            if child_run_id is not None:
+                existing.child_run_id = str(child_run_id)
+            if branch_key is not None:
+                existing.branch_key = str(branch_key)
+            if output_json is not None:
+                existing.output_json = dict(output_json)
+            await self.db.flush()
+            return existing
+
+        row = WorkflowChildExecution(
+            id=str(uuid4()),
+            workflow_run_id=workflow_run_id,
+            workflow_node_id=workflow_node_id,
+            child_type=child_type,
+            child_run_id=str(child_run_id) if child_run_id else None,
+            branch_key=str(branch_key) if branch_key else None,
+            status=status,
+            output_json=dict(output_json or {}),
+        )
+        self.db.add(row)
+        await self.db.flush()
+        return row
 
     async def _create_run_record(
         self,
@@ -206,6 +263,133 @@ class WorkflowRuntimeService:
         self.db.add(run)
         await self.db.flush()
         return run, version
+
+    async def apply_approval_rejection(
+        self,
+        owner_id: str,
+        run_id: str,
+        *,
+        approval_request_id: str,
+    ) -> WorkflowRun:
+        """Apply explicit rejection semantics for a waiting_approval workflow.
+
+        Node config ``on_reject`` supports: fail (default) | cancel | route_to | request_changes.
+        Persists approver + rejection reason on the run.
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+
+        from backend.modules.orchestration.models import ApprovalRequest
+
+        result = await self.db.execute(select(WorkflowRun).where(WorkflowRun.id == run_id))
+        run = result.scalar_one_or_none()
+        if run is None:
+            raise ValueError("run not found")
+        definition = await self.get_definition(owner_id, run.workflow_id)
+        if definition.owner_id != owner_id and not definition.is_template:
+            raise ValueError("access denied")
+        if run.status != "waiting_approval":
+            raise ValueError(f"run not waiting_approval (status={run.status})")
+
+        approval = await self.db.get(ApprovalRequest, approval_request_id)
+        if approval is None or str(approval.status or "").lower() != "rejected":
+            raise ValueError("approval_request_id must reference a rejected ApprovalRequest")
+
+        version = await self.get_version(run.workflow_version_id)
+        if version is None:
+            raise ValueError("workflow version missing")
+
+        ctx = dict(run.context_json or {})
+        vars_ = dict(ctx.get("vars") or {})
+        node = None
+        if run.current_node_id and version.nodes_json:
+            node = next(
+                (
+                    n
+                    for n in version.nodes_json
+                    if isinstance(n, dict) and n.get("id") == run.current_node_id
+                ),
+                None,
+            )
+        config = dict((node or {}).get("config") or {})
+        on_reject = str(config.get("on_reject") or "fail").lower().replace("-", "_")
+        reason = str(
+            approval.reason
+            or (approval.payload_json or {}).get("rejection_reason")
+            or (approval.payload_json or {}).get("reason")
+            or "Approval rejected"
+        )
+        rejection = {
+            "approval_request_id": approval_request_id,
+            "rejected_by": approval.approved_by_user_id
+            or (approval.payload_json or {}).get("rejected_by"),
+            "reason": reason,
+            "on_reject": on_reject,
+            "node_id": run.current_node_id,
+        }
+        vars_["approval_rejection"] = rejection
+        vars_.pop("pending_approval_request_id", None)
+        vars_.pop("pending_tool", None)
+        vars_.pop("approval_granted", None)
+        vars_.pop("approval_request_id", None)
+
+        payload = dict(approval.payload_json or {})
+        if not payload.get("_rejected_at") and not payload.get("rejected_at"):
+            payload["_rejected_at"] = _utcnow().isoformat()
+            payload["rejected_at"] = payload["_rejected_at"]
+            payload["rejection_reason"] = reason
+            approval.payload_json = payload
+            if hasattr(approval, "_sa_instance_state"):
+                flag_modified(approval, "payload_json")
+
+        if on_reject == "request_changes":
+            vars_["request_changes"] = rejection
+            self._pause_run(
+                run=run,
+                cursor=str(run.current_node_id or ""),
+                ctx=ctx,
+                completed=list(ctx.get("completed") or []),
+                vars_=vars_,
+                run_status="waiting_input",
+            )
+            run.result_json = {**(run.result_json or {}), "approval_rejection": rejection}
+            await self.db.commit()
+            await self.db.refresh(run)
+            return run
+
+        if on_reject == "route_to":
+            target = str(config.get("reject_route") or config.get("route_to") or "")
+            if not target:
+                on_reject = "fail"
+            else:
+                completed = list(ctx.get("completed") or [])
+                if run.current_node_id and run.current_node_id not in completed:
+                    completed.append(run.current_node_id)
+                ctx.update({"completed": completed, "vars": vars_})
+                run.context_json = ctx
+                run.current_node_id = target
+                run.status = "running"
+                run.result_json = {**(run.result_json or {}), "approval_rejection": rejection}
+                await self._advance(run, version)
+                await self._notify_workflow_run_completed_if_terminal(run)
+                await self.db.commit()
+                await self.db.refresh(run)
+                return run
+
+        if on_reject == "cancel":
+            run.status = "cancelled"
+        else:
+            run.status = "failed"
+        ctx.update({"completed": list(ctx.get("completed") or []), "vars": vars_})
+        run.context_json = ctx
+        run.result_json = {
+            **(run.result_json or {}),
+            "error": reason,
+            "approval_rejection": rejection,
+        }
+        await self._notify_workflow_run_completed_if_terminal(run)
+        await self.db.commit()
+        await self.db.refresh(run)
+        return run
 
     async def resume_run(
         self,
@@ -539,11 +723,14 @@ class WorkflowRuntimeService:
         node: dict[str, Any],
         node_id: str,
         vars_: dict[str, Any],
+        track_node_id: str | None = None,
+        branch_key: str | None = None,
     ) -> tuple[str, dict[str, Any], str | None]:
         config = dict(node.get("config") or {})
         agent_id = config.get("agent_id")
         agent_runs = dict(vars_.get("_agent_runs") or {})
         existing_id = agent_runs.get(node_id)
+        child_track_node = track_node_id or node_id
 
         if existing_id:
             from backend.modules.orchestration.models import TaskRun
@@ -557,10 +744,31 @@ class WorkflowRuntimeService:
                     "task_run_id": task_run.id,
                     "task_run_status": task_run.status,
                 }
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=child_track_node,
+                    child_type="task_run",
+                    child_run_id=task_run.id,
+                    branch_key=branch_key,
+                    status=str(task_run.status),
+                    output_json=output,
+                )
                 if task_run.status != "completed":
                     return "failed", output, "failed"
                 return "succeeded", output, None
             else:
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=child_track_node,
+                    child_type="task_run",
+                    child_run_id=task_run.id,
+                    branch_key=branch_key,
+                    status=str(task_run.status or "running"),
+                    output_json={
+                        "task_run_id": task_run.id,
+                        "task_run_status": task_run.status,
+                    },
+                )
                 return (
                     "paused",
                     {"task_run_id": task_run.id, "task_run_status": task_run.status},
@@ -582,9 +790,11 @@ class WorkflowRuntimeService:
             input_payload.update(
                 {
                     "workflow_run_id": run.id,
-                    "workflow_node_id": node_id,
+                    "workflow_node_id": child_track_node,
                 }
             )
+            if branch_key:
+                input_payload["workflow_branch_key"] = branch_key
             starter = TaskRunStarter(self.db)
             task_run, _warnings = await starter.start(
                 user,
@@ -597,6 +807,15 @@ class WorkflowRuntimeService:
             )
             agent_runs[node_id] = task_run.id
             vars_["_agent_runs"] = agent_runs
+            await self._upsert_child_execution(
+                workflow_run_id=run.id,
+                workflow_node_id=child_track_node,
+                child_type="task_run",
+                child_run_id=task_run.id,
+                branch_key=branch_key,
+                status=str(task_run.status or "queued"),
+                output_json={"task_run_id": task_run.id, "task_run_status": task_run.status},
+            )
             return (
                 "paused",
                 {"task_run_id": task_run.id, "task_run_status": task_run.status},
@@ -622,11 +841,14 @@ class WorkflowRuntimeService:
         node: dict[str, Any],
         node_id: str,
         vars_: dict[str, Any],
+        track_node_id: str | None = None,
+        branch_key: str | None = None,
     ) -> tuple[str, dict[str, Any], str | None]:
         config = dict(node.get("config") or {})
         workflow_id = config.get("workflow_id")
         sub_runs = dict(vars_.get("_subworkflow_runs") or {})
         child_run_id = sub_runs.get(node_id)
+        child_track_node = track_node_id or node_id
 
         if child_run_id:
             child = await self.db.get(WorkflowRun, str(child_run_id))
@@ -634,14 +856,41 @@ class WorkflowRuntimeService:
                 sub_runs.pop(node_id, None)
                 vars_["_subworkflow_runs"] = sub_runs
             elif child.status == "completed":
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=child_track_node,
+                    child_type="workflow_run",
+                    child_run_id=child.id,
+                    branch_key=branch_key,
+                    status="completed",
+                    output_json={"child_run_id": child.id, "child_status": child.status},
+                )
                 return "succeeded", {"child_run_id": child.id, "child_status": child.status}, None
             elif child.status in {"failed", "cancelled"}:
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=child_track_node,
+                    child_type="workflow_run",
+                    child_run_id=child.id,
+                    branch_key=branch_key,
+                    status=str(child.status),
+                    output_json={"child_run_id": child.id, "child_status": child.status},
+                )
                 return (
                     "failed",
                     {"child_run_id": child.id, "child_status": child.status},
                     "failed",
                 )
             else:
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=child_track_node,
+                    child_type="workflow_run",
+                    child_run_id=child.id,
+                    branch_key=branch_key,
+                    status=str(child.status or "running"),
+                    output_json={"child_run_id": child.id, "child_status": child.status},
+                )
                 return (
                     "paused",
                     {"child_run_id": child.id, "child_status": child.status},
@@ -661,6 +910,15 @@ class WorkflowRuntimeService:
         await self._advance(child_run, _version)
         sub_runs[node_id] = child_run.id
         vars_["_subworkflow_runs"] = sub_runs
+        await self._upsert_child_execution(
+            workflow_run_id=run.id,
+            workflow_node_id=child_track_node,
+            child_type="workflow_run",
+            child_run_id=child_run.id,
+            branch_key=branch_key,
+            status=str(child_run.status or "running"),
+            output_json={"child_run_id": child_run.id, "child_status": child_run.status},
+        )
         if child_run.status == "completed":
             return (
                 "succeeded",
@@ -781,6 +1039,265 @@ class WorkflowRuntimeService:
             return "succeeded", metadata, None
         return "failed", {"error": f"unsupported simple node type `{ntype}`"}, "failed"
 
+    def _apply_parallel_merge_policy(
+        self,
+        *,
+        vars_: dict[str, Any],
+        node_id: str,
+        branches: dict[str, Any],
+        children: list[str],
+        merge_policy: str,
+        config: dict[str, Any],
+    ) -> None:
+        policy = _normalize_merge_policy(merge_policy)
+        ordered_outputs: list[tuple[str, dict[str, Any]]] = []
+        for child_id in children:
+            entry = dict(branches.get(child_id) or {})
+            if str(entry.get("status") or "") != "succeeded":
+                continue
+            ordered_outputs.append((child_id, dict(entry.get("output") or {})))
+
+        parallel_outputs = dict(vars_.get("parallel_outputs") or {})
+
+        if policy == "collect_array":
+            parallel_outputs[node_id] = [out for _bid, out in ordered_outputs]
+        elif policy == "merge_objects":
+            merged: dict[str, Any] = {}
+            for _bid, out in ordered_outputs:
+                merged.update(out)
+            parallel_outputs[node_id] = merged
+        elif policy == "selected_output":
+            selected = (
+                config.get("selected_branch")
+                or config.get("selected_output")
+                or config.get("selected_branch_id")
+            )
+            selected_out: dict[str, Any] = {}
+            if selected is not None:
+                entry = dict(branches.get(str(selected)) or {})
+                selected_out = dict(entry.get("output") or {})
+            elif ordered_outputs:
+                selected_out = ordered_outputs[0][1]
+            parallel_outputs[node_id] = selected_out
+        else:
+            # namespaced (default)
+            parallel_outputs[node_id] = {bid: out for bid, out in ordered_outputs}
+
+        vars_["parallel_outputs"] = parallel_outputs
+
+    async def _refresh_parallel_branch_status(
+        self,
+        *,
+        run: WorkflowRun,
+        parallel_node_id: str,
+        child_id: str,
+        child_entry: dict[str, Any],
+        child_node: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Update a paused branch from durable child state / delay clock."""
+        status = str(child_entry.get("status") or "pending")
+        if status in {"succeeded", "failed"}:
+            return child_entry
+
+        child_type = str(
+            child_entry.get("child_type") or (child_node or {}).get("type") or ""
+        ).lower()
+        child_run_id = child_entry.get("child_run_id")
+
+        if child_type in {"agent", "task_run"}:
+            from backend.modules.orchestration.models import TaskRun
+
+            run_id = str(child_run_id or "")
+            if not run_id:
+                return child_entry
+            task_run = await self.db.get(TaskRun, run_id)
+            if task_run is None:
+                return child_entry
+            output = {
+                "task_run_id": task_run.id,
+                "task_run_status": task_run.status,
+            }
+            if task_run.status in _TASK_RUN_TERMINAL:
+                child_entry["status"] = (
+                    "succeeded" if task_run.status == "completed" else "failed"
+                )
+                child_entry["output"] = output
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=parallel_node_id,
+                    child_type="task_run",
+                    child_run_id=task_run.id,
+                    branch_key=child_id,
+                    status=str(task_run.status),
+                    output_json=output,
+                )
+            else:
+                child_entry["status"] = "paused"
+                child_entry["output"] = output
+            return child_entry
+
+        if child_type in {"subworkflow", "workflow_run"}:
+            run_id = str(child_run_id or "")
+            if not run_id:
+                return child_entry
+            child = await self.db.get(WorkflowRun, run_id)
+            if child is None:
+                return child_entry
+            output = {"child_run_id": child.id, "child_status": child.status}
+            if child.status == "completed":
+                child_entry["status"] = "succeeded"
+                child_entry["output"] = output
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=parallel_node_id,
+                    child_type="workflow_run",
+                    child_run_id=child.id,
+                    branch_key=child_id,
+                    status="completed",
+                    output_json=output,
+                )
+            elif child.status in {"failed", "cancelled"}:
+                child_entry["status"] = "failed"
+                child_entry["output"] = output
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=parallel_node_id,
+                    child_type="workflow_run",
+                    child_run_id=child.id,
+                    branch_key=child_id,
+                    status=str(child.status),
+                    output_json=output,
+                )
+            else:
+                child_entry["status"] = "paused"
+                child_entry["output"] = output
+            return child_entry
+
+        if child_type == "delay" or child_entry.get("delay"):
+            delay_state = dict(child_entry.get("delay") or {})
+            resume_at_str = delay_state.get("resume_at")
+            if resume_at_str:
+                resume_at = datetime.fromisoformat(str(resume_at_str))
+                if _utcnow() >= resume_at:
+                    child_entry["status"] = "succeeded"
+                    child_entry["output"] = {
+                        "delayed": True,
+                        "resume_at": resume_at_str,
+                    }
+                    await self._upsert_child_execution(
+                        workflow_run_id=run.id,
+                        workflow_node_id=parallel_node_id,
+                        child_type="branch",
+                        branch_key=child_id,
+                        status="completed",
+                        output_json=dict(child_entry["output"]),
+                    )
+                else:
+                    child_entry["status"] = "paused"
+            return child_entry
+
+        return child_entry
+
+    async def _start_parallel_async_branch(
+        self,
+        *,
+        run: WorkflowRun,
+        parallel_node_id: str,
+        child_id: str,
+        child_node: dict[str, Any],
+        branch_vars: dict[str, Any],
+    ) -> dict[str, Any]:
+        child_type = str(child_node.get("type") or "")
+        child_entry: dict[str, Any] = {
+            "status": "pending",
+            "output": {},
+            "child_type": child_type,
+        }
+
+        if child_type == "agent":
+            step_status, output, pause = await self._execute_agent_node(
+                run=run,
+                node=child_node,
+                node_id=child_id,
+                vars_=branch_vars,
+                track_node_id=parallel_node_id,
+                branch_key=child_id,
+            )
+            task_run_id = output.get("task_run_id")
+            child_entry["child_type"] = "task_run"
+            child_entry["child_run_id"] = task_run_id
+            child_entry["output"] = output
+            if pause:
+                child_entry["status"] = "paused"
+            elif step_status == "failed":
+                child_entry["status"] = "failed"
+            else:
+                child_entry["status"] = "succeeded"
+            return child_entry
+
+        if child_type == "subworkflow":
+            step_status, output, pause = await self._execute_subworkflow_node(
+                run=run,
+                node=child_node,
+                node_id=child_id,
+                vars_=branch_vars,
+                track_node_id=parallel_node_id,
+                branch_key=child_id,
+            )
+            child_run_id = output.get("child_run_id")
+            child_entry["child_type"] = "workflow_run"
+            child_entry["child_run_id"] = child_run_id
+            child_entry["output"] = output
+            if pause:
+                child_entry["status"] = "paused"
+            elif step_status == "failed":
+                child_entry["status"] = "failed"
+            else:
+                child_entry["status"] = "succeeded"
+            return child_entry
+
+        if child_type == "delay":
+            config = dict(child_node.get("config") or {})
+            seconds = float(config.get("seconds") or config.get("delay_seconds") or 0)
+            if seconds <= 0:
+                child_entry["status"] = "succeeded"
+                child_entry["output"] = {"delayed": False, "seconds": 0}
+                child_entry["child_type"] = "delay"
+                await self._upsert_child_execution(
+                    workflow_run_id=run.id,
+                    workflow_node_id=parallel_node_id,
+                    child_type="branch",
+                    branch_key=child_id,
+                    status="completed",
+                    output_json=dict(child_entry["output"]),
+                )
+                return child_entry
+
+            resume_at = _utcnow() + timedelta(seconds=seconds)
+            delay_state = {
+                "node_id": child_id,
+                "resume_at": resume_at.isoformat(),
+                "parallel_node_id": parallel_node_id,
+            }
+            child_entry["status"] = "paused"
+            child_entry["child_type"] = "delay"
+            child_entry["delay"] = delay_state
+            child_entry["output"] = {"resume_at": resume_at.isoformat(), "seconds": seconds}
+            await self._upsert_child_execution(
+                workflow_run_id=run.id,
+                workflow_node_id=parallel_node_id,
+                child_type="branch",
+                branch_key=child_id,
+                status="paused",
+                output_json=dict(child_entry["output"]),
+            )
+            self._schedule_delay_resume(run=run, node_id=parallel_node_id, resume_at=resume_at)
+            return child_entry
+
+        child_entry["status"] = "failed"
+        child_entry["output"] = {"error": f"unsupported async branch type `{child_type}`"}
+        return child_entry
+
     async def _execute_parallel_node(
         self,
         *,
@@ -792,7 +1309,10 @@ class WorkflowRuntimeService:
     ) -> tuple[str, dict[str, Any], str | None]:
         config = dict(node.get("config") or {})
         join_policy, join_n = _parse_parallel_join_config(config)
-        children = list(config.get("children") or [])
+        merge_policy = _normalize_merge_policy(
+            str(config.get("merge_policy") or config.get("merge") or "namespaced")
+        )
+        children = [str(c) for c in list(config.get("children") or [])]
 
         all_branches = dict(vars_.get("parallel_branches") or {})
         branch_state = dict(all_branches.get(node_id) or {})
@@ -800,32 +1320,54 @@ class WorkflowRuntimeService:
             branch_state = {
                 "join_policy": join_policy,
                 "n": join_n,
+                "merge_policy": merge_policy,
                 "branches": {cid: {"status": "pending", "output": {}} for cid in children},
             }
         else:
             branch_state.setdefault("join_policy", join_policy)
+            branch_state.setdefault("merge_policy", merge_policy)
             if join_n is not None:
                 branch_state["n"] = join_n
             join_policy = str(branch_state.get("join_policy") or join_policy)
+            merge_policy = _normalize_merge_policy(
+                str(branch_state.get("merge_policy") or merge_policy)
+            )
             stored_n = branch_state.get("n")
             if stored_n is not None:
                 join_n = int(stored_n)
 
         branches = dict(branch_state.get("branches") or {})
+        # Snapshot parent vars once so branches never observe each other's writes.
+        parent_snapshot = copy.deepcopy(vars_)
 
         def _finalize_parallel() -> tuple[str, dict[str, Any], str | None]:
             branch_state["branches"] = branches
+            branch_state["merge_policy"] = merge_policy
             all_branches[node_id] = branch_state
             vars_["parallel_branches"] = all_branches
             output = {
                 "parallel_branches": branch_state,
                 "join_policy": join_policy,
+                "merge_policy": merge_policy,
                 "n": join_n,
             }
             statuses = [str(b.get("status") or "") for b in branches.values()]
             joined = self._evaluate_parallel_join(join_policy, statuses, n=join_n)
             output["join_result"] = joined
             if joined == "succeeded":
+                self._apply_parallel_merge_policy(
+                    vars_=vars_,
+                    node_id=node_id,
+                    branches=branches,
+                    children=children,
+                    merge_policy=merge_policy,
+                    config=config,
+                )
+                output["parallel_outputs"] = dict(
+                    (vars_.get("parallel_outputs") or {}).get(node_id) or {}
+                    if merge_policy == "namespaced"
+                    else {"value": (vars_.get("parallel_outputs") or {}).get(node_id)}
+                )
                 return "succeeded", output, None
             if joined == "failed":
                 return "failed", output, "failed"
@@ -839,6 +1381,19 @@ class WorkflowRuntimeService:
         for child_id in children:
             child_entry = dict(branches.get(child_id) or {"status": "pending", "output": {}})
             status = str(child_entry.get("status") or "pending")
+
+            if status == "paused":
+                child_node = nodes.get(child_id)
+                child_entry = await self._refresh_parallel_branch_status(
+                    run=run,
+                    parallel_node_id=node_id,
+                    child_id=child_id,
+                    child_entry=child_entry,
+                    child_node=child_node,
+                )
+                branches[child_id] = child_entry
+                status = str(child_entry.get("status") or "pending")
+
             if status in {"succeeded", "failed"}:
                 if join_policy == "n_of_m":
                     early = self._evaluate_parallel_join(
@@ -848,6 +1403,11 @@ class WorkflowRuntimeService:
                     )
                     if early in {"succeeded", "failed"}:
                         return _finalize_parallel()
+                if join_policy == "fail_fast" and status == "failed":
+                    return _finalize_parallel()
+                continue
+
+            if status == "paused":
                 continue
 
             child_node = nodes.get(child_id)
@@ -860,30 +1420,41 @@ class WorkflowRuntimeService:
                 continue
 
             child_type = str(child_node.get("type") or "")
-            if child_type not in _SIMPLE_PARALLEL_TYPES:
-                child_entry["status"] = "paused"
+            branch_vars = copy.deepcopy(parent_snapshot)
+
+            if child_type in _SIMPLE_PARALLEL_TYPES:
+                step_status, output, pause = await self._execute_simple_node(
+                    run=run,
+                    node=child_node,
+                    node_id=child_id,
+                    vars_=branch_vars,
+                )
+                if pause:
+                    child_entry["status"] = "paused"
+                elif step_status == "failed":
+                    child_entry["status"] = "failed"
+                else:
+                    child_entry["status"] = "succeeded"
+                child_entry["output"] = output
+                child_entry["child_type"] = child_type
+                branches[child_id] = child_entry
+            elif child_type in _ASYNC_PARALLEL_TYPES:
+                child_entry = await self._start_parallel_async_branch(
+                    run=run,
+                    parallel_node_id=node_id,
+                    child_id=child_id,
+                    child_node=child_node,
+                    branch_vars=branch_vars,
+                )
+                branches[child_id] = child_entry
+            else:
+                child_entry["status"] = "failed"
                 child_entry["output"] = {
-                    "reason": f"child type `{child_type}` requires async branch execution"
+                    "error": f"child type `{child_type}` is not supported in parallel"
                 }
                 branches[child_id] = child_entry
-                continue
 
-            step_status, output, pause = await self._execute_simple_node(
-                run=run,
-                node=child_node,
-                node_id=child_id,
-                vars_=vars_,
-            )
-            if pause:
-                child_entry["status"] = "paused"
-            elif step_status == "failed":
-                child_entry["status"] = "failed"
-            else:
-                child_entry["status"] = "succeeded"
-            child_entry["output"] = output
-            branches[child_id] = child_entry
-
-            if join_policy == "fail_fast" and child_entry["status"] == "failed":
+            if join_policy == "fail_fast" and child_entry.get("status") == "failed":
                 return _finalize_parallel()
 
             if join_policy == "n_of_m":

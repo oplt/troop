@@ -216,10 +216,13 @@ class ToolRegistryService:
         )
 
         # Hierarchical grants (org→dept→project→agent→skill) refine permission.
+        # Fail closed for governed/high-risk tools when resolution errors.
         effective = None
         if self.db is not None and (
             context.get("agent_id") or context.get("project_id") or context.get("company_id")
         ):
+            from backend.modules.orchestration.tool_execution_context import is_low_risk_tool
+
             try:
                 from backend.modules.workforce.services.effective_permissions import (
                     resolve_effective_tool_permissions,
@@ -252,8 +255,25 @@ class ToolRegistryService:
                     and resolution.get("decision") != DECISION_PROHIBITED
                 ):
                     permitted = True
-            except Exception:
-                effective = None
+            except Exception as exc:
+                from backend.core.logging import get_logger
+
+                get_logger(__name__).exception(
+                    "effective_tool_permissions_failed tool=%s owner=%s",
+                    tool_slug,
+                    owner_id,
+                )
+                if not is_low_risk_tool(tool_slug):
+                    permitted = False
+                    resolution = {
+                        **dict(resolution or {}),
+                        "decision": DECISION_PROHIBITED,
+                        "matched_scope": "effective_permissions_error",
+                        "error": str(exc),
+                    }
+                    context["_policy_resolution"] = resolution
+                else:
+                    effective = None
 
         if resolution.get("decision") == DECISION_PROHIBITED:
             permitted = False

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -389,3 +390,147 @@ def test_parse_parallel_join_config_from_policy_string() -> None:
     policy, n = _parse_parallel_join_config({"join_policy": "n_of_m", "min_success": 2})
     assert policy == "n_of_m"
     assert n == 2
+
+
+@pytest.mark.asyncio
+async def test_parallel_branch_vars_isolation() -> None:
+    """Branch A writes must not appear in branch B vars during execution."""
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    runtime = WorkflowRuntimeService(db)
+
+    run = _make_run(current_node_id="par-1", vars_={"shared": 1})
+    seen_vars: list[dict] = []
+
+    async def fake_simple(*, run, node, node_id, vars_):
+        seen_vars.append(copy.deepcopy(vars_))
+        vars_[f"wrote_{node_id}"] = True
+        return "succeeded", {"node": node_id}, None
+
+    with patch.object(runtime, "_execute_simple_node", side_effect=fake_simple):
+        status, output, pause = await runtime._execute_parallel_node(
+            run=run,
+            node={
+                "id": "par-1",
+                "type": "parallel",
+                "config": {"children": ["branch-a", "branch-b"], "merge_policy": "namespaced"},
+            },
+            node_id="par-1",
+            nodes={
+                "branch-a": {"id": "branch-a", "type": "tool"},
+                "branch-b": {"id": "branch-b", "type": "tool"},
+            },
+            vars_=run.context_json["vars"],
+        )
+
+    assert status == "succeeded"
+    assert pause is None
+    assert len(seen_vars) == 2
+    assert "wrote_branch-a" not in seen_vars[1]
+    assert "wrote_branch-b" not in seen_vars[0]
+    assert "wrote_branch-a" not in run.context_json["vars"]
+    assert "wrote_branch-b" not in run.context_json["vars"]
+    assert run.context_json["vars"]["parallel_outputs"]["par-1"]["branch-a"]["node"] == "branch-a"
+    assert run.context_json["vars"]["parallel_outputs"]["par-1"]["branch-b"]["node"] == "branch-b"
+    assert output["join_result"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_approval_rejection_fails_workflow_by_default() -> None:
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    runtime = WorkflowRuntimeService(db)
+
+    run = _make_run(current_node_id="appr-node", status="waiting_approval")
+    version = _make_version([{"id": "appr-node", "type": "approval", "config": {}}])
+    approval = SimpleNamespace(
+        id="appr-1",
+        status="rejected",
+        approved_by_user_id="user-2",
+        reason="No",
+        payload_json={"workflow_run_id": "run-1", "workflow_node_id": "appr-node"},
+    )
+    db.get = AsyncMock(return_value=approval)
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(scalar_one_or_none=MagicMock(return_value=run))
+    )
+
+    with (
+        patch.object(
+            runtime,
+            "get_definition",
+            AsyncMock(return_value=SimpleNamespace(owner_id="user-1", is_template=False)),
+        ),
+        patch.object(runtime, "get_version", AsyncMock(return_value=version)),
+        patch.object(runtime, "_notify_workflow_run_completed_if_terminal", AsyncMock()),
+    ):
+        out = await runtime.apply_approval_rejection(
+            "user-1",
+            "run-1",
+            approval_request_id="appr-1",
+        )
+
+    assert out.status == "failed"
+    assert out.result_json["approval_rejection"]["rejected_by"] == "user-2"
+    assert out.result_json["approval_rejection"]["reason"] == "No"
+
+
+@pytest.mark.asyncio
+async def test_approval_rejection_route_to() -> None:
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    runtime = WorkflowRuntimeService(db)
+
+    run = _make_run(current_node_id="appr-node", status="waiting_approval")
+    version = _make_version(
+        [
+            {
+                "id": "appr-node",
+                "type": "approval",
+                "config": {"on_reject": "route_to", "reject_route": "fallback"},
+            },
+            {
+                "id": "fallback",
+                "type": "condition",
+                "config": {"operator": "truthy", "left": True, "right": True},
+            },
+        ],
+        [{"from": "appr-node", "to": "fallback"}],
+    )
+    approval = SimpleNamespace(
+        id="appr-1",
+        status="rejected",
+        approved_by_user_id="user-2",
+        reason="No",
+        payload_json={},
+    )
+    db.get = AsyncMock(return_value=approval)
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(scalar_one_or_none=MagicMock(return_value=run))
+    )
+
+    with (
+        patch.object(
+            runtime,
+            "get_definition",
+            AsyncMock(return_value=SimpleNamespace(owner_id="user-1", is_template=False)),
+        ),
+        patch.object(runtime, "get_version", AsyncMock(return_value=version)),
+        patch.object(runtime, "_notify_workflow_run_completed_if_terminal", AsyncMock()),
+    ):
+        out = await runtime.apply_approval_rejection(
+            "user-1",
+            "run-1",
+            approval_request_id="appr-1",
+        )
+
+    assert out.status == "completed"
+    assert "fallback" in out.context_json["completed"]
+    assert out.context_json["vars"]["approval_rejection"]["on_reject"] == "route_to"

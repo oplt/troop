@@ -44,13 +44,40 @@ class OrchestrationToolbox:
         repo: OrchestrationRepository,
         project: OrchestratorProject,
         task: OrchestratorTask | None,
-        run: TaskRun,
+        run: TaskRun | None = None,
+        context: Any | None = None,
     ) -> None:
         self.db = db
         self.repo = repo
         self.project = project
         self.task = task
-        self.run = run
+        # Prefer neutral ToolExecutionContext; keep TaskRun for legacy agent runs.
+        if context is not None:
+            self.ctx = context
+            self.run = context if run is None else run
+        else:
+            self.run = run
+            self.ctx = run
+
+    @property
+    def _actor_user_id(self) -> str | None:
+        ctx = self.ctx
+        if ctx is None:
+            return None
+        return getattr(ctx, "triggered_by_user_id", None) or getattr(
+            ctx, "owner_id", None
+        )
+
+    @property
+    def _event_run_id(self) -> str | None:
+        ctx = self.ctx
+        if ctx is None:
+            return None
+        return (
+            getattr(ctx, "task_run_id", None)
+            or getattr(ctx, "id", None)
+            or getattr(ctx, "workflow_run_id", None)
+        )
 
     async def execute(self, call: dict[str, Any]) -> dict[str, Any]:
         tool_name = str(call.get("tool") or "").strip()
@@ -59,21 +86,27 @@ class OrchestrationToolbox:
             raise ToolExecutionError("Tool call is missing a tool name")
 
         from backend.modules.orchestration.tool_execution_context import (
+            ToolExecutionContext,
             build_tool_execution_context,
             may_fail_open,
         )
         from backend.modules.workforce.services.tool_registry import ToolRegistryService
 
         # Never trust model-supplied allowed_tools / approval_granted.
-        context = await build_tool_execution_context(
-            self.db,
-            project=self.project,
-            task=self.task,
-            run=self.run,
-            tool_name=tool_name,
-            arguments=arguments if isinstance(arguments, dict) else {},
-            consume_approval=False,
-        )
+        if isinstance(self.run, TaskRun):
+            context = await build_tool_execution_context(
+                self.db,
+                project=self.project,
+                task=self.task,
+                run=self.run,
+                tool_name=tool_name,
+                arguments=arguments if isinstance(arguments, dict) else {},
+                consume_approval=False,
+            )
+        elif isinstance(self.ctx, ToolExecutionContext):
+            context = self.ctx.to_auth_dict()
+        else:
+            raise ToolExecutionError("Tool execution requires TaskRun or ToolExecutionContext")
 
         try:
             registry = ToolRegistryService(self.db)
@@ -93,23 +126,28 @@ class OrchestrationToolbox:
                     f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
                 )
             if decision == "approval_required":
-                # Consume a one-time grant bound to tool + args hash.
-                granted = await build_tool_execution_context(
-                    self.db,
-                    project=self.project,
-                    task=self.task,
-                    run=self.run,
-                    tool_name=tool_name,
-                    arguments=arguments if isinstance(arguments, dict) else {},
-                    consume_approval=True,
-                    require_arguments_hash=True,
-                )
-                if not granted.get("approval_granted"):
+                if isinstance(self.run, TaskRun):
+                    granted = await build_tool_execution_context(
+                        self.db,
+                        project=self.project,
+                        task=self.task,
+                        run=self.run,
+                        tool_name=tool_name,
+                        arguments=arguments if isinstance(arguments, dict) else {},
+                        consume_approval=True,
+                        require_arguments_hash=True,
+                    )
+                    if not granted.get("approval_granted"):
+                        raise ToolExecutionError(
+                            f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
+                            f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
+                        )
+                    context["approval_granted"] = True
+                elif not context.get("approval_granted"):
                     raise ToolExecutionError(
                         f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
                         f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
                     )
-                context["approval_granted"] = True
         except ToolExecutionError:
             raise
         except Exception as exc:
@@ -427,19 +465,30 @@ class OrchestrationToolbox:
         }
 
     async def _web_fetch(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from backend.modules.workforce.services.outbound_url import (
+            UnsafeURLError,
+            safe_outbound_request,
+            validate_outbound_url,
+        )
+
         url = str(arguments.get("url") or "").strip()
-        if not re.match(r"^https?://", url):
-            raise ToolExecutionError("web_fetch requires an absolute http(s) URL")
+        try:
+            url = validate_outbound_url(url)
+        except UnsafeURLError as exc:
+            raise ToolExecutionError(f"web_fetch blocked unsafe URL: {exc}") from exc
         async with managed_http_client(
             "web-tools",
-            timeout_seconds=float(arguments.get("timeout_seconds", 20))
+            timeout_seconds=float(arguments.get("timeout_seconds", 20)),
         ) as client:
-            response = await client.get(url)
+            try:
+                response = await safe_outbound_request("GET", url, client=client)
+            except UnsafeURLError as exc:
+                raise ToolExecutionError(f"web_fetch blocked unsafe redirect: {exc}") from exc
         if response.status_code >= 400:
             raise ToolExecutionError(f"Fetch failed with status {response.status_code}")
         text = response.text[: int(arguments.get("max_chars", 5000))]
         return {
-            "url": url,
+            "url": str(response.url),
             "status_code": response.status_code,
             "content_type": response.headers.get("content-type"),
             "body": text,
@@ -628,9 +677,12 @@ class OrchestrationToolbox:
             ]
             return {"entity": entity, "items": items}
         if entity == "events":
+            event_run_id = self._event_run_id
+            if not event_run_id:
+                return {"entity": entity, "items": []}
             stmt = (
                 select(RunEvent)
-                .where(RunEvent.run_id == self.run.id)
+                .where(RunEvent.run_id == event_run_id)
                 .order_by(RunEvent.created_at.desc())
             )
             rows = (await self.db.execute(stmt.limit(limit))).scalars().all()
@@ -660,7 +712,7 @@ class OrchestrationToolbox:
             query,
             filters=RagSearchFilters(
                 project_id=self.project.id,
-                user_id=self.run.triggered_by_user_id,
+                user_id=self._actor_user_id,
                 source_kind="repo_index",
             ),
             limit=limit,
@@ -737,7 +789,7 @@ class OrchestrationToolbox:
             query,
             filters=RagSearchFilters(
                 project_id=self.project.id,
-                user_id=self.run.triggered_by_user_id,
+                user_id=self._actor_user_id,
                 include_decisions=include_decisions,
             ),
             limit=limit,

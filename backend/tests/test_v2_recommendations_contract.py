@@ -22,10 +22,13 @@ def test_workflow_template_catalog_uses_supported_execution_defaults():
 
 
 def test_workflow_template_apply_route_is_registered():
+    from fastapi.routing import APIRoute
+
     route = next(
         item
         for item in router.routes
-        if item.path == "/projects/{project_id}/workflow-templates/{template_id}/apply"
+        if isinstance(item, APIRoute)
+        and item.path == "/projects/{project_id}/workflow-templates/{template_id}/apply"
     )
 
     assert "POST" in route.methods

@@ -1,28 +1,15 @@
-# Regenerated after implementation pass — remaining gaps only.
-# Source of truth for status: tasks.txt
-
-## Still open / partial
-
-### CI confirmation
-- [~] Confirm Quality Action green on `pgvector/pgvector:pg16` after push (local ruff/tests green).
-
-### Consolidation (schema drops — deferred until CI + telemetry)
-- [ ] Drop legacy `projects` / `project_tasks` tables after caller migration (router unmounted; service warns)
-- [ ] Drop `skill_packs` table after telemetry shows zero production reads (`legacy_skillpack_read_telemetry`)
-
-### Matching / MCP depth (optional next)
-- [~] True embedding-based semantic skill match (token Jaccard shipped as lightweight stand-in)
-- [~] MCP/A2A: session lifecycle, secret rotation, real test servers (retry + circuit breaker shipped)
-
-## Done in this pass (do not rework)
-- Subworkflow parent auto-resume (`on_workflow_run_completed`)
-- Parallel join policies: `fail_fast`, `n_of_m` / `N-of-M`
-- ToolExecutionService ↔ OrchestrationToolbox unification (`dispatch` / no recursion)
-- Shared `model_router` used by workforce provider_resolution + run provider fallback
-- Skill matcher: schema IO + knowledge availability + token semantic score
-- Agent matcher: ModelCapability cost/latency/tools soft signals
-- SkillPack hot-path: no skills_json writes on create/update; assignments instead; telemetry on migrate/reconcile
-- External action stage id `external_action_sync` with `github_sync` alias
-- Legacy ProjectsService runtime warnings + LEGACY.md
-- PG E2E: approval consume-once + frozen SkillVersion eval/usage
-- MCP/A2A: managed HTTP + retry/backoff + circuit breaker
+[P0] Local backend suite is green (249 passed, integration deselected). The previous CI failure in test_workflow_template_apply_route_is_registered() is fixed by filtering APIRoute instances. Do not mark Quality CI [x] until the GitHub Action (including Workforce PostgreSQL E2E with TROOP_RUN_PG_E2E=1) is confirmed green after push.
+[P0 done] web_fetch now uses shared validate_outbound_url + safe_outbound_request with redirect-target revalidation (HTTPS default; TROOP_ALLOW_PRIVATE_CONNECTOR_URLS for local).
+[P0 done] ToolRegistryService.authorize_tool fail-closes when resolve_effective_tool_permissions raises for non-low-risk tools (audit via matched_scope=effective_permissions_error).
+[P0 done] Approval rejection: on_approval_decided handles rejected; WorkflowRuntimeService.apply_approval_rejection supports on_reject=fail|cancel|route_to|request_changes and persists approver/reason.
+[P1 done] on_task_run_terminal emitted for completed/failed/cancelled (blocked excluded); WorkflowChildExecution + migration a1b2c3d4e5f6; JSON _agent_runs/_subworkflow_runs retained as fallback.
+[P1 done] Parallel branches snapshot parent vars, merge via namespaced|collect_array|merge_objects|selected_output, and start agent/subworkflow/delay children with child-execution tracking. Note: same-session SQLAlchemy still executes simple branches sequentially (isolation is correct; true Celery fan-out for CPU/IO-heavy simple tools is optional follow-up).
+[P1 done] ToolExecutionService builds immutable ToolExecutionContext; OrchestrationToolbox accepts context without fabricating TaskRun.
+[P1 done] model_router ranks (provider, exact capability) pairs; require_structured/require_tools return no candidate + fallback_reason instead of soft default.
+[P1 done] pin_agent_skills → AgentSkillAssignment(version_policy=pinned); list_skill_catalog from Skills; agent skills serialize from assignments.
+[P1 done] Failed/blocked eval paths use safe_record_skill_usage_for_run and emit skill_evaluation_record_failed.
+[P1 remaining] PostgreSQL E2E still mixes HTTP setup with direct ApprovalRequest/Toolbox/consume helpers. Prefer a pure public path: high-risk tool → pending approval API → approve → durable resume → execute → no reuse → auto-eval frozen SkillVersion. Test does not run until TROOP_RUN_PG_E2E=1 in CI.
+[P2] Once CI+PG E2E green: instrument remaining legacy projects/project_tasks and skill_packs access, backfill, drop migration, delete old models.
+[P2/P3] MCP/A2A: durable shared circuit state, MCP session lifecycle/protocol negotiation, secret rotation, rate limits, real MCP/A2A test servers.
+[P2] Embedding-based skill matching with pgvector as an additional signal (keep capability/tool/schema/risk/quality constraints).
+[P3] Fix AsyncMock never-awaited warnings in workflow_runtime tests; optionally make ResourceWarnings fatal in CI.

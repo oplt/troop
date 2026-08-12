@@ -1,11 +1,14 @@
-"""SSRF-safe URL validation for outbound connector HTTP."""
+"""SSRF-safe URL validation and outbound HTTP helpers."""
 
 from __future__ import annotations
 
 import ipaddress
 import os
 import socket
-from urllib.parse import urlparse
+from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import httpx
 
 _BLOCKED_HOSTS = {
     "localhost",
@@ -41,11 +44,9 @@ def _allow_private() -> bool:
 
 
 def validate_outbound_url(url: str, *, allow_http: bool | None = None) -> str:
-    """Validate connector base_url before server-side HTTP.
+    """Validate arbitrary outbound URL before server-side HTTP.
 
-    Production default: HTTPS only.
-    HTTP is allowed only when TROOP_ALLOW_PRIVATE_CONNECTOR_URLS=1 (local/dev).
-    Passing allow_http=True alone is insufficient — private/dev mode must also be on.
+    Production default: HTTPS only; private/link-local/metadata blocked.
     """
     raw = (url or "").strip()
     if not raw:
@@ -53,8 +54,6 @@ def validate_outbound_url(url: str, *, allow_http: bool | None = None) -> str:
     parsed = urlparse(raw)
     scheme = (parsed.scheme or "").lower()
     private_ok = _allow_private()
-    # HTTPS default; HTTP only when private connectors are explicitly enabled.
-    # allow_http=False always forbids HTTP; allow_http=True still requires private_ok.
     http_ok = False if allow_http is False else private_ok
     allowed_schemes = {"https", "http"} if http_ok else {"https"}
     if scheme not in allowed_schemes:
@@ -73,23 +72,20 @@ def validate_outbound_url(url: str, *, allow_http: bool | None = None) -> str:
     if host.endswith(".internal") and not private_ok:
         raise UnsafeURLError("Internal hosts are not allowed")
 
-    # Literal IP host check before DNS
     try:
         literal_ip = ipaddress.ip_address(host)
         if any(literal_ip in net for net in _BLOCKED_NETWORKS) and not private_ok:
             raise UnsafeURLError(f"Address {literal_ip} is not allowed")
     except ValueError:
-        literal_ip = None
+        pass
 
-    # Resolve DNS and check every address (guards common rebinding targets at validation time)
     try:
         infos = socket.getaddrinfo(host, parsed.port or (443 if scheme == "https" else 80))
     except socket.gaierror as exc:
         raise UnsafeURLError(f"Unable to resolve host '{host}'") from exc
 
     for info in infos:
-        sockaddr = info[4]
-        ip_str = sockaddr[0]
+        ip_str = info[4][0]
         try:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
@@ -97,3 +93,37 @@ def validate_outbound_url(url: str, *, allow_http: bool | None = None) -> str:
         if any(ip in net for net in _BLOCKED_NETWORKS) and not private_ok:
             raise UnsafeURLError(f"Resolved address {ip} is not allowed")
     return raw
+
+
+async def safe_outbound_request(
+    method: str,
+    url: str,
+    *,
+    client: httpx.AsyncClient,
+    headers: dict[str, str] | None = None,
+    params: dict[str, Any] | None = None,
+    allow_http: bool | None = None,
+    max_redirects: int = 5,
+) -> httpx.Response:
+    """Perform HTTP with SSRF checks on the initial URL and every redirect target."""
+    current = validate_outbound_url(url, allow_http=allow_http)
+    redirects = 0
+    while True:
+        # Re-resolve at request time to reduce DNS-rebinding windows.
+        validate_outbound_url(current, allow_http=allow_http)
+        response = await client.request(
+            method,
+            current,
+            headers=headers,
+            params=params,
+            follow_redirects=False,
+        )
+        if response.is_redirect and redirects < max_redirects:
+            location = response.headers.get("location")
+            if not location:
+                return response
+            next_url = urljoin(current, location)
+            current = validate_outbound_url(next_url, allow_http=allow_http)
+            redirects += 1
+            continue
+        return response

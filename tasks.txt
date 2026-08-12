@@ -4,33 +4,40 @@
 
 ## P0 — Correctness / broken behavior
 
-[~] Quality workflow on pgvector/pgvector:pg16 + CREATE EXTENSION — confirm Action green after push
+[~] Quality workflow on pgvector/pgvector:pg16 + CREATE EXTENSION — local suite green; confirm GH Action + PG E2E after push
 [x] ToolExecutionContext server-owned; auth.permitted enforced in Toolbox + ToolRegistry
 [x] One-time tool approvals require arguments_hash for high-risk tools; consume once
 [x] Workflow tool approvals 4-way bind; auto-create ApprovalRequest; human_input separate
 [x] Mandatory SkillVersion snapshot (fail closed / audited degrade) + TaskRunStarter
-[x] Connector SSRF HTTPS default; jsonschema runtime dep; SkillPack writes 410
+[x] Connector + web_fetch SSRF via shared validate_outbound_url + redirect revalidation
+[x] Hierarchical ToolGrant resolution fail-closed for non-low-risk tools
+[x] Workflow approval rejection: on_reject=fail|cancel|route_to|request_changes
+[x] jsonschema runtime dep; SkillPack writes 410
 
 ## P1 — Core architecture
 
 [x] Departments + Skills/Versions/Drafts + FE normalizers
 [x] Task analysis fingerprints + analysis_mode/fallback
-[x] Shared model_router (workforce + run provider fallback)
+[x] Shared model_router ranks (provider, exact ModelCapability); hard reqs stay hard
 [x] Effective ToolGrant matching; schema/knowledge/semantic (token) skill scores; agent model cost/latency
-[x] ToolExecutionService unified with OrchestrationToolbox.dispatch
-[x] WorkflowRuntime: condition/router/trigger/parallel(fail_fast,n_of_m)/delay/subworkflow parent resume
-[x] Event hooks: task_run completed, approval decided, workflow_run completed
-[x] SkillPack hot-path retired (assignments only); telemetry for remaining reads
+[x] ToolExecutionService uses immutable ToolExecutionContext (no synthetic TaskRun)
+[x] WorkflowRuntime: condition/router/trigger/parallel(join+isolation+async children)/delay/subworkflow
+[x] Event hooks: on_task_run_terminal (completed/failed/cancelled), approval decided (+reject), workflow completed
+[x] WorkflowChildExecution indexed parent wake (JSON scan fallback)
+[x] SkillPack hot-path retired (pin→assignments, catalog→Skills, serialize from assignments)
 [~] Legacy projects/project_tasks + skill_packs tables still present (drop pending CI/telemetry)
 [x] external_action_sync stage (github_sync alias retained)
-[x] PG E2E: snapshot immutability + approval consume-once + frozen-version eval
+[x] Eval failures emit skill_evaluation_record_failed (not silent pass)
+[~] PG E2E: snapshot + consume-once + frozen eval (still partly service-level; true HTTP approve→resume TBD)
 
 ## P2 / P3
 
 [x] Skills/Marketplace/Workflows/My Tasks UI; markdown import; acceptance scenarios
 [~] MCP/A2A beta: retry + circuit breaker + managed HTTP; session/lifecycle/test servers TBD
+[ ] Embedding-based skill matching (pgvector)
+[ ] Make AsyncMock never-awaited warnings fatal in CI
 
 ## Verification notes (latest)
 
-- Ruff CI paths green; workforce-focused pytest **71 passed**
-- Remaining: confirm GH Action; drop legacy tables after telemetry; embedding semantic match; MCP full lifecycle
+- Ruff CI paths green; full backend `pytest -m "not integration"` **249 passed**
+- Remaining: confirm GH Action; true HTTP PG E2E path; drop legacy tables; embedding semantic match; MCP lifecycle

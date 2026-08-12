@@ -50,7 +50,7 @@ def to_agent_response(item: Any) -> AgentResponse:
         source_markdown=item.source_markdown,
         capabilities=item.capabilities_json,
         allowed_tools=item.allowed_tools_json,
-        skills=item.skills_json,
+        skills=list(getattr(item, "__orchestration_skills__", None) or []),
         model_policy=item.model_policy_json,
         permissions=(item.model_policy_json or {}).get("permissions"),
         escalation_path=(item.model_policy_json or {}).get("escalation_path"),

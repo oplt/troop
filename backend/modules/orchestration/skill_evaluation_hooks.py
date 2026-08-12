@@ -50,7 +50,7 @@ async def _emit_eval_event(
         run_id=rid,
         task_id=task_id or (run.task_id if run else None),
         level="warning",
-        event_type="skill_evaluation_error",
+        event_type="skill_evaluation_record_failed",
         message=message,
         payload_json=payload or {},
     )
@@ -171,3 +171,57 @@ async def record_skill_usage_for_run(
         )
     await db.commit()
     return recorded
+
+
+async def safe_record_skill_usage_for_run(
+    db: AsyncSession,
+    *,
+    run: TaskRun,
+    agent_id: str | None,
+    success: bool,
+    notes: str | None = None,
+    task: Any | None = None,
+) -> list[Any]:
+    """Record evaluations; never swallow failures silently."""
+    from backend.core.logging import get_logger
+
+    log = get_logger(__name__)
+    try:
+        return await record_skill_usage_for_run(
+            db,
+            agent_id=agent_id,
+            task_id=run.task_id,
+            run_id=run.id,
+            success=success,
+            notes=notes,
+            used_skill_version_ids=(
+                (run.checkpoint_json or {})
+                .get("skill_version_snapshot", {})
+                .get("skill_version_ids")
+            ),
+            run=run,
+        )
+    except Exception as exc:
+        log.exception(
+            "skill_evaluation_record_failed run_id=%s agent_id=%s",
+            run.id,
+            agent_id,
+        )
+        try:
+            await _emit_eval_event(
+                db,
+                run=run,
+                run_id=run.id,
+                task_id=run.task_id,
+                message=f"skill_evaluation_record_failed: {exc}",
+                payload={
+                    "error": str(exc),
+                    "retryable": True,
+                    "agent_id": agent_id,
+                    "success": success,
+                },
+            )
+            await db.commit()
+        except Exception:
+            log.exception("skill_evaluation_event_emit_failed run_id=%s", run.id)
+        return []

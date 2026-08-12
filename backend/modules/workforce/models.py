@@ -484,6 +484,41 @@ class WorkflowStepRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class WorkflowChildExecution(Base):
+    """Indexed parent↔child link for agent/subworkflow/parallel branch wakes."""
+
+    __tablename__ = "workflow_child_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_run_id",
+            "workflow_node_id",
+            "child_run_id",
+            name="uq_workflow_child_exec_run_node_child",
+        ),
+        UniqueConstraint(
+            "workflow_run_id",
+            "workflow_node_id",
+            "branch_key",
+            name="uq_workflow_child_exec_run_node_branch",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    workflow_run_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), index=True
+    )
+    workflow_node_id: Mapped[str] = mapped_column(String(255))
+    child_type: Mapped[str] = mapped_column(String(32))  # task_run | workflow_run | branch
+    child_run_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    branch_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    output_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class ProjectAnalysis(Base):
     __tablename__ = "project_analyses"
 
@@ -523,5 +558,6 @@ __all__ = [
     "WorkflowVersion",
     "WorkflowRun",
     "WorkflowStepRun",
+    "WorkflowChildExecution",
     "ProjectAnalysis",
 ]

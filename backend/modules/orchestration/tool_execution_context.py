@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -25,6 +26,56 @@ _LOW_RISK_TOOLS = {
     "repo_search",
     "fs_read",
 }
+
+
+@dataclass(frozen=True)
+class ToolExecutionContext:
+    """Neutral immutable context for tool dispatch (TaskRun or WorkflowRun)."""
+
+    owner_id: str
+    project_id: str
+    triggered_by_user_id: str | None = None
+    task_id: str | None = None
+    task_run_id: str | None = None
+    workflow_run_id: str | None = None
+    workflow_node_id: str | None = None
+    company_id: str | None = None
+    department_id: str | None = None
+    agent_id: str | None = None
+    skill_version_ids: tuple[str, ...] = ()
+    approval_request_id: str | None = None
+    approval_granted: bool = False
+    arguments_hash: str | None = None
+    allowed_tools: tuple[str, ...] = ()
+    skill_required_tools: tuple[str, ...] = ()
+    extras: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def id(self) -> str | None:
+        """Event/query id: prefer TaskRun, else WorkflowRun (never invent a TaskRun)."""
+        return self.task_run_id or self.workflow_run_id
+
+    def to_auth_dict(self) -> dict[str, Any]:
+        payload = {
+            "owner_id": self.owner_id,
+            "project_id": self.project_id,
+            "task_id": self.task_id,
+            "company_id": self.company_id,
+            "department_id": self.department_id,
+            "agent_id": self.agent_id,
+            "run_id": self.task_run_id,
+            "task_run_id": self.task_run_id,
+            "workflow_run_id": self.workflow_run_id,
+            "workflow_node_id": self.workflow_node_id,
+            "allowed_tools": list(self.allowed_tools),
+            "skill_required_tools": list(self.skill_required_tools),
+            "skill_version_ids": list(self.skill_version_ids),
+            "arguments_hash": self.arguments_hash,
+            "approval_granted": self.approval_granted,
+            "approval_request_id": self.approval_request_id,
+        }
+        payload.update(self.extras)
+        return payload
 
 
 def policy_fail_open_enabled() -> bool:

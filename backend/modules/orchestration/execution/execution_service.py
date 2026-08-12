@@ -1247,6 +1247,23 @@ class OrchestrationExecutionServiceMixin:
             message="Run cancelled by user.",
         )
         await self.db.commit()
+        try:
+            from backend.modules.workforce.services.workflow_hooks import on_task_run_terminal
+
+            await on_task_run_terminal(self.db, run.id, status="cancelled")
+        except Exception:
+            logger.exception("workflow_task_run_terminal_hook_failed run_id=%s", run.id)
+        for child in child_runs:
+            if child.status != "cancelled":
+                continue
+            try:
+                from backend.modules.workforce.services.workflow_hooks import on_task_run_terminal
+
+                await on_task_run_terminal(self.db, child.id, status="cancelled")
+            except Exception:
+                logger.exception(
+                    "workflow_task_run_terminal_hook_failed run_id=%s", child.id
+                )
         await self.db.refresh(run)
         return run
 
@@ -1980,11 +1997,11 @@ class OrchestrationExecutionServiceMixin:
                 )
             await self.db.commit()
             try:
-                from backend.modules.workforce.services.workflow_hooks import on_task_run_completed
+                from backend.modules.workforce.services.workflow_hooks import on_task_run_terminal
 
-                await on_task_run_completed(self.db, run.id)
+                await on_task_run_terminal(self.db, run.id, status="completed")
             except Exception:
-                logger.exception("workflow_task_run_completed_hook_failed run_id=%s", run.id)
+                logger.exception("workflow_task_run_terminal_hook_failed run_id=%s", run.id)
             if task and task.status in {"completed", "archived", "synced_to_github"}:
                 await self.db.refresh(task)
                 hook_user = None
@@ -2027,7 +2044,7 @@ class OrchestrationExecutionServiceMixin:
             await self.db.commit()
             try:
                 from backend.modules.orchestration.skill_evaluation_hooks import (
-                    record_skill_usage_for_run,
+                    safe_record_skill_usage_for_run,
                 )
 
                 agent_id = (
@@ -2035,22 +2052,16 @@ class OrchestrationExecutionServiceMixin:
                     or getattr(run, "agent_id", None)
                     or (task.assigned_agent_id if task else None)
                 )
-                await record_skill_usage_for_run(
+                await safe_record_skill_usage_for_run(
                     self.db,
+                    run=run,
                     agent_id=agent_id,
-                    task_id=run.task_id,
-                    run_id=run.id,
                     success=False,
                     notes=f"auto-recorded on run blocked: {exc}",
-                    used_skill_version_ids=(
-                        (run.checkpoint_json or {})
-                        .get("skill_version_snapshot", {})
-                        .get("skill_version_ids")
-                    ),
-                    run=run,
+                    task=task,
                 )
             except Exception:
-                pass
+                logger.exception("skill_evaluation_hook_failed run_id=%s", run.id)
             if task:
                 await self._apply_project_escalation_rules(
                     project, run=run, task=task, trigger="task_blocked"
@@ -2084,7 +2095,7 @@ class OrchestrationExecutionServiceMixin:
             await self.db.commit()
             try:
                 from backend.modules.orchestration.skill_evaluation_hooks import (
-                    record_skill_usage_for_run,
+                    safe_record_skill_usage_for_run,
                 )
 
                 agent_id = (
@@ -2092,22 +2103,22 @@ class OrchestrationExecutionServiceMixin:
                     or getattr(run, "agent_id", None)
                     or (task.assigned_agent_id if task else None)
                 )
-                await record_skill_usage_for_run(
+                await safe_record_skill_usage_for_run(
                     self.db,
+                    run=run,
                     agent_id=agent_id,
-                    task_id=run.task_id,
-                    run_id=run.id,
                     success=False,
                     notes=f"auto-recorded on run failure: {exc}",
-                    used_skill_version_ids=(
-                        (run.checkpoint_json or {})
-                        .get("skill_version_snapshot", {})
-                        .get("skill_version_ids")
-                    ),
-                    run=run,
+                    task=task,
                 )
             except Exception:
-                pass
+                logger.exception("skill_evaluation_hook_failed run_id=%s", run.id)
+            try:
+                from backend.modules.workforce.services.workflow_hooks import on_task_run_terminal
+
+                await on_task_run_terminal(self.db, run.id, status="failed")
+            except Exception:
+                logger.exception("workflow_task_run_terminal_hook_failed run_id=%s", run.id)
             if task:
                 await self._apply_project_escalation_rules(
                     project, run=run, task=task, trigger="run_failed"

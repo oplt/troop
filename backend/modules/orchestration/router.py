@@ -228,7 +228,7 @@ def _agent(item) -> AgentResponse:
         source_markdown=item.source_markdown,
         capabilities=item.capabilities_json,
         allowed_tools=item.allowed_tools_json,
-        skills=item.skills_json,
+        skills=list(getattr(item, "__orchestration_skills__", None) or []),
         model_policy=item.model_policy_json,
         permissions=(item.model_policy_json or {}).get("permissions"),
         escalation_path=(item.model_policy_json or {}).get("escalation_path"),
@@ -1056,7 +1056,8 @@ async def list_skill_catalog(
     current_user: User = Depends(get_current_user),
 ):
     return [
-        SkillPackResponse(**item) for item in await OrchestrationService(db).list_skill_catalog()
+        SkillPackResponse(**item)
+        for item in await OrchestrationService(db).list_skill_catalog(current_user)
     ]
 
 

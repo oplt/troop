@@ -16,6 +16,7 @@ from backend.modules.workforce.models import (
     TaskRequirement,
     ToolDefinition,
     ToolGrant,
+    WorkflowChildExecution,
     WorkflowDefinition,
     WorkflowRun,
     WorkflowStepRun,
@@ -41,5 +42,6 @@ __all__ = [
     "WorkflowVersion",
     "WorkflowRun",
     "WorkflowStepRun",
+    "WorkflowChildExecution",
     "ProjectAnalysis",
 ]

@@ -15,7 +15,6 @@ from backend.modules.team.models import (
     AgentProfile,
     AgentTemplateCatalog,
     ProjectAgentMembership,
-    SkillPack,
     TeamProfile,
     TeamTemplateCatalog,
 )
@@ -54,7 +53,10 @@ class TeamServiceMixin:
         await self._ensure_catalog_seeded()
         await self._purge_placeholder_test_agents(user.id)
         await self._purge_orphan_template_agents(user.id)
-        return await self.repo.list_agents(user.id, project_id)
+        agents = await self.repo.list_agents(user.id, project_id)
+        for agent in agents:
+            await self._attach_orchestration_skills(agent)
+        return agents
 
     async def _collect_agents_linked_to_template_slug(self, template_slug: str) -> list[AgentProfile]:
         linked_agents = await self.db.execute(
@@ -73,7 +75,7 @@ class TeamServiceMixin:
     async def create_agent(self, user: User, payload: dict[str, Any]) -> AgentProfile:
         await self._ensure_catalog_seeded()
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
-        requested_skills = list(payload.get("skills") or [])
+        requested_skills = self._normalize_skill_refs(payload.get("skills") or [])
         if requested_skills:
             payload = dict(payload)
             payload["skills"] = []
@@ -97,6 +99,7 @@ class TeamServiceMixin:
         )
         await self.db.commit()
         await self.db.refresh(agent)
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def import_agent_markdown(
@@ -125,6 +128,9 @@ class TeamServiceMixin:
             if parent_agent:
                 normalized["parent_agent_id"] = parent_agent.id
 
+        requested_skills = self._normalize_skill_refs(normalized.get("skills") or [])
+        normalized["skills"] = []
+
         if existing_agent_id:
             agent = await self.get_agent(user, existing_agent_id)
             await self._ensure_unique_agent_slug(user.id, normalized["slug"], agent.id)
@@ -137,6 +143,8 @@ class TeamServiceMixin:
                 owner_id=user.id, **self._agent_payload_to_model(normalized)
             )
 
+        if requested_skills:
+            await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
         await self.audit_repo.log(
             "orchestration.agent.imported_markdown",
@@ -147,6 +155,7 @@ class TeamServiceMixin:
         )
         await self.db.commit()
         await self.db.refresh(agent)
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def get_agent(self, user: User, agent_id: str) -> AgentProfile:
@@ -154,12 +163,13 @@ class TeamServiceMixin:
         agent = await self.repo.get_agent(user.id, agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def update_agent(self, user: User, agent_id: str, updates: dict[str, Any]) -> AgentProfile:
         await self._ensure_catalog_seeded()
         agent = await self.get_agent(user, agent_id)
-        requested_skills = list(updates.get("skills") or [])
+        requested_skills = self._normalize_skill_refs(updates.get("skills") or [])
         if requested_skills or "skills" in updates:
             updates = dict(updates)
             updates.pop("skills", None)
@@ -184,6 +194,7 @@ class TeamServiceMixin:
         await self._snapshot_agent(agent, user.id)
         await self.db.commit()
         await self.db.refresh(agent)
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def _validate_reporting_line(
@@ -250,9 +261,11 @@ class TeamServiceMixin:
             "version": 1,
         }
         copy = await self.repo.create_agent(owner_id=user.id, **payload)
+        await self._copy_agent_skill_assignments(source.id, copy.id)
         await self._snapshot_agent(copy, user.id)
         await self.db.commit()
         await self.db.refresh(copy)
+        await self._attach_orchestration_skills(copy)
         return copy
 
     async def set_agent_active_state(self, user: User, agent_id: str, is_active: bool) -> AgentProfile:
@@ -278,13 +291,50 @@ class TeamServiceMixin:
         return await self.repo.list_agent_versions(agent_id)
 
     async def pin_agent_skills(self, user: User, agent_id: str, payload: dict[str, Any]) -> AgentProfile:
+        """Pin skills via AgentSkillAssignment(version_policy=pinned).
+
+        Does not write metadata_json["skill_pins"]. Legacy metadata pins are migrated
+        into assignments when the request payload is empty.
+        """
+        from backend.modules.workforce.repository import WorkforceRepository
+
         agent = await self.get_agent(user, agent_id)
         pins = list(payload.get("skill_pins") or [])
         meta = dict(agent.metadata_json or {})
-        meta["skill_pins"] = pins
-        agent.metadata_json = meta
+        # Brief migration: prefer assignments; migrate old metadata pins when payload empty.
+        if not pins and meta.get("skill_pins"):
+            pins = list(meta.get("skill_pins") or [])
+
+        repo = WorkforceRepository(self.db)
+        for idx, raw in enumerate(pins):
+            skill_ref, version_id = self._parse_skill_pin(raw)
+            if not skill_ref:
+                continue
+            skill = await self._resolve_skill_ref(repo, user.id, skill_ref)
+            if skill is None:
+                raise HTTPException(status_code=404, detail=f"Skill '{skill_ref}' not found")
+            pinned_version_id = version_id or skill.current_version_id
+            if version_id:
+                version = await repo.get_skill_version(version_id)
+                if version is None or version.skill_id != skill.id:
+                    raise HTTPException(
+                        status_code=404, detail=f"Skill version '{version_id}' not found"
+                    )
+            await repo.upsert_agent_skill_assignment(
+                agent_id=agent.id,
+                skill_id=skill.id,
+                skill_version_id=pinned_version_id,
+                version_policy="pinned",
+                priority=idx,
+                enabled=True,
+            )
+
+        if "skill_pins" in meta:
+            meta.pop("skill_pins", None)
+            agent.metadata_json = meta
         await self.db.commit()
         await self.db.refresh(agent)
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def list_agent_templates(self) -> list[dict]:
@@ -348,6 +398,8 @@ class TeamServiceMixin:
         metadata = dict(payload.get("metadata") or {})
         if payload.get("task_filters") is not None:
             metadata["task_filters"] = list(payload["task_filters"])
+        # Legacy mirror only: store Skill id/slug refs (no SkillPack writes).
+        skill_refs = self._normalize_skill_refs(payload.get("skills") or [])
         data = {
             "slug": payload["slug"],
             "name": payload["name"],
@@ -360,7 +412,7 @@ class TeamServiceMixin:
             "output_contract_markdown": payload.get("output_contract_markdown", ""),
             "capabilities_json": payload.get("capabilities", []),
             "allowed_tools_json": payload.get("allowed_tools", []),
-            "skills_json": payload.get("skills", []),
+            "skills_json": skill_refs,
             "tags_json": payload.get("tags", []),
             "model_policy_json": model_policy,
             "budget_json": payload.get("budget", {}),
@@ -393,6 +445,9 @@ class TeamServiceMixin:
             metadata = dict(payload.get("metadata") or template.metadata_json or {})
             metadata["task_filters"] = list(payload.pop("task_filters") or [])
             payload["metadata"] = metadata
+        if "skills" in payload:
+            # Legacy mirror of Skill id/slug refs — not SkillPack rows.
+            payload["skills"] = self._normalize_skill_refs(payload.get("skills") or [])
         field_map = {
             "slug": "slug",
             "name": "name",
@@ -471,10 +526,19 @@ class TeamServiceMixin:
             raise HTTPException(status_code=404, detail=f"Template '{slug}' not found")
         await self.delete_agent_template(template.id)
 
-    async def list_skill_catalog(self) -> list[dict[str, Any]]:
-        await self._ensure_catalog_seeded()
-        skills = await self.repo.list_skill_packs()
-        return [self._skill_model_to_payload(item) for item in skills]
+    async def list_skill_catalog(self, user: User) -> list[dict[str, Any]]:
+        """List canonical workforce Skills (+ current version), SkillPackResponse-shaped."""
+        from backend.modules.workforce.repository import WorkforceRepository
+
+        repo = WorkforceRepository(self.db)
+        skills = await repo.list_skills(user.id)
+        payloads: list[dict[str, Any]] = []
+        for skill in skills:
+            version = None
+            if skill.current_version_id:
+                version = await repo.get_skill_version(skill.current_version_id)
+            payloads.append(self._skill_model_to_payload(skill, version))
+        return payloads
 
     async def create_skill_pack(self, payload: dict[str, Any]) -> dict[str, Any]:
         from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
@@ -618,10 +682,14 @@ class TeamServiceMixin:
             **payload.get("metadata", {}),
             "from_template": template_slug,
         }
+        requested_skills = self._normalize_skill_refs(payload.get("skills") or [])
+        payload["skills"] = []
         payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
         payload["is_active"] = bool(payload.get("is_active", False))
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
         agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
+        if requested_skills:
+            await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
         await self.audit_repo.log(
             "orchestration.agent.created_from_template",
@@ -632,6 +700,7 @@ class TeamServiceMixin:
         )
         await self.db.commit()
         await self.db.refresh(agent)
+        await self._attach_orchestration_skills(agent)
         return agent
 
     async def _load_agent_for_run(self, agent_id: str | None) -> AgentProfile | None:
@@ -646,7 +715,7 @@ class TeamServiceMixin:
         payload = self._agent_model_to_payload(agent)
         inheritance = await self.resolve_agent_inheritance(agent)
         payload["inheritance"] = inheritance
-        payload["skills"] = list(agent.skills_json or [])
+        payload["skills"] = await self._skill_slugs_for_agent(agent.id)
         return payload
 
     async def resolve_agent_inheritance(self, agent: AgentProfile) -> dict[str, Any]:
@@ -657,8 +726,13 @@ class TeamServiceMixin:
         inherited_fields: dict[str, Any] = {}
         if template is not None:
             inherited_fields = await self._resolve_template_effective_profile(template)
-        effective = self._merge_agent_with_inheritance(agent, inherited_fields)
-        overridden = self._compute_overridden_fields(agent, inherited_fields)
+        agent_skills = await self._skill_slugs_for_agent(agent.id)
+        effective = self._merge_agent_with_inheritance(
+            agent, inherited_fields, agent_skills=agent_skills
+        )
+        overridden = self._compute_overridden_fields(
+            agent, inherited_fields, agent_skills=agent_skills
+        )
         return {
             "parent_template_slug": agent.parent_template_slug,
             "inherited_fields": inherited_fields,
@@ -668,6 +742,7 @@ class TeamServiceMixin:
 
     async def _snapshot_agent(self, agent: AgentProfile, user_id: str | None) -> None:
         snapshot = self._agent_model_to_payload(agent)
+        snapshot["skills_json"] = await self._skill_slugs_for_agent(agent.id)
         await self.repo.create_agent_version(
             agent_profile_id=agent.id,
             version_number=agent.version,
@@ -702,7 +777,8 @@ class TeamServiceMixin:
             "source_markdown": payload.get("source_markdown", ""),
             "capabilities_json": payload.get("capabilities", []),
             "allowed_tools_json": payload.get("allowed_tools", []),
-            "skills_json": payload.get("skills", []),
+            # Assignments are source of truth; leave column empty on write paths.
+            "skills_json": [],
             "model_policy_json": model_policy,
             "visibility": payload.get("visibility", "private"),
             "is_active": payload.get("is_active", True),
@@ -722,7 +798,7 @@ class TeamServiceMixin:
         agent_id: str,
         skills: list[str],
     ) -> None:
-        """Create AgentSkillAssignment rows from legacy skill slugs/ids."""
+        """Create AgentSkillAssignment rows from skill slugs/ids."""
         from backend.modules.workforce.repository import WorkforceRepository
 
         repo = WorkforceRepository(self.db)
@@ -730,22 +806,78 @@ class TeamServiceMixin:
             token = str(raw or "").strip()
             if not token:
                 continue
-            skill = await repo.get_skill(token, owner_id)
-            if skill is None:
-                skill = await repo.find_skill_by_slug(owner_id, token)
+            skill = await self._resolve_skill_ref(repo, owner_id, token)
             if skill is None or skill.status not in {"active", "testing"}:
                 logger.info(
                     "Skipped legacy skill assignment; skill not found or inactive",
                     extra={"agent_id": agent_id, "skill_ref": token},
                 )
                 continue
-            await repo.create_agent_skill_assignment(
+            await repo.upsert_agent_skill_assignment(
                 agent_id=agent_id,
                 skill_id=skill.id,
                 skill_version_id=skill.current_version_id,
                 version_policy="latest_active",
                 priority=idx,
                 enabled=True,
+            )
+
+    @staticmethod
+    def _parse_skill_pin(raw: Any) -> tuple[str, str | None]:
+        if isinstance(raw, dict):
+            ref = raw.get("skill_id") or raw.get("skill_slug") or raw.get("slug") or raw.get("id")
+            version_id = raw.get("skill_version_id")
+            return (
+                str(ref or "").strip(),
+                str(version_id).strip() if version_id else None,
+            )
+        return str(raw or "").strip(), None
+
+    @classmethod
+    def _normalize_skill_refs(cls, skills: list[Any]) -> list[str]:
+        refs: list[str] = []
+        for raw in skills or []:
+            ref, _ = cls._parse_skill_pin(raw)
+            if ref and ref not in refs:
+                refs.append(ref)
+        return refs
+
+    async def _resolve_skill_ref(self, repo: Any, owner_id: str, token: str) -> Any:
+        skill = await repo.get_skill(token, owner_id)
+        if skill is None:
+            skill = await repo.find_skill_by_slug(owner_id, token)
+        return skill
+
+    async def _skill_slugs_for_agent(self, agent_id: str) -> list[str]:
+        from backend.modules.workforce.models import AgentSkillAssignment, Skill
+
+        result = await self.db.execute(
+            select(Skill.slug)
+            .join(AgentSkillAssignment, AgentSkillAssignment.skill_id == Skill.id)
+            .where(
+                AgentSkillAssignment.agent_id == agent_id,
+                AgentSkillAssignment.enabled.is_(True),
+            )
+            .order_by(AgentSkillAssignment.priority.asc())
+        )
+        return [row[0] for row in result.all()]
+
+    async def _attach_orchestration_skills(self, agent: AgentProfile) -> AgentProfile:
+        agent.__orchestration_skills__ = await self._skill_slugs_for_agent(agent.id)
+        return agent
+
+    async def _copy_agent_skill_assignments(self, source_agent_id: str, target_agent_id: str) -> None:
+        from backend.modules.workforce.repository import WorkforceRepository
+
+        repo = WorkforceRepository(self.db)
+        for assignment in await repo.list_agent_skill_assignments(source_agent_id):
+            await repo.upsert_agent_skill_assignment(
+                agent_id=target_agent_id,
+                skill_id=assignment.skill_id,
+                skill_version_id=assignment.skill_version_id,
+                version_policy=assignment.version_policy,
+                priority=assignment.priority,
+                enabled=assignment.enabled,
             )
 
     def _agent_model_to_payload(self, agent: AgentProfile) -> dict[str, Any]:
@@ -768,7 +900,8 @@ class TeamServiceMixin:
             "source_markdown": agent.source_markdown,
             "capabilities_json": agent.capabilities_json,
             "allowed_tools_json": agent.allowed_tools_json,
-            "skills_json": agent.skills_json,
+            # Prefer assignments on hot paths; column retained for legacy/migration only.
+            "skills_json": [],
             "model_policy_json": model_policy,
             "permissions": model_policy.get("permissions"),
             "escalation_path": model_policy.get("escalation_path"),
@@ -801,7 +934,6 @@ class TeamServiceMixin:
         mapping = {
             "capabilities": "capabilities_json",
             "allowed_tools": "allowed_tools_json",
-            "skills": "skills_json",
             "model_policy": "model_policy_json",
             "tags": "tags_json",
             "budget": "budget_json",
@@ -809,6 +941,7 @@ class TeamServiceMixin:
             "output_schema": "output_schema_json",
             "metadata": "metadata_json",
         }
+        updates.pop("skills", None)
         for field, value in updates.items():
             target = mapping.get(field, field)
             if hasattr(agent, target) and value is not None:
@@ -885,10 +1018,16 @@ class TeamServiceMixin:
                 continue
             errors.append(f"Tool '{tool}' is not available in the orchestration runtime.")
 
-        skill_map = {skill.slug: skill for skill in await self.repo.list_skill_packs()}
-        for skill_slug in payload.get("skills", []):
-            if skill_slug not in skill_map:
-                errors.append(f"Skill '{skill_slug}' is not defined.")
+        skill_map: dict[str, Any] = {}
+        from backend.modules.workforce.repository import WorkforceRepository
+
+        for skill in await WorkforceRepository(self.db).list_skills(user.id):
+            skill_map[skill.slug] = skill
+            skill_map[skill.id] = skill
+        for skill_ref in payload.get("skills", []):
+            token = str(skill_ref or "").strip()
+            if token and token not in skill_map:
+                errors.append(f"Skill '{skill_ref}' is not defined.")
 
         parent_template_slug = payload.get("parent_template_slug")
         if parent_template_slug and await self.repo.get_agent_template_by_slug(parent_template_slug) is None:
@@ -1088,7 +1227,7 @@ class TeamServiceMixin:
             parent = await self.repo.get_agent_template_by_slug(template.parent_template_slug)
             if parent is not None and parent.slug != template.slug:
                 inherited = await self._resolve_template_effective_profile(parent)
-        current_skills = list(template.skills_json or [])
+        current_skills = self._normalize_skill_refs(template.skills_json or [])
         effective = {
             "system_prompt": template.system_prompt or inherited.get("system_prompt", ""),
             "mission_markdown": template.mission_markdown or inherited.get("mission_markdown", ""),
@@ -1115,21 +1254,18 @@ class TeamServiceMixin:
         effective["permissions"] = effective["model_policy"].get("permissions")
         effective["escalation_path"] = effective["model_policy"].get("escalation_path")
         effective["task_filters"] = list(effective["metadata"].get("task_filters") or [])
-        skill_map = {item.slug: item for item in await self.repo.list_skill_packs()}
-        for skill_slug in effective["skills"]:
-            skill = skill_map.get(skill_slug)
-            if skill is None:
-                continue
-            effective["capabilities"] = self._merge_unique_lists(effective["capabilities"], skill.capabilities_json or [])
-            effective["allowed_tools"] = self._merge_unique_lists(effective["allowed_tools"], skill.allowed_tools_json or [])
-            effective["tags"] = self._merge_unique_lists(effective["tags"], skill.tags_json or [])
-            if skill.rules_markdown:
-                effective["rules_markdown"] = "\n".join(
-                    chunk for chunk in [effective["rules_markdown"], skill.rules_markdown] if chunk
-                )
+        # Skill capability enrichment happens at agent instantiation via SkillVersion,
+        # not via legacy SkillPack rows.
         return effective
 
-    def _merge_agent_with_inheritance(self, agent: AgentProfile, inherited: dict[str, Any]) -> dict[str, Any]:
+    def _merge_agent_with_inheritance(
+        self,
+        agent: AgentProfile,
+        inherited: dict[str, Any],
+        *,
+        agent_skills: list[str] | None = None,
+    ) -> dict[str, Any]:
+        skills = list(agent_skills) if agent_skills is not None else []
         effective = {
             "system_prompt": agent.system_prompt or inherited.get("system_prompt", ""),
             "mission_markdown": agent.mission_markdown or inherited.get("mission_markdown", ""),
@@ -1139,7 +1275,7 @@ class TeamServiceMixin:
             "output_contract_markdown": agent.output_contract_markdown or inherited.get("output_contract_markdown", ""),
             "capabilities": self._merge_unique_lists(inherited.get("capabilities", []), agent.capabilities_json or []),
             "allowed_tools": self._merge_unique_lists(inherited.get("allowed_tools", []), agent.allowed_tools_json or []),
-            "skills": self._merge_unique_lists(inherited.get("skills", []), agent.skills_json or []),
+            "skills": self._merge_unique_lists(inherited.get("skills", []), skills),
             "tags": self._merge_unique_lists(inherited.get("tags", []), agent.tags_json or []),
             "budget": {**inherited.get("budget", {}), **(agent.budget_json or {})},
             "memory_policy": {**inherited.get("memory_policy", {}), **(agent.memory_policy_json or {})},
@@ -1154,11 +1290,18 @@ class TeamServiceMixin:
         )
         return effective
 
-    def _compute_overridden_fields(self, agent: AgentProfile, inherited: dict[str, Any]) -> dict[str, Any]:
+    def _compute_overridden_fields(
+        self,
+        agent: AgentProfile,
+        inherited: dict[str, Any],
+        *,
+        agent_skills: list[str] | None = None,
+    ) -> dict[str, Any]:
+        skills = list(agent_skills) if agent_skills is not None else []
         explicit_fields = {
             "capabilities": list(agent.capabilities_json or []),
             "allowed_tools": list(agent.allowed_tools_json or []),
-            "skills": list(agent.skills_json or []),
+            "skills": skills,
             "tags": list(agent.tags_json or []),
             "rules_markdown": agent.rules_markdown or "",
             "memory_policy": dict(agent.memory_policy_json or {}),
@@ -1201,7 +1344,7 @@ class TeamServiceMixin:
             "output_contract_markdown": template.output_contract_markdown,
             "capabilities": list(template.capabilities_json or []),
             "allowed_tools": list(template.allowed_tools_json or []),
-            "skills": list(template.skills_json or []),
+            "skills": self._normalize_skill_refs(template.skills_json or []),
             "tags": list(template.tags_json or []),
             "model_policy": model_policy,
             "permissions": model_policy.get("permissions"),
@@ -1213,16 +1356,34 @@ class TeamServiceMixin:
             "metadata": metadata,
         }
 
-    def _skill_model_to_payload(self, skill: SkillPack) -> dict[str, Any]:
+    def _skill_model_to_payload(self, skill: Any, version: Any | None = None) -> dict[str, Any]:
+        """Map Skill (+ optional SkillVersion) into SkillPackResponse-compatible shape."""
+        capabilities = list((version.capabilities_json if version is not None else None) or [])
+        allowed_tools = list((version.required_tools_json if version is not None else None) or [])
+        rules_markdown = ""
+        if version is not None:
+            rules_markdown = (
+                getattr(version, "constraints_markdown", None)
+                or getattr(version, "instructions_markdown", None)
+                or ""
+            )
+        tags: list[str] = []
+        if version is not None:
+            meta = getattr(version, "generation_metadata_json", None) or {}
+            if isinstance(meta, dict):
+                tags = [str(t) for t in (meta.get("tags") or []) if str(t).strip()]
+        description = skill.description
+        if not description and version is not None:
+            description = getattr(version, "purpose", None) or None
         return {
             "id": skill.id,
             "slug": skill.slug,
             "name": skill.name,
-            "description": skill.description,
-            "capabilities": list(skill.capabilities_json or []),
-            "allowed_tools": list(skill.allowed_tools_json or []),
-            "rules_markdown": skill.rules_markdown,
-            "tags": list(skill.tags_json or []),
+            "description": description,
+            "capabilities": capabilities,
+            "allowed_tools": allowed_tools,
+            "rules_markdown": rules_markdown,
+            "tags": tags,
         }
 
     def _team_template_model_to_payload(self, template: TeamTemplateCatalog) -> dict[str, Any]:

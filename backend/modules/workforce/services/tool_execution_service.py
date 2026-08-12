@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.orchestration.tool_execution_context import arguments_hash
+from backend.modules.orchestration.tool_execution_context import (
+    ToolExecutionContext,
+    arguments_hash,
+)
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.workforce.services.action_policy import DECISION_PROHIBITED
@@ -95,19 +97,36 @@ class ToolExecutionService:
         if task_id:
             task = await self.db.get(OrchestratorTask, str(task_id))
 
-        from backend.modules.orchestration.models import TaskRun
-
-        run = TaskRun(
-            id=str(context.get("run_id") or context.get("workflow_run_id") or uuid4()),
+        skill_ids = tuple(str(v) for v in (context.get("skill_version_ids") or []) if v)
+        allowed = tuple(str(t) for t in (context.get("allowed_tools") or []) if t)
+        required = tuple(str(t) for t in (context.get("skill_required_tools") or []) if t)
+        tool_ctx = ToolExecutionContext(
+            owner_id=owner_id,
             project_id=project.id,
+            triggered_by_user_id=str(
+                context.get("triggered_by_user_id") or context.get("owner_id") or owner_id
+            ),
             task_id=task.id if task else None,
-            worker_agent_id=context.get("agent_id"),
-            triggered_by_user_id=owner_id,
-            status="running",
-            run_mode="workflow_tool",
-            input_payload_json={},
-            output_payload_json={},
-            checkpoint_json={},
+            task_run_id=(
+                str(context["task_run_id"])
+                if context.get("task_run_id")
+                else (str(context["run_id"]) if context.get("run_id") and not context.get("workflow_run_id") else None)
+            ),
+            workflow_run_id=(
+                str(context["workflow_run_id"]) if context.get("workflow_run_id") else None
+            ),
+            workflow_node_id=(
+                str(context["workflow_node_id"]) if context.get("workflow_node_id") else None
+            ),
+            company_id=context.get("company_id") or getattr(project, "company_id", None),
+            department_id=context.get("department_id") or getattr(project, "department_id", None),
+            agent_id=context.get("agent_id"),
+            skill_version_ids=skill_ids,
+            approval_request_id=context.get("approval_request_id"),
+            approval_granted=bool(context.get("approval_granted")),
+            arguments_hash=context.get("arguments_hash") or arguments_hash(params),
+            allowed_tools=allowed,
+            skill_required_tools=required,
         )
 
         toolbox = OrchestrationToolbox(
@@ -115,7 +134,8 @@ class ToolExecutionService:
             repo=OrchestrationRepository(self.db),
             project=project,
             task=task,
-            run=run,
+            run=None,
+            context=tool_ctx,
         )
         try:
             result = await toolbox.dispatch(tool_slug, params)

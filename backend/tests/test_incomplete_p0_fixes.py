@@ -218,6 +218,65 @@ async def test_authorize_tool_denies_when_not_permitted():
     assert auth["decision"] == "autonomous"
 
 
+@pytest.mark.asyncio
+async def test_authorize_tool_fails_closed_when_effective_permissions_error():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from backend.modules.workforce.services.tool_registry import ToolRegistryService
+
+    db = AsyncMock()
+    service = ToolRegistryService(db)
+    provider = MagicMock()
+    provider.validate_permissions = AsyncMock(return_value=True)
+    service.providers["native"] = provider
+
+    with (
+        patch.object(
+            service.policy, "resolve", AsyncMock(return_value={"decision": "autonomous"})
+        ),
+        patch(
+            "backend.modules.workforce.services.effective_permissions.resolve_effective_tool_permissions",
+            AsyncMock(side_effect=RuntimeError("resolver boom")),
+        ),
+    ):
+        auth = await service.authorize_tool(
+            "owner-1",
+            "fs_write",
+            {
+                "allowed_tools": ["fs_write"],
+                "owner_id": "owner-1",
+                "agent_id": "agent-1",
+                "project_id": "proj-1",
+            },
+        )
+
+    assert auth["permitted"] is False
+    assert (auth.get("resolution") or {}).get("matched_scope") == "effective_permissions_error"
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_blocks_private_urls():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
+
+    toolbox = OrchestrationToolbox(
+        db=AsyncMock(),
+        repo=MagicMock(),
+        project=MagicMock(id="p1", owner_id="o1", settings_json={}),
+        task=None,
+        run=None,
+        context=MagicMock(
+            triggered_by_user_id="o1",
+            task_run_id=None,
+            workflow_run_id="wf-1",
+            id="wf-1",
+        ),
+    )
+    with pytest.raises(ToolExecutionError, match="blocked unsafe URL"):
+        await toolbox._web_fetch({"url": "http://127.0.0.1/secret"})
+
+
 def test_action_policy_fingerprint_changes_when_decision_changes():
     from types import SimpleNamespace
 

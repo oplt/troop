@@ -9,6 +9,7 @@ import {
 } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
 import { extractApiErrorMessage } from "../utils/apiErrors";
+import { queryKeys } from "../config/queryKeys";
 
 const DEFAULT_MARKDOWN = `---
 name: New Specialist
@@ -113,12 +114,12 @@ export default function AgentProfilesPage() {
     const [error, setError] = useState("");
     const [validation, setValidation] = useState<{ errors: string[]; warnings: string[]; ready: boolean } | null>(null);
     const [dryRun, setDryRun] = useState("");
-    const { data: projects = [] } = useQuery({ queryKey: ["orchestration", "projects"], queryFn: listOrchestrationProjects });
-    const { data: agents = [] } = useQuery({ queryKey: ["agents", projectId || "global"], queryFn: () => listAgents(projectId || undefined) });
-    const { data: tools = [] } = useQuery({ queryKey: ["tools"], queryFn: listTools });
-    const { data: templates = [] } = useQuery({ queryKey: ["agent-templates"], queryFn: listAgentTemplates });
+    const { data: projects = [] } = useQuery({ queryKey: queryKeys.orchestration.projects, queryFn: listOrchestrationProjects });
+    const { data: agents = [] } = useQuery({ queryKey: queryKeys.orchestration.agents(projectId || undefined), queryFn: () => listAgents(projectId || undefined) });
+    const { data: tools = [] } = useQuery({ queryKey: queryKeys.orchestration.tools, queryFn: listTools });
+    const { data: templates = [] } = useQuery({ queryKey: queryKeys.orchestration.agentTemplates, queryFn: listAgentTemplates });
     const agent = useMemo(() => agents.find((item) => item.id === selectedId) ?? agents[0] ?? null, [agents, selectedId]);
-    const { data: versions = [] } = useQuery({ queryKey: ["agent-versions", agent?.id], queryFn: () => listAgentVersions(agent!.id), enabled: Boolean(agent?.id) });
+    const { data: versions = [] } = useQuery({ queryKey: queryKeys.orchestration.agentVersions(agent?.id ?? ""), queryFn: () => listAgentVersions(agent!.id), enabled: Boolean(agent?.id) });
 
     // The selected server profile is the source of truth when switching registry entries.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -131,7 +132,7 @@ export default function AgentProfilesPage() {
             const payload = { ...contract(form), project_id: projectId || null, source_markdown: markdown };
             return agent ? updateAgent(agent.id, payload) : createAgent({ ...payload, system_prompt: markdown, mission_markdown: markdown, is_active: false });
         },
-        onSuccess: (saved) => { setSelectedId(saved.id); setMessage(`Saved ${saved.name} as version ${saved.version}.`); void client.invalidateQueries({ queryKey: ["agents"] }); void client.invalidateQueries({ queryKey: ["agent-versions", saved.id] }); },
+        onSuccess: (saved) => { setSelectedId(saved.id); setMessage(`Saved ${saved.name} as version ${saved.version}.`); void client.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }); void client.invalidateQueries({ queryKey: queryKeys.orchestration.agentVersions(saved.id) }); },
         onError: (reason) => fail(reason, "Agent save failed."),
     });
     const validate = useMutation({
@@ -141,12 +142,12 @@ export default function AgentProfilesPage() {
     });
     const template = useMutation({
         mutationFn: (item: AgentTemplate) => createAgentFromTemplate(item.slug, { project_id: projectId || null, name: `${item.name} ${agents.length + 1}`, slug: `${item.slug}-${Date.now()}` }),
-        onSuccess: (created) => { setSelectedId(created.id); setMessage(`Created ${created.name} from template.`); void client.invalidateQueries({ queryKey: ["agents"] }); },
+        onSuccess: (created) => { setSelectedId(created.id); setMessage(`Created ${created.name} from template.`); void client.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }); },
         onError: (reason) => fail(reason, "Template creation failed."),
     });
     const action = useMutation({
         mutationFn: (kind: "activate" | "deactivate" | "duplicate") => !agent ? Promise.reject(new Error("Select an agent first.")) : kind === "duplicate" ? duplicateAgent(agent.id) : activateAgent(agent.id, kind === "activate"),
-        onSuccess: (result, kind) => { setSelectedId(result.id); setMessage(kind === "duplicate" ? `Duplicated as ${result.name}.` : `${result.name} is now ${result.is_active ? "active" : "inactive"}.`); void client.invalidateQueries({ queryKey: ["agents"] }); },
+        onSuccess: (result, kind) => { setSelectedId(result.id); setMessage(kind === "duplicate" ? `Duplicated as ${result.name}.` : `${result.name} is now ${result.is_active ? "active" : "inactive"}.`); void client.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }); },
         onError: (reason) => fail(reason, "Agent action failed."),
     });
     const run = useMutation({

@@ -51,10 +51,15 @@ export function StatCard({
                         </Typography>
                         {tooltipContent && (
                             <Tooltip title={tooltipContent} placement="top">
-                                <InfoOutlined
-                                    sx={{ fontSize: 14, color: "text.secondary", cursor: "help" }}
-                                    aria-label="Stat details"
-                                />
+                                <Box
+                                    component="span"
+                                    role="img"
+                                    tabIndex={0}
+                                    aria-label={`${label} details`}
+                                    sx={{ display: "inline-flex", color: "text.secondary", cursor: "help" }}
+                                >
+                                    <InfoOutlined sx={{ fontSize: 14 }} aria-hidden="true" />
+                                </Box>
                             </Tooltip>
                         )}
                     </Stack>

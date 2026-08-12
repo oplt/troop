@@ -34,9 +34,6 @@ import { alpha, useTheme } from "@mui/material/styles";
 import {
     AccountTree as DagIcon,
     Check as CheckSimpleIcon,
-    CheckCircle as PassIcon,
-    Cancel as FailIcon,
-    CallSplit as DecomposeIcon,
     Close as CloseIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
@@ -48,11 +45,9 @@ import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
     addProjectAgent,
     assignOrchestrationTask,
-    checkTaskAcceptance,
     createBrainstorm,
     createAgentFromTemplate,
     createProjectMemory,
-    createOrchestrationTask,
     createProjectDecision,
     createProjectMilestone,
     createTaskArtifact,
@@ -60,9 +55,7 @@ import {
     decideApproval,
     deleteProjectDocument,
     deleteProjectMemoryEntry,
-    decomposeTask,
     patchProjectMemorySettings,
-    listSubtasks,
     listTaskArtifacts,
     listSemanticMemory,
     startBrainstorm,
@@ -100,6 +93,11 @@ import { SectionCard } from "../../components/ui/SectionCard";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useProjectLiveSnapshotSync } from "../../hooks/projectLiveSnapshotSync";
 import { formatDateTime, humanizeKey } from "../../utils/formatters";
+import { MilestoneTimeline } from "../../features/orchestration/project/components/MilestoneTimeline";
+import { ExternalLinksEditor, type ExternalLinkRecord } from "../../features/orchestration/project/components/ExternalLinksEditor";
+import { createProjectTaskDraft, normalizeProjectTaskDraft, type ProjectTaskDraft } from "../../features/orchestration/project/taskForm";
+import { SubtaskPanel } from "../../features/orchestration/project/components/SubtaskPanel";
+import { AcceptanceDialog } from "../../features/orchestration/project/components/AcceptanceDialog";
 import { extractApiErrorMessage } from "../../utils/apiErrors";
 import { ApiRequestError } from "../../api/client";
 import { MAIN_KANBAN_COLUMNS } from "./kanbanConstants";
@@ -110,6 +108,7 @@ import {
     type TeamView,
     type WorkView,
 } from "../../features/orchestration/project/queries";
+import { projectDetailApi, type ProjectTaskPayload } from "../../features/orchestration/project/api";
 import { invalidateProjectMutation } from "../../features/orchestration/project/mutations";
 import {
     ProjectDetailErrorState,
@@ -152,26 +151,6 @@ const TASK_TRANSITION_MAP: Record<string, string[]> = {
     failed: ["planned", "queued", "archived"],
     synced_to_github: ["archived", "planned"],
     archived: [],
-};
-
-const EXTERNAL_LINK_KIND_OPTIONS = [
-    { value: "spec", label: "Spec" },
-    { value: "doc", label: "Doc" },
-    { value: "figma", label: "Figma" },
-    { value: "pr", label: "PR" },
-    { value: "commit", label: "Commit" },
-    { value: "incident", label: "Incident" },
-    { value: "runbook", label: "Runbook" },
-    { value: "issue", label: "Issue" },
-    { value: "other", label: "Other" },
-] as const;
-
-type ExternalLinkRecord = {
-    id: string;
-    kind: string;
-    label: string;
-    url: string;
-    notes: string;
 };
 
 type EvidenceBundleDraft = {
@@ -374,41 +353,12 @@ function policyRuleMatches(actual: unknown, operator: string, expected: unknown)
     return false;
 }
 
-function milestoneStatusColor(status: string): "success" | "warning" | "default" {
-    if (status === "completed") return "success";
-    if (status === "in_progress" || status === "active") return "warning";
-    return "default";
-}
-
-function dueDateToTime(value: string | null) {
-    return value ? new Date(value).getTime() : null;
-}
-
-type AcceptanceCriterionItem = {
-    item: string;
-    passed: boolean;
-    evidence_excerpt?: string;
-};
-
 type AcceptanceCheckerConfig = {
     required_artifact_kinds: string[];
     require_github_comment: boolean;
     require_github_pr: boolean;
     require_reviewer_approval: boolean;
 };
-
-function getAcceptanceItems(check: { name: string } & Record<string, unknown>): AcceptanceCriterionItem[] {
-    if (check.name !== "acceptance_criteria" || !Array.isArray(check.items)) {
-        return [];
-    }
-    return check.items.filter((item): item is AcceptanceCriterionItem => {
-        if (typeof item !== "object" || item === null) {
-            return false;
-        }
-        const candidate = item as Partial<AcceptanceCriterionItem>;
-        return typeof candidate.item === "string" && typeof candidate.passed === "boolean";
-    });
-}
 
 function readAcceptanceCheckerConfig(task: OrchestrationTask): AcceptanceCheckerConfig {
     const raw = task.metadata?.acceptance_checker;
@@ -421,334 +371,6 @@ function readAcceptanceCheckerConfig(task: OrchestrationTask): AcceptanceChecker
         require_github_pr: Boolean(config.require_github_pr),
         require_reviewer_approval: Boolean(config.require_reviewer_approval),
     };
-}
-
-const MilestoneTimeline = memo(function MilestoneTimeline({ milestones }: { milestones: Array<{ id: string; title: string; due_date: string | null; status: string }> }) {
-    const theme = useTheme();
-    const sorted = useMemo(
-        () =>
-            [...milestones].sort(
-                (a, b) =>
-                    (a.due_date != null ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER) -
-                    (b.due_date != null ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER),
-            ),
-        [milestones],
-    );
-
-    if (sorted.length === 0) return null;
-
-    const dated = sorted.filter((item) => item.due_date);
-    const firstDue = dueDateToTime(dated[0]?.due_date ?? null);
-    const lastDue = dueDateToTime(dated[dated.length - 1]?.due_date ?? null);
-    const range = firstDue != null && lastDue != null ? Math.max(lastDue - firstDue, 1) : null;
-
-    return (
-        <Box sx={{ display: "grid", gap: 1.25 }}>
-            <Box sx={{ position: "relative", px: 1, pt: 1.5 }}>
-                <Box sx={{ position: "absolute", top: 14, left: 16, right: 16, height: 2, backgroundColor: theme.palette.divider }} />
-                <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 0.5 }}>
-                    {sorted.map((milestone) => {
-                        const due = milestone.due_date ? new Date(milestone.due_date) : null;
-                        const position = firstDue != null && range != null && due
-                            ? `${Math.min(100, Math.max(0, ((due.getTime() - firstDue) / range) * 100))}%`
-                            : "50%";
-                        return (
-                            <Paper
-                                key={milestone.id}
-                                variant="outlined"
-                                sx={{
-                                    position: "relative",
-                                    minWidth: 180,
-                                    p: 1.5,
-                                    borderRadius: 1,
-                                    borderColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.divider,
-                                    backgroundColor: alpha(
-                                        milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
-                                        0.06,
-                                    ),
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        position: "absolute",
-                                        top: -10,
-                                        left: `clamp(14px, ${position}, calc(100% - 14px))`,
-                                        width: 12,
-                                        height: 12,
-                                        borderRadius: "50%",
-                                        backgroundColor: milestone.status === "completed" ? theme.palette.success.main : theme.palette.primary.main,
-                                        border: `2px solid ${theme.palette.background.paper}`,
-                                        transform: "translateX(-50%)",
-                                    }}
-                                />
-                                <Chip label={humanizeKey(milestone.status)} size="small" color={milestoneStatusColor(milestone.status)} sx={{ mb: 1 }} />
-                                <Typography variant="subtitle2">{milestone.title}</Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {due ? `Due ${due.toLocaleDateString()}` : "No due date"}
-                                </Typography>
-                            </Paper>
-                        );
-                    })}
-                </Box>
-            </Box>
-        </Box>
-    );
-});
-
-function ExternalLinksEditor({
-    links,
-    onChange,
-    compact = false,
-}: {
-    links: ExternalLinkRecord[];
-    onChange: (links: ExternalLinkRecord[]) => void;
-    compact?: boolean;
-}) {
-    return (
-        <Stack spacing={1}>
-            {links.length === 0 ? (
-                <Typography variant="caption" color="text.secondary">
-                    No external links yet.
-                </Typography>
-            ) : null}
-            {links.map((link, index) => (
-                <Paper key={link.id} variant="outlined" sx={{ p: compact ? 1 : 1.25, borderRadius: 1 }}>
-                    <Stack spacing={1}>
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
-                            <TextField
-                                select
-                                size="small"
-                                label="Type"
-                                value={link.kind}
-                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, kind: event.target.value } : item))}
-                                sx={{ minWidth: 120 }}
-                            >
-                                {EXTERNAL_LINK_KIND_OPTIONS.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                                ))}
-                            </TextField>
-                            <TextField
-                                size="small"
-                                label="Label"
-                                value={link.label}
-                                onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
-                                fullWidth
-                            />
-                            <Button
-                                size="small"
-                                color="error"
-                                onClick={() => onChange(links.filter((item) => item.id !== link.id))}
-                            >
-                                Remove
-                            </Button>
-                        </Stack>
-                        <TextField
-                            size="small"
-                            label="URL"
-                            value={link.url}
-                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))}
-                            fullWidth
-                        />
-                        <TextField
-                            size="small"
-                            label="Notes"
-                            value={link.notes}
-                            onChange={(event) => onChange(links.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item))}
-                            multiline
-                            minRows={compact ? 2 : 1}
-                            fullWidth
-                        />
-                    </Stack>
-                </Paper>
-            ))}
-            <Button
-                size="small"
-                variant="outlined"
-                onClick={() => onChange([...links, { id: createClientId("link"), kind: "doc", label: "", url: "", notes: "" }])}
-            >
-                Add link
-            </Button>
-        </Stack>
-    );
-}
-
-// ── Acceptance Check Dialog ──────────────────────────────────
-
-function AcceptanceDialog({
-    projectId,
-    taskId,
-    taskTitle,
-    onClose,
-}: {
-    projectId: string;
-    taskId: string;
-    taskTitle: string;
-    onClose: () => void;
-}) {
-    const { data, isLoading, error, refetch, isFetching } = useQuery({
-        queryKey: queryKeys.orchestration.acceptance(taskId),
-        queryFn: () => checkTaskAcceptance(projectId, taskId),
-    });
-
-    return (
-        <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Acceptance check — {taskTitle}</DialogTitle>
-            <DialogContent>
-                {isLoading && <CircularProgress size={24} />}
-                {error && (
-                    <Alert
-                        severity="error"
-                        sx={{ mt: isLoading ? 1 : 0 }}
-                        action={
-                            <Button
-                                color="inherit"
-                                size="small"
-                                disabled={isFetching}
-                                onClick={() => {
-                                    void refetch();
-                                }}
-                            >
-                                {isFetching ? "Retrying…" : "Retry"}
-                            </Button>
-                        }
-                    >
-                        {extractApiErrorMessage(error, "Acceptance check failed.")}
-                    </Alert>
-                )}
-                {data && (
-                    <Stack spacing={1.5} sx={{ mt: 1 }}>
-                        <Chip
-                            label={data.passed ? "All checks passed" : "Some checks failed"}
-                            color={data.passed ? "success" : "error"}
-                        />
-                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                            {Array.isArray(data.config.required_artifact_kinds) && data.config.required_artifact_kinds.length > 0 ? (
-                                <Chip size="small" variant="outlined" label={`Artifacts: ${data.config.required_artifact_kinds.join(", ")}`} />
-                            ) : null}
-                            {data.config.require_github_comment ? <Chip size="small" variant="outlined" label="Needs GitHub comment" /> : null}
-                            {data.config.require_github_pr ? <Chip size="small" variant="outlined" label="Needs GitHub PR" /> : null}
-                            {data.config.require_reviewer_approval ? <Chip size="small" variant="outlined" label="Needs reviewer approval" /> : null}
-                        </Stack>
-                        {data.checks.map((check) => {
-                            const acceptanceItems = getAcceptanceItems(check as { name: string } & Record<string, unknown>);
-                            return (
-                            <Stack key={check.name} spacing={0.75}>
-                                <Stack direction="row" spacing={1} alignItems="flex-start">
-                                    {check.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
-                                    <Box>
-                                        <Typography variant="body2">{check.name}</Typography>
-                                        <Typography variant="caption" color="text.secondary">{check.detail}</Typography>
-                                    </Box>
-                                </Stack>
-                                {acceptanceItems.length > 0 ? (
-                                    <Stack spacing={0.75} sx={{ ml: 3 }}>
-                                        {acceptanceItems.map((item) => (
-                                            <Paper key={item.item} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
-                                                <Stack direction="row" spacing={1} alignItems="flex-start">
-                                                    {item.passed ? <PassIcon color="success" fontSize="small" /> : <FailIcon color="error" fontSize="small" />}
-                                                    <Box>
-                                                        <Typography variant="body2">{item.item}</Typography>
-                                                        {item.evidence_excerpt ? (
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                Evidence: {item.evidence_excerpt}
-                                                            </Typography>
-                                                        ) : null}
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        ))}
-                                    </Stack>
-                                ) : null}
-                            </Stack>
-                        );})}
-                    </Stack>
-                )}
-            </DialogContent>
-            <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
-        </Dialog>
-    );
-}
-
-// ── Subtask Panel ────────────────────────────────────────────
-
-function SubtaskPanel({ projectId, taskId, taskTitle }: { projectId: string; taskId: string; taskTitle: string }) {
-    const queryClient = useQueryClient();
-    const { showToast } = useSnackbar();
-    const [maxSubtasks, setMaxSubtasks] = useState("4");
-    const [context, setContext] = useState("");
-
-    const { data: subtasks = [], isLoading } = useQuery({
-        queryKey: queryKeys.orchestration.subtasks(taskId),
-        queryFn: () => listSubtasks(projectId, taskId),
-    });
-
-    const decomposeMutation = useMutation({
-        mutationFn: () => {
-            const parsed = Number(maxSubtasks);
-            return decomposeTask(projectId, taskId, {
-                max_subtasks: Number.isFinite(parsed) && parsed > 0 ? Math.min(10, Math.max(1, parsed)) : 4,
-                context: context.trim() || undefined,
-            });
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.subtasks(taskId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            showToast({ message: "Task decomposed into subtasks.", severity: "success" });
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Couldn't break task into subtasks. Try again."), severity: "error" });
-        },
-    });
-
-    return (
-        <Box>
-            <Stack spacing={1} sx={{ mb: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">Subtasks of: {taskTitle}</Typography>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                    <TextField
-                        size="small"
-                        label="Context"
-                        value={context}
-                        onChange={(e) => setContext(e.target.value)}
-                        placeholder="payments, onboarding, migration..."
-                        fullWidth
-                    />
-                    <TextField
-                        size="small"
-                        label="Max"
-                        type="number"
-                        value={maxSubtasks}
-                        onChange={(e) => setMaxSubtasks(e.target.value)}
-                        sx={{ width: { xs: "100%", sm: 96 } }}
-                    />
-                    <Button
-                        size="small"
-                        startIcon={decomposeMutation.isPending ? <CircularProgress size={12} /> : <DecomposeIcon />}
-                        disabled={decomposeMutation.isPending}
-                        onClick={() => decomposeMutation.mutate()}
-                    >
-                        Decompose
-                    </Button>
-                </Stack>
-            </Stack>
-            {isLoading ? (
-                <CircularProgress size={16} />
-            ) : subtasks.length === 0 ? (
-                <Typography variant="caption" color="text.secondary">No subtasks yet.</Typography>
-            ) : (
-                <Stack spacing={0.5}>
-                    {subtasks.map((sub) => (
-                        <Stack key={sub.id} direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                            <Chip label={sub.status} size="small" variant="outlined" />
-                            {sub.metadata.parallelizable ? <Chip label="parallel" size="small" color="info" variant="outlined" /> : null}
-                            {typeof sub.metadata.blueprint_kind === "string" ? <Chip label={String(sub.metadata.blueprint_kind)} size="small" variant="outlined" /> : null}
-                            <Typography variant="body2">{sub.title}</Typography>
-                        </Stack>
-                    ))}
-                </Stack>
-            )}
-        </Box>
-    );
 }
 
 // ── Artifact Panel ───────────────────────────────────────────
@@ -2425,21 +2047,7 @@ export default function OrchestrationProjectDetailView() {
     const [knowledgeView, setKnowledgeView] = useState<KnowledgeView>("search");
     const [teamView, setTeamView] = useState<TeamView>("agents");
     const [overviewEditOpen, setOverviewEditOpen] = useState(false);
-    const [taskForm, setTaskForm] = useState({
-        title: "",
-        description: "",
-        source: "manual",
-        task_type: "general",
-        priority: "normal",
-        status: "queued",
-        acceptance_criteria: "",
-        assigned_agent_id: "",
-        reviewer_agent_id: "",
-        dependency_ids: [] as string[],
-        due_date: "",
-        response_sla_hours: "",
-        required_tools: "",
-    });
+    const [taskForm, setTaskForm] = useState<ProjectTaskDraft>(createProjectTaskDraft);
     const [projectOverviewForm, setProjectOverviewForm] = useState<WorkspaceOverviewDraft>({
         executive_summary: "",
         current_focus: "",
@@ -2901,23 +2509,9 @@ export default function OrchestrationProjectDetailView() {
         },
     });
     const createTaskMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => createOrchestrationTask(projectId, payload),
+        mutationFn: (payload: ProjectTaskPayload) => projectDetailApi.createTask(projectId, payload),
         onSuccess: async () => {
-            setTaskForm({
-                title: "",
-                description: "",
-                source: "manual",
-                task_type: "general",
-                priority: "normal",
-                status: "queued",
-                acceptance_criteria: "",
-                assigned_agent_id: "",
-                reviewer_agent_id: "",
-                dependency_ids: [],
-                due_date: "",
-                response_sla_hours: "",
-                required_tools: "",
-            });
+            setTaskForm(createProjectTaskDraft());
             setTaskCriteriaList([]);
             setTaskOwnerTouched(false);
             setTaskReviewerTouched(false);
@@ -3875,25 +3469,15 @@ export default function OrchestrationProjectDetailView() {
                             variant="contained"
                             disabled={!taskForm.title.trim() || createTaskMutation.isPending}
                             onClick={() => {
-                                const n = Number(taskForm.response_sla_hours);
                                 const acceptanceCriteriaText = taskCriteriaList
                                     .filter((c) => c.trim())
                                     .map((c) => `- ${c.trim()}`)
                                     .join("\n");
                                 createTaskMutation.mutate({
-                                    title: taskForm.title,
-                                    description: taskForm.description,
-                                    source: taskForm.source,
-                                    task_type: taskForm.task_type,
-                                    status: taskForm.status,
-                                    priority: taskForm.priority,
+                                    ...normalizeProjectTaskDraft(taskForm),
                                     acceptance_criteria: acceptanceCriteriaText || null,
                                     assigned_agent_id: effectiveTaskOwnerId || null,
                                     reviewer_agent_id: effectiveTaskReviewerId || null,
-                                    dependency_ids: taskForm.dependency_ids,
-                                    due_date: taskForm.due_date.trim() ? taskForm.due_date.trim() : null,
-                                    response_sla_hours: taskForm.response_sla_hours.trim() && !Number.isNaN(n) && n > 0 ? n : null,
-                                    required_tools: splitCsv(taskForm.required_tools),
                                 });
                             }}
                         >

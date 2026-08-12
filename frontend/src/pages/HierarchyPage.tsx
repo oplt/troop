@@ -108,6 +108,14 @@ import type { AgentTemplateImportDraft } from "../features/agentTemplateImport/t
 import { SkillTemplateImportReviewDrawer } from "../features/skillTemplateImport/SkillTemplateImportReviewDrawer";
 import { useHierarchyQueries } from "../features/hierarchy/queries";
 import { useHierarchyGraphState } from "../features/hierarchy/graph/useHierarchyGraphState";
+import { graphSignature } from "../features/hierarchy/graph/graphSignature";
+import {
+    buildSkillForm,
+    buildTeamTemplateForm,
+    uniqueStrings,
+    type SkillTemplateFormState,
+    type TeamTemplateFormState,
+} from "../features/hierarchy/templates/templateState";
 import {
     createSkillImportedSourceSummary,
     draftToSkillTemplateFormState,
@@ -221,29 +229,6 @@ type StringListFieldProps = {
     helperText?: string;
     placeholder?: string;
     options?: string[];
-};
-
-type SkillTemplateFormState = {
-    name: string;
-    slug: string;
-    description: string;
-    capabilities: string[];
-    allowed_tools: string[];
-    tags: string[];
-    rules_markdown: string;
-};
-
-type TeamTemplateFormState = {
-    name: string;
-    slug: string;
-    description: string;
-    outcome: string;
-    roles: string[];
-    tools: string[];
-    autonomy: string;
-    visibility: string;
-    agent_template_slugs: string[];
-    canvas_layout: Record<string, unknown>;
 };
 
 function parseCsv(value: string): string[] {
@@ -436,38 +421,6 @@ function TaskFiltersField({
             fullWidth
         />
     );
-}
-
-function buildSkillForm(skill?: SkillPack): SkillTemplateFormState {
-    return {
-        name: skill?.name ?? "",
-        slug: skill?.slug ?? "",
-        description: skill?.description ?? "",
-        capabilities: skill?.capabilities ?? [],
-        allowed_tools: skill?.allowed_tools ?? [],
-        tags: skill?.tags ?? [],
-        rules_markdown: skill?.rules_markdown ?? "",
-    };
-}
-
-
-function buildTeamTemplateForm(template?: TeamTemplate): TeamTemplateFormState {
-    return {
-        name: template?.name ?? "",
-        slug: template?.slug ?? "",
-        description: template?.description ?? "",
-        outcome: template?.outcome ?? "",
-        roles: template?.roles ?? [],
-        tools: template?.tools ?? [],
-        autonomy: template?.autonomy ?? "custom",
-        visibility: template?.visibility ?? "private",
-        agent_template_slugs: template?.agent_template_slugs ?? [],
-        canvas_layout: template?.canvas_layout ?? {},
-    };
-}
-
-function uniqueStrings(items: string[]): string[] {
-    return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
 }
 
 function buildNodeDataFromTemplate(template: AgentTemplate): TeamGraphNodeData {
@@ -975,24 +928,6 @@ function createSemanticEdge(source: string, target: string, semantic: TeamGraphE
         },
         data: { semantic },
     };
-}
-
-function graphSignature(nodes: TeamGraphNode[], edges: TeamGraphEdge[]): string {
-    return JSON.stringify({
-        nodes: nodes.map((node) => ({
-            id: node.id,
-            type: node.type,
-            position: node.position,
-            data: node.data,
-        })),
-        edges: edges.map((edge) => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            data: edge.data,
-            label: edge.label,
-        })),
-    });
 }
 
 function readSavedTeamLayoutSnapshot(): TeamLayoutSnapshot | null {

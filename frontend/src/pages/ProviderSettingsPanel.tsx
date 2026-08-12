@@ -31,6 +31,7 @@ import {
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { queryKeys } from "../config/queryKeys";
 import { formatDateTime } from "../utils/formatters";
 
 const CLOUD_PROVIDER_OPTIONS = [
@@ -140,7 +141,7 @@ function ProviderRequestTimeoutEditor({ provider }: { provider: ProviderConfig }
     const saveMutation = useMutation({
         mutationFn: (next: number) => updateProvider(provider.id, { timeout_seconds: next }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
             showToast({ message: "Request timeout updated.", severity: "success" });
         },
         onError: () => {
@@ -211,13 +212,13 @@ export function ProviderSettingsPanel() {
     });
 
     const { data: providers = [] } = useQuery({
-        queryKey: ["orchestration", "providers"],
+        queryKey: queryKeys.orchestration.providers,
         queryFn: () => listProviders(),
         refetchInterval: 10000,
     });
 
     const { data: modelCapabilities = [] } = useQuery({
-        queryKey: ["orchestration", "provider-model-capabilities"],
+        queryKey: queryKeys.orchestration.providerModelCapabilities,
         queryFn: listModelCapabilities,
     });
 
@@ -304,8 +305,8 @@ export function ProviderSettingsPanel() {
         onSuccess: async () => {
             setForm(INITIAL_PROVIDER_FORM);
             setCreateAttempted(false);
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providerModelCapabilities });
             showToast({ message: "Provider saved.", severity: "success" });
         },
     });
@@ -313,8 +314,8 @@ export function ProviderSettingsPanel() {
     const testMutation = useMutation({
         mutationFn: testProvider,
         onSuccess: async (result) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providerModelCapabilities });
             const status = String(result.status ?? "unknown");
             const error = typeof result.error === "string" ? result.error : "";
             showToast({
@@ -327,8 +328,8 @@ export function ProviderSettingsPanel() {
     const healthSweepMutation = useMutation({
         mutationFn: runProviderHealthChecks,
         onSuccess: async (results) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providerModelCapabilities });
             const unhealthy = results.filter((item) => String(item.status ?? "") !== "healthy").length;
             showToast({
                 message: unhealthy ? `${unhealthy} provider(s) need attention.` : "All enabled providers are healthy.",
@@ -340,8 +341,8 @@ export function ProviderSettingsPanel() {
     const discoverMutation = useMutation({
         mutationFn: listProviderModels,
         onSuccess: async (_, providerId) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providerModelCapabilities });
             showToast({ message: "Provider models refreshed.", severity: "success" });
             setCompareForm((current) => ({
                 ...current,
@@ -353,7 +354,7 @@ export function ProviderSettingsPanel() {
     const startRuntimeMutation = useMutation({
         mutationFn: startProviderRuntime,
         onSuccess: async (result) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
             const status = String(result.status ?? "unknown");
             const detail = typeof result.detail === "string" ? result.detail : "";
             showToast({
@@ -376,8 +377,8 @@ export function ProviderSettingsPanel() {
                 model_a: current.provider_a_id === providerId ? "" : current.model_a,
                 model_b: current.provider_b_id === providerId ? "" : current.model_b,
             }));
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "providers"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "provider-model-capabilities"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providers });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.providerModelCapabilities });
             showToast({ message: "Provider deleted.", severity: "success" });
         },
         onError: (error) => {

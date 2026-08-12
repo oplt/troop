@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.calendar.models import CalendarEntry
 from backend.modules.orchestration.models import OrchestratorProject, OrchestratorTask
+from backend.modules.projects.orchestration_models import ProjectMilestone
 
 
 class CalendarRepository:
@@ -85,3 +86,22 @@ class CalendarRepository:
         result = await self.db.execute(stmt)
         return list(result.all())
 
+    async def list_project_milestones_due_for_owner(
+        self,
+        owner_user_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[tuple[ProjectMilestone, OrchestratorProject]]:
+        stmt = (
+            select(ProjectMilestone, OrchestratorProject)
+            .join(OrchestratorProject, ProjectMilestone.project_id == OrchestratorProject.id)
+            .where(
+                OrchestratorProject.owner_id == owner_user_id,
+                ProjectMilestone.due_date.isnot(None),
+                cast(ProjectMilestone.due_date, Date) >= start_date,
+                cast(ProjectMilestone.due_date, Date) <= end_date,
+            )
+            .order_by(ProjectMilestone.due_date.asc(), ProjectMilestone.created_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.all())

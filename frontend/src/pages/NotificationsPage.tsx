@@ -23,9 +23,11 @@ import {
     updatePreferences,
 } from "../api/notifications";
 import { EmptyState } from "../components/ui/EmptyState";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 
 function PreferenceItem({
@@ -75,21 +77,21 @@ function PreferenceItem({
 export default function NotificationsPage() {
     const queryClient = useQueryClient();
     const { data: notifications, isLoading, error } = useQuery({
-        queryKey: ["notifications"],
+        queryKey: queryKeys.notifications.root,
         queryFn: getNotifications,
     });
     const { data: prefs } = useQuery({
-        queryKey: ["notification-preferences"],
+        queryKey: queryKeys.notifications.preferences,
         queryFn: getPreferences,
     });
 
     const markOneMutation = useMutation({
         mutationFn: markRead,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root }),
     });
     const prefsMutation = useMutation({
         mutationFn: updatePreferences,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.preferences }),
     });
 
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
@@ -102,6 +104,11 @@ export default function NotificationsPage() {
 
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                eyebrow="Workspace"
+                title="Notifications"
+                description="Review recent activity and choose how Troop should reach you."
+            />
 
             <Box
                 sx={{

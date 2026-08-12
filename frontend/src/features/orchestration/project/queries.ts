@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
     getGateConfig,
     getMergeResolutionPreview,
-    getOrchestrationProject,
     getProjectMemorySettings,
     getProjectRepositoryIndexStatus,
     listAgents,
@@ -13,13 +12,11 @@ import {
     listGithubIssueLinks,
     listGithubSyncEvents,
     listDagReadyTasks,
-    listOrchestrationTasks,
     listProjectAgents,
     listProjectDecisions,
     listProjectDocuments,
     listProjectMemory,
     listProjectMemoryIngestJobs,
-    listProjectMilestones,
     listProjectRepositories,
     listProviders,
     listRuns,
@@ -27,6 +24,7 @@ import {
     listSemanticMemory,
 } from "../../../api/orchestration";
 import { queryKeys } from "../../../config/queryKeys";
+import { projectDetailApi } from "./api";
 
 export type DetailTab = "overview" | "work" | "team" | "knowledge" | "activity";
 export type WorkView = "board" | "dependencies" | "brainstorms";
@@ -64,12 +62,12 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
 
     const project = useQuery({
         queryKey: queryKeys.orchestration.project(projectId),
-        queryFn: () => getOrchestrationProject(projectId),
+        queryFn: () => projectDetailApi.getProject(projectId),
         enabled,
     });
     const tasks = useQuery({
         queryKey: queryKeys.orchestration.projectTasks(projectId),
-        queryFn: () => listOrchestrationTasks(projectId),
+        queryFn: () => projectDetailApi.listTasks(projectId),
         enabled: enabled && active("board", "dependencies", "brainstorms"),
     });
     const allAgents = useQuery({
@@ -164,7 +162,7 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     });
     const milestones = useQuery({
         queryKey: queryKeys.orchestration.projectMilestones(projectId),
-        queryFn: () => listProjectMilestones(projectId),
+        queryFn: () => projectDetailApi.listMilestones(projectId),
         enabled: enabled && active("overview"),
     });
     const decisions = useQuery({

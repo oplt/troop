@@ -41,6 +41,7 @@ import { PageShell } from "../components/ui/PageShell";
 import { StatCard } from "../components/ui/StatCard";
 import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
+import { queryKeys } from "../config/queryKeys";
 
 export function PlatformPanel() {
     const queryClient = useQueryClient();
@@ -53,27 +54,27 @@ export function PlatformPanel() {
     const flagsEnabled = enabledModules.includes("feature_flags");
 
     const { data: plans, isLoading: plansLoading } = useQuery({
-        queryKey: ["platform", "plans"],
+        queryKey: queryKeys.platform.plans,
         queryFn: listSubscriptionPlans,
         enabled: billingEnabled,
     });
     const { data: subscription, isLoading: subscriptionLoading } = useQuery({
-        queryKey: ["platform", "subscription"],
+        queryKey: queryKeys.platform.subscription,
         queryFn: getMySubscription,
         enabled: billingEnabled,
     });
     const { data: apiKeys, isLoading: apiKeysLoading } = useQuery({
-        queryKey: ["platform", "api-keys"],
+        queryKey: queryKeys.platform.apiKeys,
         queryFn: listApiKeys,
         enabled: apiKeysEnabled,
     });
     const { data: webhooks, isLoading: webhooksLoading } = useQuery({
-        queryKey: ["platform", "webhooks"],
+        queryKey: queryKeys.platform.webhooks,
         queryFn: listWebhooks,
         enabled: webhooksEnabled,
     });
     const { data: featureFlags, isLoading: featureFlagsLoading } = useQuery({
-        queryKey: ["platform", "feature-flags"],
+        queryKey: queryKeys.platform.featureFlags,
         queryFn: listMyFeatureFlags,
         enabled: flagsEnabled,
     });

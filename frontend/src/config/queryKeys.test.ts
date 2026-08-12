@@ -46,6 +46,14 @@ describe("queryKeys", () => {
         ]);
     });
 
+    it("keeps operational and user-scoped keys distinct", () => {
+        expect(queryKeys.notifications.root).toEqual(["notifications"]);
+        expect(queryKeys.notifications.preferences).toEqual(["notification-preferences"]);
+        expect(queryKeys.calendar.items("2026-01-01", "2026-01-31")).toEqual([
+            "calendar", "items", "2026-01-01", "2026-01-31",
+        ]);
+    });
+
     it("centralizes project-detail dependent keys", () => {
         expect(queryKeys.orchestration.projectKnowledge("p1", "auth", true)).toEqual([
             "orchestration",

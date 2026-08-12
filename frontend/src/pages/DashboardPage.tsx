@@ -37,6 +37,7 @@ import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard"
 import { StatCard } from "../components/ui/StatCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { queryKeys } from "../config/queryKeys";
+import { queryPolicies } from "../config/queryPolicies";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { extractApiErrorMessage } from "../utils/apiErrors";
 
@@ -55,8 +56,9 @@ export default function DashboardPage() {
         queryFn: listOrchestrationProjects,
     });
     const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
-        queryKey: ["notifications"],
+        queryKey: queryKeys.notifications.root,
         queryFn: getNotifications,
+        ...queryPolicies.operational,
     });
     const {
         data: orchestrationOverview,
@@ -68,6 +70,7 @@ export default function DashboardPage() {
     } = useQuery({
         queryKey: queryKeys.orchestration.overview,
         queryFn: getOrchestrationOverview,
+        ...queryPolicies.realtime,
     });
 
     const [signalDays, setSignalDays] = useState(7);
@@ -81,6 +84,7 @@ export default function DashboardPage() {
     } = useQuery({
         queryKey: queryKeys.orchestration.executionInsights(signalDays),
         queryFn: () => getExecutionInsights(signalDays),
+        ...queryPolicies.userScoped,
     });
 
     const dashboardLoadFailed = projectsLoadFailed || orchestrationLoadFailed || insightsLoadFailed;
@@ -92,11 +96,11 @@ export default function DashboardPage() {
 
     const markOneMutation = useMutation({
         mutationFn: markRead,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root }),
     });
     const markAllMutation = useMutation({
         mutationFn: markAllRead,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root }),
     });
 
     const canonicalProjectLabel = "Agent Projects";
@@ -104,7 +108,7 @@ export default function DashboardPage() {
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
     const totalNotifications = notifications?.length ?? 0;
     const visibleNotifications = useMemo(
-        () => notifications?.slice(0, 20) ?? [],
+        () => notifications?.slice(0, 8) ?? [],
         [notifications]
     );
     const visibleProjects = useMemo(
@@ -161,10 +165,10 @@ export default function DashboardPage() {
                             Workspace
                         </Typography>
                         <Typography variant="h2" sx={{ mt: 0.5 }}>
-                            Command current work without losing context.
+                            Keep current work moving.
                         </Typography>
                         <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 660 }}>
-                            Projects, approvals, runs, and notifications stay visible so next action is clear.
+                            See active work, approvals, and the next action in one place.
                         </Typography>
                     </Box>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", md: "auto" } }}>
@@ -260,17 +264,22 @@ export default function DashboardPage() {
                     info="Most recent notification history. Mark individual items or all as read."
                     count={totalNotifications}
                     action={
-                        unreadCount > 0 ? (
-                            <Button
-                                size="small"
-                                variant="contained"
-                                startIcon={<DoneAllIcon />}
-                                disabled={markAllMutation.isPending}
-                                onClick={() => markAllMutation.mutate()}
-                            >
-                                {markAllMutation.isPending ? "Updating..." : "Mark all read"}
+                        <Stack direction="row" spacing={1}>
+                            <Button size="small" variant="text" onClick={() => navigate("/notifications")}>
+                                View all
                             </Button>
-                        ) : undefined
+                            {unreadCount > 0 && (
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    startIcon={<DoneAllIcon />}
+                                    disabled={markAllMutation.isPending}
+                                    onClick={() => markAllMutation.mutate()}
+                                >
+                                    {markAllMutation.isPending ? "Updating…" : "Mark all read"}
+                                </Button>
+                            )}
+                        </Stack>
                     }
                 >
                     <Stack
@@ -528,40 +537,6 @@ export default function DashboardPage() {
                         ))}
                     </Stack>
                 </CollapsibleSectionCard>
-
-                {/*
-                <CollapsibleSectionCard
-                    title="Account health"
-                    info="Trust and security posture of your account. Hover each item for remediation guidance."
-                >
-                    <Stack spacing={1.25}>
-                        {accountChecks.map((item) => (
-                            <Tooltip key={item.label} title={item.tooltip} arrow placement="left">
-                                <Box
-                                    sx={(theme) => ({
-                                        p: 2,
-                                        borderRadius: 1,
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        backgroundColor: theme.palette.background.paper,
-                                        cursor: "help",
-                                    })}
-                                >
-                                    <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
-                                        <Typography variant="subtitle2">{item.label}</Typography>
-                                        {userLoading ? (
-                                            <Skeleton variant="rounded" width={96} height={28} />
-                                        ) : (
-                                            <Typography variant="body2" sx={{ color: item.color, fontWeight: 500 }}>
-                                                {item.value}
-                                            </Typography>
-                                        )}
-                                    </Stack>
-                                </Box>
-                            </Tooltip>
-                        ))}
-                    </Stack>
-                </CollapsibleSectionCard>
-                */}
 
                 <CollapsibleSectionCard
                     sx={{ gridColumn: { lg: "span 4" } }}

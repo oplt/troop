@@ -7,8 +7,52 @@ export const queryKeys = {
     profile: {
         root: ["profile"] as const,
     },
+    notifications: {
+        root: ["notifications"] as const,
+        preferences: ["notification-preferences"] as const,
+    },
+    companies: {
+        root: ["companies"] as const,
+    },
+    calendar: {
+        items: (start: string, end: string) => ["calendar", "items", start, end] as const,
+        root: ["calendar", "items"] as const,
+    },
     platform: {
         metadata: ["platform", "metadata"] as const,
+        plans: ["platform", "plans"] as const,
+        subscription: ["platform", "subscription"] as const,
+        apiKeys: ["platform", "api-keys"] as const,
+        webhooks: ["platform", "webhooks"] as const,
+        featureFlags: ["platform", "feature-flags"] as const,
+    },
+    ai: {
+        root: ["ai"] as const,
+        overview: ["ai", "overview"] as const,
+        reviews: ["ai", "reviews"] as const,
+        evaluationRuns: ["ai", "evaluation-runs"] as const,
+        promptVersions: (templateId: string | null) => ["ai", "prompt-versions", templateId] as const,
+        datasetCases: (datasetId: string | null) => ["ai", "dataset-cases", datasetId] as const,
+    },
+    settings: {
+        database: ["settings", "database"] as const,
+        databaseCatalog: ["settings", "database", "catalog"] as const,
+    },
+    admin: {
+        users: (page: number, search: string) => ["admin", "users", page, search] as const,
+    },
+    agentRuns: {
+        detail: (runId: string) => ["agent-run", runId] as const,
+        steps: (runId: string) => ["agent-run", runId, "steps"] as const,
+        artifacts: (runId: string) => ["agent-run", runId, "artifacts"] as const,
+        task: (runId: string, taskId?: string) => ["agent-run", runId, "task", taskId] as const,
+    },
+    runs: {
+        detail: (runId: string) => ["orchestration", "run", runId] as const,
+        cost: (runId: string) => ["orchestration", "run", runId, "cost"] as const,
+        executionState: (runId: string) => ["orchestration", "run", runId, "execution-state"] as const,
+        explanation: (runId: string) => ["orchestration", "run", runId, "explanation"] as const,
+        workingMemory: (runId: string) => ["orchestration", "run", runId, "working-memory"] as const,
     },
     orchestration: {
         projects: ["orchestration", "projects"] as const,
@@ -18,6 +62,7 @@ export const queryKeys = {
         teamProfiles: ["orchestration", "team-profiles"] as const,
         hierarchyAgents: (projectId: string) => ["orchestration", "hierarchy", "agents", projectId] as const,
         overview: ["orchestration", "overview"] as const,
+        runsRoot: ["orchestration", "runs"] as const,
         executionInsights: (days: number) => ["orchestration", "execution-insights", days] as const,
         project: (projectId: string) => ["orchestration", "project", projectId] as const,
         projectRoot: ["orchestration", "project"] as const,
@@ -68,6 +113,8 @@ export const queryKeys = {
             ["orchestration", "project", projectId, "merge-preview", taskId] as const,
         projectBrainstorms: (projectId: string) => ["orchestration", "project", projectId, "brainstorms"] as const,
         githubIssues: ["orchestration", "github", "issues"] as const,
+        githubSyncEvents: ["orchestration", "github-sync-events", "all"] as const,
+        hitlAuditLogs: ["orchestration", "hitl", "audit-logs"] as const,
         projectLiveSnapshot: (projectId: string) =>
             ["orchestration", "project", projectId, "live-snapshot"] as const,
         agents: (projectId?: string) =>
@@ -108,6 +155,8 @@ export const queryKeys = {
         runWorkingMemoryRoot: ["orchestration", "run-wm"] as const,
         approvals: ["orchestration", "approvals"] as const,
         approvalsPendingCount: ["orchestration", "approvals", "pending-count"] as const,
+        tools: ["orchestration", "tools"] as const,
+        agentVersions: (agentId: string) => ["orchestration", "agent-versions", agentId] as const,
     },
 } as const;
 

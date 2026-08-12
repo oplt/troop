@@ -34,6 +34,8 @@ import {
 import type { OrchestrationProject, OrchestrationTask, ProjectMilestone } from "../../api/orchestration";
 import { useSnackbar } from "../../app/snackbarContext";
 import { formatDateOnly, humanizeKey } from "../../utils/formatters";
+import { queryKeys } from "../../config/queryKeys";
+import { queryPolicies } from "../../config/queryPolicies";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
@@ -314,8 +316,9 @@ export function DashboardCalendar({
     const daySize = viewMode === "twelve_month" ? 34 : 40;
 
     const { data: calendarItems, isLoading, error } = useQuery({
-        queryKey: ["calendar", "items", start, end],
+        queryKey: queryKeys.calendar.items(start, end),
         queryFn: () => listCalendarItems(start, end),
+        ...queryPolicies.operational,
     });
 
     const orchestrationOverlayItems = useMemo(() => {
@@ -397,7 +400,7 @@ export function DashboardCalendar({
                 end_time: draft.end_time || null,
             }),
         onSuccess: async (item) => {
-            await queryClient.invalidateQueries({ queryKey: ["calendar", "items"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.root });
             setDraft(buildEmptyDraft(draft.type));
             setFormError("");
             showToast({

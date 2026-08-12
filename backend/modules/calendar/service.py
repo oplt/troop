@@ -11,7 +11,7 @@ from backend.modules.calendar.schemas import (
     CalendarItemUpdate,
 )
 from backend.modules.identity_access.models import User
-from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
+from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask, ProjectMilestone
 
 
 class CalendarService:
@@ -30,9 +30,11 @@ class CalendarService:
 
         entries = await self.repo.list_entries_by_user_and_range(user.id, start_date, end_date)
         orch_tasks = await self.repo.list_orchestrator_tasks_due_for_owner(user.id, start_date, end_date)
+        milestones = await self.repo.list_project_milestones_due_for_owner(user.id, start_date, end_date)
 
         items = [self._entry_to_response(entry) for entry in entries]
         items.extend(self._orchestrator_task_to_response(t, p) for t, p in orch_tasks)
+        items.extend(self._milestone_to_response(m, p) for m, p in milestones)
         items.sort(
             key=lambda item: (
                 item.date.isoformat(),
@@ -112,6 +114,23 @@ class CalendarService:
             priority=task.priority if task.priority in {"low", "medium", "high", "urgent"} else "medium",
             status=task.status,
             created_at=task.created_at,
+        )
+
+    @staticmethod
+    def _milestone_to_response(milestone: ProjectMilestone, project: OrchestratorProject) -> CalendarItemResponse:
+        if not milestone.due_date:
+            raise HTTPException(status_code=500, detail="Project milestone is missing a due date")
+        return CalendarItemResponse(
+            id=milestone.id,
+            source="orchestration",
+            type="event",
+            title=f"Milestone: {milestone.title}",
+            description=milestone.description,
+            date=milestone.due_date.date(),
+            project_id=project.id,
+            project_name=project.name,
+            status=milestone.status,
+            created_at=milestone.updated_at,
         )
 
     async def get_planner_item(self, user: User, entry_id: str) -> CalendarItemResponse:

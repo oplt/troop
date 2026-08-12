@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { logout as logoutRequest, me, type AuthUser } from "../../../api/auth";
 import { markAuthStateChanged, onAuthExpired } from "../../../api/client";
 import { AuthContext } from "./authContext";
+import { queryKeys } from "../../../config/queryKeys";
 
 export function AuthProvider({ children }: PropsWithChildren) {
     const queryClient = useQueryClient();
@@ -14,7 +15,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         isPending,
         isError,
     } = useQuery<AuthUser | null>({
-        queryKey: ["auth", "me"],
+        queryKey: queryKeys.auth.me,
         queryFn: me,
         retry: false,
         staleTime: 0,
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     useEffect(() => {
         return onAuthExpired(() => {
-            queryClient.setQueryData(["auth", "me"], null);
+            queryClient.setQueryData(queryKeys.auth.me, null);
             void queryClient.cancelQueries();
             queryClient.removeQueries({
                 predicate: (query) => query.queryKey[0] !== "auth",
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async function logout() {
         markAuthStateChanged();
         await logoutRequest().catch(() => undefined);
-        queryClient.setQueryData(["auth", "me"], null);
+        queryClient.setQueryData(queryKeys.auth.me, null);
         queryClient.removeQueries({
             predicate: (query) => query.queryKey[0] !== "auth",
         });
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     function setAuthenticated(user: AuthUser) {
         markAuthStateChanged();
-        queryClient.setQueryData(["auth", "me"], user);
+        queryClient.setQueryData(queryKeys.auth.me, user);
     }
 
     return (

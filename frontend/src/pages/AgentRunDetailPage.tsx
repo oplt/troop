@@ -20,6 +20,7 @@ import {
     listAgentRunSteps,
 } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
+import { queryKeys } from "../config/queryKeys";
 
 function planFromPayload(payload: Record<string, unknown>) {
     const maybePlan = payload.plan;
@@ -30,23 +31,23 @@ export default function AgentRunDetailPage() {
     const { runId = "" } = useParams();
     const queryClient = useQueryClient();
     const { data: run, error: runError } = useQuery({
-        queryKey: ["agent-run", runId],
+        queryKey: queryKeys.agentRuns.detail(runId),
         queryFn: () => getAgentRun(runId),
         enabled: !!runId,
     });
     const { data: steps = [] } = useQuery({
-        queryKey: ["agent-run", runId, "steps"],
+        queryKey: queryKeys.agentRuns.steps(runId),
         queryFn: () => listAgentRunSteps(runId),
         enabled: !!runId,
         refetchInterval: run?.status === "running" ? 1500 : false,
     });
     const { data: artifacts = [] } = useQuery({
-        queryKey: ["agent-run", runId, "artifacts"],
+        queryKey: queryKeys.agentRuns.artifacts(runId),
         queryFn: () => listAgentRunArtifacts(runId),
         enabled: !!runId,
     });
     const { data: task } = useQuery({
-        queryKey: ["agent-run", runId, "task", run?.task_id],
+        queryKey: queryKeys.agentRuns.task(runId, run?.task_id ?? undefined),
         queryFn: () => getOrchestrationTask(run!.project_id, run!.task_id!),
         enabled: !!run?.project_id && !!run?.task_id,
     });
@@ -55,13 +56,13 @@ export default function AgentRunDetailPage() {
     const approveMutation = useMutation({
         mutationFn: () => approveAgentRunPlan(runId),
         onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ["agent-run", runId] });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns.detail(runId) });
         },
     });
     const cancelMutation = useMutation({
         mutationFn: () => cancelAgentRun(runId),
         onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ["agent-run", runId] });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns.detail(runId) });
         },
     });
 

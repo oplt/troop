@@ -36,7 +36,6 @@ import {
     AccountCircle as ProfileIcon,
     AttachMoney as CostAnalyticsIcon,
     Forum as BrainstormsIcon,
-    GitHub as GithubIcon,
     Tune as ModelSettingsIcon,
     ViewModule as PortfolioNavIcon,
     AccountTree as WorkflowTemplatesIcon,
@@ -51,6 +50,7 @@ import { getPendingApprovalsCount, getOrchestrationProject } from "../../api/orc
 import { useCanonicalUser } from "../../hooks/useCanonicalUser";
 import { useAuth } from "../../hooks/useAuth";
 import { queryKeys, defaultQueryStaleTimeMs } from "../../config/queryKeys";
+import { queryPolicies } from "../../config/queryPolicies";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
 import { getInitials } from "../../utils/formatters";
 import { CommandPalette } from "./CommandPalette";
@@ -117,7 +117,7 @@ function buildBreadcrumbs(
     return breadcrumbs;
 }
 
-function ThemeToggle() {
+export function ThemeToggle() {
     const { colorMode, setColorMode } = useColorMode();
     const cycle = () => {
         const next: Record<string, typeof colorMode> = { light: "dark", dark: "system", system: "light" };
@@ -128,9 +128,16 @@ function ThemeToggle() {
         colorMode === "dark" ? <DarkModeIcon fontSize="small" /> :
         <SystemModeIcon fontSize="small" />;
 
+    const nextMode = colorMode === "light" ? "dark" : colorMode === "dark" ? "system" : "light";
+
     return (
-        <Tooltip title={`Theme: ${colorMode}`}>
-            <IconButton onClick={cycle} size="small" sx={{ borderRadius: 1 }}>
+        <Tooltip title={`Switch theme to ${nextMode} (currently ${colorMode})`}>
+            <IconButton
+                onClick={cycle}
+                size="small"
+                aria-label={`Switch theme to ${nextMode}`}
+                sx={{ borderRadius: 1 }}
+            >
                 {icon}
             </IconButton>
         </Tooltip>
@@ -171,6 +178,7 @@ function NavBlock({
                         <ListItemButton
                             key={item.path}
                             selected={selected}
+                            aria-label={collapsed ? item.label : undefined}
                             onClick={() => onNavigate(item.path)}
                             sx={
                                 collapsed
@@ -247,12 +255,13 @@ export function AppLayout() {
     const { data: pendingApprovals } = useQuery({
         queryKey: queryKeys.orchestration.approvalsPendingCount,
         queryFn: getPendingApprovalsCount,
+        ...queryPolicies.operational,
         refetchInterval: 30_000,
         enabled: authReady,
         retry: false,
     });
     const pendingCount = pendingApprovals?.count ?? 0;
-    const appName = platformMetadata?.app_name ?? "Your App";
+    const appName = platformMetadata?.app_name ?? "Troop";
     const hasAiModule =
         platformMetadata?.module_catalog.some((item) => item.key === "ai" && item.enabled) ?? false;
     const drawerCollapsed = !isMobile && desktopNavCollapsed;
@@ -265,7 +274,6 @@ export function AppLayout() {
             { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
             { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
-            { label: "GitHub sync", icon: <GithubIcon />, path: "/github-sync", group: "workspace" },
             { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
             { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
             { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
@@ -470,6 +478,7 @@ export function AppLayout() {
                             <Tooltip title="Manage profile" placement="right">
                                 <IconButton
                                     onClick={() => handleNavigate("/profile")}
+                                    aria-label="Manage profile"
                                     sx={{ borderRadius: 1 }}
                                 >
                                     <ProfileIcon fontSize="small" />
@@ -478,6 +487,7 @@ export function AppLayout() {
                             <Tooltip title="Sign out" placement="right">
                                 <IconButton
                                     onClick={() => void handleSignOut()}
+                                    aria-label="Sign out"
                                     sx={{ borderRadius: 1 }}
                                 >
                                     <LogoutIcon fontSize="small" />
@@ -531,6 +541,7 @@ export function AppLayout() {
                         <Tooltip title={drawerCollapsed ? "Expand menu" : "Collapse menu"}>
                             <IconButton
                                 edge="start"
+                                aria-label={drawerCollapsed ? "Expand navigation" : "Collapse navigation"}
                                 onClick={() => setDesktopNavCollapsed((current) => !current)}
                                 sx={{ mr: 1.25, borderRadius: 1 }}
                             >

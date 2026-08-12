@@ -60,15 +60,8 @@ import {
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
-
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000/api/v1";
-
-function readCookie(name: string): string | null {
-    const match = document.cookie.match(
-        new RegExp(`(?:^|; )${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
-    );
-    return match ? decodeURIComponent(match[1]) : null;
-}
+import { queryKeys } from "../config/queryKeys";
+import { useSseStream } from "../hooks/useSseStream";
 
 function RunStatusChip({ status }: { status: string }) {
     const map: Record<string, { color: "success" | "error" | "warning" | "info" | "default"; icon: React.ReactElement | null }> = {
@@ -491,6 +484,7 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
 }
 
 const TERMINAL = new Set(["completed", "failed", "cancelled", "blocked"]);
+const MAX_RENDERED_EVENTS = 2_000;
 
 function readTraceSteps(snapshot: RunExecutionSnapshot | undefined, events: RunEvent[]): RunTraceStep[] {
     for (let i = events.length - 1; i >= 0; i -= 1) {
@@ -590,14 +584,12 @@ export default function RunInspectorPage() {
     const { runId } = useParams<{ runId: string }>();
     const queryClient = useQueryClient();
     const [events, setEvents] = useState<RunEvent[]>([]);
-    const [streaming, setStreaming] = useState(false);
     const [streamError, setStreamError] = useState<string | null>(null);
     const [tab, setTab] = useState<"timeline" | "trace" | "graph" | "conversation">("timeline");
     const bottomRef = useRef<HTMLDivElement>(null);
-    const abortRef = useRef<AbortController | null>(null);
 
     const { data: run, isLoading } = useQuery({
-        queryKey: ["orchestration", "run", runId],
+        queryKey: queryKeys.runs.detail(runId ?? ""),
         queryFn: () => getRun(runId!),
         enabled: !!runId,
         refetchInterval: (query) => {
@@ -607,13 +599,13 @@ export default function RunInspectorPage() {
     });
 
     const { data: costSummary } = useQuery({
-        queryKey: ["orchestration", "run", runId, "cost"],
+        queryKey: queryKeys.runs.cost(runId ?? ""),
         queryFn: () => getRunCostSummary(runId!),
         enabled: Boolean(runId),
     });
 
     const { data: execSnapshot, isLoading: execSnapshotLoading } = useQuery({
-        queryKey: ["orchestration", "run", runId, "execution-state"],
+        queryKey: queryKeys.runs.executionState(runId ?? ""),
         queryFn: () => getRunExecutionState(runId!),
         enabled: Boolean(runId),
         refetchInterval: (query) => {
@@ -623,13 +615,13 @@ export default function RunInspectorPage() {
         },
     });
     const { data: runExplanation } = useQuery({
-        queryKey: ["orchestration", "run", runId, "explanation"],
+        queryKey: queryKeys.runs.explanation(runId ?? ""),
         queryFn: () => getRunExplanation(runId!),
         enabled: Boolean(runId),
     });
 
     const { data: workingMemory } = useQuery({
-        queryKey: ["orchestration", "run", runId, "working-memory"],
+        queryKey: queryKeys.runs.workingMemory(runId ?? ""),
         queryFn: () => getRunWorkingMemory(runId!),
         enabled: Boolean(runId),
     });
@@ -643,8 +635,8 @@ export default function RunInspectorPage() {
             patchRunWorkingMemory(runId!, patch),
         onSuccess: async () => {
             setWmDraft({});
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "working-memory"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "execution-state"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.runs.workingMemory(runId ?? "") });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.runs.executionState(runId ?? "") });
         },
     });
 
@@ -659,86 +651,38 @@ export default function RunInspectorPage() {
             return signalRunWorkflow(runId!, { signal_name: signalName, payload: parsedPayload });
         },
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId, "execution-state"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.runs.executionState(runId ?? "") });
         },
     });
 
-    // SSE streaming via fetch (supports cookies + CSRF)
-    useEffect(() => {
-        if (!runId) return;
-        if (run && TERMINAL.has(run.status)) {
-            listRunEvents(runId).then(setEvents).catch(() => {});
-            return;
-        }
-
-        const controller = new AbortController();
-        abortRef.current = controller;
-
-        const csrfToken = readCookie("csrf_token");
-        const headers: Record<string, string> = {};
-        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-        (async () => {
-            try {
-                setStreaming(true);
-                setStreamError(null);
-                const response = await fetch(`${API_BASE}/orchestration/runs/${runId}/stream`, {
-                    credentials: "include",
-                    headers,
-                    signal: controller.signal,
+    const liveStream = useSseStream<RunEvent & { event_type?: string }>(
+        runId && run && !TERMINAL.has(run.status) ? `/orchestration/runs/${runId}/stream` : null,
+        {
+            enabled: Boolean(runId && run && !TERMINAL.has(run.status)),
+            onEvent: (event) => {
+                if (!event.id) return;
+                setEvents((previous) => {
+                    if (previous.some((item) => item.id === event.id)) return previous;
+                    const next = [...previous, event];
+                    return next.length > MAX_RENDERED_EVENTS ? next.slice(-MAX_RENDERED_EVENTS) : next;
                 });
-                if (!response.ok || !response.body) {
-                    setStreamError("Live stream unavailable — showing snapshot.");
-                    const snapshot = await listRunEvents(runId);
-                    setEvents(snapshot);
-                    setStreaming(false);
-                    return;
-                }
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = "";
-                const seen = new Set<string>();
+            },
+            onStreamEnd: () => {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.runs.detail(runId ?? "") });
+            },
+            onError: () => {
+                setStreamError("Live stream unavailable — showing the latest saved events.");
+                if (runId) void listRunEvents(runId).then((items) => setEvents(items.slice(-MAX_RENDERED_EVENTS))).catch(() => undefined);
+            },
+        },
+    );
+    const streaming = liveStream.status === "connecting" || liveStream.status === "open" || liveStream.status === "reconnecting";
+    const runStatus = run?.status;
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split("\n\n");
-                    buffer = lines.pop() ?? "";
-                    for (const block of lines) {
-                        const inner = block.trim().split("\n").find((line) => line.startsWith("data:"));
-                        if (!inner) continue;
-                        const raw = inner.slice(5).trim();
-                        if (!raw) continue;
-                        try {
-                            const parsed = JSON.parse(raw) as RunEvent & { event_type?: string; status?: string };
-                            if (parsed.event_type === "stream_end") {
-                                await queryClient.invalidateQueries({ queryKey: ["orchestration", "run", runId] });
-                                setStreaming(false);
-                                return;
-                            }
-                            if (!("id" in parsed) || !parsed.id) continue;
-                            if (!seen.has(parsed.id)) {
-                                seen.add(parsed.id);
-                                setEvents((prev) => [...prev, parsed]);
-                            }
-                        } catch {
-                            // ignore parse errors
-                        }
-                    }
-                }
-                setStreaming(false);
-            } catch (err) {
-                if ((err as Error).name !== "AbortError") {
-                    setStreamError("Stream disconnected.");
-                    setStreaming(false);
-                }
-            }
-        })();
-
-        return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [runId, run?.status]);
+    useEffect(() => {
+        if (!runId || !runStatus || !TERMINAL.has(runStatus)) return;
+        void listRunEvents(runId).then((items) => setEvents(items.slice(-MAX_RENDERED_EVENTS))).catch(() => undefined);
+    }, [runId, runStatus]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });

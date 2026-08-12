@@ -24,7 +24,6 @@ const OrchestrationProjectsPage = lazy(() => import("../pages/OrchestrationProje
 const OrchestrationProjectDetailPage = lazy(() => import("../pages/OrchestrationProjectDetailPage"));
 const BrainstormsPage = lazy(() => import("../pages/BrainstormsPage"));
 const BrainstormDetailPage = lazy(() => import("../pages/BrainstormDetailPage"));
-const GithubSyncPage = lazy(() => import("../pages/GithubSyncPage"));
 const ActivityAuditPage = lazy(() => import("../pages/ActivityAuditPage"));
 const RunInspectorPage = lazy(() => import("../pages/RunInspectorPage"));
 const CostAnalyticsPage = lazy(() => import("../pages/CostAnalyticsPage"));
@@ -103,7 +102,6 @@ export function AppRouter() {
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
-                    <Route path="/github-sync" element={<SuspensePage><GithubSyncPage /></SuspensePage>} />
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />
                     <Route path="/activity" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />

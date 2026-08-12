@@ -35,6 +35,7 @@ import {
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 
 /** Map approval_type to a human-readable action description */
@@ -104,9 +105,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         mutationFn: ({ status, reason: r }: { status: "approved" | "rejected"; reason?: string }) =>
             decideApproval(approval.id, { status, reason: r }),
         onSuccess: async (decision) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "approvals", "pending-count"] });
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "runs"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvalsPendingCount });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.runsRoot });
             showToast({
                 message: decision.run_id && decision.status === "approved"
                     ? "Approval saved; the blocked run is being queued to resume."
@@ -266,27 +267,27 @@ export default function ActivityAuditPage() {
     const [agentFilter, setAgentFilter] = useState("");
 
     const { data: approvals = [], isLoading: approvalsLoading } = useQuery({
-        queryKey: ["orchestration", "approvals"],
+        queryKey: queryKeys.orchestration.approvals,
         queryFn: listApprovals,
     });
     const { data: runs = [], isLoading: runsLoading } = useQuery({
-        queryKey: ["orchestration", "runs"],
+        queryKey: queryKeys.orchestration.runsRoot,
         queryFn: () => listRuns(),
     });
     const { data: projects = [] } = useQuery({
-        queryKey: ["orchestration", "projects"],
+        queryKey: queryKeys.orchestration.projects,
         queryFn: listOrchestrationProjects,
     });
     const { data: agents = [] } = useQuery({
-        queryKey: ["orchestration", "agents"],
+        queryKey: queryKeys.orchestration.agents(),
         queryFn: () => listAgents(),
     });
     const { data: syncEvents = [], isLoading: syncLoading } = useQuery({
-        queryKey: ["orchestration", "github-sync-events", "all"],
+        queryKey: queryKeys.orchestration.githubSyncEvents,
         queryFn: () => listGithubSyncEvents(),
     });
     const { data: auditLogs = [], isLoading: auditLoading } = useQuery({
-        queryKey: ["orchestration", "hitl", "audit-logs"],
+        queryKey: queryKeys.orchestration.hitlAuditLogs,
         queryFn: () => listHITLAuditLogs(),
     });
 

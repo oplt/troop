@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -10,6 +10,8 @@ import {
     Skeleton,
     Stack,
     Switch,
+    Tab,
+    Tabs,
     TextField,
     Typography,
 } from "@mui/material";
@@ -66,6 +68,24 @@ function formatCostMicros(micros: number) {
     return formatCurrency(micros / 10000, "USD");
 }
 
+type AiSection = "prompts" | "playground" | "versions" | "documents" | "reviews";
+
+function AiSectionPanel({ activeSection, value, children }: { activeSection: AiSection; value: AiSection; children: ReactNode }) {
+    const panelId = `ai-panel-${value}`;
+    const tabId = `ai-tab-${value}`;
+    return (
+        <Box
+            role="tabpanel"
+            hidden={activeSection !== value}
+            id={panelId}
+            aria-labelledby={tabId}
+            sx={{ pt: 2 }}
+        >
+            {activeSection === value ? children : null}
+        </Box>
+    );
+}
+
 export default function AiStudioPage() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
@@ -88,6 +108,7 @@ export default function AiStudioPage() {
         queryFn: listAiEvaluationRuns,
     });
 
+    const [activeSection, setActiveSection] = useState<AiSection>("prompts");
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [selectedDatasetId, setSelectedDatasetId] = useState("");
     const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -373,18 +394,27 @@ export default function AiStudioPage() {
                 <StatCard label="Datasets" value={datasets.length} description="Saved evaluation datasets" icon={<DatasetIcon />} color="success" />
             </Box>
 
-            <Box
-                sx={{
-                    mt: 2,
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: { xs: "1fr", xl: "1.1fr 0.9fr" },
-                    alignItems: "start",
-                }}
-            >
+            <Box sx={{ mt: 2 }}>
+                <Tabs
+                    value={activeSection}
+                    onChange={(_, value: AiSection) => setActiveSection(value)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    aria-label="AI Studio sections"
+                    sx={{ borderBottom: 1, borderColor: "divider" }}
+                >
+                    <Tab id="ai-tab-prompts" aria-controls="ai-panel-prompts" value="prompts" label="Prompt library" />
+                    <Tab id="ai-tab-playground" aria-controls="ai-panel-playground" value="playground" label="Run playground" />
+                    <Tab id="ai-tab-versions" aria-controls="ai-panel-versions" value="versions" label="Version builder" />
+                    <Tab id="ai-tab-documents" aria-controls="ai-panel-documents" value="documents" label="Retrieval documents" />
+                    <Tab id="ai-tab-reviews" aria-controls="ai-panel-reviews" value="reviews" label="Reviews & evaluations" />
+                </Tabs>
+
                 <Stack spacing={2}>
+                    <AiSectionPanel activeSection={activeSection} value="prompts">
                     <SectionCard title="Prompt library" description="Create reusable prompt templates and publish versioned variants with rollout and pricing metadata.">
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
                                 <TextField label="Template key" value={templateForm.key} onChange={(event) => setTemplateForm((current) => ({ ...current, key: event.target.value }))} fullWidth />
                                 <TextField label="Name" value={templateForm.name} onChange={(event) => setTemplateForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
@@ -436,8 +466,10 @@ export default function AiStudioPage() {
                         </Stack>
                     </SectionCard>
 
+                    </AiSectionPanel>
+                    <AiSectionPanel activeSection={activeSection} value="playground">
                     <SectionCard title="Run playground" description="Execute prompt versions with structured variables, retrieval context, and human-review routing.">
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <TextField
                                 select
                                 label="Prompt template"
@@ -591,11 +623,11 @@ export default function AiStudioPage() {
                             )}
                         </Stack>
                     </SectionCard>
-                </Stack>
+                    </AiSectionPanel>
 
-                <Stack spacing={2}>
+                    <AiSectionPanel activeSection={activeSection} value="versions">
                     <SectionCard title="Version builder" description="Attach deployable versions to a prompt template with model selection, rollout state, and provider pricing.">
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <TextField
                                 select
                                 label="Selected template"
@@ -702,8 +734,10 @@ export default function AiStudioPage() {
                         </Stack>
                     </SectionCard>
 
+                    </AiSectionPanel>
+                    <AiSectionPanel activeSection={activeSection} value="documents">
                     <SectionCard title="Retrieval documents" description="Ingest source files or direct text, chunk them, and use them as retrieval context in prompt runs.">
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <TextField label="Document title" value={textDocumentForm.title} onChange={(event) => setTextDocumentForm((current) => ({ ...current, title: event.target.value }))} fullWidth />
                             <TextField label="Description" value={textDocumentForm.description} onChange={(event) => setTextDocumentForm((current) => ({ ...current, description: event.target.value }))} fullWidth />
                             <TextField label="Document content" value={textDocumentForm.content} onChange={(event) => setTextDocumentForm((current) => ({ ...current, content: event.target.value }))} fullWidth multiline minRows={6} />
@@ -763,8 +797,10 @@ export default function AiStudioPage() {
                         </Stack>
                     </SectionCard>
 
+                    </AiSectionPanel>
+                    <AiSectionPanel activeSection={activeSection} value="reviews">
                     <SectionCard title="Reviews and evaluations" description="Route sensitive outputs through human approval and keep reusable benchmark datasets for prompt regression testing.">
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <Stack spacing={1.25}>
                                 <Typography variant="subtitle2">Review queue</Typography>
                                 {reviews.length > 0 ? (
@@ -902,6 +938,7 @@ export default function AiStudioPage() {
                             </Stack>
                         </Stack>
                     </SectionCard>
+                    </AiSectionPanel>
                 </Stack>
             </Box>
         </PageShell>

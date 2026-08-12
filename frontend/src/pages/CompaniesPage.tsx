@@ -25,6 +25,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
+import { queryKeys } from "../config/queryKeys";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const BRIEF_MAX_CHARS = 500;
 
@@ -49,7 +51,7 @@ function CompanyEditor({ company }: { company: Company }) {
                 brief_markdown: brief.slice(0, BRIEF_MAX_CHARS),
             }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["companies"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.companies.root });
             showToast({ message: "Company updated.", severity: "success" });
         },
         onError: (err) => {
@@ -63,7 +65,7 @@ function CompanyEditor({ company }: { company: Company }) {
     return (
         <SectionCard
             title={company.name}
-            description="Company brief loads as an always-on context packet section (cap 500 chars)."
+                    description="A short company brief is included in every run (up to 500 characters)."
             action={
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
                     <Button
@@ -97,9 +99,8 @@ function CompanyEditor({ company }: { company: Company }) {
                 <Divider />
                 <Typography variant="subtitle2">Company brief</Typography>
                 <Typography variant="caption" color="text.secondary">
-                    Short, always-on summary: mission, stack, policies, coding
-                    standards. First {BRIEF_MAX_CHARS} chars are injected into every
-                    run.
+                    Keep the mission, stack, policies, and coding standards concise.
+                    Only the first {BRIEF_MAX_CHARS} characters enter each run.
                 </Typography>
                 <TextField
                     value={brief}
@@ -144,7 +145,7 @@ export function CompaniesPanel() {
     const [newSlug, setNewSlug] = useState("");
 
     const { data: companies = [], isLoading } = useQuery({
-        queryKey: ["companies"],
+        queryKey: queryKeys.companies.root,
         queryFn: listCompanies,
     });
 
@@ -161,7 +162,7 @@ export function CompaniesPanel() {
                 brief_markdown: "",
             }),
         onSuccess: async (company) => {
-            await queryClient.invalidateQueries({ queryKey: ["companies"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.companies.root });
             setNewName("");
             setNewSlug("");
             setSelectedId(company.id);
@@ -263,6 +264,11 @@ export function CompaniesPanel() {
 export default function CompaniesPage() {
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                eyebrow="Workspace"
+                title="Companies"
+                description="Keep company-wide context separate from project memory."
+            />
             <CompaniesPanel />
         </PageShell>
     );

@@ -1,0 +1,566 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/presenters.py",
+      "type": "file",
+      "name": "presenters.py",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "summary": "Maps orchestration domain models and execution snapshots into stable Pydantic API response objects.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "function",
+      "name": "to_agent_response",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        32,
+        81
+      ],
+      "summary": "Maps domain state into the to agent response API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "function",
+      "name": "to_task_response",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        84,
+        127
+      ],
+      "summary": "Maps domain state into the to task response API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "function",
+      "name": "to_run_response",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        130,
+        161
+      ],
+      "summary": "Maps domain state into the to run response API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "type": "function",
+      "name": "to_event_response",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        164,
+        177
+      ],
+      "summary": "Maps domain state into the to event response API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "type": "function",
+      "name": "to_task_execution_snapshot",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        180,
+        208
+      ],
+      "summary": "Maps domain state into the to task execution snapshot API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "type": "function",
+      "name": "to_run_execution_snapshot",
+      "filePath": "backend/modules/orchestration/presenters.py",
+      "lineRange": [
+        211,
+        233
+      ],
+      "summary": "Maps domain state into the to run execution snapshot API response contract.",
+      "tags": [
+        "serialization",
+        "presenter",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/orchestration/repository.py",
+      "summary": "Implements the comprehensive asynchronous persistence boundary for agents, projects, tasks, runs, providers, GitHub sync, documents, memory, approvals, evaluations, and observability queries.",
+      "tags": [
+        "repository",
+        "data-access",
+        "sqlalchemy",
+        "async"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "class",
+      "name": "OrchestrationRepository",
+      "filePath": "backend/modules/orchestration/repository.py",
+      "lineRange": [
+        58,
+        2399
+      ],
+      "summary": "Asynchronous repository boundary encapsulating orchestration persistence and bounded query behavior.",
+      "tags": [
+        "repository",
+        "data-access",
+        "async"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "file:backend/modules/orchestration/hitl_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/presenters.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/audit/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/github/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/memory/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/projects/orchestration_repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/modules/team/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentInheritancePreview",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResolvedProfile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentLintSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskRunResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:redact_approval_payload",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskExecutionSnapshotResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionSnapshotMeta",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:ActiveRunSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingApprovalSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingGithubSyncSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventTailItem",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:RunTraceStep",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_task_execution_snapshot",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:RunExecutionSnapshotResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionSnapshotMeta",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingApprovalSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingGithubSyncSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventTailItem",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/presenters.py:to_run_execution_snapshot",
+      "target": "class:backend/modules/orchestration/schemas.py:RunTraceStep",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "function:backend/modules/orchestration/_helpers.py:resolve_query_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:TaskRun",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:RunEvent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:ProviderConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:ModelCapability",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:Brainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormParticipant",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormMessage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:ApprovalRequest",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/audit/models.py:AuditLog",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "target": "class:backend/modules/orchestration/models.py:EvalRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/repository.py",
+      "target": "file:backend/tests/test_phase3_query_paths.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

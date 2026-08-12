@@ -1,0 +1,925 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "type": "file",
+      "name": "BrainstormsPage.tsx",
+      "filePath": "frontend/src/pages/BrainstormsPage.tsx",
+      "summary": "Presents brainstorming sessions and a creation workflow with participant selection, guardrails, execution modes, and output controls.",
+      "tags": [
+        "component",
+        "page",
+        "brainstorms",
+        "react"
+      ],
+      "complexity": "complex",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "type": "function",
+      "name": "CreateBrainstormDialog",
+      "filePath": "frontend/src/pages/BrainstormsPage.tsx",
+      "lineRange": [
+        46,
+        279
+      ],
+      "summary": "Collects brainstorming participants, goals, modes, rounds, consensus thresholds, and output options before creating a session.",
+      "tags": [
+        "component",
+        "react",
+        "user-interface",
+        "interaction"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "type": "function",
+      "name": "BrainstormsPage",
+      "filePath": "frontend/src/pages/BrainstormsPage.tsx",
+      "lineRange": [
+        281,
+        391
+      ],
+      "summary": "Lists brainstorming sessions and coordinates creation, selection, and status presentation.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/CalendarPage.tsx",
+      "type": "file",
+      "name": "CalendarPage.tsx",
+      "filePath": "frontend/src/pages/CalendarPage.tsx",
+      "summary": "Hosts the dashboard calendar in a dedicated page shell for schedule-focused navigation.",
+      "tags": [
+        "component",
+        "page",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/CalendarPage.tsx:CalendarPage",
+      "type": "function",
+      "name": "CalendarPage",
+      "filePath": "frontend/src/pages/CalendarPage.tsx",
+      "lineRange": [
+        4,
+        13
+      ],
+      "summary": "Renders the shared operational calendar inside a dedicated page shell.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/pages/CompaniesPage.tsx",
+      "type": "file",
+      "name": "CompaniesPage.tsx",
+      "filePath": "frontend/src/pages/CompaniesPage.tsx",
+      "summary": "Lists companies and provides create and edit workflows for names, slugs, briefs, and company settings.",
+      "tags": [
+        "component",
+        "page",
+        "companies",
+        "react"
+      ],
+      "complexity": "complex",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "type": "function",
+      "name": "CompanyEditor",
+      "filePath": "frontend/src/pages/CompaniesPage.tsx",
+      "lineRange": [
+        41,
+        138
+      ],
+      "summary": "Edits company identity, markdown brief, slug, and structured settings with create and update mutations.",
+      "tags": [
+        "component",
+        "react",
+        "user-interface",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "type": "function",
+      "name": "CompaniesPanel",
+      "filePath": "frontend/src/pages/CompaniesPage.tsx",
+      "lineRange": [
+        140,
+        262
+      ],
+      "summary": "Loads the company catalog and coordinates selection, creation, editing, empty states, and feedback.",
+      "tags": [
+        "component",
+        "react",
+        "user-interface",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPage",
+      "type": "function",
+      "name": "CompaniesPage",
+      "filePath": "frontend/src/pages/CompaniesPage.tsx",
+      "lineRange": [
+        264,
+        275
+      ],
+      "summary": "Provides the routed companies page around the reusable companies panel.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "type": "file",
+      "name": "CompanyMemoryPage.tsx",
+      "filePath": "frontend/src/pages/CompanyMemoryPage.tsx",
+      "summary": "Displays company-scoped semantic memory with entry metadata, provenance, confidence, and formatted timestamps.",
+      "tags": [
+        "component",
+        "page",
+        "company-memory",
+        "react"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/CompanyMemoryPage.tsx:CompanyMemoryPage",
+      "type": "function",
+      "name": "CompanyMemoryPage",
+      "filePath": "frontend/src/pages/CompanyMemoryPage.tsx",
+      "lineRange": [
+        10,
+        100
+      ],
+      "summary": "Loads and presents semantic memory shared at company scope.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "type": "file",
+      "name": "CostAnalyticsPage.tsx",
+      "filePath": "frontend/src/pages/CostAnalyticsPage.tsx",
+      "summary": "Visualizes orchestration spend, token usage, budgets, and provider or model cost breakdowns.",
+      "tags": [
+        "component",
+        "page",
+        "cost-analytics",
+        "react"
+      ],
+      "complexity": "complex",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/CostAnalyticsPage.tsx:BarRow",
+      "type": "function",
+      "name": "BarRow",
+      "filePath": "frontend/src/pages/CostAnalyticsPage.tsx",
+      "lineRange": [
+        29,
+        52
+      ],
+      "summary": "Renders one proportional analytics bar with label, value, and relative magnitude.",
+      "tags": [
+        "component",
+        "react",
+        "user-interface",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "type": "function",
+      "name": "CostAnalyticsPage",
+      "filePath": "frontend/src/pages/CostAnalyticsPage.tsx",
+      "lineRange": [
+        54,
+        235
+      ],
+      "summary": "Aggregates and visualizes orchestration cost, token, budget, provider, and model statistics.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "type": "file",
+      "name": "DashboardPage.test.tsx",
+      "filePath": "frontend/src/pages/DashboardPage.test.tsx",
+      "summary": "Verifies dashboard summary rendering, notification behavior, and degraded API-state handling with mocked orchestration data.",
+      "tags": [
+        "test",
+        "frontend",
+        "react",
+        "vitest"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Vitest and Testing Library exercise user-visible behavior through mocked API boundaries."
+    },
+    {
+      "id": "function:frontend/src/pages/DashboardPage.test.tsx:renderDashboard",
+      "type": "function",
+      "name": "renderDashboard",
+      "filePath": "frontend/src/pages/DashboardPage.test.tsx",
+      "lineRange": [
+        28,
+        45
+      ],
+      "summary": "Renders the dashboard under the required test providers and query client.",
+      "tags": [
+        "test",
+        "fixture",
+        "react",
+        "vitest"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/pages/DashboardPage.tsx",
+      "type": "file",
+      "name": "DashboardPage.tsx",
+      "filePath": "frontend/src/pages/DashboardPage.tsx",
+      "summary": "Builds the operational dashboard from run, task, approval, notification, portfolio, cost, and calendar data with resilient loading and error states.",
+      "tags": [
+        "component",
+        "page",
+        "dashboard",
+        "react"
+      ],
+      "complexity": "complex",
+      "languageNotes": "React functional components combine typed API models with query-driven loading, mutation, and feedback states."
+    },
+    {
+      "id": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "type": "function",
+      "name": "DashboardPage",
+      "filePath": "frontend/src/pages/DashboardPage.tsx",
+      "lineRange": [
+        44,
+        608
+      ],
+      "summary": "Coordinates dashboard queries and renders operational summaries, calendars, queues, approvals, notifications, and failure states.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "data-fetching"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/CalendarPage.tsx",
+      "target": "function:frontend/src/pages/CalendarPage.tsx:CalendarPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CalendarPage.tsx",
+      "target": "function:frontend/src/pages/CalendarPage.tsx:CalendarPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "function:frontend/src/pages/CompanyMemoryPage.tsx:CompanyMemoryPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "function:frontend/src/pages/CompanyMemoryPage.tsx:CompanyMemoryPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "function:frontend/src/pages/CostAnalyticsPage.tsx:BarRow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "function:frontend/src/pages/DashboardPage.test.tsx:renderDashboard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormsPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CalendarPage.tsx",
+      "target": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CalendarPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/api/companies.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/components/ui/PageHeader.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompaniesPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CompanyMemoryPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/CostAnalyticsPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/api/notifications.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/pages/DashboardPage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/api/notifications.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/components/ui/CollapsibleSectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/config/queryPolicies.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/utils/apiErrors.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/api/orchestration.ts:listAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/api/orchestration.ts:listProjectAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/api/orchestration.ts:listOrchestrationTasks",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/api/orchestration.ts:createBrainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/api/orchestration.ts:startBrainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "target": "function:frontend/src/api/orchestration.ts:listBrainstorms",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "target": "function:frontend/src/api/companies.ts:updateCompany",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "target": "function:frontend/src/api/companies.ts:createCompany",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompanyMemoryPage.tsx:CompanyMemoryPage",
+      "target": "function:frontend/src/api/orchestration.ts:listCompanySemanticMemory",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CompanyMemoryPage.tsx:CompanyMemoryPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "target": "function:frontend/src/api/orchestration.ts:getCostAnalytics",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "target": "function:frontend/src/api/orchestration.ts:getExecutionInsights",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "target": "function:frontend/src/utils/apiErrors.ts:extractApiErrorMessage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/DashboardPage.tsx:DashboardPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormsPage.tsx:BrainstormsPage",
+      "target": "function:frontend/src/pages/BrainstormsPage.tsx:CreateBrainstormDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPage",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/pages/CompaniesPage.tsx:CompaniesPanel",
+      "target": "function:frontend/src/pages/CompaniesPage.tsx:CompanyEditor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/pages/CostAnalyticsPage.tsx:CostAnalyticsPage",
+      "target": "function:frontend/src/pages/CostAnalyticsPage.tsx:BarRow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/api/notifications.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.test.tsx",
+      "target": "file:frontend/src/pages/DashboardPage.tsx",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

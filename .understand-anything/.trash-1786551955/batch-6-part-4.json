@@ -1,0 +1,1436 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/tests/test_orchestration_domain_services.py",
+      "type": "file",
+      "name": "test_orchestration_domain_services.py",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "summary": "Verifies orchestration facade composition, domain delegation, shared sessions, and knowledge-to-memory forwarding.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:db_session",
+      "type": "function",
+      "name": "db_session",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        18,
+        19
+      ],
+      "summary": "Provides a mocked asynchronous database session fixture for domain-service composition tests.",
+      "tags": [
+        "test",
+        "fixture",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_composes_domain_services",
+      "type": "function",
+      "name": "test_orchestration_service_composes_domain_services",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        22,
+        33
+      ],
+      "summary": "Verifies that orchestration service composes domain services.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_execution_methods",
+      "type": "function",
+      "name": "test_orchestration_service_delegates_execution_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        36,
+        40
+      ],
+      "summary": "Verifies that orchestration service delegates execution methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_approval_methods",
+      "type": "function",
+      "name": "test_orchestration_service_delegates_approval_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        43,
+        47
+      ],
+      "summary": "Verifies that orchestration service delegates approval methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_memory_methods",
+      "type": "function",
+      "name": "test_orchestration_service_delegates_memory_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        50,
+        54
+      ],
+      "summary": "Verifies that orchestration service delegates memory methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_github_methods",
+      "type": "function",
+      "name": "test_orchestration_service_delegates_github_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        57,
+        60
+      ],
+      "summary": "Verifies that orchestration service delegates GitHub methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_evals_and_brainstorm_methods",
+      "type": "function",
+      "name": "test_orchestration_service_delegates_evals_and_brainstorm_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        63,
+        67
+      ],
+      "summary": "Verifies that orchestration service delegates evals and brainstorm methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_knowledge_service_delegates_to_memory_host",
+      "type": "function",
+      "name": "test_knowledge_service_delegates_to_memory_host",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        70,
+        81
+      ],
+      "summary": "Verifies that knowledge service delegates to memory host.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_domain_services_share_session",
+      "type": "function",
+      "name": "test_domain_services_share_session",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        84,
+        92
+      ],
+      "summary": "Verifies that domain services share session.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_exposes_shell_methods",
+      "type": "function",
+      "name": "test_orchestration_service_exposes_shell_methods",
+      "filePath": "backend/tests/test_orchestration_domain_services.py",
+      "lineRange": [
+        95,
+        99
+      ],
+      "summary": "Verifies that orchestration service exposes shell methods.",
+      "tags": [
+        "test",
+        "orchestration-domain-services",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_phase3_query_paths.py",
+      "type": "file",
+      "name": "test_phase3_query_paths.py",
+      "filePath": "backend/tests/test_phase3_query_paths.py",
+      "summary": "Guards the bounded query path used to load project task pages and dependencies.",
+      "tags": [
+        "test",
+        "phase3-query-paths",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_phase3_query_paths.py:test_project_task_page_and_dependencies_are_loaded_in_one_bounded_query",
+      "type": "function",
+      "name": "test_project_task_page_and_dependencies_are_loaded_in_one_bounded_query",
+      "filePath": "backend/tests/test_phase3_query_paths.py",
+      "lineRange": [
+        11,
+        33
+      ],
+      "summary": "Verifies that project task page and dependencies are loaded in one bounded query.",
+      "tags": [
+        "test",
+        "phase3-query-paths",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_phase6_modularization.py",
+      "type": "file",
+      "name": "test_phase6_modularization.py",
+      "filePath": "backend/tests/test_phase6_modularization.py",
+      "summary": "Verifies modular execution policies, state transitions, retry counters, and presenter boundaries.",
+      "tags": [
+        "test",
+        "phase6-modularization",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_phase6_modularization.py:test_retry_policy_is_bounded_and_provider_independent",
+      "type": "function",
+      "name": "test_retry_policy_is_bounded_and_provider_independent",
+      "filePath": "backend/tests/test_phase6_modularization.py",
+      "lineRange": [
+        10,
+        14
+      ],
+      "summary": "Verifies that retry policy is bounded and provider independent.",
+      "tags": [
+        "test",
+        "phase6-modularization",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase6_modularization.py:test_task_state_machine_policy_is_explicit",
+      "type": "function",
+      "name": "test_task_state_machine_policy_is_explicit",
+      "filePath": "backend/tests/test_phase6_modularization.py",
+      "lineRange": [
+        17,
+        20
+      ],
+      "summary": "Verifies that task state machine policy is explicit.",
+      "tags": [
+        "test",
+        "phase6-modularization",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase6_modularization.py:test_retry_persistence_counters_are_monotonic",
+      "type": "function",
+      "name": "test_retry_persistence_counters_are_monotonic",
+      "filePath": "backend/tests/test_phase6_modularization.py",
+      "lineRange": [
+        23,
+        25
+      ],
+      "summary": "Verifies that retry persistence counters are monotonic.",
+      "tags": [
+        "test",
+        "phase6-modularization",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase6_modularization.py:test_agent_routes_use_public_presenters",
+      "type": "function",
+      "name": "test_agent_routes_use_public_presenters",
+      "filePath": "backend/tests/test_phase6_modularization.py",
+      "lineRange": [
+        28,
+        33
+      ],
+      "summary": "Verifies that agent routes use public presenters.",
+      "tags": [
+        "test",
+        "phase6-modularization",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_rate_limit_security.py",
+      "type": "file",
+      "name": "test_rate_limit_security.py",
+      "filePath": "backend/tests/test_rate_limit_security.py",
+      "summary": "Verifies orchestration run rate limiting is environment-aware and enforced outside development.",
+      "tags": [
+        "test",
+        "rate-limit-security",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_skipped_in_dev",
+      "type": "function",
+      "name": "test_run_rate_limit_skipped_in_dev",
+      "filePath": "backend/tests/test_rate_limit_security.py",
+      "lineRange": [
+        17,
+        20
+      ],
+      "summary": "Verifies that run rate limit skipped in dev.",
+      "tags": [
+        "test",
+        "rate-limit-security",
+        "pytest",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_enforced_outside_dev",
+      "type": "function",
+      "name": "test_run_rate_limit_enforced_outside_dev",
+      "filePath": "backend/tests/test_rate_limit_security.py",
+      "lineRange": [
+        24,
+        41
+      ],
+      "summary": "Verifies that run rate limit enforced outside dev.",
+      "tags": [
+        "test",
+        "rate-limit-security",
+        "pytest",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "type": "class",
+      "name": "_ExecutionHarness",
+      "filePath": "backend/tests/test_rate_limit_security.py",
+      "lineRange": [
+        11,
+        13
+      ],
+      "summary": "Minimal execution service harness used to isolate rate-limit behavior in tests.",
+      "tags": [
+        "test",
+        "harness",
+        "mock",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_task_orchestration_contract.py",
+      "type": "file",
+      "name": "test_task_orchestration_contract.py",
+      "filePath": "backend/tests/test_task_orchestration_contract.py",
+      "summary": "Verifies task workflow fields, evidence normalization, tools, links, and state-machine paths.",
+      "tags": [
+        "test",
+        "task-orchestration-contract",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_task_orchestration_contract.py:test_task_contract_exposes_workflow_fields_and_external_evidence",
+      "type": "function",
+      "name": "test_task_contract_exposes_workflow_fields_and_external_evidence",
+      "filePath": "backend/tests/test_task_orchestration_contract.py",
+      "lineRange": [
+        6,
+        16
+      ],
+      "summary": "Verifies that task contract exposes workflow fields and external evidence.",
+      "tags": [
+        "test",
+        "task-orchestration-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_task_orchestration_contract.py:test_task_metadata_normalizes_tools_and_external_links",
+      "type": "function",
+      "name": "test_task_metadata_normalizes_tools_and_external_links",
+      "filePath": "backend/tests/test_task_orchestration_contract.py",
+      "lineRange": [
+        19,
+        41
+      ],
+      "summary": "Verifies that task metadata normalizes tools and external links.",
+      "tags": [
+        "test",
+        "task-orchestration-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_task_orchestration_contract.py:test_task_state_machine_supports_review_reopen_sync_and_archive_paths",
+      "type": "function",
+      "name": "test_task_state_machine_supports_review_reopen_sync_and_archive_paths",
+      "filePath": "backend/tests/test_task_orchestration_contract.py",
+      "lineRange": [
+        44,
+        48
+      ],
+      "summary": "Verifies that task state machine supports review reopen sync and archive paths.",
+      "tags": [
+        "test",
+        "task-orchestration-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_v2_recommendations_contract.py",
+      "type": "file",
+      "name": "test_v2_recommendations_contract.py",
+      "filePath": "backend/tests/test_v2_recommendations_contract.py",
+      "summary": "Verifies recommended workflow template defaults and registration of the template application route.",
+      "tags": [
+        "test",
+        "v2-recommendations-contract",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_catalog_uses_supported_execution_defaults",
+      "type": "function",
+      "name": "test_workflow_template_catalog_uses_supported_execution_defaults",
+      "filePath": "backend/tests/test_v2_recommendations_contract.py",
+      "lineRange": [
+        5,
+        21
+      ],
+      "summary": "Verifies that workflow template catalog uses supported execution defaults.",
+      "tags": [
+        "test",
+        "v2-recommendations-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_apply_route_is_registered",
+      "type": "function",
+      "name": "test_workflow_template_apply_route_is_registered",
+      "filePath": "backend/tests/test_v2_recommendations_contract.py",
+      "lineRange": [
+        24,
+        31
+      ],
+      "summary": "Verifies that workflow template apply route is registered.",
+      "tags": [
+        "test",
+        "v2-recommendations-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tools/pgvector_plan_check.py",
+      "type": "file",
+      "name": "pgvector_plan_check.py",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "summary": "Runs bounded EXPLAIN checks against representative pgvector queries and fails when the expected vector indexes are not used.",
+      "tags": [
+        "database",
+        "pgvector",
+        "query-plan",
+        "diagnostics"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:_vector_literal",
+      "type": "function",
+      "name": "_vector_literal",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        21,
+        23
+      ],
+      "summary": "Serializes a numeric embedding into PostgreSQL vector literal syntax.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:_fetch_plan",
+      "type": "function",
+      "name": "_fetch_plan",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        26,
+        30
+      ],
+      "summary": "Executes EXPLAIN for a representative vector query and returns the plan rows.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:_plan_text",
+      "type": "function",
+      "name": "_plan_text",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        33,
+        34
+      ],
+      "summary": "Flattens structured EXPLAIN output into searchable plan text.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:_uses_expected_index",
+      "type": "function",
+      "name": "_uses_expected_index",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        37,
+        38
+      ],
+      "summary": "Checks whether an EXPLAIN plan references one of the expected vector indexes.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "type": "function",
+      "name": "run_plan_check",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        41,
+        159
+      ],
+      "summary": "Connects to PostgreSQL, runs representative vector-query plans, reports index usage, and returns a process status.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tools/pgvector_plan_check.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "backend/tools/pgvector_plan_check.py",
+      "lineRange": [
+        162,
+        178
+      ],
+      "summary": "Parses command-line options and exits with the pgvector plan-check result.",
+      "tags": [
+        "database",
+        "query-plan",
+        "diagnostics",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:db_session",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:db_session",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_composes_domain_services",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_composes_domain_services",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_execution_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_execution_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_approval_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_approval_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_memory_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_memory_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_github_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_github_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_evals_and_brainstorm_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_evals_and_brainstorm_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_knowledge_service_delegates_to_memory_host",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_knowledge_service_delegates_to_memory_host",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_domain_services_share_session",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_domain_services_share_session",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_exposes_shell_methods",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_exposes_shell_methods",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase3_query_paths.py",
+      "target": "function:backend/tests/test_phase3_query_paths.py:test_project_task_page_and_dependencies_are_loaded_in_one_bounded_query",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase3_query_paths.py",
+      "target": "function:backend/tests/test_phase3_query_paths.py:test_project_task_page_and_dependencies_are_loaded_in_one_bounded_query",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_retry_policy_is_bounded_and_provider_independent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_retry_policy_is_bounded_and_provider_independent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_task_state_machine_policy_is_explicit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_task_state_machine_policy_is_explicit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_retry_persistence_counters_are_monotonic",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_retry_persistence_counters_are_monotonic",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_agent_routes_use_public_presenters",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "function:backend/tests/test_phase6_modularization.py:test_agent_routes_use_public_presenters",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_skipped_in_dev",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_skipped_in_dev",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_enforced_outside_dev",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_enforced_outside_dev",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_contract_exposes_workflow_fields_and_external_evidence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_contract_exposes_workflow_fields_and_external_evidence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_metadata_normalizes_tools_and_external_links",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_metadata_normalizes_tools_and_external_links",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_state_machine_supports_review_reopen_sync_and_archive_paths",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "function:backend/tests/test_task_orchestration_contract.py:test_task_state_machine_supports_review_reopen_sync_and_archive_paths",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_catalog_uses_supported_execution_defaults",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_catalog_uses_supported_execution_defaults",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_apply_route_is_registered",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "function:backend/tests/test_v2_recommendations_contract.py:test_workflow_template_apply_route_is_registered",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_vector_literal",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_vector_literal",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_fetch_plan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_fetch_plan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_plan_text",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_plan_text",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_uses_expected_index",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:_uses_expected_index",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "function:backend/tools/pgvector_plan_check.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/approvals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/brainstorm_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/evals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/github_sync_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase3_query_paths.py",
+      "target": "file:backend/modules/orchestration/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "file:backend/modules/orchestration/execution/policies.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "file:backend/modules/orchestration/execution/execution_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/orchestration/constants.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/projects/tasks_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "file:backend/modules/orchestration/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "file:backend/modules/orchestration/workflow_templates.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tools/pgvector_plan_check.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_composes_domain_services",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_execution_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_approval_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_memory_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_github_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_delegates_evals_and_brainstorm_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_knowledge_service_delegates_to_memory_host",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_knowledge_service_delegates_to_memory_host",
+      "target": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_domain_services_share_session",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_orchestration_domain_services.py:test_orchestration_service_exposes_shell_methods",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase3_query_paths.py:test_project_task_page_and_dependencies_are_loaded_in_one_bounded_query",
+      "target": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase6_modularization.py:test_task_state_machine_policy_is_explicit",
+      "target": "function:backend/modules/orchestration/execution/policies.py:is_valid_task_transition",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase6_modularization.py:test_retry_persistence_counters_are_monotonic",
+      "target": "function:backend/modules/orchestration/execution/policies.py:next_retry_numbers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_skipped_in_dev",
+      "target": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_rate_limit_security.py:test_run_rate_limit_enforced_outside_dev",
+      "target": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_task_orchestration_contract.py:test_task_contract_exposes_workflow_fields_and_external_evidence",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCreate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_task_orchestration_contract.py:test_task_metadata_normalizes_tools_and_external_links",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/pgvector_plan_check.py:_uses_expected_index",
+      "target": "function:backend/tools/pgvector_plan_check.py:_plan_text",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "target": "function:backend/tools/pgvector_plan_check.py:_vector_literal",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "target": "function:backend/tools/pgvector_plan_check.py:_fetch_plan",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "target": "function:backend/tools/pgvector_plan_check.py:_uses_expected_index",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/pgvector_plan_check.py:main",
+      "target": "function:backend/tools/pgvector_plan_check.py:run_plan_check",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/tests/test_rate_limit_security.py:_ExecutionHarness",
+      "target": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/approvals_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/brainstorm_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/evals_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/github_sync_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_orchestration_domain_services.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_phase3_query_paths.py",
+      "target": "file:backend/modules/orchestration/repository.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_phase6_modularization.py",
+      "target": "file:backend/modules/orchestration/execution/policies.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_rate_limit_security.py",
+      "target": "file:backend/modules/orchestration/execution/execution_service.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/orchestration/constants.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_task_orchestration_contract.py",
+      "target": "file:backend/modules/projects/tasks_service.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "file:backend/modules/orchestration/router.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_v2_recommendations_contract.py",
+      "target": "file:backend/modules/orchestration/workflow_templates.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

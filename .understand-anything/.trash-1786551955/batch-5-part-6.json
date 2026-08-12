@@ -1,0 +1,423 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/model_utils.py",
+      "type": "file",
+      "name": "model_utils.py",
+      "filePath": "backend/modules/orchestration/model_utils.py",
+      "summary": "Provides canonical embedding-vector normalization and timezone-aware UTC timestamps for orchestration models.",
+      "tags": [
+        "utility",
+        "orchestration",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/model_utils.py:normalize_embedding_for_vector",
+      "type": "function",
+      "name": "normalize_embedding_for_vector",
+      "filePath": "backend/modules/orchestration/model_utils.py",
+      "lineRange": [
+        6,
+        14
+      ],
+      "summary": "Model utility that computes normalize embedding for vector.",
+      "tags": [
+        "function",
+        "orchestration",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/model_utils.py:utcnow",
+      "type": "function",
+      "name": "utcnow",
+      "filePath": "backend/modules/orchestration/model_utils.py",
+      "lineRange": [
+        17,
+        18
+      ],
+      "summary": "Model utility that computes utcnow.",
+      "tags": [
+        "function",
+        "orchestration",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/orchestration/models.py",
+      "summary": "Defines SQLAlchemy persistence models for providers, model capabilities, task runs and events, brainstorms, approval requests, and evaluations.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:ProviderConfig",
+      "type": "class",
+      "name": "ProviderConfig",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        56,
+        89
+      ],
+      "summary": "SQLAlchemy persistence model for provider config state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:ModelCapability",
+      "type": "class",
+      "name": "ModelCapability",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        92,
+        114
+      ],
+      "summary": "SQLAlchemy persistence model for model capability state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:TaskRun",
+      "type": "class",
+      "name": "TaskRun",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        117,
+        182
+      ],
+      "summary": "SQLAlchemy persistence model for task run state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:RunEvent",
+      "type": "class",
+      "name": "RunEvent",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        185,
+        205
+      ],
+      "summary": "SQLAlchemy persistence model for run event state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:Brainstorm",
+      "type": "class",
+      "name": "Brainstorm",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        208,
+        240
+      ],
+      "summary": "SQLAlchemy persistence model for brainstorm state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:BrainstormParticipant",
+      "type": "class",
+      "name": "BrainstormParticipant",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        243,
+        257
+      ],
+      "summary": "SQLAlchemy persistence model for brainstorm participant state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:BrainstormMessage",
+      "type": "class",
+      "name": "BrainstormMessage",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        260,
+        277
+      ],
+      "summary": "SQLAlchemy persistence model for brainstorm message state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:ApprovalRequest",
+      "type": "class",
+      "name": "ApprovalRequest",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        280,
+        319
+      ],
+      "summary": "SQLAlchemy persistence model for approval request state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/models.py:EvalRecord",
+      "type": "class",
+      "name": "EvalRecord",
+      "filePath": "backend/modules/orchestration/models.py",
+      "lineRange": [
+        322,
+        357
+      ],
+      "summary": "SQLAlchemy persistence model for eval record state and its relational lifecycle.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/model_utils.py",
+      "target": "function:backend/modules/orchestration/model_utils.py:normalize_embedding_for_vector",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/model_utils.py",
+      "target": "function:backend/modules/orchestration/model_utils.py:normalize_embedding_for_vector",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/model_utils.py",
+      "target": "function:backend/modules/orchestration/model_utils.py:utcnow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/model_utils.py",
+      "target": "function:backend/modules/orchestration/model_utils.py:utcnow",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ProviderConfig",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ProviderConfig",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ModelCapability",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ModelCapability",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:TaskRun",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:TaskRun",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:RunEvent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:RunEvent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:Brainstorm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:Brainstorm",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormParticipant",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormParticipant",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormMessage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:BrainstormMessage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ApprovalRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:ApprovalRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:EvalRecord",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "class:backend/modules/orchestration/models.py:EvalRecord",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/modules/github/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/models.py",
+      "target": "file:backend/tests/test_provider_abstraction_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

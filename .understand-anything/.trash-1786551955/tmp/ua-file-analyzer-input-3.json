@@ -1,0 +1,364 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/modules/projects/models.py",
+      "language": "python",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/projects/orchestration_schemas.py",
+      "language": "python",
+      "sizeLines": 301,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/projects/repository.py",
+      "language": "python",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/projects/router.py",
+      "language": "python",
+      "sizeLines": 155,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/projects/schemas.py",
+      "language": "python",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/models.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/repository.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/router.py",
+      "language": "python",
+      "sizeLines": 142,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/schemas.py",
+      "language": "python",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/service.py",
+      "language": "python",
+      "sizeLines": 494,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/settings/settings_catalog.py",
+      "language": "python",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/team/router.py",
+      "language": "python",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/team/schemas.py",
+      "language": "python",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/users/repository.py",
+      "language": "python",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/users/router.py",
+      "language": "python",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/users/schemas.py",
+      "language": "python",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/users/service.py",
+      "language": "python",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/conftest.py",
+      "language": "python",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_ai_async_ingest.py",
+      "language": "python",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_db_session.py",
+      "language": "python",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_durable_execution_contract.py",
+      "language": "python",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_error_payloads.py",
+      "language": "python",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase0_context.py",
+      "language": "python",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase1_operations.py",
+      "language": "python",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase2_observability.py",
+      "language": "python",
+      "sizeLines": 129,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase7_queue_metrics.py",
+      "language": "python",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase7_reliability.py",
+      "language": "python",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_worker_blocking_sync.py",
+      "language": "python",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/phase0_baseline.py",
+      "language": "python",
+      "sizeLines": 310,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/phase7_validation.py",
+      "language": "python",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/celery_async.py",
+      "language": "python",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/context.py",
+      "language": "python",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/email.py",
+      "language": "python",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/orchestration.py",
+      "language": "python",
+      "sizeLines": 376,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/modules/projects/models.py": [
+      "backend/db/base.py"
+    ],
+    "backend/modules/projects/orchestration_schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/projects/repository.py": [
+      "backend/core/config.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/projects/models.py"
+    ],
+    "backend/modules/projects/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/core/config.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/projects/models.py",
+      "backend/modules/projects/schemas.py",
+      "backend/modules/projects/service.py"
+    ],
+    "backend/modules/projects/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/settings/models.py": [
+      "backend/db/base.py"
+    ],
+    "backend/modules/settings/repository.py": [
+      "backend/modules/settings/models.py"
+    ],
+    "backend/modules/settings/router.py": [
+      "backend/api/deps/admin.py",
+      "backend/db/session.py",
+      "backend/modules/audit/repository.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/settings/schemas.py",
+      "backend/modules/settings/service.py"
+    ],
+    "backend/modules/settings/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/settings/service.py": [
+      "backend/core/config.py",
+      "backend/modules/settings/models.py",
+      "backend/modules/settings/repository.py",
+      "backend/modules/settings/schemas.py",
+      "backend/modules/settings/settings_catalog.py"
+    ],
+    "backend/modules/settings/settings_catalog.py": [],
+    "backend/modules/team/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/services/service.py",
+      "backend/modules/team/schemas.py"
+    ],
+    "backend/modules/team/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/users/repository.py": [
+      "backend/modules/identity_access/models.py"
+    ],
+    "backend/modules/users/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/db/session.py",
+      "backend/modules/audit/repository.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/users/schemas.py",
+      "backend/modules/users/service.py"
+    ],
+    "backend/modules/users/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/users/service.py": [
+      "backend/core/security.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/identity_access/repository.py",
+      "backend/modules/users/repository.py"
+    ],
+    "backend/tests/conftest.py": [
+      "backend/api/main.py",
+      "backend/core/config.py",
+      "backend/core/security.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py"
+    ],
+    "backend/tests/test_ai_async_ingest.py": [
+      "backend/modules/ai/service.py"
+    ],
+    "backend/tests/test_db_session.py": [
+      "backend/core/config.py",
+      "backend/db/session.py"
+    ],
+    "backend/tests/test_durable_execution_contract.py": [
+      "backend/core/config.py",
+      "backend/modules/orchestration/execution/durable_execution.py"
+    ],
+    "backend/tests/test_error_payloads.py": [
+      "backend/core/error_payloads.py"
+    ],
+    "backend/tests/test_phase0_context.py": [
+      "backend/core/request_context.py",
+      "backend/tools/phase0_baseline.py",
+      "backend/workers/context.py"
+    ],
+    "backend/tests/test_phase1_operations.py": [
+      "backend/core/external_http.py",
+      "backend/core/logging.py",
+      "backend/core/request_context.py",
+      "backend/modules/rag/observability.py"
+    ],
+    "backend/tests/test_phase2_observability.py": [
+      "backend/api/main.py",
+      "backend/api/v1/__init__.py",
+      "backend/modules/observability/health.py",
+      "backend/modules/observability/metrics.py"
+    ],
+    "backend/tests/test_phase7_queue_metrics.py": [
+      "backend/modules/observability/metrics.py",
+      "backend/modules/observability/queue.py"
+    ],
+    "backend/tests/test_phase7_reliability.py": [
+      "backend/core/distributed_lock.py",
+      "backend/modules/observability/slo.py",
+      "backend/modules/orchestration/execution/durable_execution.py",
+      "backend/tools/phase7_validation.py"
+    ],
+    "backend/tests/test_worker_blocking_sync.py": [
+      "backend/modules/orchestration/execution/cpu_executor.py",
+      "backend/workers/celery_async.py"
+    ],
+    "backend/tools/phase0_baseline.py": [],
+    "backend/tools/phase7_validation.py": [],
+    "backend/workers/celery_async.py": [],
+    "backend/workers/context.py": [
+      "backend/core/request_context.py"
+    ],
+    "backend/workers/email.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/workers/context.py"
+    ],
+    "backend/workers/orchestration.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/distributed_lock.py",
+      "backend/core/logging.py",
+      "backend/modules/observability/metrics.py",
+      "backend/modules/orchestration/execution/cpu_executor.py",
+      "backend/modules/orchestration/services/service.py",
+      "backend/workers/celery_app.py",
+      "backend/workers/context.py",
+      "backend/workers/retry.py"
+    ]
+  }
+}

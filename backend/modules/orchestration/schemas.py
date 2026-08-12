@@ -342,6 +342,11 @@ class ProjectCreate(RequestModel):
     settings: dict[str, Any] = Field(default_factory=dict)
     memory_scope: str = "project"
     knowledge_summary: str | None = None
+    company_id: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectUpdate(RequestModel):
@@ -353,6 +358,10 @@ class ProjectUpdate(RequestModel):
     settings: dict[str, Any] | None = None
     memory_scope: str | None = None
     knowledge_summary: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] | None = None
+    budget: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -367,6 +376,11 @@ class ProjectResponse(BaseModel):
     settings: dict[str, Any]
     memory_scope: str
     knowledge_summary: str | None
+    company_id: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -487,6 +501,7 @@ class LocalRepoContextPackResponse(BaseModel):
 class TaskCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
     description: str | None = None
+    objective: str | None = None
     source: str = "manual"
     task_type: str = "general"
     priority: TaskPriority = "normal"
@@ -499,8 +514,12 @@ class TaskCreate(RequestModel):
         return value
 
     status: TaskStatus = "backlog"
+    risk_level: str = "medium"
+    autonomy_level: str = "semi-autonomous"
+    assignment_mode: str = "manual"
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
+    human_assignee_id: str | None = None
     reviewer_agent_id: str | None = None
     dependency_ids: list[str] = Field(default_factory=list)
     due_date: datetime | None = None
@@ -580,6 +599,7 @@ class AgentQualityScoreResponse(BaseModel):
 class TaskUpdate(RequestModel):
     title: str | None = None
     description: str | None = None
+    objective: str | None = None
     source: str | None = None
     task_type: str | None = None
     priority: TaskPriority | None = None
@@ -592,8 +612,12 @@ class TaskUpdate(RequestModel):
         return value
 
     status: TaskStatus | None = None
+    risk_level: str | None = None
+    autonomy_level: str | None = None
+    assignment_mode: str | None = None
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
+    human_assignee_id: str | None = None
     reviewer_agent_id: str | None = None
     dependency_ids: list[str] | None = None
     due_date: datetime | None = None
@@ -675,6 +699,7 @@ class TaskResponse(BaseModel):
     project_id: str
     created_by_user_id: str
     assigned_agent_id: str | None
+    human_assignee_id: str | None = None
     reviewer_agent_id: str | None
     github_issue_link_id: str | None
     github_issue_number: int | None = None
@@ -683,10 +708,14 @@ class TaskResponse(BaseModel):
     parent_task_id: str | None = None
     title: str
     description: str | None
+    objective: str | None = None
     source: str
     task_type: str
     priority: str
     status: str
+    risk_level: str = "medium"
+    autonomy_level: str = "semi-autonomous"
+    assignment_mode: str = "manual"
     acceptance_criteria: str | None
     due_date: datetime | None
     response_sla_hours: int | None = None

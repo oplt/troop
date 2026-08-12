@@ -1,0 +1,15 @@
+{
+  "fixedSectionOk": true,
+  "nodesRecovered": 0,
+  "edgesRestored": 0,
+  "crossBatchEdgesAdded": 0,
+  "typesRemapped": 0,
+  "complexityRemapped": 0,
+  "notes": [
+    "The merge corrections are proportionate: 45 tested_by repairs across 2814 nodes indicate no systemic ID or complexity-generation issue.",
+    "No unfixable merge issues, missing IDs, unknown node types, unknown complexity values, duplicate IDs, duplicate edges, dangling edges, missing scanned-file nodes, or unrecognized file nodes were found.",
+    "The 1298 raw import-map entries contain two false-positive self-imports: backend/core/logging.py and backend/modules/observability/logging.py. The core self-import was already absent; the remaining observability self-import was removed during review.",
+    "All 1296 non-self import-map relationships are present exactly once after review, so no cross-batch imports needed recovery.",
+    "The reviewed assembled graph contains 2814 nodes and 7949 edges."
+  ]
+}

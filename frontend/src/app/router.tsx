@@ -36,6 +36,9 @@ const WorkflowTemplatesPage = lazy(() => import("../pages/WorkflowTemplatesPage"
 const CompaniesPage = lazy(() => import("../pages/CompaniesPage"));
 const CompanyMemoryPage = lazy(() => import("../pages/CompanyMemoryPage"));
 const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
+const DepartmentsPage = lazy(() => import("../pages/DepartmentsPage"));
+const SkillsPage = lazy(() => import("../pages/SkillsPage"));
+const SkillBuilderPage = lazy(() => import("../features/skillBuilder/SkillBuilderPage"));
 
 function PageLoader() {
     return (
@@ -98,8 +101,16 @@ export function AppRouter() {
                     <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
+                    <Route path="/projects" element={<Navigate to="/agent-projects" replace />} />
+                    <Route path="/work/projects" element={<Navigate to="/agent-projects" replace />} />
                     <Route path="/agent-projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
                     <Route path="/agent-projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
+                    <Route path="/skills" element={<SuspensePage><SkillsPage /></SuspensePage>} />
+                    <Route path="/skills/builder" element={<SuspensePage><SkillBuilderPage /></SuspensePage>} />
+                    <Route path="/skills/builder/:draftId" element={<SuspensePage><SkillBuilderPage /></SuspensePage>} />
+                    <Route path="/departments" element={<SuspensePage><DepartmentsPage /></SuspensePage>} />
+                    <Route path="/my-tasks" element={<Navigate to="/agent-projects" replace />} />
+                    <Route path="/github" element={<RedirectToAdminSettingsTab tab="integrations" />} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />

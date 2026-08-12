@@ -455,6 +455,7 @@ class OrchestrationProjectsServiceMixin:
         project = await self.repo.create_project(
             owner_id=user.id,
             company_id=company_id,
+            department_id=payload.get("department_id"),
             name=payload["name"],
             slug=payload["slug"],
             description=payload.get("description"),
@@ -463,6 +464,9 @@ class OrchestrationProjectsServiceMixin:
             settings_json=self._normalize_project_settings(settings),
             memory_scope=payload.get("memory_scope", "project"),
             knowledge_summary=payload.get("knowledge_summary"),
+            knowledge_policy_json=payload.get("knowledge_policy", {}),
+            budget_json=payload.get("budget", {}),
+            metadata_json=payload.get("metadata", {}),
         )
         await self.audit_repo.log(
             "orchestration.project.created",

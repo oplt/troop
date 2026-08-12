@@ -1,0 +1,1094 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "file",
+      "name": "knowledge_domain.py",
+      "filePath": "backend/modules/orchestration/services/knowledge_domain.py",
+      "summary": "Provides a focused knowledge facade that delegates document and project-memory operations to the shared memory service.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "class",
+      "name": "KnowledgeService",
+      "filePath": "backend/modules/orchestration/services/knowledge_domain.py",
+      "lineRange": [
+        24,
+        51
+      ],
+      "summary": "Delegates document and project-memory APIs to an injected memory-domain service.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "file",
+      "name": "memory_domain.py",
+      "filePath": "backend/modules/orchestration/services/memory_domain.py",
+      "summary": "Composes the mixins needed for working, semantic, episodic, and project-scoped memory orchestration.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "class",
+      "name": "MemoryService",
+      "filePath": "backend/modules/orchestration/services/memory_domain.py",
+      "lineRange": [
+        14,
+        21
+      ],
+      "summary": "Composes run-query, memory, project, and task behaviors into a session-bound memory service.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/services/routing_service.py",
+      "type": "file",
+      "name": "routing_service.py",
+      "filePath": "backend/modules/orchestration/services/routing_service.py",
+      "summary": "Implements policy-aware agent routing, capability filtering, worker ranking, delegation safeguards, parallel branch execution, and reviewer selection.",
+      "tags": [
+        "service",
+        "routing",
+        "policy",
+        "agent-selection"
+      ],
+      "complexity": "complex",
+      "languageNotes": "A mixin isolates a large routing policy surface while keeping it composable in the orchestration facade."
+    },
+    {
+      "id": "function:backend/modules/orchestration/services/routing_service.py:_format_routing_attempt_error",
+      "type": "function",
+      "name": "_format_routing_attempt_error",
+      "filePath": "backend/modules/orchestration/services/routing_service.py",
+      "lineRange": [
+        48,
+        84
+      ],
+      "summary": "Formats a bounded diagnostic message for a failed model-routing attempt without leaking unsafe provider details.",
+      "tags": [
+        "utility",
+        "routing",
+        "error-handling",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/services/routing_service.py:_summarize_provider_chain_for_error",
+      "type": "function",
+      "name": "_summarize_provider_chain_for_error",
+      "filePath": "backend/modules/orchestration/services/routing_service.py",
+      "lineRange": [
+        87,
+        98
+      ],
+      "summary": "Summarizes the attempted provider and model chain for a terminal routing error.",
+      "tags": [
+        "utility",
+        "routing",
+        "error-handling",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "type": "class",
+      "name": "OrchestrationRoutingServiceMixin",
+      "filePath": "backend/modules/orchestration/services/routing_service.py",
+      "lineRange": [
+        101,
+        1283
+      ],
+      "summary": "Implements policy normalization, eligibility checks, cost-aware ranking, delegation, branching, and reviewer routing for orchestration work.",
+      "tags": [
+        "service",
+        "routing",
+        "policy",
+        "agent-selection"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/orchestration/services/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/orchestration/services/service.py",
+      "summary": "Builds the primary orchestration facade by combining project, task, team, run-query, and domain-specific services behind one session-bound API.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "class",
+      "name": "OrchestrationService",
+      "filePath": "backend/modules/orchestration/services/service.py",
+      "lineRange": [
+        43,
+        74
+      ],
+      "summary": "Primary orchestration facade that composes domain services and compatibility mixins around one database session.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/workflow_templates.py",
+      "type": "file",
+      "name": "workflow_templates.py",
+      "filePath": "backend/modules/orchestration/workflow_templates.py",
+      "summary": "Defines the built-in workflow template catalog and its supported execution defaults for common orchestration patterns.",
+      "tags": [
+        "workflow",
+        "template-catalog",
+        "configuration",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/projects/orchestration_models.py",
+      "type": "file",
+      "name": "orchestration_models.py",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "summary": "Defines project, task, dependency, repository link, comment, artifact, milestone, decision, and portfolio policy persistence models.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "complex",
+      "languageNotes": "SQLAlchemy declarative mappings use typed attributes, JSON payloads, foreign keys, and explicit indexes."
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:OrchestratorProject",
+      "type": "class",
+      "name": "OrchestratorProject",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        12,
+        31
+      ],
+      "summary": "Persists orchestrator project state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:PortfolioExecutionPolicy",
+      "type": "class",
+      "name": "PortfolioExecutionPolicy",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        34,
+        47
+      ],
+      "summary": "Persists portfolio execution policy state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:ProjectRepositoryLink",
+      "type": "class",
+      "name": "ProjectRepositoryLink",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        50,
+        70
+      ],
+      "summary": "Persists project repository link state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:OrchestratorTask",
+      "type": "class",
+      "name": "OrchestratorTask",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        73,
+        142
+      ],
+      "summary": "Persists orchestrator task state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:TaskDependency",
+      "type": "class",
+      "name": "TaskDependency",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        145,
+        157
+      ],
+      "summary": "Persists task dependency state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:TaskComment",
+      "type": "class",
+      "name": "TaskComment",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        160,
+        179
+      ],
+      "summary": "Persists task comment state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "type": "class",
+      "name": "TaskArtifact",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        182,
+        199
+      ],
+      "summary": "Persists task artifact state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:ProjectMilestone",
+      "type": "class",
+      "name": "ProjectMilestone",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        202,
+        217
+      ],
+      "summary": "Persists project milestone state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_models.py:ProjectDecision",
+      "type": "class",
+      "name": "ProjectDecision",
+      "filePath": "backend/modules/projects/orchestration_models.py",
+      "lineRange": [
+        220,
+        237
+      ],
+      "summary": "Persists project decision state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "projects"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/projects/orchestration_repository.py",
+      "type": "file",
+      "name": "orchestration_repository.py",
+      "filePath": "backend/modules/projects/orchestration_repository.py",
+      "summary": "Provides bounded persistence operations for orchestration projects, tasks, dependencies, repositories, comments, artifacts, decisions, milestones, and portfolio summaries.",
+      "tags": [
+        "repository",
+        "data-access",
+        "bounded-query",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "type": "class",
+      "name": "OrchestrationProjectsRepositoryMixin",
+      "filePath": "backend/modules/projects/orchestration_repository.py",
+      "lineRange": [
+        20,
+        269
+      ],
+      "summary": "Encapsulates project and task persistence plus bounded portfolio aggregation queries.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "projects"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "target": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "target": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "function:backend/modules/orchestration/services/routing_service.py:_format_routing_attempt_error",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "function:backend/modules/orchestration/services/routing_service.py:_format_routing_attempt_error",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "function:backend/modules/orchestration/services/routing_service.py:_summarize_provider_chain_for_error",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "function:backend/modules/orchestration/services/routing_service.py:_summarize_provider_chain_for_error",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorProject",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorProject",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:PortfolioExecutionPolicy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:PortfolioExecutionPolicy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectRepositoryLink",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectRepositoryLink",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorTask",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorTask",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskDependency",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskDependency",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskComment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskComment",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectMilestone",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectMilestone",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectDecision",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectDecision",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_repository.py",
+      "target": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_repository.py",
+      "target": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "file:backend/modules/memory/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "file:backend/modules/orchestration/services/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "file:backend/modules/projects/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "file:backend/modules/projects/tasks_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/orchestration/execution/policies.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/orchestration/providers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/routing_service.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/approvals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/brainstorm_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/evals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/github_sync_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/projects/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/projects/tasks_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/service.py",
+      "target": "file:backend/modules/team/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_models.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_repository.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_repository.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "target": "class:backend/modules/orchestration/_helpers.py:BlockedExecution",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "target": "function:backend/modules/orchestration/services/routing_service.py:_summarize_provider_chain_for_error",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/approvals_domain.py:ApprovalsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/github_sync_domain.py:GithubSyncService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/evals_domain.py:EvalsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/brainstorm_domain.py:BrainstormService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorProject",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectRepositoryLink",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:OrchestratorTask",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskDependency",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskComment",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectDecision",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_repository.py:OrchestrationProjectsRepositoryMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:ProjectMilestone",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:OrchestratorProject",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:PortfolioExecutionPolicy",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:ProjectRepositoryLink",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:OrchestratorTask",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:TaskDependency",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:TaskComment",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:ProjectMilestone",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/projects/orchestration_models.py:ProjectDecision",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "target": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationRunQueryMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationServiceBase",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "target": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationRunQueryMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationServiceBase",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/memory_domain.py",
+      "target": "file:backend/tests/test_concurrency_opportunities.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

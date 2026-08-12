@@ -1,0 +1,387 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/api/deps/admin.py",
+      "language": "python",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/deps/auth.py",
+      "language": "python",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/main.py",
+      "language": "python",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/middleware/correlation_id.py",
+      "language": "python",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/middleware/csrf.py",
+      "language": "python",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/middleware/public_rate_limit.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/middleware/request_logging.py",
+      "language": "python",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/middleware/security_headers.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/router.py",
+      "language": "python",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/v1/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/api/v1/health.py",
+      "language": "python",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/cache.py",
+      "language": "python",
+      "sizeLines": 608,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/config.py",
+      "language": "python",
+      "sizeLines": 347,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/distributed_lock.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/error_handler.py",
+      "language": "python",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/error_payloads.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/logging.py",
+      "language": "python",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/rate_limit.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/request_context.py",
+      "language": "python",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/schemas.py",
+      "language": "python",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/security.py",
+      "language": "python",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/storage.py",
+      "language": "python",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/telemetry.py",
+      "language": "python",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/db/session.py",
+      "language": "python",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/admin/router.py",
+      "language": "python",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/admin/schemas.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/models.py",
+      "language": "python",
+      "sizeLines": 284,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/repository.py",
+      "language": "python",
+      "sizeLines": 306,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/router.py",
+      "language": "python",
+      "sizeLines": 511,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/schemas.py",
+      "language": "python",
+      "sizeLines": 293,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/service.py",
+      "language": "python",
+      "sizeLines": 754,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/audit/repository.py",
+      "language": "python",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/calendar/router.py",
+      "language": "python",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/companies/router.py",
+      "language": "python",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/api/deps/admin.py": [
+      "backend/api/deps/auth.py",
+      "backend/core/logging.py",
+      "backend/modules/identity_access/models.py"
+    ],
+    "backend/api/deps/auth.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/core/request_context.py",
+      "backend/core/security.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/identity_access/repository.py"
+    ],
+    "backend/api/main.py": [
+      "backend/api/middleware/correlation_id.py",
+      "backend/api/middleware/csrf.py",
+      "backend/api/middleware/public_rate_limit.py",
+      "backend/api/middleware/request_logging.py",
+      "backend/api/middleware/security_headers.py",
+      "backend/api/router.py",
+      "backend/api/v1/health.py",
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/error_handler.py",
+      "backend/core/http_clients.py",
+      "backend/core/logging.py",
+      "backend/core/storage.py",
+      "backend/core/telemetry.py",
+      "backend/db/session.py",
+      "backend/modules/github/router.py",
+      "backend/modules/observability/middleware.py",
+      "backend/modules/observability/router.py",
+      "backend/modules/orchestration/graphql_router.py",
+      "backend/modules/orchestration/router.py",
+      "backend/modules/platform/service.py"
+    ],
+    "backend/api/middleware/correlation_id.py": [
+      "backend/core/request_context.py"
+    ],
+    "backend/api/middleware/csrf.py": [
+      "backend/core/config.py"
+    ],
+    "backend/api/middleware/public_rate_limit.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/logging.py"
+    ],
+    "backend/api/middleware/request_logging.py": [
+      "backend/core/logging.py",
+      "backend/core/request_context.py"
+    ],
+    "backend/api/middleware/security_headers.py": [
+      "backend/core/config.py"
+    ],
+    "backend/api/router.py": [
+      "backend/app/agents/router.py",
+      "backend/modules/admin/router.py",
+      "backend/modules/ai/router.py",
+      "backend/modules/calendar/router.py",
+      "backend/modules/companies/router.py",
+      "backend/modules/github/router.py",
+      "backend/modules/identity_access/router.py",
+      "backend/modules/notifications/router.py",
+      "backend/modules/orchestration/router.py",
+      "backend/modules/platform/router.py",
+      "backend/modules/profile/router.py",
+      "backend/modules/rag/router.py",
+      "backend/modules/settings/router.py",
+      "backend/modules/users/router.py"
+    ],
+    "backend/api/v1/__init__.py": [],
+    "backend/api/v1/health.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/db/session.py",
+      "backend/modules/observability/health.py"
+    ],
+    "backend/core/cache.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/modules/observability/metrics.py"
+    ],
+    "backend/core/config.py": [],
+    "backend/core/distributed_lock.py": [
+      "backend/core/logging.py",
+      "backend/modules/observability/metrics.py"
+    ],
+    "backend/core/error_handler.py": [
+      "backend/core/error_payloads.py",
+      "backend/core/logging.py"
+    ],
+    "backend/core/error_payloads.py": [],
+    "backend/core/logging.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py"
+    ],
+    "backend/core/rate_limit.py": [
+      "backend/core/cache.py"
+    ],
+    "backend/core/request_context.py": [],
+    "backend/core/schemas.py": [],
+    "backend/core/security.py": [
+      "backend/core/config.py"
+    ],
+    "backend/core/storage.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py"
+    ],
+    "backend/core/telemetry.py": [
+      "backend/modules/observability/instrumentation.py",
+      "backend/modules/observability/tracing.py"
+    ],
+    "backend/db/session.py": [
+      "backend/core/config.py"
+    ],
+    "backend/modules/admin/router.py": [
+      "backend/api/deps/admin.py",
+      "backend/db/session.py",
+      "backend/modules/admin/schemas.py",
+      "backend/modules/audit/repository.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/identity_access/repository.py",
+      "backend/modules/notifications/models.py"
+    ],
+    "backend/modules/admin/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/ai/models.py": [
+      "backend/db/base.py",
+      "backend/modules/orchestration/model_utils.py"
+    ],
+    "backend/modules/ai/repository.py": [
+      "backend/core/config.py",
+      "backend/modules/ai/models.py",
+      "backend/modules/orchestration/model_utils.py"
+    ],
+    "backend/modules/ai/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/db/session.py",
+      "backend/modules/ai/schemas.py",
+      "backend/modules/ai/service.py",
+      "backend/modules/identity_access/models.py"
+    ],
+    "backend/modules/ai/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/ai/service.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/modules/ai/models.py",
+      "backend/modules/ai/providers.py",
+      "backend/modules/ai/repository.py",
+      "backend/modules/ai/schemas.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/repository.py"
+    ],
+    "backend/modules/audit/repository.py": [
+      "backend/modules/audit/models.py"
+    ],
+    "backend/modules/calendar/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/db/session.py",
+      "backend/modules/calendar/schemas.py",
+      "backend/modules/calendar/service.py",
+      "backend/modules/identity_access/models.py"
+    ],
+    "backend/modules/companies/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/db/session.py",
+      "backend/modules/companies/schemas.py",
+      "backend/modules/companies/service.py",
+      "backend/modules/identity_access/models.py"
+    ]
+  }
+}

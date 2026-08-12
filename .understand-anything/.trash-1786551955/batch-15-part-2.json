@@ -1,0 +1,1636 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/memory/provenance.py",
+      "type": "file",
+      "name": "provenance.py",
+      "filePath": "backend/modules/memory/provenance.py",
+      "summary": "Normalizes memory provenance metadata, confidence, source references, and supersession chains into a stable contract.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/provenance.py:_clamp_confidence",
+      "type": "function",
+      "name": "_clamp_confidence",
+      "filePath": "backend/modules/memory/provenance.py",
+      "lineRange": [
+        43,
+        52
+      ],
+      "summary": "Memory provenance helper that performs clamp confidence.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/provenance.py:_coerce_str_list",
+      "type": "function",
+      "name": "_coerce_str_list",
+      "filePath": "backend/modules/memory/provenance.py",
+      "lineRange": [
+        55,
+        65
+      ],
+      "summary": "Memory provenance helper that performs coerce str list.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "type": "function",
+      "name": "normalize_provenance",
+      "filePath": "backend/modules/memory/provenance.py",
+      "lineRange": [
+        68,
+        104
+      ],
+      "summary": "Memory provenance helper that performs normalize provenance.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/provenance.py:get_confidence",
+      "type": "function",
+      "name": "get_confidence",
+      "filePath": "backend/modules/memory/provenance.py",
+      "lineRange": [
+        107,
+        110
+      ],
+      "summary": "Memory provenance helper that performs get confidence.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/provenance.py:merge_supersedes",
+      "type": "function",
+      "name": "merge_supersedes",
+      "filePath": "backend/modules/memory/provenance.py",
+      "lineRange": [
+        113,
+        119
+      ],
+      "summary": "Memory provenance helper that performs merge supersedes.",
+      "tags": [
+        "provenance",
+        "normalization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/retrieval_scoping.py",
+      "type": "file",
+      "name": "retrieval_scoping.py",
+      "filePath": "backend/modules/memory/retrieval_scoping.py",
+      "summary": "Implements staged semantic and episodic vector retrieval across task, project, company, related-project, and archive scopes with early exits and metrics.",
+      "tags": [
+        "retrieval",
+        "vector-search",
+        "memory",
+        "scoping"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses typed staged processing with explicit bounds and early exits so memory relevance does not produce unbounded prompt or query costs."
+    },
+    {
+      "id": "function:backend/modules/memory/retrieval_scoping.py:_merge_unique_rows",
+      "type": "function",
+      "name": "_merge_unique_rows",
+      "filePath": "backend/modules/memory/retrieval_scoping.py",
+      "lineRange": [
+        64,
+        74
+      ],
+      "summary": "Staged memory retrieval helper that performs merge unique rows.",
+      "tags": [
+        "retrieval",
+        "vector-search",
+        "scoping"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "type": "function",
+      "name": "staged_semantic_vector_retrieval",
+      "filePath": "backend/modules/memory/retrieval_scoping.py",
+      "lineRange": [
+        77,
+        153
+      ],
+      "summary": "Staged memory retrieval helper that performs staged semantic vector retrieval.",
+      "tags": [
+        "retrieval",
+        "vector-search",
+        "scoping"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/retrieval_scoping.py:staged_episodic_vector_retrieval",
+      "type": "function",
+      "name": "staged_episodic_vector_retrieval",
+      "filePath": "backend/modules/memory/retrieval_scoping.py",
+      "lineRange": [
+        156,
+        232
+      ],
+      "summary": "Staged memory retrieval helper that performs staged episodic vector retrieval.",
+      "tags": [
+        "retrieval",
+        "vector-search",
+        "scoping"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/memory/retrieval_scoping.py:MemoryRetrievalRepo",
+      "type": "class",
+      "name": "MemoryRetrievalRepo",
+      "filePath": "backend/modules/memory/retrieval_scoping.py",
+      "lineRange": [
+        11,
+        61
+      ],
+      "summary": "Protocol describing the scoped semantic and episodic retrieval operations required by the staged search algorithm.",
+      "tags": [
+        "repository",
+        "vector-search",
+        "scoping"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/memory/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/memory/service.py",
+      "summary": "Implements the orchestration memory domain across working, semantic, procedural, episodic, document, knowledge-graph, lifecycle, compaction, and prompt-context workflows.",
+      "tags": [
+        "service",
+        "memory",
+        "orchestration",
+        "async"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "type": "class",
+      "name": "OrchestrationMemoryServiceMixin",
+      "filePath": "backend/modules/memory/service.py",
+      "lineRange": [
+        135,
+        3146
+      ],
+      "summary": "Comprehensive orchestration memory mixin owning lifecycle, retrieval, ingestion, compaction, knowledge graph, and prompt context workflows.",
+      "tags": [
+        "service",
+        "memory",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/memory/settings.py",
+      "type": "file",
+      "name": "settings.py",
+      "filePath": "backend/modules/memory/settings.py",
+      "summary": "Defines memory defaults and safely merges bounded project-level overrides for retrieval, retention, context, and promotion behavior.",
+      "tags": [
+        "configuration",
+        "memory",
+        "validation",
+        "defaults"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "function",
+      "name": "merge_memory_settings",
+      "filePath": "backend/modules/memory/settings.py",
+      "lineRange": [
+        51,
+        63
+      ],
+      "summary": "Merges validated project memory overrides into the canonical default settings document.",
+      "tags": [
+        "configuration",
+        "memory",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/working_memory.py",
+      "type": "file",
+      "name": "working_memory.py",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "summary": "Defines canonical working-memory state, safe patch merging, clipping, checkpoint recovery, prompt formatting, and run-status write policy.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation",
+        "serialization"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:_utcnow",
+      "type": "function",
+      "name": "_utcnow",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        36,
+        37
+      ],
+      "summary": "Working-memory utility that performs utcnow.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:_clip",
+      "type": "function",
+      "name": "_clip",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        40,
+        43
+      ],
+      "summary": "Working-memory utility that performs clip.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:empty_working_memory",
+      "type": "function",
+      "name": "empty_working_memory",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        46,
+        57
+      ],
+      "summary": "Working-memory utility that performs empty working memory.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "type": "function",
+      "name": "normalize_working_memory",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        60,
+        80
+      ],
+      "summary": "Working-memory utility that performs normalize working memory.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "type": "function",
+      "name": "merge_working_memory_patch",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        83,
+        105
+      ],
+      "summary": "Working-memory utility that performs merge working memory patch.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:working_memory_from_checkpoint",
+      "type": "function",
+      "name": "working_memory_from_checkpoint",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        108,
+        110
+      ],
+      "summary": "Working-memory utility that performs working memory from checkpoint.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:format_working_memory_for_prompt",
+      "type": "function",
+      "name": "format_working_memory_for_prompt",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        113,
+        133
+      ],
+      "summary": "Working-memory utility that performs format working memory for prompt.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/working_memory.py:patch_allowed_for_run_status",
+      "type": "function",
+      "name": "patch_allowed_for_run_status",
+      "filePath": "backend/modules/memory/working_memory.py",
+      "lineRange": [
+        136,
+        137
+      ],
+      "summary": "Working-memory utility that performs patch allowed for run status.",
+      "tags": [
+        "working-memory",
+        "state-management",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/context_packet.py",
+      "type": "file",
+      "name": "context_packet.py",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "summary": "Builds token-budgeted orchestration context packets with section deduplication, clipping, prioritization, combined prompts, and telemetry.",
+      "tags": [
+        "context",
+        "token-budget",
+        "prompt",
+        "orchestration"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses typed staged processing with explicit bounds and early exits so memory relevance does not produce unbounded prompt or query costs."
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:_section_body_for_dedupe",
+      "type": "function",
+      "name": "_section_body_for_dedupe",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        60,
+        69
+      ],
+      "summary": "Context packet utility that performs section body for dedupe.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:_section_content_hash",
+      "type": "function",
+      "name": "_section_content_hash",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        72,
+        74
+      ],
+      "summary": "Context packet utility that performs section content hash.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:dedupe_context_sections",
+      "type": "function",
+      "name": "dedupe_context_sections",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        77,
+        102
+      ],
+      "summary": "Context packet utility that performs dedupe context sections.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "function",
+      "name": "_get_token_encoder",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        163,
+        175
+      ],
+      "summary": "Context packet utility that performs get token encoder.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:count_text_tokens",
+      "type": "function",
+      "name": "count_text_tokens",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        178,
+        184
+      ],
+      "summary": "Context packet utility that performs count text tokens.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:clip_text_to_token_budget",
+      "type": "function",
+      "name": "clip_text_to_token_budget",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        187,
+        196
+      ],
+      "summary": "Context packet utility that performs clip text to token budget.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/context_packet.py:log_context_packet_telemetry",
+      "type": "function",
+      "name": "log_context_packet_telemetry",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        297,
+        308
+      ],
+      "summary": "Context packet utility that performs log context packet telemetry.",
+      "tags": [
+        "utility",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "type": "class",
+      "name": "ContextPacket",
+      "filePath": "backend/modules/orchestration/context_packet.py",
+      "lineRange": [
+        200,
+        294
+      ],
+      "summary": "Token-budgeted context packet that combines prioritized sections and reports allocation telemetry.",
+      "tags": [
+        "data-model",
+        "context",
+        "token-budget"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:_clamp_confidence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:_clamp_confidence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:_coerce_str_list",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:_coerce_str_list",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:get_confidence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:get_confidence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:merge_supersedes",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/provenance.py",
+      "target": "function:backend/modules/memory/provenance.py:merge_supersedes",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:_merge_unique_rows",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:_merge_unique_rows",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_episodic_vector_retrieval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_episodic_vector_retrieval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "class:backend/modules/memory/retrieval_scoping.py:MemoryRetrievalRepo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "class:backend/modules/memory/retrieval_scoping.py:MemoryRetrievalRepo",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/settings.py",
+      "target": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/settings.py",
+      "target": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:_utcnow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:_utcnow",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:_clip",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:_clip",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:empty_working_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:empty_working_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:working_memory_from_checkpoint",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:working_memory_from_checkpoint",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:format_working_memory_for_prompt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:format_working_memory_for_prompt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:patch_allowed_for_run_status",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/working_memory.py",
+      "target": "function:backend/modules/memory/working_memory.py:patch_allowed_for_run_status",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_section_body_for_dedupe",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_section_body_for_dedupe",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_section_content_hash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_section_content_hash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:dedupe_context_sections",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:dedupe_context_sections",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:count_text_tokens",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:count_text_tokens",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:clip_text_to_token_budget",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:clip_text_to_token_budget",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:log_context_packet_telemetry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "function:backend/modules/orchestration/context_packet.py:log_context_packet_telemetry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "file:backend/modules/memory/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/retrieval_scoping.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/core/storage.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/classifier.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/compaction.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/conflict_resolver.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/coordination.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/entry_types.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/episodic.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/layer/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/layer/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/layer/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/namespaces.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/promotion_rules.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/provenance.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/retrieval_scoping.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/memory/working_memory.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/orchestration/context_packet.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/orchestration/hitl_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/orchestration/procedural_context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/rag/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/rag/prompt_builder.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/rag/retrieval.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/rag/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "target": "function:backend/modules/memory/provenance.py:_clamp_confidence",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "target": "function:backend/modules/memory/provenance.py:_coerce_str_list",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/provenance.py:get_confidence",
+      "target": "function:backend/modules/memory/provenance.py:_clamp_confidence",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/provenance.py:merge_supersedes",
+      "target": "function:backend/modules/memory/provenance.py:_coerce_str_list",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:_merge_unique_rows",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/retrieval_scoping.py:staged_episodic_vector_retrieval",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/memory/layer/service.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/layer/config.py:resolve_memory_config",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/working_memory.py:format_working_memory_for_prompt",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/working_memory.py:working_memory_from_checkpoint",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryFilters",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/working_memory.py:patch_allowed_for_run_status",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_default_semantic_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/provenance.py:normalize_provenance",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/core/cache.py:invalidate_project_knowledge_caches",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/memory/conflict_resolver.py:ConflictReport",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionCandidate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/compaction.py:build_task_close_snapshot_text",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/compaction.py:snapshot_source_id",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/compaction.py:prune_checkpoint_after_compaction",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/core/cache.py:get_cached_memory_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/core/cache.py:set_cached_memory_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/episodic.py:build_episodic_archive_jsonl_gz",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/episodic.py:episodic_object_key",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/classifier.py:classify_run_events",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/rag/config.py:resolve_rag_config",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/rag/retrieval.py:RetrieverService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/rag/schemas.py:RagSearchFilters",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_cosine_similarity",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/rag/retrieval.py:DocumentIngestionService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_chunk_text",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_estimate_embedding_tokens",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/rag/schemas.py:RagChunkMatch",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/rag/prompt_builder.py:RagPromptBuilder",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_semantic_vector_retrieval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/retrieval_scoping.py:staged_episodic_vector_retrieval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/procedural_context.py:build_procedural_snippets",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/memory/coordination.py:extract_blackboard_sections",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/context_packet.py:dedupe_context_sections",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "target": "function:backend/modules/orchestration/context_packet.py:log_context_packet_telemetry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:empty_working_memory",
+      "target": "function:backend/modules/memory/working_memory.py:_utcnow",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "target": "function:backend/modules/memory/working_memory.py:empty_working_memory",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "target": "function:backend/modules/memory/working_memory.py:_clip",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "target": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "target": "function:backend/modules/memory/working_memory.py:_clip",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:merge_working_memory_patch",
+      "target": "function:backend/modules/memory/working_memory.py:_utcnow",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/working_memory.py:working_memory_from_checkpoint",
+      "target": "function:backend/modules/memory/working_memory.py:normalize_working_memory",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/context_packet.py:_section_content_hash",
+      "target": "function:backend/modules/orchestration/context_packet.py:_section_body_for_dedupe",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/context_packet.py:count_text_tokens",
+      "target": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/context_packet.py:clip_text_to_token_budget",
+      "target": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "target": "function:backend/modules/orchestration/context_packet.py:_get_token_encoder",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "target": "function:backend/modules/orchestration/context_packet.py:clip_text_to_token_budget",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/context_packet.py:ContextPacket",
+      "target": "function:backend/modules/orchestration/context_packet.py:count_text_tokens",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/tests/test_concurrency_opportunities.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/memory/settings.py",
+      "target": "file:backend/tests/test_memory_architecture_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/tests/test_memory_read_paths.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/memory/service.py",
+      "target": "file:backend/tests/test_blocking_dead_code.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/context_packet.py",
+      "target": "file:backend/tests/test_algorithm_ai_improvements.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

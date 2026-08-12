@@ -1,0 +1,2703 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/identity_access/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/identity_access/router.py",
+      "summary": "Implements the authentication HTTP surface, including signup, login, token refresh, logout, email verification, password recovery, MFA, and secure cookie management.",
+      "tags": [
+        "api-handler",
+        "routing",
+        "fastapi",
+        "identity-access"
+      ],
+      "complexity": "complex",
+      "languageNotes": "FastAPI dependency injection supplies authenticated users and database sessions at endpoint boundaries."
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "function",
+      "name": "_cookie_kwargs",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        40,
+        45
+      ],
+      "summary": "Returns the shared secure cookie attributes used for authentication cookies.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_delete_cookie",
+      "type": "function",
+      "name": "_delete_cookie",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        48,
+        55
+      ],
+      "summary": "Deletes an authentication cookie using the same scope and security attributes used when setting it.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "function",
+      "name": "_clear_cookie_variants",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        58,
+        60
+      ],
+      "summary": "Clears all supported variants of an authentication cookie.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "type": "function",
+      "name": "_set_refresh_cookie",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        63,
+        72
+      ],
+      "summary": "Writes the refresh token to a protected browser cookie.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "type": "function",
+      "name": "_set_access_cookie",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        75,
+        88
+      ],
+      "summary": "Writes the access token to a protected browser cookie.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "type": "function",
+      "name": "_set_csrf_cookie",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        91,
+        99
+      ],
+      "summary": "Writes the browser-readable CSRF token used to protect cookie-authenticated requests.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_clear_auth_cookies",
+      "type": "function",
+      "name": "_clear_auth_cookies",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        102,
+        106
+      ],
+      "summary": "Removes access, refresh, and CSRF cookies after logout or failed refresh.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "function",
+      "name": "_build_user",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        109,
+        117
+      ],
+      "summary": "Serializes a persisted account into the authenticated-user response model.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:sign_up",
+      "type": "function",
+      "name": "sign_up",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        123,
+        148
+      ],
+      "summary": "Sign up operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:sign_in",
+      "type": "function",
+      "name": "sign_in",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        152,
+        188
+      ],
+      "summary": "Sign in operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:refresh",
+      "type": "function",
+      "name": "refresh",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        192,
+        206
+      ],
+      "summary": "Refresh operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:logout",
+      "type": "function",
+      "name": "logout",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        210,
+        218
+      ],
+      "summary": "Logout operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:me",
+      "type": "function",
+      "name": "me",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        222,
+        223
+      ],
+      "summary": "Me operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "identity-access",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:verify_email",
+      "type": "function",
+      "name": "verify_email",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        229,
+        240
+      ],
+      "summary": "Verify email operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "identity-access",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:resend_verification",
+      "type": "function",
+      "name": "resend_verification",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        244,
+        255
+      ],
+      "summary": "Resend verification operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:forgot_password",
+      "type": "function",
+      "name": "forgot_password",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        261,
+        275
+      ],
+      "summary": "Forgot password operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:reset_password",
+      "type": "function",
+      "name": "reset_password",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        279,
+        281
+      ],
+      "summary": "Reset password operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:mfa_enable",
+      "type": "function",
+      "name": "mfa_enable",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        287,
+        292
+      ],
+      "summary": "MFA enable operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:mfa_verify",
+      "type": "function",
+      "name": "mfa_verify",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        296,
+        302
+      ],
+      "summary": "MFA verify operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/identity_access/router.py:mfa_disable",
+      "type": "function",
+      "name": "mfa_disable",
+      "filePath": "backend/modules/identity_access/router.py",
+      "lineRange": [
+        306,
+        312
+      ],
+      "summary": "MFA disable operation for the identity access module.",
+      "tags": [
+        "api-handler",
+        "authentication",
+        "security",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/identity_access/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "summary": "Defines validated authentication requests and serialized user, session, MFA, and generic message responses.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pydantic models separate validated request payloads from serialized response shapes."
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:SignUpRequest",
+      "type": "class",
+      "name": "SignUpRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        6,
+        10
+      ],
+      "summary": "Validates the sign up request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:SignInRequest",
+      "type": "class",
+      "name": "SignInRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        13,
+        25
+      ],
+      "summary": "Validates the sign in request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:AuthUserResponse",
+      "type": "class",
+      "name": "AuthUserResponse",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        28,
+        34
+      ],
+      "summary": "Serializes auth user data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:AuthSessionResponse",
+      "type": "class",
+      "name": "AuthSessionResponse",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        37,
+        38
+      ],
+      "summary": "Serializes auth session data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:GenericMessageResponse",
+      "type": "class",
+      "name": "GenericMessageResponse",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        41,
+        42
+      ],
+      "summary": "Serializes generic message data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:VerifyEmailRequest",
+      "type": "class",
+      "name": "VerifyEmailRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        46,
+        47
+      ],
+      "summary": "Validates the verify email request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:ResendVerificationRequest",
+      "type": "class",
+      "name": "ResendVerificationRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        50,
+        51
+      ],
+      "summary": "Validates the resend verification request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:ForgotPasswordRequest",
+      "type": "class",
+      "name": "ForgotPasswordRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        55,
+        56
+      ],
+      "summary": "Validates the forgot password request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:ResetPasswordRequest",
+      "type": "class",
+      "name": "ResetPasswordRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        59,
+        61
+      ],
+      "summary": "Validates the reset password request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:MfaEnableResponse",
+      "type": "class",
+      "name": "MfaEnableResponse",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        65,
+        67
+      ],
+      "summary": "Serializes mfa enable data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:MfaVerifyRequest",
+      "type": "class",
+      "name": "MfaVerifyRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        70,
+        71
+      ],
+      "summary": "Validates the mfa verify request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/schemas.py:MfaDisableRequest",
+      "type": "class",
+      "name": "MfaDisableRequest",
+      "filePath": "backend/modules/identity_access/schemas.py",
+      "lineRange": [
+        74,
+        75
+      ],
+      "summary": "Validates the mfa disable request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/identity_access/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/identity_access/service.py",
+      "summary": "Coordinates account creation, credential checks, token rotation, email verification, password resets, MFA enrollment, session revocation, and notification delivery.",
+      "tags": [
+        "service",
+        "business-logic",
+        "transaction-boundary",
+        "identity-access"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/identity_access/service.py:_hash_token",
+      "type": "function",
+      "name": "_hash_token",
+      "filePath": "backend/modules/identity_access/service.py",
+      "lineRange": [
+        27,
+        28
+      ],
+      "summary": "Hashes a raw security token before it is stored or compared.",
+      "tags": [
+        "utility",
+        "identity-access",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/service.py:IdentityService",
+      "type": "class",
+      "name": "IdentityService",
+      "filePath": "backend/modules/identity_access/service.py",
+      "lineRange": [
+        31,
+        366
+      ],
+      "summary": "Coordinates authentication, session, verification, recovery, MFA, cache, platform, and email workflows.",
+      "tags": [
+        "service",
+        "business-logic",
+        "transaction-boundary",
+        "identity-access"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/memory/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/memory/schemas.py",
+      "summary": "Defines the API contracts for working, semantic, episodic, procedural, document, coordination, ingestion, and agent memory workflows.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Pydantic models separate validated request payloads from serialized response shapes."
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:WorkingMemoryResponse",
+      "type": "class",
+      "name": "WorkingMemoryResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        13,
+        19
+      ],
+      "summary": "Serializes working memory data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:WorkingMemoryPatch",
+      "type": "class",
+      "name": "WorkingMemoryPatch",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        22,
+        26
+      ],
+      "summary": "Validates the working memory patch payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryResponse",
+      "type": "class",
+      "name": "SemanticMemoryEntryResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        29,
+        50
+      ],
+      "summary": "Serializes semantic memory entry data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryCreate",
+      "type": "class",
+      "name": "SemanticMemoryEntryCreate",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        53,
+        77
+      ],
+      "summary": "Validates the semantic memory entry create payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "class",
+      "name": "SemanticMemoryEntryUpdate",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        80,
+        102
+      ],
+      "summary": "Validates the semantic memory entry update payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "class",
+      "name": "PromoteWorkingMemoryRequest",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        105,
+        108
+      ],
+      "summary": "Validates the promote working memory request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:EpisodicSearchResponse",
+      "type": "class",
+      "name": "EpisodicSearchResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        111,
+        112
+      ],
+      "summary": "Serializes episodic search data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:MemorySettingsResponse",
+      "type": "class",
+      "name": "MemorySettingsResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        115,
+        130
+      ],
+      "summary": "Serializes memory settings data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:MemorySettingsPatch",
+      "type": "class",
+      "name": "MemorySettingsPatch",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        133,
+        148
+      ],
+      "summary": "Validates the memory settings patch payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:PendingSemanticWriteResponse",
+      "type": "class",
+      "name": "PendingSemanticWriteResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        151,
+        154
+      ],
+      "summary": "Serializes pending semantic write data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:MemoryIngestJobResponse",
+      "type": "class",
+      "name": "MemoryIngestJobResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        157,
+        166
+      ],
+      "summary": "Serializes memory ingest job data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMergeRequest",
+      "type": "class",
+      "name": "SemanticMergeRequest",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        169,
+        172
+      ],
+      "summary": "Validates the semantic merge request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkCreate",
+      "type": "class",
+      "name": "SemanticMemoryLinkCreate",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        175,
+        179
+      ],
+      "summary": "Validates the semantic memory link create payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkResponse",
+      "type": "class",
+      "name": "SemanticMemoryLinkResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        182,
+        192
+      ],
+      "summary": "Serializes semantic memory link data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "class",
+      "name": "EpisodicArchiveManifestResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        195,
+        205
+      ],
+      "summary": "Serializes episodic archive manifest data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:ProceduralPlaybookResponse",
+      "type": "class",
+      "name": "ProceduralPlaybookResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        208,
+        221
+      ],
+      "summary": "Serializes procedural playbook data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:ProceduralPlaybookCreate",
+      "type": "class",
+      "name": "ProceduralPlaybookCreate",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        224,
+        229
+      ],
+      "summary": "Validates the procedural playbook create payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:ProceduralPlaybookUpdate",
+      "type": "class",
+      "name": "ProceduralPlaybookUpdate",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        232,
+        237
+      ],
+      "summary": "Validates the procedural playbook update payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "class",
+      "name": "TaskMemoryCoordinationResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        240,
+        242
+      ],
+      "summary": "Serializes task memory coordination data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "class",
+      "name": "TaskMemoryCoordinationPatch",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        245,
+        247
+      ],
+      "summary": "Validates the task memory coordination patch payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:SemanticConflictGroupResponse",
+      "type": "class",
+      "name": "SemanticConflictGroupResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        250,
+        255
+      ],
+      "summary": "Serializes semantic conflict group data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:ProjectDocumentResponse",
+      "type": "class",
+      "name": "ProjectDocumentResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        258,
+        278
+      ],
+      "summary": "Serializes project document data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:KnowledgeSearchResultResponse",
+      "type": "class",
+      "name": "KnowledgeSearchResultResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        281,
+        290
+      ],
+      "summary": "Serializes knowledge search result data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/schemas.py:AgentMemoryEntryResponse",
+      "type": "class",
+      "name": "AgentMemoryEntryResponse",
+      "filePath": "backend/modules/memory/schemas.py",
+      "lineRange": [
+        293,
+        312
+      ],
+      "summary": "Serializes agent memory entry data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/notifications/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/notifications/router.py",
+      "summary": "Provides authenticated endpoints for listing notifications, marking them read, and managing delivery preferences.",
+      "tags": [
+        "api-handler",
+        "routing",
+        "fastapi",
+        "notifications"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "FastAPI dependency injection supplies authenticated users and database sessions at endpoint boundaries."
+    },
+    {
+      "id": "function:backend/modules/notifications/router.py:list_notifications",
+      "type": "function",
+      "name": "list_notifications",
+      "filePath": "backend/modules/notifications/router.py",
+      "lineRange": [
+        18,
+        30
+      ],
+      "summary": "Lists notifications visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "notification",
+        "user-preference",
+        "notifications"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/notifications/router.py:mark_read",
+      "type": "function",
+      "name": "mark_read",
+      "filePath": "backend/modules/notifications/router.py",
+      "lineRange": [
+        34,
+        44
+      ],
+      "summary": "Marks read and persists the notification state.",
+      "tags": [
+        "api-handler",
+        "notification",
+        "user-preference",
+        "notifications"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/notifications/router.py:mark_all_read",
+      "type": "function",
+      "name": "mark_all_read",
+      "filePath": "backend/modules/notifications/router.py",
+      "lineRange": [
+        48,
+        54
+      ],
+      "summary": "Marks all read and persists the notification state.",
+      "tags": [
+        "api-handler",
+        "notification",
+        "user-preference",
+        "notifications"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/notifications/router.py:get_preferences",
+      "type": "function",
+      "name": "get_preferences",
+      "filePath": "backend/modules/notifications/router.py",
+      "lineRange": [
+        58,
+        69
+      ],
+      "summary": "Retrieves preferences for the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "notification",
+        "user-preference"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/notifications/router.py:update_preferences",
+      "type": "function",
+      "name": "update_preferences",
+      "filePath": "backend/modules/notifications/router.py",
+      "lineRange": [
+        73,
+        91
+      ],
+      "summary": "Validates and updates preferences.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "notification",
+        "user-preference"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_delete_cookie",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_delete_cookie",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_clear_auth_cookies",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_clear_auth_cookies",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:sign_up",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:sign_up",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:sign_in",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:sign_in",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:refresh",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:refresh",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:logout",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:logout",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:me",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:me",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:verify_email",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:verify_email",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:resend_verification",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:resend_verification",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:forgot_password",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:forgot_password",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:reset_password",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:reset_password",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_enable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_enable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_verify",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_verify",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_disable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "function:backend/modules/identity_access/router.py:mfa_disable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:SignUpRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:SignUpRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:SignInRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:SignInRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:AuthUserResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:AuthUserResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:AuthSessionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:AuthSessionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:GenericMessageResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:GenericMessageResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:VerifyEmailRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:VerifyEmailRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ResendVerificationRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ResendVerificationRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ForgotPasswordRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ForgotPasswordRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ResetPasswordRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:ResetPasswordRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaEnableResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaEnableResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaVerifyRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaVerifyRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaDisableRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "class:backend/modules/identity_access/schemas.py:MfaDisableRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "function:backend/modules/identity_access/service.py:_hash_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "function:backend/modules/identity_access/service.py:_hash_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "class:backend/modules/identity_access/service.py:IdentityService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "class:backend/modules/identity_access/service.py:IdentityService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:WorkingMemoryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:WorkingMemoryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:WorkingMemoryPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:WorkingMemoryPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:EpisodicSearchResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:EpisodicSearchResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemorySettingsResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemorySettingsResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemorySettingsPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemorySettingsPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:PendingSemanticWriteResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:PendingSemanticWriteResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemoryIngestJobResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:MemoryIngestJobResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMergeRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMergeRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProceduralPlaybookUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticConflictGroupResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:SemanticConflictGroupResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProjectDocumentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:ProjectDocumentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:KnowledgeSearchResultResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:KnowledgeSearchResultResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:AgentMemoryEntryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "class:backend/modules/memory/schemas.py:AgentMemoryEntryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:list_notifications",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:list_notifications",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:mark_read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:mark_read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:mark_all_read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:mark_all_read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:get_preferences",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:get_preferences",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:update_preferences",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "function:backend/modules/notifications/router.py:update_preferences",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/core/rate_limit.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/core/security.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/modules/identity_access/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/router.py",
+      "target": "file:backend/modules/identity_access/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/core/security.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/modules/identity_access/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/modules/platform/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/service.py",
+      "target": "file:backend/workers/email.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "file:backend/modules/memory/entry_types.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/schemas.py",
+      "target": "file:backend/modules/memory/namespaces.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "file:backend/modules/notifications/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/router.py",
+      "target": "file:backend/modules/notifications/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "target": "function:backend/modules/identity_access/router.py:_delete_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "target": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "target": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "target": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "target": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "target": "function:backend/modules/identity_access/router.py:_cookie_kwargs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:_clear_auth_cookies",
+      "target": "function:backend/modules/identity_access/router.py:_clear_cookie_variants",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_up",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/rate_limit.py:auth_rate_limit_key",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/rate_limit.py:enforce_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/rate_limit.py:increment_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/rate_limit.py:clear_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/security.py:create_access_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/core/security.py:generate_csrf_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:sign_in",
+      "target": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/core/security.py:create_access_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/core/security.py:generate_csrf_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/modules/identity_access/router.py:_set_access_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/modules/identity_access/router.py:_set_refresh_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/modules/identity_access/router.py:_set_csrf_cookie",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:refresh",
+      "target": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:logout",
+      "target": "function:backend/modules/identity_access/router.py:_clear_auth_cookies",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:me",
+      "target": "function:backend/modules/identity_access/router.py:_build_user",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:verify_email",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:resend_verification",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/identity_access/router.py:forgot_password",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/security.py:hash_password",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/workers/email.py:queue_email",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/security.py:verify_password",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/security.py:generate_refresh_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/security.py:hash_refresh_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/cache.py:invalidate_session_cache",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/modules/identity_access/service.py:_hash_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/service.py:IdentityService",
+      "target": "function:backend/core/cache.py:invalidate_user_session_caches",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/notifications/router.py:list_notifications",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/notifications/router.py:mark_read",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/notifications/router.py:mark_all_read",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/notifications/router.py:get_preferences",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/notifications/router.py:update_preferences",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:SignUpRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:SignInRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:VerifyEmailRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:ResendVerificationRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:ForgotPasswordRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:ResetPasswordRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:MfaVerifyRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/schemas.py:MfaDisableRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:WorkingMemoryPatch",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryCreate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:SemanticMemoryEntryUpdate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:PromoteWorkingMemoryRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:MemorySettingsPatch",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:SemanticMergeRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:SemanticMemoryLinkCreate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:ProceduralPlaybookCreate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:ProceduralPlaybookUpdate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/memory/schemas.py:TaskMemoryCoordinationPatch",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    }
+  ]
+}

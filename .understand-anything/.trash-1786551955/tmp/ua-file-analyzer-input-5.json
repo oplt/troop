@@ -1,0 +1,364 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/modules/orchestration/control_plane_runtime.py",
+      "language": "python",
+      "sizeLines": 264,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/execution/execution_service.py",
+      "language": "python",
+      "sizeLines": 3132,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/execution/execution_state.py",
+      "language": "python",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/execution/execution_workflow.py",
+      "language": "python",
+      "sizeLines": 290,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "language": "python",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/execution/policies.py",
+      "language": "python",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/hierarchy_policy.py",
+      "language": "python",
+      "sizeLines": 219,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/hitl_policy.py",
+      "language": "python",
+      "sizeLines": 118,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/local_repo.py",
+      "language": "python",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/markdown.py",
+      "language": "python",
+      "sizeLines": 227,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/model_utils.py",
+      "language": "python",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/models.py",
+      "language": "python",
+      "sizeLines": 403,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/presenters.py",
+      "language": "python",
+      "sizeLines": 243,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/repository.py",
+      "language": "python",
+      "sizeLines": 2399,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/router.py",
+      "language": "python",
+      "sizeLines": 3707,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/routers/approvals.py",
+      "language": "python",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/schemas.py",
+      "language": "python",
+      "sizeLines": 1960,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/__init__.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/application.py",
+      "language": "python",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/approvals_domain.py",
+      "language": "python",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/approvals_service.py",
+      "language": "python",
+      "sizeLines": 261,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/base.py",
+      "language": "python",
+      "sizeLines": 85,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/brainstorm_domain.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/brainstorm_service.py",
+      "language": "python",
+      "sizeLines": 1064,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/evals_domain.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/evals_service.py",
+      "language": "python",
+      "sizeLines": 557,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/execution_domain.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/github_sync_domain.py",
+      "language": "python",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/modules/orchestration/control_plane_runtime.py": [
+      "backend/modules/orchestration/models.py",
+      "backend/modules/team/models.py"
+    ],
+    "backend/modules/orchestration/execution/execution_service.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/working_memory.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/constants.py",
+      "backend/modules/orchestration/execution/durable_execution.py",
+      "backend/modules/orchestration/execution/execution_state.py",
+      "backend/modules/orchestration/execution/execution_workflow.py",
+      "backend/modules/orchestration/execution/policies.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/tools.py",
+      "backend/modules/projects/orchestration_models.py",
+      "backend/modules/team/models.py"
+    ],
+    "backend/modules/orchestration/execution/execution_state.py": [],
+    "backend/modules/orchestration/execution/execution_workflow.py": [],
+    "backend/modules/orchestration/execution/langgraph_runner.py": [
+      "backend/modules/orchestration/models.py"
+    ],
+    "backend/modules/orchestration/execution/policies.py": [
+      "backend/modules/orchestration/constants.py"
+    ],
+    "backend/modules/orchestration/hierarchy_policy.py": [],
+    "backend/modules/orchestration/hitl_policy.py": [],
+    "backend/modules/orchestration/local_repo.py": [],
+    "backend/modules/orchestration/markdown.py": [],
+    "backend/modules/orchestration/model_utils.py": [],
+    "backend/modules/orchestration/models.py": [
+      "backend/db/base.py",
+      "backend/modules/github/models.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/orchestration/model_utils.py",
+      "backend/modules/projects/orchestration_models.py",
+      "backend/modules/team/models.py"
+    ],
+    "backend/modules/orchestration/presenters.py": [
+      "backend/modules/orchestration/hitl_policy.py",
+      "backend/modules/orchestration/schemas.py"
+    ],
+    "backend/modules/orchestration/repository.py": [
+      "backend/core/config.py",
+      "backend/modules/audit/models.py",
+      "backend/modules/github/repository.py",
+      "backend/modules/memory/repository.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/projects/orchestration_repository.py",
+      "backend/modules/team/repository.py"
+    ],
+    "backend/modules/orchestration/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/api/deps/orchestration.py",
+      "backend/core/config.py",
+      "backend/core/http_cache.py",
+      "backend/db/session.py",
+      "backend/modules/audit/repository.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/observability/metrics.py",
+      "backend/modules/orchestration/hitl_policy.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/routers/approvals.py",
+      "backend/modules/orchestration/schemas.py",
+      "backend/modules/orchestration/services/execution_domain.py",
+      "backend/modules/orchestration/services/github_sync_domain.py",
+      "backend/modules/orchestration/services/knowledge_domain.py",
+      "backend/modules/orchestration/services/memory_domain.py",
+      "backend/modules/orchestration/services/service.py",
+      "backend/modules/orchestration/workflow_templates.py",
+      "backend/modules/team/schemas.py"
+    ],
+    "backend/modules/orchestration/routers/approvals.py": [
+      "backend/api/deps/auth.py",
+      "backend/api/deps/orchestration.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/hitl_policy.py",
+      "backend/modules/orchestration/schemas.py",
+      "backend/modules/orchestration/services/approvals_domain.py"
+    ],
+    "backend/modules/orchestration/schemas.py": [
+      "backend/core/schemas.py",
+      "backend/modules/github/schemas.py"
+    ],
+    "backend/modules/orchestration/services/__init__.py": [
+      "backend/modules/orchestration/services/application.py",
+      "backend/modules/orchestration/services/approvals_domain.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/brainstorm_domain.py",
+      "backend/modules/orchestration/services/evals_domain.py",
+      "backend/modules/orchestration/services/execution_domain.py",
+      "backend/modules/orchestration/services/github_sync_domain.py",
+      "backend/modules/orchestration/services/knowledge_domain.py",
+      "backend/modules/orchestration/services/memory_domain.py",
+      "backend/modules/orchestration/services/service.py"
+    ],
+    "backend/modules/orchestration/services/application.py": [
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/services/service.py"
+    ],
+    "backend/modules/orchestration/services/approvals_domain.py": [
+      "backend/modules/github/service.py",
+      "backend/modules/memory/service.py",
+      "backend/modules/orchestration/execution/execution_service.py",
+      "backend/modules/orchestration/services/approvals_service.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/routing_service.py",
+      "backend/modules/projects/service.py",
+      "backend/modules/projects/tasks_service.py",
+      "backend/modules/team/service.py"
+    ],
+    "backend/modules/orchestration/services/approvals_service.py": [
+      "backend/core/logging.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/coordination.py",
+      "backend/modules/memory/entry_types.py",
+      "backend/modules/memory/metrics.py",
+      "backend/modules/orchestration/hitl_policy.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/orchestration/services/base.py": [
+      "backend/modules/ai/providers.py",
+      "backend/modules/audit/repository.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/entry_types.py",
+      "backend/modules/orchestration/constants.py",
+      "backend/modules/orchestration/repository.py"
+    ],
+    "backend/modules/orchestration/services/brainstorm_domain.py": [
+      "backend/modules/github/service.py",
+      "backend/modules/orchestration/execution/execution_service.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/brainstorm_service.py",
+      "backend/modules/orchestration/services/routing_service.py",
+      "backend/modules/projects/service.py",
+      "backend/modules/projects/tasks_service.py",
+      "backend/modules/team/service.py"
+    ],
+    "backend/modules/orchestration/services/brainstorm_service.py": [
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/projects/orchestration_models.py",
+      "backend/modules/team/models.py"
+    ],
+    "backend/modules/orchestration/services/evals_domain.py": [
+      "backend/modules/github/service.py",
+      "backend/modules/orchestration/execution/execution_service.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/evals_service.py",
+      "backend/modules/orchestration/services/providers_service.py",
+      "backend/modules/projects/service.py",
+      "backend/modules/projects/tasks_service.py",
+      "backend/modules/team/service.py"
+    ],
+    "backend/modules/orchestration/services/evals_service.py": [
+      "backend/core/logging.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/entry_types.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/workflow_templates.py",
+      "backend/modules/team/models.py"
+    ],
+    "backend/modules/orchestration/services/execution_domain.py": [
+      "backend/modules/github/service.py",
+      "backend/modules/memory/service.py",
+      "backend/modules/orchestration/execution/execution_service.py",
+      "backend/modules/orchestration/services/approvals_service.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/providers_service.py",
+      "backend/modules/orchestration/services/routing_service.py",
+      "backend/modules/projects/service.py",
+      "backend/modules/projects/tasks_service.py",
+      "backend/modules/team/service.py"
+    ],
+    "backend/modules/orchestration/services/github_sync_domain.py": [
+      "backend/modules/github/service.py",
+      "backend/modules/orchestration/execution/execution_service.py",
+      "backend/modules/orchestration/services/base.py",
+      "backend/modules/orchestration/services/routing_service.py",
+      "backend/modules/projects/service.py",
+      "backend/modules/projects/tasks_service.py"
+    ]
+  }
+}

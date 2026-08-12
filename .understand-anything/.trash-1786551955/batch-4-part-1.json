@@ -1,0 +1,2335 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/api/deps/orchestration.py",
+      "type": "file",
+      "name": "orchestration.py",
+      "filePath": "backend/api/deps/orchestration.py",
+      "summary": "Builds request-scoped orchestration application services and focused domain-service dependencies over the active database session.",
+      "tags": [
+        "api-dependency",
+        "orchestration",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_orchestration_service",
+      "type": "function",
+      "name": "get_orchestration_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        18,
+        19
+      ],
+      "summary": "Constructs the get orchestration service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_orchestration_application_service",
+      "type": "function",
+      "name": "get_orchestration_application_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        22,
+        25
+      ],
+      "summary": "Constructs the get orchestration application service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_approvals_service",
+      "type": "function",
+      "name": "get_approvals_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        28,
+        29
+      ],
+      "summary": "Constructs the get approvals service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_execution_service",
+      "type": "function",
+      "name": "get_execution_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        32,
+        33
+      ],
+      "summary": "Constructs the get execution service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_memory_service",
+      "type": "function",
+      "name": "get_memory_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        36,
+        37
+      ],
+      "summary": "Constructs the get memory service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_knowledge_service",
+      "type": "function",
+      "name": "get_knowledge_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        40,
+        41
+      ],
+      "summary": "Constructs the get knowledge service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/deps/orchestration.py:get_github_sync_service",
+      "type": "function",
+      "name": "get_github_sync_service",
+      "filePath": "backend/api/deps/orchestration.py",
+      "lineRange": [
+        44,
+        45
+      ],
+      "summary": "Constructs the get github sync service dependency from the request-scoped database session.",
+      "tags": [
+        "api-dependency",
+        "fastapi",
+        "factory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/application.py",
+      "type": "file",
+      "name": "application.py",
+      "filePath": "backend/app/agents/application.py",
+      "summary": "Coordinates planned agent runs, including task-derived planning, execution snapshots, approval gates, and run activation.",
+      "tags": [
+        "service",
+        "agent-runtime",
+        "planning",
+        "approvals"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "type": "class",
+      "name": "AgentRunApplicationService",
+      "filePath": "backend/app/agents/application.py",
+      "lineRange": [
+        23,
+        203
+      ],
+      "summary": "Coordinates agent-run planning and approval transitions while recording immutable execution snapshots.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/app/agents/logging.py",
+      "type": "file",
+      "name": "logging.py",
+      "filePath": "backend/app/agents/logging.py",
+      "summary": "Emits normalized structured log events for agent operations with contextual metadata.",
+      "tags": [
+        "logging",
+        "agents",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/logging.py:log_agent_event",
+      "type": "function",
+      "name": "log_agent_event",
+      "filePath": "backend/app/agents/logging.py",
+      "lineRange": [
+        11,
+        21
+      ],
+      "summary": "Emits the log agent event structured agent log event.",
+      "tags": [
+        "logging",
+        "agents",
+        "observability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/app/agents/router.py",
+      "summary": "Exposes agent profile, task, run, tool, workspace-artifact, and memory APIs through authenticated FastAPI routes.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "agents",
+        "memory"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:_memory",
+      "type": "function",
+      "name": "_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        95,
+        111
+      ],
+      "summary": "Implements the memory API transformation or operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:_artifact",
+      "type": "function",
+      "name": "_artifact",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        114,
+        124
+      ],
+      "summary": "Implements the artifact API transformation or operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:list_agent_profiles",
+      "type": "function",
+      "name": "list_agent_profiles",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        128,
+        136
+      ],
+      "summary": "Handles the API operation that lists agent profiles.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:create_agent_profile",
+      "type": "function",
+      "name": "create_agent_profile",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        140,
+        151
+      ],
+      "summary": "Handles the API operation that creates agent profile.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_agent_profile",
+      "type": "function",
+      "name": "get_agent_profile",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        155,
+        162
+      ],
+      "summary": "Handles the API operation that retrieves agent profile.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:put_agent_profile",
+      "type": "function",
+      "name": "put_agent_profile",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        166,
+        177
+      ],
+      "summary": "Implements the put agent profile API transformation or operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:delete_agent_profile",
+      "type": "function",
+      "name": "delete_agent_profile",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        181,
+        186
+      ],
+      "summary": "Handles the API operation that deletes agent profile.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:import_agent_profile_markdown",
+      "type": "function",
+      "name": "import_agent_profile_markdown",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        190,
+        207
+      ],
+      "summary": "Handles the API operation that imports agent profile markdown.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_tools",
+      "type": "function",
+      "name": "get_tools",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        211,
+        212
+      ],
+      "summary": "Handles the API operation that retrieves tools.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_tool_spec",
+      "type": "function",
+      "name": "get_tool_spec",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        216,
+        220
+      ],
+      "summary": "Handles the API operation that retrieves tool spec.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:create_agent_task",
+      "type": "function",
+      "name": "create_agent_task",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        224,
+        236
+      ],
+      "summary": "Handles the API operation that creates agent task.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:list_agent_tasks",
+      "type": "function",
+      "name": "list_agent_tasks",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        240,
+        249
+      ],
+      "summary": "Handles the API operation that lists agent tasks.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_agent_task",
+      "type": "function",
+      "name": "get_agent_task",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        253,
+        260
+      ],
+      "summary": "Handles the API operation that retrieves agent task.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:create_agent_task_run",
+      "type": "function",
+      "name": "create_agent_task_run",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        264,
+        271
+      ],
+      "summary": "Handles the API operation that creates agent task run.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_agent_run",
+      "type": "function",
+      "name": "get_agent_run",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        275,
+        280
+      ],
+      "summary": "Handles the API operation that retrieves agent run.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:get_agent_run_steps",
+      "type": "function",
+      "name": "get_agent_run_steps",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        284,
+        293
+      ],
+      "summary": "Handles the API operation that retrieves agent run steps.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:approve_agent_run_plan",
+      "type": "function",
+      "name": "approve_agent_run_plan",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        297,
+        303
+      ],
+      "summary": "Handles the API operation that approves agent run plan.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:cancel_agent_run",
+      "type": "function",
+      "name": "cancel_agent_run",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        307,
+        320
+      ],
+      "summary": "Handles the API operation that cancels agent run.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:list_agent_run_artifacts",
+      "type": "function",
+      "name": "list_agent_run_artifacts",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        324,
+        335
+      ],
+      "summary": "Handles the API operation that lists agent run artifacts.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:list_agent_run_workspace_files",
+      "type": "function",
+      "name": "list_agent_run_workspace_files",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        339,
+        345
+      ],
+      "summary": "Handles the API operation that lists agent run workspace files.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:create_memory",
+      "type": "function",
+      "name": "create_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        349,
+        360
+      ],
+      "summary": "Handles the API operation that creates memory.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:list_memory",
+      "type": "function",
+      "name": "list_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        364,
+        374
+      ],
+      "summary": "Handles the API operation that lists memory.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:search_memory",
+      "type": "function",
+      "name": "search_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        378,
+        391
+      ],
+      "summary": "Handles the API operation that searches memory.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:update_memory",
+      "type": "function",
+      "name": "update_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        395,
+        408
+      ],
+      "summary": "Handles the API operation that updates memory.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/router.py:delete_memory",
+      "type": "function",
+      "name": "delete_memory",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        412,
+        419
+      ],
+      "summary": "Handles the API operation that deletes memory.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:MarkdownImportPayload",
+      "type": "class",
+      "name": "MarkdownImportPayload",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        45,
+        48
+      ],
+      "summary": "Pydantic API schema representing markdown import payload data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:ToolListResponse",
+      "type": "class",
+      "name": "ToolListResponse",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        51,
+        52
+      ],
+      "summary": "Pydantic API schema representing tool list response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:MemoryCreate",
+      "type": "class",
+      "name": "MemoryCreate",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        55,
+        59
+      ],
+      "summary": "Pydantic API schema representing memory create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:MemorySearch",
+      "type": "class",
+      "name": "MemorySearch",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        62,
+        66
+      ],
+      "summary": "Pydantic API schema representing memory search data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:MemoryUpdate",
+      "type": "class",
+      "name": "MemoryUpdate",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        69,
+        71
+      ],
+      "summary": "Pydantic API schema representing memory update data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:MemoryResponse",
+      "type": "class",
+      "name": "MemoryResponse",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        74,
+        81
+      ],
+      "summary": "Pydantic API schema representing memory response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/router.py:RunArtifactResponse",
+      "type": "class",
+      "name": "RunArtifactResponse",
+      "filePath": "backend/app/agents/router.py",
+      "lineRange": [
+        84,
+        92
+      ],
+      "summary": "Pydantic API schema representing run artifact response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/tools/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/app/agents/tools/__init__.py",
+      "summary": "Publishes the agent tool registry's lookup and listing functions as the tools package API.",
+      "tags": [
+        "barrel",
+        "tools",
+        "agents",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/tools/registry.py",
+      "type": "file",
+      "name": "registry.py",
+      "filePath": "backend/app/agents/tools/registry.py",
+      "summary": "Defines the built-in agent tool catalog with schemas, risk levels, approval requirements, and lookup helpers.",
+      "tags": [
+        "tool-registry",
+        "agents",
+        "security",
+        "configuration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/app/agents/tools/registry.py:list_tools",
+      "type": "function",
+      "name": "list_tools",
+      "filePath": "backend/app/agents/tools/registry.py",
+      "lineRange": [
+        76,
+        80
+      ],
+      "summary": "Provides list tools access to the built-in agent tool registry.",
+      "tags": [
+        "tool-registry",
+        "agents",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/tools/registry.py:get_tool",
+      "type": "function",
+      "name": "get_tool",
+      "filePath": "backend/app/agents/tools/registry.py",
+      "lineRange": [
+        83,
+        84
+      ],
+      "summary": "Provides get tool access to the built-in agent tool registry.",
+      "tags": [
+        "tool-registry",
+        "agents",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/app/agents/tools/registry.py:ToolSpec",
+      "type": "class",
+      "name": "ToolSpec",
+      "filePath": "backend/app/agents/tools/registry.py",
+      "lineRange": [
+        10,
+        17
+      ],
+      "summary": "Immutable specification of an agent tool's schemas, availability, risk level, and approval requirement.",
+      "tags": [
+        "tool-registry",
+        "data-model",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/workspace.py",
+      "type": "file",
+      "name": "workspace.py",
+      "filePath": "backend/app/agents/workspace.py",
+      "summary": "Creates isolated run workspaces, validates paths, lists generated files, and persists run artifacts safely.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "security",
+        "artifacts"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:_safe_filename",
+      "type": "function",
+      "name": "_safe_filename",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        17,
+        28
+      ],
+      "summary": "Implements safe filename behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:_resolve_inside",
+      "type": "function",
+      "name": "_resolve_inside",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        31,
+        37
+      ],
+      "summary": "Implements resolve inside behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:run_workspace_root",
+      "type": "function",
+      "name": "run_workspace_root",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        40,
+        44
+      ],
+      "summary": "Implements run workspace root behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:create_workspace_for_run",
+      "type": "function",
+      "name": "create_workspace_for_run",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        47,
+        50
+      ],
+      "summary": "Implements create workspace for run behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:list_run_workspace_files",
+      "type": "function",
+      "name": "list_run_workspace_files",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        53,
+        65
+      ],
+      "summary": "Implements list run workspace files behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/agents/workspace.py:write_artifact",
+      "type": "function",
+      "name": "write_artifact",
+      "filePath": "backend/app/agents/workspace.py",
+      "lineRange": [
+        68,
+        83
+      ],
+      "summary": "Implements write artifact behavior for isolated agent-run workspaces and artifacts.",
+      "tags": [
+        "workspace",
+        "filesystem",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/db/base.py",
+      "type": "file",
+      "name": "base.py",
+      "filePath": "backend/db/base.py",
+      "summary": "Defines the shared SQLAlchemy declarative base inherited by all persistence models.",
+      "tags": [
+        "database",
+        "sqlalchemy",
+        "data-model",
+        "foundation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/db/base.py:Base",
+      "type": "class",
+      "name": "Base",
+      "filePath": "backend/db/base.py",
+      "lineRange": [
+        4,
+        5
+      ],
+      "summary": "Shared SQLAlchemy declarative superclass for mapped database entities.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/audit/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/audit/models.py",
+      "summary": "Defines the SQLAlchemy audit-log record used to retain actor, action, resource, client, and metadata history.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "audit",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/audit/models.py:AuditLog",
+      "type": "class",
+      "name": "AuditLog",
+      "filePath": "backend/modules/audit/models.py",
+      "lineRange": [
+        10,
+        25
+      ],
+      "summary": "SQLAlchemy persistence model representing audit log records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/calendar/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/calendar/models.py",
+      "summary": "Defines persisted user calendar entries with schedule, type, descriptive, and audit fields.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "calendar",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/calendar/models.py:CalendarEntry",
+      "type": "class",
+      "name": "CalendarEntry",
+      "filePath": "backend/modules/calendar/models.py",
+      "lineRange": [
+        10,
+        32
+      ],
+      "summary": "SQLAlchemy persistence model representing calendar entry records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_orchestration_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_orchestration_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_orchestration_application_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_orchestration_application_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_approvals_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_approvals_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_execution_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_execution_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_memory_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_memory_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_knowledge_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_knowledge_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_github_sync_service",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "function:backend/api/deps/orchestration.py:get_github_sync_service",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/logging.py",
+      "target": "function:backend/app/agents/logging.py:log_agent_event",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/logging.py",
+      "target": "function:backend/app/agents/logging.py:log_agent_event",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:_artifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:_artifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_profiles",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_profiles",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:put_agent_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:put_agent_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:delete_agent_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:delete_agent_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:import_agent_profile_markdown",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:import_agent_profile_markdown",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_tools",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_tools",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_tool_spec",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_tool_spec",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_tasks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_tasks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_task_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_agent_task_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_run_steps",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:get_agent_run_steps",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:approve_agent_run_plan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:approve_agent_run_plan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:cancel_agent_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:cancel_agent_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_run_artifacts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_run_artifacts",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_run_workspace_files",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_agent_run_workspace_files",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:create_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:list_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:search_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:search_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:update_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:update_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:delete_memory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "function:backend/app/agents/router.py:delete_memory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MarkdownImportPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MarkdownImportPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:ToolListResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:ToolListResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemorySearch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemorySearch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:MemoryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:RunArtifactResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "class:backend/app/agents/router.py:RunArtifactResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "function:backend/app/agents/tools/registry.py:list_tools",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "function:backend/app/agents/tools/registry.py:list_tools",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "function:backend/app/agents/tools/registry.py:get_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "function:backend/app/agents/tools/registry.py:get_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "class:backend/app/agents/tools/registry.py:ToolSpec",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "class:backend/app/agents/tools/registry.py:ToolSpec",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:_safe_filename",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:_safe_filename",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:_resolve_inside",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:_resolve_inside",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:run_workspace_root",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:run_workspace_root",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:create_workspace_for_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:create_workspace_for_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:list_run_workspace_files",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:list_run_workspace_files",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:write_artifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "function:backend/app/agents/workspace.py:write_artifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/db/base.py",
+      "target": "class:backend/db/base.py:Base",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/db/base.py",
+      "target": "class:backend/db/base.py:Base",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/audit/models.py",
+      "target": "class:backend/modules/audit/models.py:AuditLog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/audit/models.py",
+      "target": "class:backend/modules/audit/models.py:AuditLog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/models.py",
+      "target": "class:backend/modules/calendar/models.py:CalendarEntry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/models.py",
+      "target": "class:backend/modules/calendar/models.py:CalendarEntry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/application.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/approvals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/github_sync_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/deps/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/app/agents/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/app/agents/workspace.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/modules/orchestration/services/application.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/application.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/app/agents/application.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/app/agents/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/app/agents/memory/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/app/agents/tools/registry.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/app/agents/workspace.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/orchestration/presenters.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/router.py",
+      "target": "file:backend/modules/orchestration/services/application.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/tools/__init__.py",
+      "target": "file:backend/app/agents/tools/registry.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/audit/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_orchestration_service",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_orchestration_application_service",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_approvals_service",
+      "target": "class:backend/modules/orchestration/services/approvals_domain.py:ApprovalsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_execution_service",
+      "target": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_memory_service",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_knowledge_service",
+      "target": "class:backend/modules/orchestration/services/knowledge_domain.py:KnowledgeService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_knowledge_service",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/api/deps/orchestration.py:get_github_sync_service",
+      "target": "class:backend/modules/orchestration/services/github_sync_domain.py:GithubSyncService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/app/agents/application.py:AgentRunApplicationService",
+      "target": "class:backend/modules/projects/orchestration_models.py:TaskArtifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_profiles",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_profiles",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_agent_profile",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_agent_profile",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_profile",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_profile",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:put_agent_profile",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:put_agent_profile",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:delete_agent_profile",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:import_agent_profile_markdown",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:import_agent_profile_markdown",
+      "target": "function:backend/modules/orchestration/presenters.py:to_agent_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_agent_task",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_agent_task",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_tasks",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_tasks",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_task",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_task",
+      "target": "function:backend/modules/orchestration/presenters.py:to_task_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_agent_task_run",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_run",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_run",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_run_steps",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:get_agent_run_steps",
+      "target": "function:backend/modules/orchestration/presenters.py:to_event_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:approve_agent_run_plan",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:cancel_agent_run",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:cancel_agent_run",
+      "target": "function:backend/modules/orchestration/presenters.py:to_run_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_run_artifacts",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_agent_run_workspace_files",
+      "target": "class:backend/modules/orchestration/services/application.py:OrchestrationApplicationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:create_memory",
+      "target": "class:backend/app/agents/memory/base.py:SqlMemoryStore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:list_memory",
+      "target": "class:backend/app/agents/memory/base.py:SqlMemoryStore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:search_memory",
+      "target": "class:backend/app/agents/memory/base.py:SqlMemoryStore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:update_memory",
+      "target": "class:backend/app/agents/memory/base.py:SqlMemoryStore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/app/agents/router.py:delete_memory",
+      "target": "class:backend/app/agents/memory/base.py:SqlMemoryStore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/app/agents/tools/registry.py",
+      "target": "file:backend/tests/test_deerflow_adapters.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/app/agents/workspace.py",
+      "target": "file:backend/tests/test_deerflow_adapters.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

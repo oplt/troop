@@ -1,0 +1,2816 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/ai/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/ai/router.py",
+      "summary": "Exposes the AI module's FastAPI endpoints for prompts, providers, documents, retrieval, generation runs, reviews, feedback, and evaluations.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "ai",
+        "evaluation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_prompt_template_to_response",
+      "type": "function",
+      "name": "_prompt_template_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        42,
+        43
+      ],
+      "summary": "Converts prompt template domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_prompt_version_to_response",
+      "type": "function",
+      "name": "_prompt_version_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        46,
+        64
+      ],
+      "summary": "Converts prompt version domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_document_to_response",
+      "type": "function",
+      "name": "_document_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        67,
+        80
+      ],
+      "summary": "Converts document domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_run_to_response",
+      "type": "function",
+      "name": "_run_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        83,
+        107
+      ],
+      "summary": "Converts run domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_review_to_response",
+      "type": "function",
+      "name": "_review_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        110,
+        111
+      ],
+      "summary": "Converts review domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_feedback_to_response",
+      "type": "function",
+      "name": "_feedback_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        114,
+        115
+      ],
+      "summary": "Converts feedback domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_dataset_to_response",
+      "type": "function",
+      "name": "_dataset_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        118,
+        119
+      ],
+      "summary": "Converts dataset domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_dataset_case_to_response",
+      "type": "function",
+      "name": "_dataset_case_to_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        122,
+        131
+      ],
+      "summary": "Converts dataset case domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:get_overview",
+      "type": "function",
+      "name": "get_overview",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        135,
+        149
+      ],
+      "summary": "Handles the API operation that retrieves overview.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_providers",
+      "type": "function",
+      "name": "list_providers",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        153,
+        154
+      ],
+      "summary": "Handles the API operation that lists providers.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_prompt_templates",
+      "type": "function",
+      "name": "list_prompt_templates",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        158,
+        164
+      ],
+      "summary": "Handles the API operation that lists prompt templates.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_prompt_template",
+      "type": "function",
+      "name": "create_prompt_template",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        168,
+        177
+      ],
+      "summary": "Handles the API operation that creates prompt template.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:update_prompt_template",
+      "type": "function",
+      "name": "update_prompt_template",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        181,
+        193
+      ],
+      "summary": "Handles the API operation that updates prompt template.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_prompt_versions",
+      "type": "function",
+      "name": "list_prompt_versions",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        197,
+        204
+      ],
+      "summary": "Handles the API operation that lists prompt versions.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_prompt_version",
+      "type": "function",
+      "name": "create_prompt_version",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        212,
+        220
+      ],
+      "summary": "Handles the API operation that creates prompt version.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:update_prompt_version",
+      "type": "function",
+      "name": "update_prompt_version",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        227,
+        241
+      ],
+      "summary": "Handles the API operation that updates prompt version.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:_document_ingest_response",
+      "type": "function",
+      "name": "_document_ingest_response",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        244,
+        249
+      ],
+      "summary": "Implements the document ingest response API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_documents",
+      "type": "function",
+      "name": "list_documents",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        253,
+        258
+      ],
+      "summary": "Handles the API operation that lists documents.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:get_document",
+      "type": "function",
+      "name": "get_document",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        262,
+        268
+      ],
+      "summary": "Handles the API operation that retrieves document.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_document",
+      "type": "function",
+      "name": "create_document",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        272,
+        291
+      ],
+      "summary": "Handles the API operation that creates document.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:upload_document",
+      "type": "function",
+      "name": "upload_document",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        295,
+        312
+      ],
+      "summary": "Implements the upload document API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:retrieve_chunks",
+      "type": "function",
+      "name": "retrieve_chunks",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        316,
+        328
+      ],
+      "summary": "Implements the retrieve chunks API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_runs",
+      "type": "function",
+      "name": "list_runs",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        332,
+        337
+      ],
+      "summary": "Handles the API operation that lists runs.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_run",
+      "type": "function",
+      "name": "create_run",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        341,
+        357
+      ],
+      "summary": "Handles the API operation that creates run.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_reviews",
+      "type": "function",
+      "name": "list_reviews",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        361,
+        366
+      ],
+      "summary": "Handles the API operation that lists reviews.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_review",
+      "type": "function",
+      "name": "create_review",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        370,
+        378
+      ],
+      "summary": "Handles the API operation that creates review.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:decide_review",
+      "type": "function",
+      "name": "decide_review",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        382,
+        390
+      ],
+      "summary": "Implements the decide review API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_feedback",
+      "type": "function",
+      "name": "list_feedback",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        394,
+        401
+      ],
+      "summary": "Handles the API operation that lists feedback.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_feedback",
+      "type": "function",
+      "name": "create_feedback",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        405,
+        419
+      ],
+      "summary": "Handles the API operation that creates feedback.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_datasets",
+      "type": "function",
+      "name": "list_datasets",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        423,
+        428
+      ],
+      "summary": "Handles the API operation that lists datasets.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_dataset",
+      "type": "function",
+      "name": "create_dataset",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        432,
+        439
+      ],
+      "summary": "Handles the API operation that creates dataset.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:update_dataset",
+      "type": "function",
+      "name": "update_dataset",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        443,
+        453
+      ],
+      "summary": "Handles the API operation that updates dataset.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_dataset_cases",
+      "type": "function",
+      "name": "list_dataset_cases",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        460,
+        467
+      ],
+      "summary": "Handles the API operation that lists dataset cases.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:create_dataset_case",
+      "type": "function",
+      "name": "create_dataset_case",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        475,
+        483
+      ],
+      "summary": "Handles the API operation that creates dataset case.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:list_evaluation_runs",
+      "type": "function",
+      "name": "list_evaluation_runs",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        487,
+        493
+      ],
+      "summary": "Handles the API operation that lists evaluation runs.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/router.py:run_evaluation",
+      "type": "function",
+      "name": "run_evaluation",
+      "filePath": "backend/modules/ai/router.py",
+      "lineRange": [
+        501,
+        511
+      ],
+      "summary": "Handles the API operation that runs evaluation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/ai/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/ai/schemas.py",
+      "summary": "Defines the AI module's validated API contracts for prompts, providers, documents, retrieval, runs, review, feedback, and evaluations.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "ai",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiProviderDescriptor",
+      "type": "class",
+      "name": "AiProviderDescriptor",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        11,
+        15
+      ],
+      "summary": "Pydantic API schema representing ai provider descriptor data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiVariableDefinition",
+      "type": "class",
+      "name": "AiVariableDefinition",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        18,
+        21
+      ],
+      "summary": "Pydantic API schema representing ai variable definition data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptTemplateCreate",
+      "type": "class",
+      "name": "AiPromptTemplateCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        24,
+        27
+      ],
+      "summary": "Pydantic API schema representing ai prompt template create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptTemplateUpdate",
+      "type": "class",
+      "name": "AiPromptTemplateUpdate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        30,
+        34
+      ],
+      "summary": "Pydantic API schema representing ai prompt template update data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptTemplateResponse",
+      "type": "class",
+      "name": "AiPromptTemplateResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        37,
+        47
+      ],
+      "summary": "Pydantic API schema representing ai prompt template response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptVersionCreate",
+      "type": "class",
+      "name": "AiPromptVersionCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        50,
+        61
+      ],
+      "summary": "Pydantic API schema representing ai prompt version create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptVersionUpdate",
+      "type": "class",
+      "name": "AiPromptVersionUpdate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        64,
+        73
+      ],
+      "summary": "Pydantic API schema representing ai prompt version update data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiPromptVersionResponse",
+      "type": "class",
+      "name": "AiPromptVersionResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        76,
+        94
+      ],
+      "summary": "Pydantic API schema representing ai prompt version response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiDocumentResponse",
+      "type": "class",
+      "name": "AiDocumentResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        97,
+        110
+      ],
+      "summary": "Pydantic API schema representing ai document response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiDocumentIngestResponse",
+      "type": "class",
+      "name": "AiDocumentIngestResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        113,
+        116
+      ],
+      "summary": "Pydantic API schema representing ai document ingest response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiDocumentCreate",
+      "type": "class",
+      "name": "AiDocumentCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        119,
+        124
+      ],
+      "summary": "Pydantic API schema representing ai document create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiChunkMatchResponse",
+      "type": "class",
+      "name": "AiChunkMatchResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        127,
+        133
+      ],
+      "summary": "Pydantic API schema representing ai chunk match response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiRetrieveRequest",
+      "type": "class",
+      "name": "AiRetrieveRequest",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        136,
+        139
+      ],
+      "summary": "Pydantic API schema representing ai retrieve request data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiRunRequest",
+      "type": "class",
+      "name": "AiRunRequest",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        142,
+        149
+      ],
+      "summary": "Pydantic API schema representing ai run request data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiRunResponse",
+      "type": "class",
+      "name": "AiRunResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        152,
+        176
+      ],
+      "summary": "Pydantic API schema representing ai run response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiReviewCreate",
+      "type": "class",
+      "name": "AiReviewCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        179,
+        180
+      ],
+      "summary": "Pydantic API schema representing ai review create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiReviewDecision",
+      "type": "class",
+      "name": "AiReviewDecision",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        183,
+        186
+      ],
+      "summary": "Pydantic API schema representing ai review decision data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiReviewItemResponse",
+      "type": "class",
+      "name": "AiReviewItemResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        189,
+        201
+      ],
+      "summary": "Pydantic API schema representing ai review item response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiFeedbackCreate",
+      "type": "class",
+      "name": "AiFeedbackCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        204,
+        207
+      ],
+      "summary": "Pydantic API schema representing ai feedback create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiFeedbackResponse",
+      "type": "class",
+      "name": "AiFeedbackResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        210,
+        219
+      ],
+      "summary": "Pydantic API schema representing ai feedback response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetCreate",
+      "type": "class",
+      "name": "AiEvaluationDatasetCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        222,
+        224
+      ],
+      "summary": "Pydantic API schema representing ai evaluation dataset create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetUpdate",
+      "type": "class",
+      "name": "AiEvaluationDatasetUpdate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        227,
+        229
+      ],
+      "summary": "Pydantic API schema representing ai evaluation dataset update data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetResponse",
+      "type": "class",
+      "name": "AiEvaluationDatasetResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        232,
+        239
+      ],
+      "summary": "Pydantic API schema representing ai evaluation dataset response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationCaseCreate",
+      "type": "class",
+      "name": "AiEvaluationCaseCreate",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        242,
+        246
+      ],
+      "summary": "Pydantic API schema representing ai evaluation case create data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationCaseResponse",
+      "type": "class",
+      "name": "AiEvaluationCaseResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        249,
+        258
+      ],
+      "summary": "Pydantic API schema representing ai evaluation case response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationRunRequest",
+      "type": "class",
+      "name": "AiEvaluationRunRequest",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        261,
+        262
+      ],
+      "summary": "Pydantic API schema representing ai evaluation run request data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationRunItemResponse",
+      "type": "class",
+      "name": "AiEvaluationRunItemResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        265,
+        270
+      ],
+      "summary": "Pydantic API schema representing ai evaluation run item response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiEvaluationRunResponse",
+      "type": "class",
+      "name": "AiEvaluationRunResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        273,
+        285
+      ],
+      "summary": "Pydantic API schema representing ai evaluation run response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/schemas.py:AiModuleOverviewResponse",
+      "type": "class",
+      "name": "AiModuleOverviewResponse",
+      "filePath": "backend/modules/ai/schemas.py",
+      "lineRange": [
+        288,
+        293
+      ],
+      "summary": "Pydantic API schema representing ai module overview response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/ai/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/ai/service.py",
+      "summary": "Orchestrates AI providers, prompt versioning, document ingestion and retrieval, model runs, review workflows, feedback, and evaluation execution.",
+      "tags": [
+        "service",
+        "ai",
+        "rag",
+        "evaluation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/ai/service.py:_estimate_tokens",
+      "type": "function",
+      "name": "_estimate_tokens",
+      "filePath": "backend/modules/ai/service.py",
+      "lineRange": [
+        32,
+        33
+      ],
+      "summary": "Implements estimate tokens within the AI application service.",
+      "tags": [
+        "service",
+        "ai",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/ai/service.py:_render_template",
+      "type": "function",
+      "name": "_render_template",
+      "filePath": "backend/modules/ai/service.py",
+      "lineRange": [
+        36,
+        46
+      ],
+      "summary": "Implements render template within the AI application service.",
+      "tags": [
+        "service",
+        "ai",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/service.py:AiService",
+      "type": "class",
+      "name": "AiService",
+      "filePath": "backend/modules/ai/service.py",
+      "lineRange": [
+        49,
+        754
+      ],
+      "summary": "Application service coordinating AI providers, retrieval, document ingestion, generation, review, and evaluation workflows.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/audit/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/audit/repository.py",
+      "summary": "Persists structured audit events and queries recent or user-scoped audit history.",
+      "tags": [
+        "repository",
+        "audit",
+        "database",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/audit/repository.py:AuditRepository",
+      "type": "class",
+      "name": "AuditRepository",
+      "filePath": "backend/modules/audit/repository.py",
+      "lineRange": [
+        9,
+        50
+      ],
+      "summary": "Asynchronous data-access layer for writing and querying structured audit events.",
+      "tags": [
+        "repository",
+        "database",
+        "data-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/calendar/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/calendar/router.py",
+      "summary": "Exposes authenticated CRUD endpoints for user calendar and planner items.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "calendar",
+        "crud"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/calendar/router.py:list_calendar_items",
+      "type": "function",
+      "name": "list_calendar_items",
+      "filePath": "backend/modules/calendar/router.py",
+      "lineRange": [
+        20,
+        27
+      ],
+      "summary": "Handles the API operation that lists calendar items.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/calendar/router.py:create_calendar_item",
+      "type": "function",
+      "name": "create_calendar_item",
+      "filePath": "backend/modules/calendar/router.py",
+      "lineRange": [
+        31,
+        37
+      ],
+      "summary": "Handles the API operation that creates calendar item.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/calendar/router.py:get_calendar_item",
+      "type": "function",
+      "name": "get_calendar_item",
+      "filePath": "backend/modules/calendar/router.py",
+      "lineRange": [
+        41,
+        47
+      ],
+      "summary": "Handles the API operation that retrieves calendar item.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/calendar/router.py:update_calendar_item",
+      "type": "function",
+      "name": "update_calendar_item",
+      "filePath": "backend/modules/calendar/router.py",
+      "lineRange": [
+        51,
+        58
+      ],
+      "summary": "Handles the API operation that updates calendar item.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/calendar/router.py:delete_calendar_item",
+      "type": "function",
+      "name": "delete_calendar_item",
+      "filePath": "backend/modules/calendar/router.py",
+      "lineRange": [
+        62,
+        69
+      ],
+      "summary": "Handles the API operation that deletes calendar item.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/companies/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/companies/router.py",
+      "summary": "Exposes authenticated company listing, creation, default-company lookup, and update endpoints.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "company",
+        "crud"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/companies/router.py:list_companies",
+      "type": "function",
+      "name": "list_companies",
+      "filePath": "backend/modules/companies/router.py",
+      "lineRange": [
+        18,
+        24
+      ],
+      "summary": "Handles the API operation that lists companies.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/companies/router.py:create_company",
+      "type": "function",
+      "name": "create_company",
+      "filePath": "backend/modules/companies/router.py",
+      "lineRange": [
+        28,
+        41
+      ],
+      "summary": "Handles the API operation that creates company.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/companies/router.py:get_default_company",
+      "type": "function",
+      "name": "get_default_company",
+      "filePath": "backend/modules/companies/router.py",
+      "lineRange": [
+        45,
+        51
+      ],
+      "summary": "Handles the API operation that retrieves default company.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/companies/router.py:update_company",
+      "type": "function",
+      "name": "update_company",
+      "filePath": "backend/modules/companies/router.py",
+      "lineRange": [
+        55,
+        69
+      ],
+      "summary": "Handles the API operation that updates company.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_prompt_template_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_prompt_template_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_prompt_version_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_prompt_version_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_document_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_document_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_run_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_run_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_review_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_review_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_feedback_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_feedback_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_dataset_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_dataset_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_dataset_case_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_dataset_case_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:get_overview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:get_overview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_providers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_providers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_prompt_templates",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_prompt_templates",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_prompt_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_prompt_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_prompt_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_prompt_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_prompt_versions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_prompt_versions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_prompt_version",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_prompt_version",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_prompt_version",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_prompt_version",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_document_ingest_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:_document_ingest_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_documents",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_documents",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:get_document",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:get_document",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_document",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_document",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:upload_document",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:upload_document",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:retrieve_chunks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:retrieve_chunks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_runs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_runs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_reviews",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_reviews",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_review",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_review",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:decide_review",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:decide_review",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_feedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_feedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_feedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_feedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_datasets",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_datasets",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_dataset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_dataset",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_dataset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:update_dataset",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_dataset_cases",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_dataset_cases",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_dataset_case",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:create_dataset_case",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_evaluation_runs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:list_evaluation_runs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:run_evaluation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "function:backend/modules/ai/router.py:run_evaluation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiProviderDescriptor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiProviderDescriptor",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiVariableDefinition",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiVariableDefinition",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptTemplateResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiPromptVersionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentIngestResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentIngestResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiDocumentCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiChunkMatchResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiChunkMatchResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRetrieveRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRetrieveRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRunRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRunRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRunResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiRunResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewDecision",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewDecision",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewItemResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiReviewItemResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiFeedbackCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiFeedbackCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiFeedbackResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiFeedbackResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationDatasetResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationCaseCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationCaseCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationCaseResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationCaseResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunItemResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunItemResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiEvaluationRunResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiModuleOverviewResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "class:backend/modules/ai/schemas.py:AiModuleOverviewResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "function:backend/modules/ai/service.py:_estimate_tokens",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "function:backend/modules/ai/service.py:_estimate_tokens",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "function:backend/modules/ai/service.py:_render_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "function:backend/modules/ai/service.py:_render_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "class:backend/modules/ai/service.py:AiService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "class:backend/modules/ai/service.py:AiService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/audit/repository.py",
+      "target": "class:backend/modules/audit/repository.py:AuditRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/audit/repository.py",
+      "target": "class:backend/modules/audit/repository.py:AuditRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:list_calendar_items",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:list_calendar_items",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:create_calendar_item",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:create_calendar_item",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:get_calendar_item",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:get_calendar_item",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:update_calendar_item",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:update_calendar_item",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:delete_calendar_item",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "function:backend/modules/calendar/router.py:delete_calendar_item",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:list_companies",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:list_companies",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:create_company",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:create_company",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:get_default_company",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:get_default_company",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:update_company",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "function:backend/modules/companies/router.py:update_company",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "file:backend/modules/ai/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "file:backend/modules/ai/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/ai/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/ai/providers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/ai/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/ai/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/modules/orchestration/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/audit/repository.py",
+      "target": "file:backend/modules/audit/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "file:backend/modules/calendar/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "file:backend/modules/calendar/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/calendar/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "file:backend/modules/companies/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "file:backend/modules/companies/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/companies/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/tests/test_ai_async_ingest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/ai/service.py",
+      "target": "file:backend/tests/test_vector_retrieval.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "class:backend/modules/ai/providers.py:AiProviderRegistry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "function:backend/modules/orchestration/_helpers.py:_chunk_text",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "function:backend/modules/ai/providers.py:_estimate_tokens",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "function:backend/modules/orchestration/_helpers.py:_cosine_similarity",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/service.py:AiService",
+      "target": "class:backend/modules/ai/providers.py:ProviderGenerateRequest",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/audit/repository.py:AuditRepository",
+      "target": "class:backend/modules/audit/models.py:AuditLog",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/calendar/router.py:list_calendar_items",
+      "target": "class:backend/modules/calendar/service.py:CalendarService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/calendar/router.py:create_calendar_item",
+      "target": "class:backend/modules/calendar/service.py:CalendarService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/calendar/router.py:get_calendar_item",
+      "target": "class:backend/modules/calendar/service.py:CalendarService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/calendar/router.py:update_calendar_item",
+      "target": "class:backend/modules/calendar/service.py:CalendarService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/calendar/router.py:delete_calendar_item",
+      "target": "class:backend/modules/calendar/service.py:CalendarService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/companies/router.py:list_companies",
+      "target": "class:backend/modules/companies/service.py:CompanyService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/companies/router.py:create_company",
+      "target": "class:backend/modules/companies/service.py:CompanyService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/companies/router.py:get_default_company",
+      "target": "class:backend/modules/companies/service.py:CompanyService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/companies/router.py:update_company",
+      "target": "class:backend/modules/companies/service.py:CompanyService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

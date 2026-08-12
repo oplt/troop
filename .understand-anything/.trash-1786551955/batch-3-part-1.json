@@ -1,0 +1,1723 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/projects/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/projects/models.py",
+      "summary": "Defines the SQLAlchemy Project and ProjectTask persistence models, including ownership, assignment, workflow status, priority, ordering, and lifecycle timestamps.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/models.py:Project",
+      "type": "class",
+      "name": "Project",
+      "filePath": "backend/modules/projects/models.py",
+      "lineRange": [
+        10,
+        19
+      ],
+      "summary": "SQLAlchemy persistence model representing project records and their database fields.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/models.py:ProjectTask",
+      "type": "class",
+      "name": "ProjectTask",
+      "filePath": "backend/modules/projects/models.py",
+      "lineRange": [
+        22,
+        48
+      ],
+      "summary": "SQLAlchemy persistence model representing project task records and their database fields.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/projects/orchestration_schemas.py",
+      "type": "file",
+      "name": "orchestration_schemas.py",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "summary": "Defines the extended Pydantic contracts used by orchestration-facing project, task, repository, milestone, decision, portfolio, artifact, and timeline APIs.",
+      "tags": [
+        "type-definition",
+        "validation",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectCreate",
+      "type": "class",
+      "name": "ProjectCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        24,
+        33
+      ],
+      "summary": "Class implementing project create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectUpdate",
+      "type": "class",
+      "name": "ProjectUpdate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        36,
+        45
+      ],
+      "summary": "Class implementing project update behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectResponse",
+      "type": "class",
+      "name": "ProjectResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        48,
+        62
+      ],
+      "summary": "Class implementing project response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkCreate",
+      "type": "class",
+      "name": "ProjectRepositoryLinkCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        65,
+        73
+      ],
+      "summary": "Class implementing project repository link create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkResponse",
+      "type": "class",
+      "name": "ProjectRepositoryLinkResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        76,
+        87
+      ],
+      "summary": "Class implementing project repository link response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskCreate",
+      "type": "class",
+      "name": "TaskCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        90,
+        113
+      ],
+      "summary": "Class implementing task create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskUpdate",
+      "type": "class",
+      "name": "TaskUpdate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        116,
+        139
+      ],
+      "summary": "Class implementing task update behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentCreate",
+      "type": "class",
+      "name": "TaskCommentCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        142,
+        143
+      ],
+      "summary": "Class implementing task comment create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentResponse",
+      "type": "class",
+      "name": "TaskCommentResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        146,
+        154
+      ],
+      "summary": "Class implementing task comment response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactResponse",
+      "type": "class",
+      "name": "TaskArtifactResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        157,
+        167
+      ],
+      "summary": "Class implementing task artifact response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:DagReadyTaskItem",
+      "type": "class",
+      "name": "DagReadyTaskItem",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        170,
+        174
+      ],
+      "summary": "Class implementing dag ready task item behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskResponse",
+      "type": "class",
+      "name": "TaskResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        177,
+        206
+      ],
+      "summary": "Class implementing task response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeRequest",
+      "type": "class",
+      "name": "TaskDecomposeRequest",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        209,
+        211
+      ],
+      "summary": "Class implementing task decompose request behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeResponse",
+      "type": "class",
+      "name": "TaskDecomposeResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        214,
+        216
+      ],
+      "summary": "Class implementing task decompose response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskAcceptanceCheckResponse",
+      "type": "class",
+      "name": "TaskAcceptanceCheckResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        219,
+        222
+      ],
+      "summary": "Class implementing task acceptance check response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactCreate",
+      "type": "class",
+      "name": "TaskArtifactCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        225,
+        229
+      ],
+      "summary": "Class implementing task artifact create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneCreate",
+      "type": "class",
+      "name": "ProjectMilestoneCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        232,
+        237
+      ],
+      "summary": "Class implementing project milestone create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneUpdate",
+      "type": "class",
+      "name": "ProjectMilestoneUpdate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        240,
+        245
+      ],
+      "summary": "Class implementing project milestone update behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneResponse",
+      "type": "class",
+      "name": "ProjectMilestoneResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        248,
+        259
+      ],
+      "summary": "Class implementing project milestone response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionCreate",
+      "type": "class",
+      "name": "ProjectDecisionCreate",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        262,
+        268
+      ],
+      "summary": "Class implementing project decision create behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionResponse",
+      "type": "class",
+      "name": "ProjectDecisionResponse",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        271,
+        282
+      ],
+      "summary": "Class implementing project decision response behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:PortfolioProjectSummary",
+      "type": "class",
+      "name": "PortfolioProjectSummary",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        285,
+        291
+      ],
+      "summary": "Class implementing portfolio project summary behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/orchestration_schemas.py:TaskTimelineEntry",
+      "type": "class",
+      "name": "TaskTimelineEntry",
+      "filePath": "backend/modules/projects/orchestration_schemas.py",
+      "lineRange": [
+        294,
+        301
+      ],
+      "summary": "Class implementing task timeline entry behavior.",
+      "tags": [
+        "class",
+        "backend",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/projects/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/projects/repository.py",
+      "summary": "Implements asynchronous SQLAlchemy queries for project access control and project-task persistence, including assignee joins, workflow ordering, and due-date filtering.",
+      "tags": [
+        "repository",
+        "data-access",
+        "sqlalchemy",
+        "async"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "type": "class",
+      "name": "ProjectsRepository",
+      "filePath": "backend/modules/projects/repository.py",
+      "lineRange": [
+        12,
+        163
+      ],
+      "summary": "Async repository encapsulating projects repository persistence and query behavior.",
+      "tags": [
+        "repository",
+        "data-access",
+        "sqlalchemy"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/projects/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/projects/router.py",
+      "summary": "Exposes authenticated FastAPI endpoints for project CRUD and task listing, creation, update, deletion, and column reordering through ProjectsService.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing",
+        "authentication"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "function",
+      "name": "_project_to_response",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        23,
+        29
+      ],
+      "summary": "Converts domain data into the project to response API representation.",
+      "tags": [
+        "serialization",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "function",
+      "name": "_task_to_response",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        32,
+        53
+      ],
+      "summary": "Converts domain data into the task to response API representation.",
+      "tags": [
+        "serialization",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:list_projects",
+      "type": "function",
+      "name": "list_projects",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        57,
+        63
+      ],
+      "summary": "FastAPI endpoint handler for list projects.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:create_project",
+      "type": "function",
+      "name": "create_project",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        67,
+        74
+      ],
+      "summary": "FastAPI endpoint handler for create project.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:get_project",
+      "type": "function",
+      "name": "get_project",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        78,
+        85
+      ],
+      "summary": "FastAPI endpoint handler for get project.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:list_project_tasks",
+      "type": "function",
+      "name": "list_project_tasks",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        89,
+        101
+      ],
+      "summary": "FastAPI endpoint handler for list project tasks.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:create_project_task",
+      "type": "function",
+      "name": "create_project_task",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        105,
+        113
+      ],
+      "summary": "FastAPI endpoint handler for create project task.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:update_project_task",
+      "type": "function",
+      "name": "update_project_task",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        117,
+        132
+      ],
+      "summary": "FastAPI endpoint handler for update project task.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:delete_project_task",
+      "type": "function",
+      "name": "delete_project_task",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        136,
+        143
+      ],
+      "summary": "FastAPI endpoint handler for delete project task.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/projects/router.py:reorder_project_tasks",
+      "type": "function",
+      "name": "reorder_project_tasks",
+      "filePath": "backend/modules/projects/router.py",
+      "lineRange": [
+        147,
+        155
+      ],
+      "summary": "FastAPI endpoint handler for reorder project tasks.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/projects/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/projects/schemas.py",
+      "summary": "Defines compact Pydantic request and response contracts for project and task APIs, including assignees and kanban reorder payloads.",
+      "tags": [
+        "type-definition",
+        "validation",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectCreate",
+      "type": "class",
+      "name": "ProjectCreate",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        12,
+        14
+      ],
+      "summary": "Pydantic API contract representing project create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectResponse",
+      "type": "class",
+      "name": "ProjectResponse",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        17,
+        21
+      ],
+      "summary": "Pydantic API contract representing project response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskAssigneeResponse",
+      "type": "class",
+      "name": "ProjectTaskAssigneeResponse",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        24,
+        27
+      ],
+      "summary": "Pydantic API contract representing project task assignee response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskCreate",
+      "type": "class",
+      "name": "ProjectTaskCreate",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        30,
+        36
+      ],
+      "summary": "Pydantic API contract representing project task create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskUpdate",
+      "type": "class",
+      "name": "ProjectTaskUpdate",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        39,
+        45
+      ],
+      "summary": "Pydantic API contract representing project task update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskResponse",
+      "type": "class",
+      "name": "ProjectTaskResponse",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        48,
+        59
+      ],
+      "summary": "Pydantic API contract representing project task response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskReorderColumn",
+      "type": "class",
+      "name": "ProjectTaskReorderColumn",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        62,
+        64
+      ],
+      "summary": "Pydantic API contract representing project task reorder column data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/projects/schemas.py:ProjectTaskReorderRequest",
+      "type": "class",
+      "name": "ProjectTaskReorderRequest",
+      "filePath": "backend/modules/projects/schemas.py",
+      "lineRange": [
+        67,
+        68
+      ],
+      "summary": "Pydantic API contract representing project task reorder request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/settings/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/settings/models.py",
+      "summary": "Defines the database-backed AppSetting model for typed administrative runtime parameters.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database",
+        "persistence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/settings/models.py:AppSetting",
+      "type": "class",
+      "name": "AppSetting",
+      "filePath": "backend/modules/settings/models.py",
+      "lineRange": [
+        10,
+        21
+      ],
+      "summary": "SQLAlchemy persistence model representing app setting records and their database fields.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "persistence"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/projects/models.py",
+      "target": "class:backend/modules/projects/models.py:Project",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/models.py",
+      "target": "class:backend/modules/projects/models.py:Project",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/models.py",
+      "target": "class:backend/modules/projects/models.py:ProjectTask",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/models.py",
+      "target": "class:backend/modules/projects/models.py:ProjectTask",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectRepositoryLinkResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskCommentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:DagReadyTaskItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:DagReadyTaskItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskDecomposeResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskAcceptanceCheckResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskAcceptanceCheckResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskArtifactCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectMilestoneResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:ProjectDecisionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:PortfolioProjectSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:PortfolioProjectSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskTimelineEntry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "class:backend/modules/projects/orchestration_schemas.py:TaskTimelineEntry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/repository.py",
+      "target": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/repository.py",
+      "target": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:list_projects",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:list_projects",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:create_project",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:create_project",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:get_project",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:get_project",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:list_project_tasks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:list_project_tasks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:create_project_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:create_project_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:update_project_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:update_project_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:delete_project_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:delete_project_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:reorder_project_tasks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "function:backend/modules/projects/router.py:reorder_project_tasks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskAssigneeResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskAssigneeResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskReorderColumn",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskReorderColumn",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskReorderRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskReorderRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/settings/models.py",
+      "target": "class:backend/modules/settings/models.py:AppSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/settings/models.py",
+      "target": "class:backend/modules/settings/models.py:AppSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/orchestration_schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/repository.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/repository.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/repository.py",
+      "target": "file:backend/modules/projects/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/modules/projects/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/modules/projects/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/router.py",
+      "target": "file:backend/modules/projects/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/settings/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "target": "class:backend/modules/projects/models.py:Project",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "target": "class:backend/modules/projects/models.py:ProjectTask",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:_project_to_response",
+      "target": "class:backend/modules/projects/schemas.py:ProjectResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:_task_to_response",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:_task_to_response",
+      "target": "class:backend/modules/projects/schemas.py:ProjectTaskAssigneeResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:list_projects",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:list_projects",
+      "target": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:create_project",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:create_project",
+      "target": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:get_project",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:get_project",
+      "target": "function:backend/modules/projects/router.py:_project_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:list_project_tasks",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:list_project_tasks",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:create_project_task",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:create_project_task",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:update_project_task",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:update_project_task",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:delete_project_task",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:reorder_project_tasks",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/projects/router.py:reorder_project_tasks",
+      "target": "function:backend/modules/projects/router.py:_task_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

@@ -2,19 +2,12 @@
 
 from __future__ import annotations
 
-TASK_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"queued", "archived"},
-    "queued": {"planned", "blocked", "failed", "archived"},
-    "planned": {"in_progress", "blocked", "archived", "failed"},
-    "in_progress": {"blocked", "needs_review", "completed", "failed", "planned"},
-    "blocked": {"planned", "in_progress", "failed", "archived"},
-    "needs_review": {"approved", "planned", "blocked", "failed"},
-    "approved": {"completed", "planned", "archived"},
-    "completed": {"synced_to_github", "planned", "archived"},
-    "failed": {"planned", "queued", "archived"},
-    "synced_to_github": {"archived", "planned"},
-    "archived": set(),
-}
+from backend.modules.workforce.constants import (
+    LEGACY_STATUS_ALIASES,
+    TASK_TRANSITIONS,
+)
+
+__all__ = ["TASK_TRANSITIONS", "LEGACY_STATUS_ALIASES", "GITHUB_WEBHOOK_EVENT_ALLOWLIST"]
 
 GITHUB_WEBHOOK_EVENT_ALLOWLIST = frozenset(
     {

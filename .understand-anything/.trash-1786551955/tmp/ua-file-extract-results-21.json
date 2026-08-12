@@ -1,0 +1,95 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".understand-anything/tmp/frontend-structure-input.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 1500,
+      "nonEmptyLines": 1500,
+      "sections": [
+        {
+          "heading": "projectRoot",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "batchFiles",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "batchImportData",
+          "level": 1,
+          "line": 893
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": ".understand-anything/tmp/ua-import-map-input.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 2610,
+      "nonEmptyLines": 2610,
+      "sections": [
+        {
+          "heading": "projectRoot",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "files",
+          "level": 1,
+          "line": 3
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".understand-anything/tmp/ua-import-map-output.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 2178,
+      "nonEmptyLines": 2178,
+      "sections": [
+        {
+          "heading": "scriptCompleted",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "stats",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "importMap",
+          "level": 1,
+          "line": 8
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    }
+  ]
+}

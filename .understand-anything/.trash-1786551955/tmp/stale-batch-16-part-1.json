@@ -1,0 +1,1553 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "type": "file",
+      "name": "AgentRegistryPanel.tsx",
+      "filePath": "frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "summary": "Lists registered agents and supports selection, expansion, editing, activation, duplication, and deletion within template workflows.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/AgentRegistryPanel.tsx:AgentRegistryPanel",
+      "type": "function",
+      "name": "AgentRegistryPanel",
+      "filePath": "frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "lineRange": [
+        22,
+        106
+      ],
+      "summary": "Renders the agent registry and coordinates selection, expansion, editing, state changes, duplication, and deletion actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/MyTemplatesView.tsx",
+      "type": "file",
+      "name": "MyTemplatesView.tsx",
+      "filePath": "frontend/src/components/templates/MyTemplatesView.tsx",
+      "summary": "Displays the current user's template-backed agent registry in the templates workspace.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/MyTemplatesView.tsx:MyTemplatesView",
+      "type": "function",
+      "name": "MyTemplatesView",
+      "filePath": "frontend/src/components/templates/MyTemplatesView.tsx",
+      "lineRange": [
+        20,
+        26
+      ],
+      "summary": "Hosts the user's agent registry within the personal templates view.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "type": "file",
+      "name": "SkillPackPicker.tsx",
+      "filePath": "frontend/src/components/templates/SkillPackPicker.tsx",
+      "summary": "Provides searchable multi-selection of skill packs for an agent or template form.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/SkillPackPicker.tsx:SkillPackPicker",
+      "type": "function",
+      "name": "SkillPackPicker",
+      "filePath": "frontend/src/components/templates/SkillPackPicker.tsx",
+      "lineRange": [
+        12,
+        46
+      ],
+      "summary": "Filters and toggles skill-pack selections for template builder state.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/SkillTemplateCard.tsx",
+      "type": "file",
+      "name": "SkillTemplateCard.tsx",
+      "filePath": "frontend/src/components/templates/SkillTemplateCard.tsx",
+      "summary": "Presents a skill template's metadata and action controls in a reusable catalog card.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/SkillTemplateCard.tsx:SkillTemplateCard",
+      "type": "function",
+      "name": "SkillTemplateCard",
+      "filePath": "frontend/src/components/templates/SkillTemplateCard.tsx",
+      "lineRange": [
+        15,
+        62
+      ],
+      "summary": "Renders one skill template with metadata and contextual actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TeamTemplateCard.tsx",
+      "type": "file",
+      "name": "TeamTemplateCard.tsx",
+      "filePath": "frontend/src/components/templates/TeamTemplateCard.tsx",
+      "summary": "Presents a team template, member roles, hierarchy summary, and selection actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TeamTemplateCard.tsx:TeamTemplateCard",
+      "type": "function",
+      "name": "TeamTemplateCard",
+      "filePath": "frontend/src/components/templates/TeamTemplateCard.tsx",
+      "lineRange": [
+        16,
+        98
+      ],
+      "summary": "Renders one team template with roles, hierarchy, tags, and selection controls.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "type": "file",
+      "name": "TemplateBrowseView.tsx",
+      "filePath": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "summary": "Filters and presents agent, team, and skill templates in categorized catalog sections.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTemplate",
+      "type": "function",
+      "name": "matchesTemplate",
+      "filePath": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "lineRange": [
+        34,
+        56
+      ],
+      "summary": "Checks an agent template against the active search and filter criteria.",
+      "tags": [
+        "filtering",
+        "search",
+        "templates",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTeamTemplate",
+      "type": "function",
+      "name": "matchesTeamTemplate",
+      "filePath": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "lineRange": [
+        58,
+        76
+      ],
+      "summary": "Checks a team template against the active search and category criteria.",
+      "tags": [
+        "filtering",
+        "search",
+        "templates",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesSkillTemplate",
+      "type": "function",
+      "name": "matchesSkillTemplate",
+      "filePath": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "lineRange": [
+        78,
+        96
+      ],
+      "summary": "Checks a skill template against the active search and category criteria.",
+      "tags": [
+        "filtering",
+        "search",
+        "templates",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "type": "function",
+      "name": "TemplateBrowseView",
+      "filePath": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "lineRange": [
+        98,
+        219
+      ],
+      "summary": "Filters template catalogs and renders matching agent, team, and skill sections.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "type": "file",
+      "name": "TemplateBuilderView.tsx",
+      "filePath": "frontend/src/components/templates/TemplateBuilderView.tsx",
+      "summary": "Implements the agent-template editor with identity, model, skills, markdown, inheritance, validation, and save workflows.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "type": "function",
+      "name": "TemplateBuilderView",
+      "filePath": "frontend/src/components/templates/TemplateBuilderView.tsx",
+      "lineRange": [
+        50,
+        306
+      ],
+      "summary": "Renders and updates the complete agent-template form, validation state, preview, and save actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateCard.tsx",
+      "type": "file",
+      "name": "TemplateCard.tsx",
+      "filePath": "frontend/src/components/templates/TemplateCard.tsx",
+      "summary": "Renders an agent template summary with tags, model, capabilities, inheritance, and contextual actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateCard.tsx:TemplateCard",
+      "type": "function",
+      "name": "TemplateCard",
+      "filePath": "frontend/src/components/templates/TemplateCard.tsx",
+      "lineRange": [
+        21,
+        126
+      ],
+      "summary": "Renders an agent template summary and its browse, edit, create, or delete actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "type": "file",
+      "name": "TemplateDetailDrawer.tsx",
+      "filePath": "frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "summary": "Shows detailed agent template metadata and content in a side drawer with creation or edit actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateDetailDrawer.tsx:TemplateDetailDrawer",
+      "type": "function",
+      "name": "TemplateDetailDrawer",
+      "filePath": "frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "lineRange": [
+        14,
+        77
+      ],
+      "summary": "Displays complete template details in a dismissible side drawer.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "type": "file",
+      "name": "TemplateFilterToolbar.tsx",
+      "filePath": "frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "summary": "Provides template search, category, skill, provider, sort, and view-mode controls.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateFilterToolbar.tsx:TemplateFilterToolbar",
+      "type": "function",
+      "name": "TemplateFilterToolbar",
+      "filePath": "frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "lineRange": [
+        32,
+        209
+      ],
+      "summary": "Edits template search, category, provider, skill, ordering, and layout filters.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "type": "file",
+      "name": "TemplateSection.tsx",
+      "filePath": "frontend/src/components/templates/TemplateSection.tsx",
+      "summary": "Wraps a labeled template group in a shared section card with an optional item count.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateSection.tsx:TemplateSection",
+      "type": "function",
+      "name": "TemplateSection",
+      "filePath": "frontend/src/components/templates/TemplateSection.tsx",
+      "lineRange": [
+        15,
+        45
+      ],
+      "summary": "Provides a reusable titled section around a group of template cards.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "type": "file",
+      "name": "TemplateTab.tsx",
+      "filePath": "frontend/src/components/templates/TemplateTab.tsx",
+      "summary": "Coordinates template browsing, building, importing, validation, detail, filtering, CRUD mutations, and skill or team catalog workflows.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateTab.tsx:buildSkillForm",
+      "type": "function",
+      "name": "buildSkillForm",
+      "filePath": "frontend/src/components/templates/TemplateTab.tsx",
+      "lineRange": [
+        57,
+        67
+      ],
+      "summary": "Creates editable skill-pack form state from an existing skill template or defaults.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateTab.tsx:readFileAsText",
+      "type": "function",
+      "name": "readFileAsText",
+      "filePath": "frontend/src/components/templates/TemplateTab.tsx",
+      "lineRange": [
+        73,
+        84
+      ],
+      "summary": "Reads an uploaded text file through a promise-based browser file reader.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "type": "function",
+      "name": "TemplateTab",
+      "filePath": "frontend/src/components/templates/TemplateTab.tsx",
+      "lineRange": [
+        92,
+        587
+      ],
+      "summary": "Coordinates the templates feature's queries, mutations, browsing, editing, importing, validation, and feedback flows.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateTopBar.tsx",
+      "type": "file",
+      "name": "TemplateTopBar.tsx",
+      "filePath": "frontend/src/components/templates/TemplateTopBar.tsx",
+      "summary": "Renders the templates workspace heading and primary create or import actions.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateTopBar.tsx:TemplateTopBar",
+      "type": "function",
+      "name": "TemplateTopBar",
+      "filePath": "frontend/src/components/templates/TemplateTopBar.tsx",
+      "lineRange": [
+        8,
+        35
+      ],
+      "summary": "Renders the templates title and top-level create and import controls.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "type": "file",
+      "name": "TemplateValidationPanel.tsx",
+      "filePath": "frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "summary": "Displays template validation status, errors, warnings, and normalized output feedback.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "user-interface"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Typed React components communicate through explicit props and keep catalog interactions localized to the templates feature."
+    },
+    {
+      "id": "function:frontend/src/components/templates/TemplateValidationPanel.tsx:TemplateValidationPanel",
+      "type": "function",
+      "name": "TemplateValidationPanel",
+      "filePath": "frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "lineRange": [
+        13,
+        52
+      ],
+      "summary": "Renders normalized validation feedback with success, warning, and error states.",
+      "tags": [
+        "component",
+        "templates",
+        "react",
+        "interaction"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "type": "file",
+      "name": "templateBuilderState.ts",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "summary": "Defines template builder defaults and pure transformations for forms, slugs, inheritance previews, CSV fields, and skill markdown imports.",
+      "tags": [
+        "state",
+        "data-transformation",
+        "templates",
+        "utility"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:parseCsv",
+      "type": "function",
+      "name": "parseCsv",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        31,
+        36
+      ],
+      "summary": "Parses a comma-separated form value into normalized non-empty items.",
+      "tags": [
+        "utility",
+        "normalization",
+        "templates",
+        "data-transformation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:mergeUnique",
+      "type": "function",
+      "name": "mergeUnique",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        38,
+        46
+      ],
+      "summary": "Merges multiple string collections while preserving unique normalized values.",
+      "tags": [
+        "utility",
+        "normalization",
+        "templates",
+        "data-transformation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:getTemplateBySlug",
+      "type": "function",
+      "name": "getTemplateBySlug",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        48,
+        50
+      ],
+      "summary": "Finds a template by its stable slug.",
+      "tags": [
+        "utility",
+        "normalization",
+        "templates",
+        "data-transformation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:buildTemplateBuilderForm",
+      "type": "function",
+      "name": "buildTemplateBuilderForm",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        52,
+        75
+      ],
+      "summary": "Builds complete template form state from a stored template or empty defaults.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:slugifyValue",
+      "type": "function",
+      "name": "slugifyValue",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        77,
+        83
+      ],
+      "summary": "Normalizes free text into a stable template slug.",
+      "tags": [
+        "utility",
+        "normalization",
+        "templates",
+        "data-transformation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:createUniqueSlug",
+      "type": "function",
+      "name": "createUniqueSlug",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        85,
+        94
+      ],
+      "summary": "Creates a slug that does not collide with existing template slugs.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:buildAgentTemplateFromForm",
+      "type": "function",
+      "name": "buildAgentTemplateFromForm",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        96,
+        141
+      ],
+      "summary": "Converts builder form state into a validated agent template payload.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "type": "function",
+      "name": "buildInheritancePreview",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        143,
+        218
+      ],
+      "summary": "Computes inherited, overridden, and effective template fields for preview.",
+      "tags": [
+        "builder",
+        "templates",
+        "data-transformation",
+        "type-safe"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/components/templates/templateBuilderState.ts:parseSkillMarkdownDocument",
+      "type": "function",
+      "name": "parseSkillMarkdownDocument",
+      "filePath": "frontend/src/components/templates/templateBuilderState.ts",
+      "lineRange": [
+        244,
+        279
+      ],
+      "summary": "Parses a skill markdown document and frontmatter into editable skill-pack form state.",
+      "tags": [
+        "utility",
+        "normalization",
+        "templates",
+        "data-transformation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/templates/types.ts",
+      "type": "file",
+      "name": "types.ts",
+      "filePath": "frontend/src/components/templates/types.ts",
+      "summary": "Defines shared template browsing, filtering, layout, and builder state types for the templates feature.",
+      "tags": [
+        "type-definition",
+        "templates",
+        "frontend",
+        "shared"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "target": "function:frontend/src/components/templates/AgentRegistryPanel.tsx:AgentRegistryPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "target": "function:frontend/src/components/templates/AgentRegistryPanel.tsx:AgentRegistryPanel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/MyTemplatesView.tsx",
+      "target": "function:frontend/src/components/templates/MyTemplatesView.tsx:MyTemplatesView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/MyTemplatesView.tsx",
+      "target": "function:frontend/src/components/templates/MyTemplatesView.tsx:MyTemplatesView",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "target": "function:frontend/src/components/templates/SkillPackPicker.tsx:SkillPackPicker",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "target": "function:frontend/src/components/templates/SkillPackPicker.tsx:SkillPackPicker",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillTemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/SkillTemplateCard.tsx:SkillTemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillTemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/SkillTemplateCard.tsx:SkillTemplateCard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TeamTemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/TeamTemplateCard.tsx:TeamTemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TeamTemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/TeamTemplateCard.tsx:TeamTemplateCard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTeamTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesSkillTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/TemplateCard.tsx:TemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateCard.tsx",
+      "target": "function:frontend/src/components/templates/TemplateCard.tsx:TemplateCard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "target": "function:frontend/src/components/templates/TemplateDetailDrawer.tsx:TemplateDetailDrawer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "target": "function:frontend/src/components/templates/TemplateDetailDrawer.tsx:TemplateDetailDrawer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "target": "function:frontend/src/components/templates/TemplateFilterToolbar.tsx:TemplateFilterToolbar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "target": "function:frontend/src/components/templates/TemplateFilterToolbar.tsx:TemplateFilterToolbar",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "target": "function:frontend/src/components/templates/TemplateSection.tsx:TemplateSection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "target": "function:frontend/src/components/templates/TemplateSection.tsx:TemplateSection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTab.tsx:buildSkillForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTab.tsx:readFileAsText",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTopBar.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTopBar.tsx:TemplateTopBar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTopBar.tsx",
+      "target": "function:frontend/src/components/templates/TemplateTopBar.tsx:TemplateTopBar",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "target": "function:frontend/src/components/templates/TemplateValidationPanel.tsx:TemplateValidationPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "target": "function:frontend/src/components/templates/TemplateValidationPanel.tsx:TemplateValidationPanel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseCsv",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseCsv",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:mergeUnique",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:mergeUnique",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:getTemplateBySlug",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:getTemplateBySlug",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildTemplateBuilderForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildTemplateBuilderForm",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:slugifyValue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:slugifyValue",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:createUniqueSlug",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:createUniqueSlug",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildAgentTemplateFromForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildAgentTemplateFromForm",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseSkillMarkdownDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseSkillMarkdownDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "target": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/MyTemplatesView.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/MyTemplatesView.tsx",
+      "target": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/SkillTemplateCard.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TeamTemplateCard.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/components/templates/SkillTemplateCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/components/templates/TeamTemplateCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/components/templates/TemplateCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/components/templates/SkillPackPicker.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateCard.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateSection.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/TemplateBrowseView.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/TemplateBuilderView.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/TemplateTopBar.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/TemplateTab.tsx",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/templateBuilderState.ts",
+      "target": "file:frontend/src/components/templates/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/templates/types.ts",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesTeamTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:matchesSkillTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "target": "function:frontend/src/api/orchestration.ts:listProviders",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/api/orchestration.ts:updateAgentTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/api/orchestration.ts:updateSkillPack",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/api/orchestration.ts:updateTeamTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:createUniqueSlug",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:slugifyValue",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:buildAgentTemplateFromForm",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:slugifyValue",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:buildAgentTemplateFromForm",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseCsv",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:getTemplateBySlug",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:mergeUnique",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/templateBuilderState.ts:buildInheritancePreview",
+      "target": "function:frontend/src/components/templates/templateBuilderState.ts:parseCsv",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/templates/MyTemplatesView.tsx:MyTemplatesView",
+      "target": "function:frontend/src/components/templates/AgentRegistryPanel.tsx:AgentRegistryPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TemplateCard.tsx:TemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TeamTemplateCard.tsx:TeamTemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/SkillTemplateCard.tsx:SkillTemplateCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "target": "function:frontend/src/components/templates/TemplateSection.tsx:TemplateSection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "target": "function:frontend/src/components/templates/AgentRegistryPanel.tsx:AgentRegistryPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "target": "function:frontend/src/components/templates/SkillPackPicker.tsx:SkillPackPicker",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "target": "function:frontend/src/components/templates/TemplateSection.tsx:TemplateSection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "target": "function:frontend/src/components/templates/TemplateValidationPanel.tsx:TemplateValidationPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/TemplateBrowseView.tsx:TemplateBrowseView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/TemplateBuilderView.tsx:TemplateBuilderView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/TemplateDetailDrawer.tsx:TemplateDetailDrawer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/TemplateFilterToolbar.tsx:TemplateFilterToolbar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:frontend/src/components/templates/TemplateTab.tsx:TemplateTab",
+      "target": "function:frontend/src/components/templates/TemplateTopBar.tsx:TemplateTopBar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    }
+  ]
+}

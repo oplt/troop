@@ -1,0 +1,4720 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "summary": "Defines the complete Pydantic API contract surface for orchestration resources, commands, snapshots, metrics, memory, agents, projects, workflows, and evaluations.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentMarkdownValidationResponse",
+      "type": "class",
+      "name": "AgentMarkdownValidationResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        54,
+        59
+      ],
+      "summary": "Pydantic API contract representing agent markdown validation response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentLintSummary",
+      "type": "class",
+      "name": "AgentLintSummary",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        62,
+        65
+      ],
+      "summary": "Pydantic API contract representing agent lint summary data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentResolvedProfile",
+      "type": "class",
+      "name": "AgentResolvedProfile",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        68,
+        80
+      ],
+      "summary": "Pydantic API contract representing agent resolved profile data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentInheritancePreview",
+      "type": "class",
+      "name": "AgentInheritancePreview",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        83,
+        87
+      ],
+      "summary": "Pydantic API contract representing agent inheritance preview data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentCreate",
+      "type": "class",
+      "name": "AgentCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        90,
+        119
+      ],
+      "summary": "Pydantic API contract representing agent create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentUpdate",
+      "type": "class",
+      "name": "AgentUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        122,
+        152
+      ],
+      "summary": "Pydantic API contract representing agent update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentVersionResponse",
+      "type": "class",
+      "name": "AgentVersionResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        155,
+        164
+      ],
+      "summary": "Pydantic API contract representing agent version response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentResponse",
+      "type": "class",
+      "name": "AgentResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        167,
+        205
+      ],
+      "summary": "Pydantic API contract representing agent response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderConfigCreate",
+      "type": "class",
+      "name": "ProviderConfigCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        208,
+        222
+      ],
+      "summary": "Pydantic API contract representing provider config create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderConfigUpdate",
+      "type": "class",
+      "name": "ProviderConfigUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        225,
+        237
+      ],
+      "summary": "Pydantic API contract representing provider config update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderConfigResponse",
+      "type": "class",
+      "name": "ProviderConfigResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        240,
+        263
+      ],
+      "summary": "Pydantic API contract representing provider config response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ModelCapabilityResponse",
+      "type": "class",
+      "name": "ModelCapabilityResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        266,
+        296
+      ],
+      "summary": "Pydantic API contract representing model capability response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderModelListResponse",
+      "type": "class",
+      "name": "ProviderModelListResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        299,
+        302
+      ],
+      "summary": "Pydantic API contract representing provider model list response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderCompareRequest",
+      "type": "class",
+      "name": "ProviderCompareRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        305,
+        313
+      ],
+      "summary": "Pydantic API contract representing provider compare request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderCompareResult",
+      "type": "class",
+      "name": "ProviderCompareResult",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        316,
+        327
+      ],
+      "summary": "Pydantic API contract representing provider compare result data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderCompareResponse",
+      "type": "class",
+      "name": "ProviderCompareResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        330,
+        333
+      ],
+      "summary": "Pydantic API contract representing provider compare response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectCreate",
+      "type": "class",
+      "name": "ProjectCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        336,
+        344
+      ],
+      "summary": "Pydantic API contract representing project create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectUpdate",
+      "type": "class",
+      "name": "ProjectUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        347,
+        355
+      ],
+      "summary": "Pydantic API contract representing project update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectResponse",
+      "type": "class",
+      "name": "ProjectResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        358,
+        371
+      ],
+      "summary": "Pydantic API contract representing project response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:HierarchyEdge",
+      "type": "class",
+      "name": "HierarchyEdge",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        374,
+        377
+      ],
+      "summary": "Pydantic API contract representing hierarchy edge data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyUpdate",
+      "type": "class",
+      "name": "HierarchyPolicyUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        380,
+        390
+      ],
+      "summary": "Pydantic API contract representing hierarchy policy update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyResponse",
+      "type": "class",
+      "name": "HierarchyPolicyResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        393,
+        395
+      ],
+      "summary": "Pydantic API contract representing hierarchy policy response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkCreate",
+      "type": "class",
+      "name": "ProjectRepositoryLinkCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        398,
+        406
+      ],
+      "summary": "Pydantic API contract representing project repository link create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkResponse",
+      "type": "class",
+      "name": "ProjectRepositoryLinkResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        409,
+        420
+      ],
+      "summary": "Pydantic API contract representing project repository link response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspacePayload",
+      "type": "class",
+      "name": "LocalRepoWorkspacePayload",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        423,
+        432
+      ],
+      "summary": "Pydantic API contract representing local repo workspace payload data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspaceResponse",
+      "type": "class",
+      "name": "LocalRepoWorkspaceResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        435,
+        445
+      ],
+      "summary": "Pydantic API contract representing local repo workspace response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandRequest",
+      "type": "class",
+      "name": "LocalRepoCommandRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        448,
+        451
+      ],
+      "summary": "Pydantic API contract representing local repo command request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandResponse",
+      "type": "class",
+      "name": "LocalRepoCommandResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        454,
+        461
+      ],
+      "summary": "Pydantic API contract representing local repo command response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoReadFileResponse",
+      "type": "class",
+      "name": "LocalRepoReadFileResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        464,
+        467
+      ],
+      "summary": "Pydantic API contract representing local repo read file response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoWorktreeResponse",
+      "type": "class",
+      "name": "LocalRepoWorktreeResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        470,
+        474
+      ],
+      "summary": "Pydantic API contract representing local repo worktree response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:LocalRepoContextPackResponse",
+      "type": "class",
+      "name": "LocalRepoContextPackResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        477,
+        484
+      ],
+      "summary": "Pydantic API contract representing local repo context pack response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskCreate",
+      "type": "class",
+      "name": "TaskCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        487,
+        518
+      ],
+      "summary": "Pydantic API contract representing task create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionCreate",
+      "type": "class",
+      "name": "AgentWorkSessionCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        521,
+        526
+      ],
+      "summary": "Pydantic API contract representing agent work session create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionUpdate",
+      "type": "class",
+      "name": "AgentWorkSessionUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        529,
+        546
+      ],
+      "summary": "Pydantic API contract representing agent work session update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionResponse",
+      "type": "class",
+      "name": "AgentWorkSessionResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        549,
+        567
+      ],
+      "summary": "Pydantic API contract representing agent work session response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentQualityScoreResponse",
+      "type": "class",
+      "name": "AgentQualityScoreResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        570,
+        577
+      ],
+      "summary": "Pydantic API contract representing agent quality score response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskUpdate",
+      "type": "class",
+      "name": "TaskUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        580,
+        606
+      ],
+      "summary": "Pydantic API contract representing task update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskCommentCreate",
+      "type": "class",
+      "name": "TaskCommentCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        609,
+        610
+      ],
+      "summary": "Pydantic API contract representing task comment create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskCommentResponse",
+      "type": "class",
+      "name": "TaskCommentResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        613,
+        621
+      ],
+      "summary": "Pydantic API contract representing task comment response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskArtifactResponse",
+      "type": "class",
+      "name": "TaskArtifactResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        624,
+        634
+      ],
+      "summary": "Pydantic API contract representing task artifact response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:DagReadyTaskItem",
+      "type": "class",
+      "name": "DagReadyTaskItem",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        637,
+        641
+      ],
+      "summary": "Pydantic API contract representing dag ready task item data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskBlockerResponse",
+      "type": "class",
+      "name": "TaskBlockerResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        644,
+        648
+      ],
+      "summary": "Pydantic API contract representing task blocker response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:DagParallelStartPayload",
+      "type": "class",
+      "name": "DagParallelStartPayload",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        651,
+        655
+      ],
+      "summary": "Pydantic API contract representing dag parallel start payload data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:DagParallelStartResult",
+      "type": "class",
+      "name": "DagParallelStartResult",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        658,
+        661
+      ],
+      "summary": "Pydantic API contract representing dag parallel start result data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:MergeResolveRunPayload",
+      "type": "class",
+      "name": "MergeResolveRunPayload",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        664,
+        668
+      ],
+      "summary": "Pydantic API contract representing merge resolve run payload data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskResponse",
+      "type": "class",
+      "name": "TaskResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        671,
+        702
+      ],
+      "summary": "Pydantic API contract representing task response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskAssignmentRequest",
+      "type": "class",
+      "name": "TaskAssignmentRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        705,
+        709
+      ],
+      "summary": "Pydantic API contract representing task assignment request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskRunCreate",
+      "type": "class",
+      "name": "TaskRunCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        712,
+        719
+      ],
+      "summary": "Pydantic API contract representing task run create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskRunResponse",
+      "type": "class",
+      "name": "TaskRunResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        722,
+        754
+      ],
+      "summary": "Pydantic API contract representing task run response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RunCostSummaryResponse",
+      "type": "class",
+      "name": "RunCostSummaryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        757,
+        766
+      ],
+      "summary": "Pydantic API contract representing run cost summary response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ExecutionSnapshotMeta",
+      "type": "class",
+      "name": "ExecutionSnapshotMeta",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        769,
+        772
+      ],
+      "summary": "Pydantic API contract representing execution snapshot meta data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ActiveRunSummary",
+      "type": "class",
+      "name": "ActiveRunSummary",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        775,
+        783
+      ],
+      "summary": "Pydantic API contract representing active run summary data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PendingApprovalSummary",
+      "type": "class",
+      "name": "PendingApprovalSummary",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        786,
+        792
+      ],
+      "summary": "Pydantic API contract representing pending approval summary data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PendingGithubSyncSummary",
+      "type": "class",
+      "name": "PendingGithubSyncSummary",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        795,
+        800
+      ],
+      "summary": "Pydantic API contract representing pending github sync summary data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectLiveSnapshotResponse",
+      "type": "class",
+      "name": "ProjectLiveSnapshotResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        803,
+        812
+      ],
+      "summary": "Pydantic API contract representing project live snapshot response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RunEventTailItem",
+      "type": "class",
+      "name": "RunEventTailItem",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        815,
+        819
+      ],
+      "summary": "Pydantic API contract representing run event tail item data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RunTraceStep",
+      "type": "class",
+      "name": "RunTraceStep",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        822,
+        834
+      ],
+      "summary": "Pydantic API contract representing run trace step data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskExecutionSnapshotResponse",
+      "type": "class",
+      "name": "TaskExecutionSnapshotResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        837,
+        861
+      ],
+      "summary": "Pydantic API contract representing task execution snapshot response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RunExecutionSnapshotResponse",
+      "type": "class",
+      "name": "RunExecutionSnapshotResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        864,
+        882
+      ],
+      "summary": "Pydantic API contract representing run execution snapshot response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:WorkingMemoryResponse",
+      "type": "class",
+      "name": "WorkingMemoryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        885,
+        896
+      ],
+      "summary": "Pydantic API contract representing working memory response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:WorkingMemoryPatch",
+      "type": "class",
+      "name": "WorkingMemoryPatch",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        899,
+        906
+      ],
+      "summary": "Pydantic API contract representing working memory patch data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryResponse",
+      "type": "class",
+      "name": "SemanticMemoryEntryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        909,
+        936
+      ],
+      "summary": "Pydantic API contract representing semantic memory entry response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryCreate",
+      "type": "class",
+      "name": "SemanticMemoryEntryCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        939,
+        952
+      ],
+      "summary": "Pydantic API contract representing semantic memory entry create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "class",
+      "name": "SemanticMemoryEntryUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        955,
+        962
+      ],
+      "summary": "Pydantic API contract representing semantic memory entry update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "class",
+      "name": "PromoteWorkingMemoryRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        965,
+        968
+      ],
+      "summary": "Pydantic API contract representing promote working memory request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EpisodicSearchResponse",
+      "type": "class",
+      "name": "EpisodicSearchResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        971,
+        972
+      ],
+      "summary": "Pydantic API contract representing episodic search response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:MemorySettingsResponse",
+      "type": "class",
+      "name": "MemorySettingsResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        975,
+        996
+      ],
+      "summary": "Pydantic API contract representing memory settings response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:MemorySettingsPatch",
+      "type": "class",
+      "name": "MemorySettingsPatch",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        999,
+        1020
+      ],
+      "summary": "Pydantic API contract representing memory settings patch data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PendingSemanticWriteResponse",
+      "type": "class",
+      "name": "PendingSemanticWriteResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1023,
+        1026
+      ],
+      "summary": "Pydantic API contract representing pending semantic write response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:MemoryIngestJobResponse",
+      "type": "class",
+      "name": "MemoryIngestJobResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1029,
+        1038
+      ],
+      "summary": "Pydantic API contract representing memory ingest job response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMergeRequest",
+      "type": "class",
+      "name": "SemanticMergeRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1041,
+        1044
+      ],
+      "summary": "Pydantic API contract representing semantic merge request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkCreate",
+      "type": "class",
+      "name": "SemanticMemoryLinkCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1047,
+        1051
+      ],
+      "summary": "Pydantic API contract representing semantic memory link create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkResponse",
+      "type": "class",
+      "name": "SemanticMemoryLinkResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1054,
+        1064
+      ],
+      "summary": "Pydantic API contract representing semantic memory link response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeCreate",
+      "type": "class",
+      "name": "KnowledgeGraphEdgeCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1067,
+        1073
+      ],
+      "summary": "Pydantic API contract representing knowledge graph edge create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeResponse",
+      "type": "class",
+      "name": "KnowledgeGraphEdgeResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1076,
+        1088
+      ],
+      "summary": "Pydantic API contract representing knowledge graph edge response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "class",
+      "name": "EpisodicArchiveManifestResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1091,
+        1101
+      ],
+      "summary": "Pydantic API contract representing episodic archive manifest response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookResponse",
+      "type": "class",
+      "name": "ProceduralPlaybookResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1104,
+        1117
+      ],
+      "summary": "Pydantic API contract representing procedural playbook response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookCreate",
+      "type": "class",
+      "name": "ProceduralPlaybookCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1120,
+        1125
+      ],
+      "summary": "Pydantic API contract representing procedural playbook create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookUpdate",
+      "type": "class",
+      "name": "ProceduralPlaybookUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1128,
+        1133
+      ],
+      "summary": "Pydantic API contract representing procedural playbook update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "class",
+      "name": "TaskMemoryCoordinationResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1136,
+        1138
+      ],
+      "summary": "Pydantic API contract representing task memory coordination response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "class",
+      "name": "TaskMemoryCoordinationPatch",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1141,
+        1143
+      ],
+      "summary": "Pydantic API contract representing task memory coordination patch data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SemanticConflictGroupResponse",
+      "type": "class",
+      "name": "SemanticConflictGroupResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1146,
+        1148
+      ],
+      "summary": "Pydantic API contract representing semantic conflict group response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RunEventResponse",
+      "type": "class",
+      "name": "RunEventResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1151,
+        1164
+      ],
+      "summary": "Pydantic API contract representing run event response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormCreate",
+      "type": "class",
+      "name": "BrainstormCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1167,
+        1178
+      ],
+      "summary": "Pydantic API contract representing brainstorm create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantCreate",
+      "type": "class",
+      "name": "BrainstormParticipantCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1181,
+        1183
+      ],
+      "summary": "Pydantic API contract representing brainstorm participant create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantUpdate",
+      "type": "class",
+      "name": "BrainstormParticipantUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1186,
+        1187
+      ],
+      "summary": "Pydantic API contract representing brainstorm participant update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormArtifactResponse",
+      "type": "class",
+      "name": "BrainstormArtifactResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1190,
+        1196
+      ],
+      "summary": "Pydantic API contract representing brainstorm artifact response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormResponse",
+      "type": "class",
+      "name": "BrainstormResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1199,
+        1221
+      ],
+      "summary": "Pydantic API contract representing brainstorm response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantResponse",
+      "type": "class",
+      "name": "BrainstormParticipantResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1224,
+        1232
+      ],
+      "summary": "Pydantic API contract representing brainstorm participant response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormMessageResponse",
+      "type": "class",
+      "name": "BrainstormMessageResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1235,
+        1245
+      ],
+      "summary": "Pydantic API contract representing brainstorm message response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ApprovalDecision",
+      "type": "class",
+      "name": "ApprovalDecision",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1248,
+        1250
+      ],
+      "summary": "Pydantic API contract representing approval decision data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ApprovalResponse",
+      "type": "class",
+      "name": "ApprovalResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1253,
+        1268
+      ],
+      "summary": "Pydantic API contract representing approval response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:HITLAuditLogResponse",
+      "type": "class",
+      "name": "HITLAuditLogResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1271,
+        1278
+      ],
+      "summary": "Pydantic API contract representing hitlaudit log response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectDocumentResponse",
+      "type": "class",
+      "name": "ProjectDocumentResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1281,
+        1301
+      ],
+      "summary": "Pydantic API contract representing project document response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:KnowledgeSearchResultResponse",
+      "type": "class",
+      "name": "KnowledgeSearchResultResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1304,
+        1313
+      ],
+      "summary": "Pydantic API contract representing knowledge search result response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PortfolioProjectSummary",
+      "type": "class",
+      "name": "PortfolioProjectSummary",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1316,
+        1322
+      ],
+      "summary": "Pydantic API contract representing portfolio project summary data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PortfolioProjectControlPlane",
+      "type": "class",
+      "name": "PortfolioProjectControlPlane",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1325,
+        1336
+      ],
+      "summary": "Pydantic API contract representing portfolio project control plane data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyUpdate",
+      "type": "class",
+      "name": "PortfolioExecutionPolicyUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1339,
+        1343
+      ],
+      "summary": "Pydantic API contract representing portfolio execution policy update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyResponse",
+      "type": "class",
+      "name": "PortfolioExecutionPolicyResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1346,
+        1350
+      ],
+      "summary": "Pydantic API contract representing portfolio execution policy response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:OperatorHealthCard",
+      "type": "class",
+      "name": "OperatorHealthCard",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1353,
+        1358
+      ],
+      "summary": "Pydantic API contract representing operator health card data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:OperatorDashboardResponse",
+      "type": "class",
+      "name": "OperatorDashboardResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1361,
+        1367
+      ],
+      "summary": "Pydantic API contract representing operator dashboard response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:PortfolioControlPlaneResponse",
+      "type": "class",
+      "name": "PortfolioControlPlaneResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1370,
+        1375
+      ],
+      "summary": "Pydantic API contract representing portfolio control plane response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:WorkflowSignalRequest",
+      "type": "class",
+      "name": "WorkflowSignalRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1378,
+        1380
+      ],
+      "summary": "Pydantic API contract representing workflow signal request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ExecutionEventTypeCount",
+      "type": "class",
+      "name": "ExecutionEventTypeCount",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1383,
+        1385
+      ],
+      "summary": "Pydantic API contract representing execution event type count data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ToolFailureCount",
+      "type": "class",
+      "name": "ToolFailureCount",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1388,
+        1390
+      ],
+      "summary": "Pydantic API contract representing tool failure count data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ExecutionRollup",
+      "type": "class",
+      "name": "ExecutionRollup",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1393,
+        1405
+      ],
+      "summary": "Pydantic API contract representing execution rollup data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProviderHealthSummaryResponse",
+      "type": "class",
+      "name": "ProviderHealthSummaryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1408,
+        1419
+      ],
+      "summary": "Pydantic API contract representing provider health summary response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ExecutionInsightsResponse",
+      "type": "class",
+      "name": "ExecutionInsightsResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1422,
+        1454
+      ],
+      "summary": "Pydantic API contract representing execution insights response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:RuntimeInfoResponse",
+      "type": "class",
+      "name": "RuntimeInfoResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1457,
+        1469
+      ],
+      "summary": "Pydantic API contract representing runtime info response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:BrainstormDiscourseInsightsResponse",
+      "type": "class",
+      "name": "BrainstormDiscourseInsightsResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1472,
+        1480
+      ],
+      "summary": "Pydantic API contract representing brainstorm discourse insights response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskTimelineEntry",
+      "type": "class",
+      "name": "TaskTimelineEntry",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1483,
+        1490
+      ],
+      "summary": "Pydantic API contract representing task timeline entry data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateResponse",
+      "type": "class",
+      "name": "WorkflowTemplateResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1493,
+        1497
+      ],
+      "summary": "Pydantic API contract representing workflow template response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateApplyResponse",
+      "type": "class",
+      "name": "WorkflowTemplateApplyResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1500,
+        1504
+      ],
+      "summary": "Pydantic API contract representing workflow template apply response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryResponse",
+      "type": "class",
+      "name": "AgentMemoryEntryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1507,
+        1525
+      ],
+      "summary": "Pydantic API contract representing agent memory entry response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryCreate",
+      "type": "class",
+      "name": "AgentMemoryEntryCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1528,
+        1533
+      ],
+      "summary": "Pydantic API contract representing agent memory entry create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:OverviewResponse",
+      "type": "class",
+      "name": "OverviewResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1536,
+        1541
+      ],
+      "summary": "Pydantic API contract representing overview response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTemplateResponse",
+      "type": "class",
+      "name": "AgentTemplateResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1544,
+        1566
+      ],
+      "summary": "Pydantic API contract representing agent template response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTemplateCreate",
+      "type": "class",
+      "name": "AgentTemplateCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1569,
+        1590
+      ],
+      "summary": "Pydantic API contract representing agent template create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTemplateUpdate",
+      "type": "class",
+      "name": "AgentTemplateUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1593,
+        1616
+      ],
+      "summary": "Pydantic API contract representing agent template update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentFromTemplateRequest",
+      "type": "class",
+      "name": "AgentFromTemplateRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1619,
+        1636
+      ],
+      "summary": "Pydantic API contract representing agent from template request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTestRunRequest",
+      "type": "class",
+      "name": "AgentTestRunRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1639,
+        1646
+      ],
+      "summary": "Pydantic API contract representing agent test run request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTestRunTraceEvent",
+      "type": "class",
+      "name": "AgentTestRunTraceEvent",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1649,
+        1653
+      ],
+      "summary": "Pydantic API contract representing agent test run trace event data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:AgentTestRunResponse",
+      "type": "class",
+      "name": "AgentTestRunResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1656,
+        1668
+      ],
+      "summary": "Pydantic API contract representing agent test run response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SkillPackResponse",
+      "type": "class",
+      "name": "SkillPackResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1671,
+        1681
+      ],
+      "summary": "Pydantic API contract representing skill pack response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SkillPackCreate",
+      "type": "class",
+      "name": "SkillPackCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1684,
+        1691
+      ],
+      "summary": "Pydantic API contract representing skill pack create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:SkillPackUpdate",
+      "type": "class",
+      "name": "SkillPackUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1694,
+        1700
+      ],
+      "summary": "Pydantic API contract representing skill pack update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TeamTemplateResponse",
+      "type": "class",
+      "name": "TeamTemplateResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1703,
+        1716
+      ],
+      "summary": "Pydantic API contract representing team template response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TeamTemplateCreate",
+      "type": "class",
+      "name": "TeamTemplateCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1719,
+        1729
+      ],
+      "summary": "Pydantic API contract representing team template create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TeamTemplateUpdate",
+      "type": "class",
+      "name": "TeamTemplateUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1732,
+        1741
+      ],
+      "summary": "Pydantic API contract representing team template update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TeamProfileResponse",
+      "type": "class",
+      "name": "TeamProfileResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1744,
+        1758
+      ],
+      "summary": "Pydantic API contract representing team profile response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TeamProfileCreateFromTemplate",
+      "type": "class",
+      "name": "TeamProfileCreateFromTemplate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1761,
+        1766
+      ],
+      "summary": "Pydantic API contract representing team profile create from template data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskDecomposeRequest",
+      "type": "class",
+      "name": "TaskDecomposeRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1769,
+        1771
+      ],
+      "summary": "Pydantic API contract representing task decompose request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskDecomposeResponse",
+      "type": "class",
+      "name": "TaskDecomposeResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1774,
+        1776
+      ],
+      "summary": "Pydantic API contract representing task decompose response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskAcceptanceCheckResponse",
+      "type": "class",
+      "name": "TaskAcceptanceCheckResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1779,
+        1783
+      ],
+      "summary": "Pydantic API contract representing task acceptance check response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:TaskArtifactCreate",
+      "type": "class",
+      "name": "TaskArtifactCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1786,
+        1790
+      ],
+      "summary": "Pydantic API contract representing task artifact create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneCreate",
+      "type": "class",
+      "name": "ProjectMilestoneCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1793,
+        1798
+      ],
+      "summary": "Pydantic API contract representing project milestone create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneUpdate",
+      "type": "class",
+      "name": "ProjectMilestoneUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1801,
+        1806
+      ],
+      "summary": "Pydantic API contract representing project milestone update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneResponse",
+      "type": "class",
+      "name": "ProjectMilestoneResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1809,
+        1820
+      ],
+      "summary": "Pydantic API contract representing project milestone response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectDecisionCreate",
+      "type": "class",
+      "name": "ProjectDecisionCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1823,
+        1829
+      ],
+      "summary": "Pydantic API contract representing project decision create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ProjectDecisionResponse",
+      "type": "class",
+      "name": "ProjectDecisionResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1832,
+        1843
+      ],
+      "summary": "Pydantic API contract representing project decision response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:GateConfigResponse",
+      "type": "class",
+      "name": "GateConfigResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1863,
+        1866
+      ],
+      "summary": "Pydantic API contract representing gate config response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:GateConfigUpdate",
+      "type": "class",
+      "name": "GateConfigUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1869,
+        1889
+      ],
+      "summary": "Pydantic API contract representing gate config update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EvalRecordCreate",
+      "type": "class",
+      "name": "EvalRecordCreate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1892,
+        1898
+      ],
+      "summary": "Pydantic API contract representing eval record create data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EvalRecordUpdate",
+      "type": "class",
+      "name": "EvalRecordUpdate",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1901,
+        1907
+      ],
+      "summary": "Pydantic API contract representing eval record update data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EvalRecordResponse",
+      "type": "class",
+      "name": "EvalRecordResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1910,
+        1931
+      ],
+      "summary": "Pydantic API contract representing eval record response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:EvalLeaderboardEntryResponse",
+      "type": "class",
+      "name": "EvalLeaderboardEntryResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1934,
+        1944
+      ],
+      "summary": "Pydantic API contract representing eval leaderboard entry response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:ReplayRunRequest",
+      "type": "class",
+      "name": "ReplayRunRequest",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1947,
+        1949
+      ],
+      "summary": "Pydantic API contract representing replay run request data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/schemas.py:CostAggregationResponse",
+      "type": "class",
+      "name": "CostAggregationResponse",
+      "filePath": "backend/modules/orchestration/schemas.py",
+      "lineRange": [
+        1952,
+        1960
+      ],
+      "summary": "Pydantic API contract representing cost aggregation response data with validation and serialization rules.",
+      "tags": [
+        "type-definition",
+        "pydantic",
+        "api-contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/services/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/orchestration/services/__init__.py",
+      "summary": "Re-exports orchestration application and domain service boundaries as the public service package API.",
+      "tags": [
+        "barrel",
+        "service",
+        "exports",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMarkdownValidationResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMarkdownValidationResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentLintSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentLintSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResolvedProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResolvedProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentInheritancePreview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentInheritancePreview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentVersionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentVersionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderConfigResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ModelCapabilityResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ModelCapabilityResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderModelListResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderModelListResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareResult",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderCompareResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyEdge",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyEdge",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HierarchyPolicyResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectRepositoryLinkResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspacePayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspacePayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspaceResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorkspaceResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoCommandResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoReadFileResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoReadFileResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorktreeResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoWorktreeResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoContextPackResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:LocalRepoContextPackResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentWorkSessionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentQualityScoreResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentQualityScoreResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCommentCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCommentCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCommentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskCommentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskArtifactResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskArtifactResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagReadyTaskItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagReadyTaskItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskBlockerResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskBlockerResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagParallelStartPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagParallelStartPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagParallelStartResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:DagParallelStartResult",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MergeResolveRunPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MergeResolveRunPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskAssignmentRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskAssignmentRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskRunCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskRunCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskRunResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskRunResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunCostSummaryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunCostSummaryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionSnapshotMeta",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionSnapshotMeta",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ActiveRunSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ActiveRunSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingApprovalSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingApprovalSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingGithubSyncSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingGithubSyncSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectLiveSnapshotResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectLiveSnapshotResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventTailItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventTailItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunTraceStep",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunTraceStep",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskExecutionSnapshotResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskExecutionSnapshotResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunExecutionSnapshotResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunExecutionSnapshotResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkingMemoryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkingMemoryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkingMemoryPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkingMemoryPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryEntryUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PromoteWorkingMemoryRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EpisodicSearchResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EpisodicSearchResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemorySettingsResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemorySettingsResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemorySettingsPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemorySettingsPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingSemanticWriteResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PendingSemanticWriteResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemoryIngestJobResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:MemoryIngestJobResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMergeRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMergeRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticMemoryLinkResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeGraphEdgeResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EpisodicArchiveManifestResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProceduralPlaybookUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskMemoryCoordinationPatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticConflictGroupResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SemanticConflictGroupResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RunEventResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormArtifactResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormArtifactResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormParticipantResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormMessageResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormMessageResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ApprovalDecision",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ApprovalDecision",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ApprovalResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ApprovalResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HITLAuditLogResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:HITLAuditLogResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDocumentResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDocumentResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeSearchResultResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:KnowledgeSearchResultResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioProjectSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioProjectSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioProjectControlPlane",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioProjectControlPlane",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioExecutionPolicyResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OperatorHealthCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OperatorHealthCard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OperatorDashboardResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OperatorDashboardResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioControlPlaneResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:PortfolioControlPlaneResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowSignalRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowSignalRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionEventTypeCount",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionEventTypeCount",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ToolFailureCount",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ToolFailureCount",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionRollup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionRollup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderHealthSummaryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProviderHealthSummaryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionInsightsResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ExecutionInsightsResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RuntimeInfoResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:RuntimeInfoResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormDiscourseInsightsResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:BrainstormDiscourseInsightsResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskTimelineEntry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskTimelineEntry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateApplyResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:WorkflowTemplateApplyResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OverviewResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:OverviewResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTemplateUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentFromTemplateRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentFromTemplateRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunTraceEvent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunTraceEvent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentTestRunResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:SkillPackUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamTemplateUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamProfileResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamProfileResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamProfileCreateFromTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TeamProfileCreateFromTemplate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskDecomposeRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskDecomposeRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskDecomposeResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskDecomposeResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskAcceptanceCheckResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskAcceptanceCheckResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskArtifactCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskArtifactCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectMilestoneResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDecisionCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDecisionCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDecisionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ProjectDecisionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:GateConfigResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:GateConfigResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:GateConfigUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:GateConfigUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalRecordResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalLeaderboardEntryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:EvalLeaderboardEntryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ReplayRunRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:ReplayRunRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:CostAggregationResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "class:backend/modules/orchestration/schemas.py:CostAggregationResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "file:backend/modules/github/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/application.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/approvals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/brainstorm_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/evals_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/github_sync_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/knowledge_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/__init__.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "file:backend/tests/test_memory_architecture_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/schemas.py",
+      "target": "file:backend/tests/test_task_orchestration_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

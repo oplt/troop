@@ -7,15 +7,19 @@ from backend.core.schemas import RequestModel
 
 TaskStatus = Literal[
     "backlog",
-    "queued",
+    "ready",
+    "queued",  # legacy alias of ready
     "planned",
     "in_progress",
+    "needs_input",
     "blocked",
     "needs_review",
-    "approved",
+    "needs_approval",
+    "approved",  # legacy
     "completed",
-    "failed",
-    "synced_to_github",
+    "failed",  # legacy alias of blocked
+    "synced_to_github",  # legacy; prefer completed + github artifact/event
+    "cancelled",
     "archived",
 ]
 TaskPriority = Literal["low", "normal", "high", "urgent"]
@@ -31,6 +35,10 @@ class ProjectCreate(RequestModel):
     memory_scope: str = "project"
     knowledge_summary: str | None = None
     company_id: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectUpdate(RequestModel):
@@ -43,6 +51,10 @@ class ProjectUpdate(RequestModel):
     memory_scope: str | None = None
     knowledge_summary: str | None = None
     company_id: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] | None = None
+    budget: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -58,6 +70,10 @@ class ProjectResponse(BaseModel):
     memory_scope: str
     knowledge_summary: str | None
     company_id: str | None = None
+    department_id: str | None = None
+    knowledge_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -90,13 +106,20 @@ class ProjectRepositoryLinkResponse(BaseModel):
 class TaskCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
     description: str | None = None
+    objective: str | None = None
+    expected_output: str | None = None
     source: str = "manual"
     task_type: str = "general"
     priority: TaskPriority = "normal"
     status: TaskStatus = "backlog"
+    risk_level: str = "medium"
+    autonomy_level: str = "semi-autonomous"
+    assignment_mode: str = "manual"
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
     reviewer_agent_id: str | None = None
+    human_assignee_id: str | None = None
+    reviewer_user_id: str | None = None
     dependency_ids: list[str] = Field(default_factory=list)
     due_date: datetime | None = None
     response_sla_hours: int | None = Field(default=None, ge=1, le=8760)
@@ -116,13 +139,20 @@ class TaskCreate(RequestModel):
 class TaskUpdate(RequestModel):
     title: str | None = None
     description: str | None = None
+    objective: str | None = None
+    expected_output: str | None = None
     source: str | None = None
     task_type: str | None = None
     priority: TaskPriority | None = None
     status: TaskStatus | None = None
+    risk_level: str | None = None
+    autonomy_level: str | None = None
+    assignment_mode: str | None = None
     acceptance_criteria: str | None = None
     assigned_agent_id: str | None = None
     reviewer_agent_id: str | None = None
+    human_assignee_id: str | None = None
+    reviewer_user_id: str | None = None
     dependency_ids: list[str] | None = None
     due_date: datetime | None = None
     response_sla_hours: int | None = Field(default=None, ge=1, le=8760)
@@ -180,8 +210,10 @@ class TaskResponse(BaseModel):
     id: str
     project_id: str
     created_by_user_id: str
+    human_assignee_id: str | None = None
     assigned_agent_id: str | None
     reviewer_agent_id: str | None
+    reviewer_user_id: str | None = None
     github_issue_link_id: str | None
     github_issue_number: int | None = None
     github_issue_url: str | None = None
@@ -189,10 +221,15 @@ class TaskResponse(BaseModel):
     parent_task_id: str | None = None
     title: str
     description: str | None
+    objective: str | None = None
+    expected_output: str | None = None
     source: str
     task_type: str
     priority: str
     status: str
+    risk_level: str = "medium"
+    autonomy_level: str = "semi-autonomous"
+    assignment_mode: str = "manual"
     acceptance_criteria: str | None
     due_date: datetime | None
     response_sla_hours: int | None = None

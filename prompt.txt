@@ -1,0 +1,2797 @@
+You are a **principal AI platform engineer, staff full-stack engineer, product architect, and database migration specialist** working directly on:
+
+`https://github.com/oplt/troop`
+
+Your task is to evolve the existing Troop application from a primarily GitHub/software-development-oriented AI orchestration system into a **generic task-driven AI workforce platform** where users define their own projects, tasks, organizational departments, skills, agents, tools, workflows, and knowledge.
+
+Do **not** build separate hard-coded Sales, Marketing, R&D, HR, Legal, Engineering modules.
+
+The architecture must instead revolve around:
+
+```text
+Organization
+    │
+    ├── User-defined Departments / Organizational Units
+    │
+    ├── Projects
+    │      ├── Tasks
+    │      ├── Knowledge
+    │      ├── Agents
+    │      ├── Skills
+    │      ├── Tools / Integrations
+    │      ├── Workflows
+    │      └── Artifacts
+    │
+    ├── Agents
+    ├── Skills
+    ├── Tools
+    ├── Workflows
+    ├── Knowledge
+    ├── Policies
+    └── Evaluations
+```
+
+The central product principle is:
+
+> Users describe work. Troop understands what capabilities that work requires, discovers or generates reusable skills, identifies or assembles appropriate agents, assigns the work, executes it through governed tools, evaluates the result, and learns reusable capabilities from repeated work.
+
+---
+
+# 0. FIRST: ANALYZE THE CURRENT REPOSITORY
+
+Before changing anything, inspect the current HEAD of `main`.
+
+Do not rely only on this prompt's description because the repository is actively evolving.
+
+Inspect at minimum:
+
+```text
+backend/modules/team/
+backend/modules/projects/
+backend/modules/orchestration/
+backend/modules/memory/
+backend/modules/github/
+backend/modules/ai/
+backend/modules/settings/
+backend/modules/identity_access/
+backend/modules/audit/
+frontend/src/api/
+frontend/src/features/
+frontend/src/pages/
+frontend/src/components/templates/
+frontend/src/features/skillTemplateImport/
+```
+
+Pay particular attention to:
+
+```text
+backend/modules/team/models.py
+backend/modules/team/service.py
+backend/modules/team/repository.py
+backend/modules/team/schemas.py
+
+backend/modules/projects/orchestration_models.py
+backend/modules/projects/tasks_service.py
+
+backend/modules/orchestration/models.py
+backend/modules/orchestration/tools.py
+backend/modules/orchestration/control_plane_runtime.py
+backend/modules/orchestration/execution/
+backend/modules/orchestration/services/routing_service.py
+backend/modules/orchestration/workflow_templates.py
+
+frontend/src/features/skillTemplateImport/
+frontend/src/components/templates/
+frontend/src/api/orchestration.ts
+frontend/src/pages/projectDetail/
+frontend/src/features/orchestration/project/
+```
+
+Also inspect all existing Alembic/database migrations and test suites before choosing migration strategy.
+
+Produce an internal dependency map before modifying models.
+
+Do not create duplicate subsystems when existing abstractions can be evolved.
+
+---
+
+# 1. PRESERVE AND EXTEND THE NEW SKILL IMPORT FRAMEWORK
+
+The repository already contains a relatively modern deterministic skill-template Markdown import framework.
+
+It currently parses concepts such as:
+
+```text
+name
+slug
+description
+capabilities
+allowed_tools
+tags
+rules_markdown
+```
+
+and provides concepts including:
+
+```text
+parse confidence
+warnings/issues
+unmatched sections
+manual section mapping
+tool catalog normalization
+skill import drafts
+```
+
+Do NOT discard this work.
+
+Treat it as the beginning of the new Skill Builder.
+
+Refactor it where necessary so imported skills, manually authored skills, and AI-generated skills all eventually pass through the same:
+
+```text
+SkillDraft
+    ↓
+Validation
+    ↓
+Normalization
+    ↓
+Review
+    ↓
+Evaluation
+    ↓
+Publish SkillVersion
+```
+
+pipeline.
+
+The deterministic parser must remain useful for imported Markdown.
+
+AI generation should augment it rather than replace it.
+
+---
+
+# 2. CORE PRODUCT MODEL: PROJECTS AND TASKS, NOT DEPARTMENT MODULES
+
+Do not implement:
+
+```text
+backend/modules/sales
+backend/modules/marketing
+backend/modules/rnd
+backend/modules/hr
+```
+
+unless some future integration requires truly domain-specific infrastructure.
+
+Instead implement generic reusable primitives.
+
+Departments must be **user-defined organizational context**.
+
+For example:
+
+```text
+Sales
+Marketing
+R&D
+Engineering
+Operations
+Finance
+Legal
+Agriculture Research
+Drone Operations
+Growth Europe
+Customer Success
+```
+
+should simply be values/entities created by users.
+
+Users must also be able to create any other department.
+
+Implement something similar to:
+
+```text
+Department
+
+id
+organization/company_id
+name
+slug
+description
+parent_department_id nullable
+default_knowledge_policy
+default_tool_policy
+default_model_policy
+default_approval_policy
+budget_policy
+metadata
+created_at
+updated_at
+```
+
+Projects may optionally have:
+
+```text
+department_id nullable
+```
+
+but projects MUST NOT require a department.
+
+Tasks should inherit project context and therefore optionally department policy.
+
+Department is used for:
+
+```text
+ownership
+permissions
+knowledge boundaries
+default tools
+default agents
+budgets
+analytics
+approval policies
+reporting
+```
+
+Department must NOT determine which code module executes the task.
+
+---
+
+# 3. CONSOLIDATE THE PROJECT/TASK DOMAIN
+
+The existing repository has overlapping project/task concepts.
+
+Inspect all usages carefully.
+
+Choose one canonical project/task domain, preferably evolving the richer orchestration-oriented models rather than maintaining parallel basic and orchestration project/task tables forever.
+
+Target conceptually:
+
+```text
+Project
+
+id
+owner/company
+department_id nullable
+name
+slug
+description
+goals
+status
+settings
+knowledge policy
+budget
+metadata
+```
+
+and:
+
+```text
+Task
+
+id
+project_id
+parent_task_id nullable
+
+created_by
+human_assignee_id nullable
+assigned_agent_id nullable
+reviewer_agent_id nullable
+
+title
+description
+objective
+
+status
+priority
+task_type
+
+acceptance_criteria
+expected_output
+due_date
+
+source
+risk_level
+autonomy_level
+
+metadata
+created_at
+updated_at
+```
+
+Plan and execute a safe migration.
+
+Do not break existing data.
+
+Where old models/APIs are widely used:
+
+1. migrate data,
+2. introduce compatibility adapters,
+3. migrate callers,
+4. remove deprecated paths only once tests prove they are unused.
+
+Do not leave two competing project/task systems indefinitely.
+
+---
+
+# 4. GENERIC TASK LIFECYCLE
+
+Remove software/GitHub concepts from generic task status.
+
+Target statuses such as:
+
+```text
+backlog
+ready
+planned
+in_progress
+needs_input
+blocked
+needs_review
+needs_approval
+completed
+archived
+cancelled
+```
+
+GitHub actions such as:
+
+```text
+synced_to_github
+PR_created
+PR_merged
+issue_updated
+```
+
+must become:
+
+```text
+events
+artifacts
+integration actions
+workflow step results
+```
+
+rather than generic task statuses.
+
+Provide backward compatibility for existing persisted states.
+
+Do not destroy historical run information.
+
+---
+
+# 5. BUILD A FIRST-CLASS SKILL DOMAIN
+
+The current `SkillPack` is too limited for the intended platform.
+
+Evolve it into a first-class skill system.
+
+Prefer explicit typed columns/tables for important product concepts rather than putting everything into `metadata_json`.
+
+Implement the equivalent of:
+
+```text
+Skill
+
+id
+organization/company owner
+slug
+name
+description
+
+scope
+status
+
+current_version_id
+created_by
+created_at
+updated_at
+```
+
+with scopes:
+
+```text
+task
+project
+organization
+template
+```
+
+Optionally support `global` later if system-owned public skills become necessary.
+
+Statuses:
+
+```text
+draft
+testing
+active
+deprecated
+archived
+```
+
+Create:
+
+```text
+SkillVersion
+
+id
+skill_id
+version_number
+
+purpose
+instructions_markdown
+
+input_schema_json
+output_schema_json
+
+capabilities_json
+required_tools_json
+knowledge_requirements_json
+
+constraints_markdown
+
+risk_level
+approval_policy_json
+
+examples_json
+evaluation_criteria_json
+
+source_type
+source_task_id
+source_project_id
+generated_by_model
+generation_metadata_json
+
+created_by
+created_at
+```
+
+Important:
+
+Skill versions must be immutable after publishing.
+
+Editing a published skill creates a new version.
+
+Agents may pin a specific version or follow the active version according to policy.
+
+Preserve compatibility with existing `SkillPack` APIs during migration where practical.
+
+---
+
+# 6. SKILL DRAFT SYSTEM
+
+Introduce a shared skill draft representation.
+
+Examples of sources:
+
+```text
+manual
+markdown_import
+task_generation
+project_generation
+agent_recommendation
+skill_clone
+```
+
+A `SkillDraft` should contain enough information to populate a complete `SkillVersion`.
+
+Unify:
+
+```text
+Markdown import
+Manual builder
+AI generation
+Task gap generation
+```
+
+through one draft review UI.
+
+The UI should show:
+
+```text
+Purpose
+When to use
+Capabilities
+Inputs
+Outputs
+Instructions
+Tools
+Knowledge
+Constraints
+Risk
+Approval policy
+Examples
+Evaluation criteria
+Scope
+```
+
+It should also show:
+
+```text
+Validation errors
+Warnings
+Unknown tools
+Unmatched imported sections
+AI-generation confidence
+Potential duplicate skills
+```
+
+---
+
+# 7. BUILD THE TASK CAPABILITY ANALYZER
+
+This is one of the most important features.
+
+Whenever a user creates a task, Troop must be able to run:
+
+```text
+Analyze task
+```
+
+The Task Capability Analyzer should consider:
+
+```text
+task title
+task description
+task objective
+acceptance criteria
+project goals
+project knowledge
+department context
+available tools
+available integrations
+existing skills
+existing agents
+organization policies
+```
+
+Return a structured result such as:
+
+```json
+{
+  "objective": "...",
+  "task_category": "...",
+  "required_capabilities": [],
+  "required_skills": [],
+  "required_tools": [],
+  "knowledge_requirements": [],
+  "expected_artifacts": [],
+  "acceptance_criteria": [],
+  "risk_level": "low|medium|high|critical",
+  "autonomy_recommendation": "...",
+  "review_requirements": [],
+  "approval_requirements": []
+}
+```
+
+This must use a strict structured model/schema.
+
+Do not rely on free-form LLM text.
+
+Persist capability analysis so users can inspect it later.
+
+Create something equivalent to:
+
+```text
+TaskAnalysis
+TaskRequirement
+```
+
+or another clean typed design.
+
+Support reanalysis when a task changes.
+
+Store analyzer version/model so results remain reproducible.
+
+---
+
+# 8. SKILL MATCHING ENGINE
+
+After task analysis:
+
+```text
+Task
+  ↓
+requirements
+  ↓
+Skill Matcher
+```
+
+Search existing skills.
+
+Rank matches using signals such as:
+
+```text
+capability overlap
+tool compatibility
+input/output compatibility
+knowledge compatibility
+scope
+department/project relevance
+skill evaluation score
+recent successful usage
+cost
+latency
+risk
+version status
+```
+
+Return explainable results.
+
+For example:
+
+```text
+Company Research                 0.96
+Web Research                     0.91
+Source Verification              0.87
+Lead Qualification               0.74
+```
+
+Each recommendation must explain WHY it matched.
+
+Do not let the LLM be the only matching mechanism.
+
+Use deterministic scoring where possible and optionally semantic/vector retrieval as another signal.
+
+---
+
+# 9. SKILL GAP DETECTION
+
+Compare task requirements against existing matched skills.
+
+Produce:
+
+```text
+Covered requirements
+Partially covered requirements
+Missing requirements
+```
+
+Example:
+
+```text
+Covered
+✓ web research
+✓ company enrichment
+✓ structured extraction
+
+Missing
+✗ greenhouse operator classification
+✗ agricultural lead qualification
+```
+
+Expose this visually.
+
+Then provide:
+
+```text
+Generate missing skills
+```
+
+---
+
+# 10. AI SKILL GENERATOR
+
+Implement AI-generated skills from capability gaps.
+
+The generator should consume:
+
+```text
+task requirements
+project goals
+project knowledge summary
+department context
+available tools
+existing related skills
+organization policies
+```
+
+The generator MUST return structured skill drafts.
+
+It must not immediately create active production skills.
+
+Flow:
+
+```text
+Generate
+   ↓
+SkillDraft
+   ↓
+Validation
+   ↓
+Duplicate detection
+   ↓
+Human review / policy-based auto approval
+   ↓
+Publish
+```
+
+Generated skill output should include:
+
+```text
+name
+slug
+purpose
+description
+instructions
+when_to_use
+capabilities
+input_schema
+output_schema
+required_tools
+knowledge_requirements
+constraints
+risk
+approval requirements
+examples
+evaluation criteria
+recommended scope
+```
+
+Avoid overly broad generated skills.
+
+A skill should represent a reusable capability, not simply restate the whole task.
+
+Bad:
+
+```text
+Research 50 Greenhouse Companies in Belgium for Project ABC
+```
+
+Better:
+
+```text
+Greenhouse Operator Identification
+```
+
+Generation prompt should explicitly encourage:
+
+```text
+small
+composable
+reusable
+testable
+well-scoped
+tool-aware
+schema-driven
+```
+
+skills.
+
+---
+
+# 11. DUPLICATE / NEAR-DUPLICATE SKILL DETECTION
+
+Before creating a new skill, find similar existing skills.
+
+Combine:
+
+```text
+slug/name similarity
+capability overlap
+semantic similarity
+tool overlap
+purpose similarity
+input/output compatibility
+```
+
+If similarity exceeds a reasonable threshold:
+
+```text
+Existing similar skill found
+
+Agricultural Company Qualification
+87% similarity
+
+[Use existing]
+[Extend existing]
+[Create new anyway]
+```
+
+Do not silently create duplicates.
+
+---
+
+# 12. SKILL SCOPES AND PROMOTION
+
+Implement skill scope:
+
+```text
+task
+project
+organization
+template
+```
+
+### Task skills
+
+Temporary/specialized skills generated for one task.
+
+### Project skills
+
+Reusable across a project.
+
+### Organization skills
+
+Reusable across projects.
+
+### Template skills
+
+Reusable templates available when creating future systems.
+
+Track usage.
+
+Implement promotion recommendations.
+
+For example:
+
+```text
+This skill has been successfully used in 4 tasks.
+
+Promote:
+Task → Project
+```
+
+Later:
+
+```text
+This project skill has been used successfully across
+3 projects.
+
+Promote:
+Project → Organization
+```
+
+Promotion must not happen invisibly.
+
+Provide configurable auto-promotion policy if desired, but default to recommendation + user approval.
+
+---
+
+# 13. SKILL EVALUATION
+
+Generated skills must be measurable.
+
+Implement evaluation at two levels.
+
+## Generic metrics
+
+```text
+task success
+acceptance criteria coverage
+human acceptance
+review outcome
+retry count
+latency
+token usage
+cost
+tool failures
+hallucination/grounding score where applicable
+```
+
+## Skill-specific criteria
+
+Stored in:
+
+```text
+evaluation_criteria_json
+```
+
+Examples:
+
+Research:
+
+```text
+citation correctness
+source quality
+claim grounding
+coverage
+```
+
+Sales:
+
+```text
+lead qualification accuracy
+data completeness
+human edits
+```
+
+Coding:
+
+```text
+test success
+lint
+review acceptance
+regressions
+```
+
+Do not hard-code evaluation logic around departments.
+
+Create extensible evaluator interfaces.
+
+Track performance by:
+
+```text
+skill
+skill version
+agent
+agent version
+model
+workflow
+task type
+```
+
+---
+
+# 14. AGENTS BECOME COMPOSITIONS OF SKILLS
+
+Continue evolving `AgentProfile`.
+
+Conceptually:
+
+```text
+Agent
+=
+Role
++ Skill assignments
++ Tool grants
++ Knowledge access
++ Model policy
++ Memory policy
++ Budget
++ Permissions
+```
+
+Move away from relying only on string `skills_json`.
+
+Introduce explicit skill assignment records such as:
+
+```text
+AgentSkillAssignment
+
+agent_id
+skill_id
+skill_version_id nullable
+version_policy
+priority
+enabled
+created_at
+```
+
+Version policy might support:
+
+```text
+pinned
+latest_active
+```
+
+Keep compatibility with existing data while migrating.
+
+---
+
+# 15. AGENT MATCHING
+
+Once skill requirements are known, rank available agents.
+
+Score:
+
+```text
+required skill coverage
+capability overlap
+required tool access
+knowledge access
+department/project access
+historical quality
+cost
+latency
+availability
+risk compatibility
+model capability
+```
+
+Return:
+
+```text
+Recommended agents
+
+1. Market Intelligence Agent        94%
+2. Research Agent                   87%
+3. Generalist Agent                 68%
+```
+
+Explain scores.
+
+Support assignment modes:
+
+```text
+Manual
+Recommend
+Automatic
+```
+
+Per project or task.
+
+---
+
+# 16. AUTOMATIC AGENT ASSEMBLY
+
+If no suitable agent exists, Troop should be able to propose one.
+
+Example:
+
+```text
+No existing agent provides sufficient capability coverage.
+
+Create:
+
+Agricultural Market Research Agent
+
+Skills:
+- Web Research
+- Company Research
+- Market Sizing
+- Agricultural Company Classification
+- Source Verification
+```
+
+Do not generate another huge monolithic system prompt.
+
+Compose the agent primarily from reusable skills.
+
+Allow:
+
+```text
+[Create Agent]
+[Customize]
+[Assign skills manually]
+```
+
+New agents should start as draft/inactive until validation succeeds.
+
+Use the existing agent validation/versioning machinery.
+
+---
+
+# 17. PROJECT WORKFORCE GENERATION
+
+Add a project-level action:
+
+```text
+Analyze Project
+```
+
+Analyze:
+
+```text
+goal
+description
+existing tasks
+knowledge
+integrations
+department
+policies
+```
+
+Troop can suggest:
+
+```text
+Recommended tasks
+Recommended skills
+Recommended agents
+Recommended reviewers
+Recommended workflow
+```
+
+Example:
+
+```text
+Project:
+Launch agriculture drone product in Benelux
+```
+
+could propose:
+
+```text
+Market Research Agent
+Regulatory Research Agent
+Sales Research Agent
+Marketing Strategy Agent
+Reviewer Agent
+```
+
+But these labels are recommendations based on the work.
+
+They are NOT hard-coded department modules.
+
+Let the user:
+
+```text
+Create workforce
+Customize
+Dismiss
+```
+
+Use existing team/workforce/canvas concepts where possible instead of creating another competing team implementation.
+
+---
+
+# 18. HUMAN AND AGENT ASSIGNMENT MUST BE UNIFIED
+
+Tasks should support:
+
+```text
+Human
+AI agent
+Auto-select best agent
+Unassigned
+```
+
+The task assignee picker should display humans and AI teammates in a coherent interface.
+
+Reviewer should support:
+
+```text
+Human
+AI
+Human + AI
+None
+```
+
+Allow:
+
+```text
+Ask agent
+Assign task
+Delegate
+Run skill
+Create agent from task
+Generate missing skill
+Request review
+```
+
+from the task UI.
+
+---
+
+# 19. TOOL / CONNECTOR ARCHITECTURE
+
+The current orchestration toolbox is too hard-coded.
+
+Refactor existing functionality incrementally.
+
+Do NOT rewrite working GitHub/web/filesystem/etc implementations unnecessarily.
+
+Wrap them behind an abstraction approximately like:
+
+```python
+class ToolProvider:
+    discover_tools()
+    get_schema()
+    validate_permissions()
+    estimate_risk()
+    execute()
+```
+
+Create a typed registry:
+
+```text
+ToolDefinition
+ConnectorDefinition
+ConnectorInstallation
+ToolGrant
+CredentialGrant
+ActionPolicy
+```
+
+Possible provider types:
+
+```text
+NativeToolProvider
+GitHubToolProvider
+MCPToolProvider
+HTTPToolProvider
+A2AToolProvider
+```
+
+Existing tools such as:
+
+```text
+github_comment
+github_label_issue
+github_create_pr
+web_search
+web_fetch
+code_execute
+fs_read
+fs_write
+db_query
+repo_search
+knowledge_search
+```
+
+should be registered through the new system.
+
+Do not duplicate their implementations.
+
+---
+
+# 20. ADD MCP SUPPORT
+
+Design Troop so MCP servers can contribute tools.
+
+Support conceptually:
+
+```text
+MCP server
+    ↓
+tool discovery
+    ↓
+Tool Registry
+    ↓
+Tool Grants
+    ↓
+Skill requirements
+    ↓
+Agent execution
+```
+
+Store connector configuration securely.
+
+Never expose secrets to frontend or prompts unnecessarily.
+
+Reuse existing external-call safety infrastructure and secret redaction mechanisms.
+
+---
+
+# 21. PREPARE FOR A2A AGENTS
+
+Architect the registry so future/external agents can be represented.
+
+Support an abstraction allowing:
+
+```text
+native Troop agent
+external A2A agent
+other remote agent
+```
+
+to eventually participate in projects.
+
+Do not tightly couple task assignment to only local `AgentProfile`.
+
+If full A2A implementation would destabilize this iteration, establish the interfaces and implement a minimal adapter with tests, but do not add fake placeholder behavior.
+
+---
+
+# 22. AGENT IDENTITY AND PERMISSIONS
+
+Do not allow an agent to implicitly inherit every server credential.
+
+Implement scoped concepts such as:
+
+```text
+AgentIdentity
+ConnectorInstallation
+ToolGrant
+CredentialGrant
+ActionPolicy
+```
+
+An agent must only execute tools it is explicitly permitted to use.
+
+Permission checks should consider:
+
+```text
+organization
+department
+project
+agent
+skill
+task
+action risk
+```
+
+Keep permission resolution explainable.
+
+---
+
+# 23. GENERIC ACTION POLICY / APPROVAL SYSTEM
+
+Reuse the existing approval infrastructure.
+
+Generalize it so policies apply to actions, not departments.
+
+Examples:
+
+```text
+web_search                autonomous
+knowledge_read            autonomous
+crm_read                  autonomous
+crm_note_update           autonomous
+external_email_send       approval_required
+social_publish            approval_required
+ad_budget_change          approval_required
+delete_record             approval_required/prohibited
+merge_pull_request        configurable
+shell_destructive_action  prohibited/approval_required
+```
+
+Policy precedence should be clear.
+
+For example:
+
+```text
+organization
+    ↓
+department
+    ↓
+project
+    ↓
+agent
+    ↓
+skill
+    ↓
+task/action override
+```
+
+Use deny-by-default for high-risk capabilities.
+
+---
+
+# 24. GENERICIZE THE EXECUTION ENGINE
+
+The current execution engine contains software-development assumptions.
+
+Remove generic runtime assumptions such as:
+
+```text
+github_sync
+changed_files
+implementation bundle
+```
+
+from the universal workflow.
+
+Instead generic execution should produce:
+
+```text
+Artifact
+Evidence
+ToolCall
+Decision
+Result
+Review
+Approval
+ExternalAction
+```
+
+Coding skills may still produce:
+
+```text
+changed_files
+commit
+pull_request
+tests
+```
+
+but these must be specialized artifacts produced by coding/GitHub integrations.
+
+Preserve current GitHub coding functionality.
+
+The goal is:
+
+```text
+Generic Core
+    +
+GitHub/Coding capabilities
+```
+
+not:
+
+```text
+Remove GitHub capabilities.
+```
+
+---
+
+# 25. GENERIC WORKFLOW ENGINE
+
+Replace static software-oriented workflow assumptions with versioned workflow definitions.
+
+Implement entities similar to:
+
+```text
+WorkflowDefinition
+WorkflowVersion
+WorkflowNode
+WorkflowEdge
+WorkflowRun
+WorkflowStepRun
+```
+
+Node types:
+
+```text
+agent
+skill
+tool
+router
+condition
+parallel
+approval
+human_input
+subworkflow
+delay
+trigger
+```
+
+Distinguish:
+
+### Deterministic edges
+
+```text
+if score > 80 → branch A
+```
+
+### Agentic routing
+
+```text
+AI decides which specialist should handle the next step.
+```
+
+Do not use LLM reasoning where simple deterministic logic is sufficient.
+
+Workflow definitions must be data-driven, not Python constants only.
+
+---
+
+# 26. WORKFLOW TEMPLATES
+
+Existing templates may remain, but move toward database/version-backed templates.
+
+Templates can include examples such as:
+
+```text
+Research workflow
+Lead qualification workflow
+Content review workflow
+Coding issue workflow
+Incident investigation workflow
+Competitor research workflow
+Literature review workflow
+Document review workflow
+```
+
+These are templates, not architectural modules.
+
+Users may create their own templates.
+
+---
+
+# 27. KNOWLEDGE CONTEXT
+
+Build hierarchical permission-aware knowledge context:
+
+```text
+Organization knowledge
+        ↓
+Department knowledge
+        ↓
+Project knowledge
+        ↓
+Task context
+        ↓
+Agent working memory
+```
+
+Agents should retrieve only information allowed by policy.
+
+For example, a marketing project should not automatically retrieve HR payroll documents merely because both belong to the same company.
+
+Reuse the existing memory/RAG architecture where possible.
+
+Do not introduce a second independent vector memory system.
+
+---
+
+# 28. TASK → SKILL → AGENT TRACEABILITY
+
+Every execution should make it possible to answer:
+
+```text
+Why was this skill selected?
+Why was this agent selected?
+Which skill version ran?
+Which tools were available?
+Which tools were called?
+What knowledge was retrieved?
+What policy allowed the action?
+Who approved it?
+What artifact was produced?
+How was it evaluated?
+How much did it cost?
+```
+
+Persist these relationships.
+
+Do not hide important relationships only inside logs.
+
+---
+
+# 29. SKILL USAGE ANALYTICS
+
+Track:
+
+```text
+skill runs
+success rate
+human acceptance rate
+average cost
+average latency
+retry rate
+task types
+agents using skill
+projects using skill
+evaluation scores
+last used
+```
+
+Display useful statistics on skill detail pages.
+
+Allow comparing versions:
+
+```text
+v3 vs v4
+```
+
+---
+
+# 30. SKILL IMPROVEMENT LOOP
+
+Implement a controlled improvement flow:
+
+```text
+Execution
+   ↓
+Evaluation
+   ↓
+Feedback
+   ↓
+Skill improvement suggestion
+   ↓
+New SkillVersion draft
+   ↓
+Evaluation
+   ↓
+User approval
+   ↓
+Publish
+```
+
+Never silently overwrite a production skill based on one bad result.
+
+Provide diffs between skill versions.
+
+Example:
+
+```text
+v3 → v4
+
++ Verify company headquarters using two sources
++ Return confidence field
+- Removed redundant search step
+```
+
+---
+
+# 31. FRONTEND INFORMATION ARCHITECTURE
+
+Simplify global navigation around WORK rather than individual agent technology.
+
+Target approximately:
+
+```text
+Home
+
+Work
+    Projects
+    My Tasks
+    Agent Tasks
+    Approvals
+
+AI Workforce
+    Agents
+    Skills
+    Teams
+    Workflows
+
+Knowledge
+
+Integrations
+
+Insights
+    Runs
+    Quality
+    Cost
+
+Admin
+```
+
+GitHub should eventually appear under:
+
+```text
+Integrations → GitHub
+```
+
+rather than defining the product itself.
+
+Preserve deep links/backward redirects where required.
+
+---
+
+# 32. PROJECT UI
+
+Target:
+
+```text
+Project
+
+Overview
+Tasks
+Agents
+Workflow
+Knowledge
+Files & Artifacts
+Activity
+Settings
+```
+
+Tasks should support:
+
+```text
+Board
+List
+Dependencies
+```
+
+Do not create an enormous monolithic project component.
+
+The existing project detail view is large.
+
+Break it into domain-focused components/hooks.
+
+Keep query/mutation ownership understandable.
+
+---
+
+# 33. TASK DETAIL UI
+
+Create a modern task inspector.
+
+Sections:
+
+```text
+Overview
+
+Requirements
+    objective
+    capabilities
+    tools
+    knowledge
+    acceptance criteria
+
+Skills
+    matched
+    missing
+    generated
+
+Assignee
+    human
+    agent
+    auto-match
+
+Workflow
+
+Artifacts
+
+Activity
+
+Runs
+
+Evaluation
+```
+
+Primary AI actions:
+
+```text
+Analyze task
+Find skills
+Generate missing skills
+Recommend agent
+Create agent
+Run
+Request review
+```
+
+---
+
+# 34. SKILL BUILDER UI
+
+Unify existing skill template UI and generated skill flow.
+
+Suggested layout:
+
+```text
+------------------------------------------------------
+Skill Builder
+------------------------------------------------------
+
+Name                         Scope
+Slug                         Status
+
+Purpose
+
+When to use
+
+Capabilities
+
+Inputs                     Outputs
+JSON Schema                JSON Schema
+
+Instructions
+
+Required tools
+
+Knowledge requirements
+
+Constraints
+
+Risk & Approval
+
+Examples
+
+Evaluation
+
+------------------------------------------------------
+Validation
+Warnings
+Duplicate matches
+------------------------------------------------------
+
+[Save draft] [Test skill] [Publish]
+```
+
+Imported Markdown should open here after deterministic parsing.
+
+AI-generated skills should open here as drafts.
+
+Manual skills should use the same builder.
+
+---
+
+# 35. SKILL GENERATION UX
+
+When analyzing a task:
+
+```text
+Task capability analysis
+
+6 requirements identified
+
+Covered by existing skills
+✓ Web Research
+✓ Source Verification
+✓ Structured Data Extraction
+
+Missing
+! Agricultural Company Classification
+! Agricultural Lead Qualification
+
+[Generate missing skills]
+```
+
+After generation:
+
+```text
+2 skill drafts generated
+
+Agricultural Company Classification
+Confidence: 92%
+
+Agricultural Lead Qualification
+Confidence: 88%
+
+[Review]
+[Create both]
+```
+
+Never make generated objects mysterious.
+
+Show what was generated and why.
+
+---
+
+# 36. AGENT AUTO-ASSEMBLY UX
+
+After skill generation:
+
+```text
+Agent coverage
+
+Market Research Agent
+4 / 6 capabilities
+
+Sales Research Agent
+3 / 6 capabilities
+
+No existing agent fully covers this task.
+
+Recommended:
+Create "Agricultural Market Research Agent"
+
+Skills:
+✓ Web Research
+✓ Source Verification
+✓ Company Classification
+✓ Lead Qualification
+
+[Create and assign]
+```
+
+---
+
+# 37. PROJECT CREATION FLOW
+
+Improve project creation so it can be lightweight.
+
+Step 1:
+
+```text
+Project name
+Goal / description
+Optional department
+```
+
+Then:
+
+```text
+Create Project
+```
+
+After creation show:
+
+```text
+Analyze this project with AI?
+```
+
+Analysis can recommend:
+
+```text
+tasks
+skills
+agents
+workflow
+knowledge sources
+integrations
+```
+
+Do not force users through a large setup wizard before they can create a project.
+
+---
+
+# 38. USER-DEFINED DEPARTMENTS
+
+Add a simple organizational configuration interface.
+
+For example:
+
+```text
+Settings
+→ Organization
+→ Departments
+```
+
+Users can:
+
+```text
+Create
+Rename
+Nest
+Archive
+```
+
+Optional configuration:
+
+```text
+default agents
+default knowledge
+allowed connectors
+approval policies
+budgets
+```
+
+Do not seed department-specific business logic.
+
+You may seed example department names only as optional onboarding examples if appropriate.
+
+---
+
+# 39. KEEP GITHUB/CODING WORKING
+
+This is critical.
+
+All existing GitHub development-agent functionality must continue to work.
+
+Treat coding as:
+
+```text
+skills
+tools
+workflow templates
+GitHub integration
+```
+
+For example:
+
+```text
+Skill:
+Repository Investigation
+
+Skill:
+Implement Code Change
+
+Skill:
+Fix CI Failure
+
+Skill:
+PR Review
+
+Tool provider:
+GitHub
+
+Workflow:
+GitHub Issue → Implementation → Review → PR
+```
+
+This becomes one workload supported by Troop, not Troop's entire architecture.
+
+Regression tests must cover the current coding workflow.
+
+---
+
+# 40. DATA MIGRATIONS
+
+For every schema change:
+
+* create proper migrations;
+* include downgrade behavior where practical;
+* preserve production data;
+* populate new fields from existing JSON structures when possible;
+* backfill skill relationships;
+* keep IDs stable wherever feasible;
+* add indexes and unique constraints;
+* add foreign-key constraints deliberately;
+* avoid N+1 patterns.
+
+Pay special attention to existing:
+
+```text
+skills_json
+skill_pins
+metadata_json
+project agent membership
+task assignments
+SkillPack
+AgentTemplateCatalog
+TeamProfile
+```
+
+Do not simply drop them.
+
+Migrate them intentionally.
+
+---
+
+# 41. API DESIGN
+
+Expose clean REST APIs consistent with the current FastAPI architecture.
+
+Examples conceptually:
+
+```text
+/projects/{id}/analyze
+
+/tasks/{id}/analyze
+/tasks/{id}/skill-matches
+/tasks/{id}/generate-skills
+/tasks/{id}/agent-matches
+/tasks/{id}/recommend-workforce
+
+/skills
+/skills/{id}
+/skills/{id}/versions
+/skills/{id}/usage
+/skills/{id}/evaluations
+/skills/{id}/promote
+/skills/{id}/improve
+
+/skill-drafts
+/skill-drafts/{id}/validate
+/skill-drafts/{id}/publish
+
+/departments
+
+/workflows
+/workflows/{id}/versions
+
+/tools
+/connectors
+```
+
+Follow existing naming and route conventions if they differ.
+
+Do not create redundant RPC endpoints if an existing resource-style route fits better.
+
+---
+
+# 42. STRUCTURED AI OUTPUT
+
+All new AI analysis/generation features must use structured schema validation.
+
+Do not parse arbitrary prose with regex when the model can return an explicit validated schema.
+
+Implement:
+
+```text
+TaskAnalysisOutput
+SkillGenerationOutput
+AgentRecommendationOutput
+ProjectAnalysisOutput
+SkillImprovementOutput
+```
+
+using the project's existing Pydantic/version conventions.
+
+On malformed model response:
+
+```text
+validate
+retry within configured limits
+return actionable error
+audit failure
+```
+
+Do not silently accept partial corrupt data.
+
+---
+
+# 43. MODEL ROUTING
+
+Reuse the existing provider/model routing architecture.
+
+Different operations may need different model capabilities.
+
+Examples:
+
+```text
+task classification        cheap/fast
+skill matching             mostly deterministic
+skill generation           strong model
+workflow planning          strong model
+embedding similarity       embedding model
+evaluation                 appropriate evaluator model
+```
+
+Do not hard-code OpenAI or one provider.
+
+Respect existing provider configuration.
+
+---
+
+# 44. BACKGROUND EXECUTION
+
+Potentially expensive operations should use the project's established asynchronous job architecture where appropriate:
+
+```text
+project analysis
+large skill generation
+bulk evaluation
+promotion analysis
+large knowledge indexing
+```
+
+Provide progress/error state to frontend.
+
+Do not make every long-running operation synchronous HTTP.
+
+---
+
+# 45. AUDITABILITY
+
+Add audit events for at least:
+
+```text
+task analyzed
+skill draft generated
+skill created
+skill version published
+skill deprecated
+skill promoted
+skill assigned to agent
+agent recommended
+agent auto-assigned
+agent generated
+tool permission granted
+approval requested
+workflow executed
+```
+
+Do not store sensitive prompt content unnecessarily in audit metadata.
+
+---
+
+# 46. SECURITY
+
+Validate:
+
+```text
+organization ownership
+department membership
+project access
+skill visibility
+connector permissions
+agent permissions
+tool grants
+knowledge permissions
+```
+
+Avoid IDOR vulnerabilities.
+
+Do not allow users to reference another organization's skill/project/connector by raw ID.
+
+Do not expose connector secrets.
+
+Do not allow generated skill instructions to bypass tool permissions.
+
+Tool authorization always happens server-side.
+
+---
+
+# 47. PROMPT-INJECTION BOUNDARY
+
+Because generated skills may consume web/document content, distinguish:
+
+```text
+trusted system instructions
+skill instructions
+user task
+retrieved untrusted content
+tool output
+```
+
+Retrieved documents/web content must never automatically mutate agent policy or permissions.
+
+Generated skills cannot grant themselves tools.
+
+Skill generation can only **request** tools.
+
+Tool grants remain an explicit policy operation.
+
+---
+
+# 48. TESTING
+
+Implement comprehensive tests.
+
+## Backend unit tests
+
+Cover:
+
+```text
+task analysis schemas
+skill matching
+gap detection
+duplicate detection
+skill scopes
+skill promotion
+skill versioning
+agent matching
+permission resolution
+tool registry
+workflow routing
+```
+
+## Backend integration tests
+
+At minimum:
+
+```text
+create project
+create task
+analyze task
+find matching skills
+generate missing skill
+review/publish skill
+attach skill to agent
+assign agent
+execute task
+create artifact
+evaluate run
+```
+
+Also verify current GitHub coding flow.
+
+## Migration tests
+
+Use realistic old records containing:
+
+```text
+SkillPack
+skills_json
+skill_pins
+old task statuses
+GitHub-linked tasks
+```
+
+## Frontend tests
+
+Cover:
+
+```text
+Task capability panel
+Skill matching
+Skill generation review
+Skill builder
+Agent recommendations
+Department picker
+Project analysis
+```
+
+Use the existing frontend test framework.
+
+---
+
+# 49. PERFORMANCE
+
+Avoid running an expensive LLM analysis unnecessarily.
+
+Cache task analysis based on task content/version.
+
+Invalidate when relevant fields change.
+
+Skill matching should be efficient.
+
+For potentially large organizations:
+
+```text
+filter
+candidate retrieval
+semantic search
+deterministic reranking
+```
+
+rather than passing thousands of skills to an LLM.
+
+Add relevant indexes.
+
+---
+
+# 50. OBSERVABILITY
+
+Extend existing run observability.
+
+For an execution, display:
+
+```text
+Task
+Task analysis version
+
+Agent
+Agent version
+
+Skills
+Skill versions
+
+Tools
+Tool calls
+
+Knowledge sources
+
+Workflow
+Workflow version
+
+Approvals
+
+Artifacts
+
+Evaluation
+
+Duration
+Tokens
+Cost
+```
+
+The current run inspector should evolve toward an **AI Operations / Workforce Operations** view.
+
+---
+
+# 51. DO NOT OVERUSE JSON METADATA
+
+The existing application uses several JSON metadata fields.
+
+Continue using JSON for genuinely flexible metadata.
+
+But critical product relationships must become typed:
+
+Bad long-term:
+
+```text
+task.metadata["required_skills"]
+agent.metadata["skill_pins"]
+project.metadata["department"]
+```
+
+Prefer:
+
+```text
+TaskRequirement
+AgentSkillAssignment
+Project.department_id
+```
+
+Use proper relational models for data that is:
+
+```text
+queried
+filtered
+joined
+permission-sensitive
+versioned
+audited
+```
+
+---
+
+# 52. IMPLEMENT IN SAFE PHASES, BUT ACTUALLY IMPLEMENT
+
+Do not return only an architecture proposal.
+
+Implement the work.
+
+Use a sequence similar to:
+
+## Phase 1 — Domain foundation
+
+* user-defined departments;
+* project/task cleanup;
+* Skill/SkillVersion/SkillDraft;
+* migrations;
+* compatibility adapters.
+
+## Phase 2 — Task intelligence
+
+* Task Capability Analyzer;
+* TaskRequirement;
+* skill matching;
+* gap detection;
+* duplicate detection.
+
+## Phase 3 — Skill generation
+
+* structured AI generation;
+* generation review;
+* versioning;
+* publishing;
+* scope/promotion.
+
+## Phase 4 — Agent intelligence
+
+* AgentSkillAssignment;
+* agent matching;
+* auto assignment;
+* agent assembly.
+
+## Phase 5 — Generic execution
+
+* generic artifacts/results;
+* remove GitHub assumptions from core;
+* wrap existing tools with ToolProvider registry.
+
+## Phase 6 — Workflow architecture
+
+* versioned workflow definitions;
+* generic nodes;
+* deterministic and agentic routing.
+
+## Phase 7 — Permissions + integrations
+
+* ToolGrant;
+* ActionPolicy;
+* connector registry;
+* MCP architecture.
+
+## Phase 8 — Frontend
+
+* task intelligence UX;
+* skill builder;
+* workforce creation;
+* simplified project navigation;
+* departments.
+
+## Phase 9 — Evaluation and learning
+
+* skill metrics;
+* version comparison;
+* improvement proposals;
+* promotion recommendations.
+
+Complete each phase sufficiently before moving to the next.
+
+Do not leave the repository in an intermediate broken state.
+
+---
+
+# 53. TASKS.TXT
+
+Inspect whether `tasks.txt` already exists.
+
+If it exists, update it rather than blindly replacing useful content.
+
+Maintain a detailed implementation checklist there.
+
+Use:
+
+```text
+[P0]
+[P1]
+[P2]
+[P3]
+```
+
+and:
+
+```text
+[ ]
+[x]
+```
+
+Mark items complete only when code + migrations + tests are complete.
+
+Include remaining technical debt discovered during implementation.
+
+Do NOT use `tasks.txt` as an excuse to postpone implementation.
+
+It is a record of implementation progress, not a substitute for implementation.
+
+---
+
+# 54. CLEAN UP DUPLICATION
+
+During implementation actively search for:
+
+```text
+duplicate project/task models
+duplicate skill concepts
+duplicate template systems
+duplicate agent APIs
+duplicate project queries
+unused legacy GitHub-specific branches
+dead frontend components
+unused feature flags
+orphaned compatibility code
+```
+
+Do not indiscriminately delete code.
+
+Before deleting:
+
+```text
+search usages
+inspect tests
+inspect migrations
+inspect API compatibility
+```
+
+Remove obsolete code only when replacement is complete.
+
+---
+
+# 55. MODERN FRONTEND REQUIREMENTS
+
+Keep the existing frontend stack unless there is a strong technical reason to change it.
+
+Use:
+
+```text
+small composable components
+typed API boundaries
+query caching
+optimistic updates where safe
+skeleton/loading states
+useful empty states
+accessible forms
+keyboard accessibility
+responsive layouts
+clear errors
+```
+
+Avoid:
+
+```text
+huge page components
+duplicated server state in local React state
+deep prop drilling
+untyped API responses
+multiple competing design systems
+```
+
+Reuse the existing UI system/components.
+
+Do not redesign the entire visual language gratuitously.
+
+---
+
+# 56. CORE END-TO-END EXPERIENCE
+
+When implementation is complete, this scenario must work.
+
+User creates:
+
+```text
+Department:
+Business Development
+```
+
+Then:
+
+```text
+Project:
+Expand our agricultural drone product into Benelux
+```
+
+Then creates task:
+
+```text
+Identify 50 greenhouse operators in Belgium and
+the Netherlands that are strong candidates for our
+drone crop-monitoring product.
+```
+
+User clicks:
+
+```text
+Analyze task
+```
+
+Troop returns:
+
+```text
+Required capabilities
+- web research
+- company discovery
+- greenhouse classification
+- company enrichment
+- lead qualification
+- source verification
+
+Tools
+- web search
+- web fetch
+
+Expected artifact
+- structured prospect dataset
+
+Acceptance criteria
+...
+```
+
+Troop finds:
+
+```text
+Web Research
+Source Verification
+Structured Data Extraction
+```
+
+and identifies gaps:
+
+```text
+Greenhouse Operator Identification
+Agricultural Lead Qualification
+```
+
+User clicks:
+
+```text
+Generate missing skills
+```
+
+Troop produces two structured SkillDraft objects.
+
+User reviews and publishes them as:
+
+```text
+scope = project
+```
+
+Troop then evaluates agents.
+
+It finds no agent with sufficient coverage.
+
+Troop recommends:
+
+```text
+Agricultural Market Research Agent
+```
+
+composed from the five relevant skills.
+
+User creates and assigns it.
+
+Agent executes using only allowed tools.
+
+It produces:
+
+```text
+Prospect Dataset artifact
+Research Sources artifact
+Execution Evidence
+```
+
+A reviewer evaluates the output.
+
+Skill evaluations are stored.
+
+After multiple successful tasks Troop recommends:
+
+```text
+Promote "Agricultural Lead Qualification"
+Project → Organization
+```
+
+This entire workflow must work without creating a Business Development backend module.
+
+---
+
+# 57. SECOND END-TO-END REGRESSION
+
+Existing software engineering work must still work.
+
+Example:
+
+```text
+Project:
+Troop Application
+
+Task:
+Fix failing GitHub issue #123
+```
+
+Troop analyzes requirements such as:
+
+```text
+repository investigation
+code modification
+test execution
+GitHub interaction
+```
+
+Existing coding skills/tools are matched.
+
+Coding agent executes.
+
+GitHub tool integration is used.
+
+Artifacts may include:
+
+```text
+changed files
+test results
+commit
+PR
+```
+
+but those are coding-specific artifact types, not universal task fields.
+
+Current GitHub behavior must not regress.
+
+---
+
+# 58. DESIGN PRINCIPLES THAT MUST NOT BE VIOLATED
+
+1. **Projects/tasks are the center of the product.**
+2. Departments are user-defined context, not hard-coded modules.
+3. Tasks determine required capabilities.
+4. Capabilities determine skills.
+5. Skills help determine agents.
+6. Skills are reusable and versioned.
+7. Generated skills begin as drafts.
+8. Skill generation must detect duplicates.
+9. Skill scope prevents registry pollution.
+10. Successful skills can be promoted.
+11. Agents are compositions of reusable skills.
+12. Tools require explicit permissions.
+13. Generated prompts cannot grant permissions.
+14. Workflows combine deterministic and agentic steps.
+15. GitHub is an integration/workload, not the platform architecture.
+16. Important domain data should not live only in metadata JSON.
+17. Existing functionality must be migrated, not casually discarded.
+18. Every recommendation must be explainable.
+19. Every AI-generated structured object must be validated.
+20. Every significant execution must be auditable.
+
+---
+
+# 59. QUALITY BAR
+
+Do not create demo-only implementations.
+
+Avoid:
+
+```text
+TODO placeholders
+mock production services
+fake confidence numbers
+hard-coded department lists
+hard-coded generated skills
+frontend-only functionality without persistence
+backend APIs with no UI when UI is required
+unvalidated LLM JSON
+silent exception swallowing
+```
+
+Prefer production-quality architecture.
+
+Keep types strict.
+
+Keep functions reasonably small.
+
+Add docstrings/comments where architectural intent is not obvious.
+
+Do not over-comment trivial code.
+
+---
+
+# 60. AFTER IMPLEMENTATION
+
+Run all relevant:
+
+```text
+backend tests
+frontend tests
+type checking
+linting
+migration checks
+build
+```
+
+Fix failures caused by the implementation.
+
+Then provide a final implementation report containing:
+
+```text
+1. Architecture changes
+2. Database changes/migrations
+3. Backend features implemented
+4. Frontend features implemented
+5. Existing components reused
+6. Legacy components removed
+7. Compatibility measures
+8. Tests added
+9. Test/build results
+10. Remaining items in tasks.txt
+11. Known limitations
+12. Recommended next iteration
+```
+
+Also explicitly answer:
+
+```text
+Can Troop now support a completely new department/task domain
+without adding a new backend department module?
+```
+
+and explain why.
+
+Do not stop after planning.
+
+Inspect the repository, make the changes, migrate the data, wire backend and frontend together, add tests, and leave the application in a coherent working state.

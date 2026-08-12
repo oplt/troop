@@ -17,12 +17,18 @@ class OrchestratorProject(Base):
     company_id: Mapped[str | None] = mapped_column(
         ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    department_id: Mapped[str | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255))
     slug: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active")
     goals_markdown: Mapped[str] = mapped_column(Text, default="")
     settings_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    knowledge_policy_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    budget_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
     memory_scope: Mapped[str] = mapped_column(String(64), default="project")
     knowledge_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -82,6 +88,11 @@ class OrchestratorTask(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
     )
+    human_assignee_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     assigned_agent_id: Mapped[str | None] = mapped_column(
         ForeignKey("agent_profiles.id", ondelete="SET NULL"),
         nullable=True,
@@ -89,6 +100,11 @@ class OrchestratorTask(Base):
     )
     reviewer_agent_id: Mapped[str | None] = mapped_column(
         ForeignKey("agent_profiles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -108,10 +124,15 @@ class OrchestratorTask(Base):
     )
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    objective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_output: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(32), default="manual")
     task_type: Mapped[str] = mapped_column(String(64), default="general")
     priority: Mapped[str] = mapped_column(String(32), default="normal")
     status: Mapped[str] = mapped_column(String(32), default="backlog", index=True)
+    risk_level: Mapped[str] = mapped_column(String(32), default="medium")
+    autonomy_level: Mapped[str] = mapped_column(String(64), default="semi-autonomous")
+    assignment_mode: Mapped[str] = mapped_column(String(32), default="manual")
     acceptance_criteria: Mapped[str | None] = mapped_column(Text, nullable=True)
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     response_sla_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)

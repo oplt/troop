@@ -1,0 +1,107 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/config/queryKeys.ts",
+      "type": "file",
+      "name": "queryKeys.ts",
+      "filePath": "frontend/src/config/queryKeys.ts",
+      "summary": "Centralizes hierarchical TanStack Query keys and default stale-time configuration for frontend server state.",
+      "tags": [
+        "configuration",
+        "react-query",
+        "cache",
+        "type-definition"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/config/queryPolicies.ts",
+      "type": "file",
+      "name": "queryPolicies.ts",
+      "filePath": "frontend/src/config/queryPolicies.ts",
+      "summary": "Defines shared TanStack Query freshness policies for static, operational, and live data.",
+      "tags": [
+        "configuration",
+        "react-query",
+        "cache",
+        "performance"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "type": "file",
+      "name": "useHierarchyLiveState.ts",
+      "filePath": "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "summary": "Combines the hierarchy query cache with a live snapshot stream to expose current operating state.",
+      "tags": [
+        "hook",
+        "hierarchy",
+        "real-time",
+        "react-query"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts:useHierarchyLiveState",
+      "type": "function",
+      "name": "useHierarchyLiveState",
+      "filePath": "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "lineRange": [
+        7,
+        20
+      ],
+      "summary": "Combines cached hierarchy data with live stream updates for the selected project.",
+      "tags": [
+        "hook",
+        "react",
+        "real-time"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "target": "function:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts:useHierarchyLiveState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "target": "function:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts:useHierarchyLiveState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/config/queryKeys.ts",
+      "target": "file:frontend/src/config/queryKeys.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "target": "file:frontend/src/hooks/useLiveSnapshotStream.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/features/hierarchy/live/useHierarchyLiveState.ts:useHierarchyLiveState",
+      "target": "function:frontend/src/hooks/useLiveSnapshotStream.ts:useLiveSnapshotStream",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

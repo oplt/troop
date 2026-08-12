@@ -1,0 +1,275 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/modules/rag/retrieval.py",
+      "language": "python",
+      "sizeLines": 519,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/router.py",
+      "language": "python",
+      "sizeLines": 405,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/schemas.py",
+      "language": "python",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/service.py",
+      "language": "python",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/vector_store.py",
+      "language": "python",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_algorithm_ai_improvements.py",
+      "language": "python",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_blocking_dead_code.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_cache_layer.py",
+      "language": "python",
+      "sizeLines": 296,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_celery_tasks.py",
+      "language": "python",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_golden_retrieval.py",
+      "language": "python",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_integration_baseline.py",
+      "language": "python",
+      "sizeLines": 205,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_phase4_concurrency.py",
+      "language": "python",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_provider_abstraction_contract.py",
+      "language": "python",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_rag_layer.py",
+      "language": "python",
+      "sizeLines": 162,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_rag_request_path.py",
+      "language": "python",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/test_vector_retrieval.py",
+      "language": "python",
+      "sizeLines": 126,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/rag_eval_gate.py",
+      "language": "python",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/__init__.py",
+      "language": "python",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/celery_app.py",
+      "language": "python",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/retry.py",
+      "language": "python",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/workers/tasks.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/modules/rag/retrieval.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/modules/ai/providers.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/observability/metrics.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/providers.py",
+      "backend/modules/orchestration/repository.py",
+      "backend/modules/rag/chunking.py",
+      "backend/modules/rag/citations.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/embedding.py",
+      "backend/modules/rag/observability.py",
+      "backend/modules/rag/parsing.py",
+      "backend/modules/rag/prompt_builder.py",
+      "backend/modules/rag/reranker.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/vector_store.py"
+    ],
+    "backend/modules/rag/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/api/deps/rag.py",
+      "backend/core/http_cache.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/services/service.py",
+      "backend/modules/rag/bulk_ingest.py",
+      "backend/modules/rag/observability.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/modules/rag/schemas.py": [],
+    "backend/modules/rag/service.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/repository.py",
+      "backend/modules/projects/orchestration_models.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/observability.py",
+      "backend/modules/rag/parsing.py",
+      "backend/modules/rag/retrieval.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/vector_store.py": [
+      "backend/core/config.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/repository.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/tests/test_algorithm_ai_improvements.py": [
+      "backend/modules/ai/providers.py",
+      "backend/modules/memory/layer/redaction.py",
+      "backend/modules/orchestration/context_packet.py",
+      "backend/modules/orchestration/tools.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/parsing.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/tests/test_blocking_dead_code.py": [
+      "backend/modules/memory/models.py",
+      "backend/modules/memory/service.py",
+      "backend/workers/retry.py"
+    ],
+    "backend/tests/test_cache_layer.py": [
+      "backend/core/cache.py",
+      "backend/modules/ai/providers.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/tests/test_celery_tasks.py": [
+      "backend/workers/__init__.py",
+      "backend/workers/celery_app.py",
+      "backend/workers/retry.py"
+    ],
+    "backend/tests/test_golden_retrieval.py": [
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/evaluation.py",
+      "backend/modules/rag/retrieval.py",
+      "backend/modules/rag/schemas.py",
+      "backend/tools/rag_eval_gate.py"
+    ],
+    "backend/tests/test_integration_baseline.py": [
+      "backend/modules/rag/schemas.py",
+      "backend/tests/conftest.py"
+    ],
+    "backend/tests/test_phase4_concurrency.py": [
+      "backend/core/http_clients.py",
+      "backend/modules/orchestration/router.py",
+      "backend/modules/rag/bulk_ingest.py",
+      "backend/workers/celery_app.py"
+    ],
+    "backend/tests/test_provider_abstraction_contract.py": [
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/providers.py"
+    ],
+    "backend/tests/test_rag_layer.py": [
+      "backend/modules/rag/chunking.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/parsing.py",
+      "backend/modules/rag/prompt_builder.py",
+      "backend/modules/rag/reranker.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/tests/test_rag_request_path.py": [
+      "backend/modules/ai/providers.py",
+      "backend/modules/rag/bulk_ingest.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/tests/test_vector_retrieval.py": [
+      "backend/modules/ai/service.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/retrieval.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/tools/rag_eval_gate.py": [
+      "backend/modules/rag/evaluation.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/workers/__init__.py": [
+      "backend/workers/celery_app.py"
+    ],
+    "backend/workers/celery_app.py": [
+      "backend/core/config.py",
+      "backend/core/http_clients.py",
+      "backend/modules/observability/instrumentation.py",
+      "backend/workers/context.py"
+    ],
+    "backend/workers/retry.py": [],
+    "backend/workers/tasks.py": [
+      "backend/workers/celery_app.py",
+      "backend/workers/email.py",
+      "backend/workers/retry.py"
+    ]
+  }
+}

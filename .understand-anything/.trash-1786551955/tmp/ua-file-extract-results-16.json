@@ -1,0 +1,3167 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 16,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "frontend/src/components/templates/AgentRegistryPanel.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 106,
+      "nonEmptyLines": 103,
+      "functions": [
+        {
+          "name": "AgentRegistryPanel",
+          "startLine": 22,
+          "endLine": 106,
+          "params": [
+            "{\n    agents,\n    isLoadingAgents,\n    agentLiveStatus,\n    simulationAgentId,\n    isSimulatingAgent,\n    getSkillDisplayName,\n    onDuplicateAgent,\n    onToggleAgent,\n    onOpenVersions,\n    onOpenTestRun,\n    onSimulateAgent,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "AgentRegistryPanel",
+          "line": 22,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agents.map",
+          "lineNumber": 43
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agentLiveStatus.get",
+          "lineNumber": 55
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "onToggleAgent",
+          "lineNumber": 58
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "onDuplicateAgent",
+          "lineNumber": 60
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "onOpenVersions",
+          "lineNumber": 63
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "onOpenTestRun",
+          "lineNumber": 66
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "onSimulateAgent",
+          "lineNumber": 72
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agent.skills.map",
+          "lineNumber": 83
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "getSkillDisplayName",
+          "lineNumber": 84
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "(agent.inheritance?.effective.capabilities || agent.capabilities).map",
+          "lineNumber": 86
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agent.lint.warnings.slice(0, 3).join",
+          "lineNumber": 91
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agent.lint.warnings.slice",
+          "lineNumber": 91
+        },
+        {
+          "caller": "AgentRegistryPanel",
+          "callee": "agent.lint.errors.join",
+          "lineNumber": 94
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/MyTemplatesView.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 26,
+      "nonEmptyLines": 23,
+      "functions": [
+        {
+          "name": "MyTemplatesView",
+          "startLine": 20,
+          "endLine": 26,
+          "params": [
+            "props"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MyTemplatesView",
+          "line": 20,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/SkillPackPicker.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 46,
+      "nonEmptyLines": 43,
+      "functions": [
+        {
+          "name": "SkillPackPicker",
+          "startLine": 12,
+          "endLine": 46,
+          "params": [
+            "{ form, setForm, skills }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "SkillPackPicker",
+          "line": 12,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "SkillPackPicker",
+          "callee": "setForm",
+          "lineNumber": 21
+        },
+        {
+          "caller": "SkillPackPicker",
+          "callee": "skills.map",
+          "lineNumber": 28
+        },
+        {
+          "caller": "SkillPackPicker",
+          "callee": "skills.filter((skill) => form.skills.includes(skill.slug)).map",
+          "lineNumber": 35
+        },
+        {
+          "caller": "SkillPackPicker",
+          "callee": "skills.filter",
+          "lineNumber": 35
+        },
+        {
+          "caller": "SkillPackPicker",
+          "callee": "form.skills.includes",
+          "lineNumber": 35
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/SkillTemplateCard.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 62,
+      "nonEmptyLines": 59,
+      "functions": [
+        {
+          "name": "SkillTemplateCard",
+          "startLine": 15,
+          "endLine": 62,
+          "params": [
+            "{\n    skill,\n    onAdd,\n    onEdit,\n    onDragStart,\n    onDragEnd,\n    onRemove,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "SkillTemplateCard",
+          "line": 15,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "event.dataTransfer.setData",
+          "lineNumber": 27
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "onDragStart",
+          "lineNumber": 29
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "skill.capabilities.slice(0, 3).map",
+          "lineNumber": 42
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "skill.capabilities.slice",
+          "lineNumber": 42
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "skill.tags.slice(0, 3).map",
+          "lineNumber": 45
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "skill.tags.slice",
+          "lineNumber": 45
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "onAdd",
+          "lineNumber": 50
+        },
+        {
+          "caller": "SkillTemplateCard",
+          "callee": "onEdit",
+          "lineNumber": 53
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TeamTemplateCard.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 98,
+      "nonEmptyLines": 95,
+      "functions": [
+        {
+          "name": "TeamTemplateCard",
+          "startLine": 16,
+          "endLine": 98,
+          "params": [
+            "{\n    template,\n    agentTemplates,\n    onDragEnd,\n    onDropAgentTemplate,\n    onRemoveAgentTemplate,\n    activeAgentTemplateSlug,\n    onRemove,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TeamTemplateCard",
+          "line": 16,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "event.preventDefault",
+          "lineNumber": 31
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "event.dataTransfer.getData",
+          "lineNumber": 35
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "payload.startsWith",
+          "lineNumber": 36
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "payload.replace",
+          "lineNumber": 36
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "event.preventDefault",
+          "lineNumber": 40
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "onDropAgentTemplate",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "onDragEnd",
+          "lineNumber": 42
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "template.roles.map",
+          "lineNumber": 64
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "template.tools.slice(0, 2).map",
+          "lineNumber": 67
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "template.tools.slice",
+          "lineNumber": 67
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "agentTemplates.map",
+          "lineNumber": 72
+        },
+        {
+          "caller": "TeamTemplateCard",
+          "callee": "onRemoveAgentTemplate",
+          "lineNumber": 79
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateBrowseView.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 219,
+      "nonEmptyLines": 203,
+      "functions": [
+        {
+          "name": "matchesTemplate",
+          "startLine": 34,
+          "endLine": 56,
+          "params": [
+            "template",
+            "searchQuery",
+            "filters"
+          ]
+        },
+        {
+          "name": "matchesTeamTemplate",
+          "startLine": 58,
+          "endLine": 76,
+          "params": [
+            "template",
+            "searchQuery",
+            "filters"
+          ]
+        },
+        {
+          "name": "matchesSkillTemplate",
+          "startLine": 78,
+          "endLine": 96,
+          "params": [
+            "skill",
+            "searchQuery",
+            "filters"
+          ]
+        },
+        {
+          "name": "TemplateBrowseView",
+          "startLine": 98,
+          "endLine": 219,
+          "params": [
+            "{\n    templates,\n    skills,\n    teamTemplates,\n    searchQuery,\n    filters,\n    onOpenDetails,\n    onOpenAgentBuilder,\n    onOpenSkillBuilder,\n    onAddSkillFromCard,\n    onEditSkill,\n    onCreateFromTemplate,\n    onCopyTemplateContract,\n    onAddTeamCanvas,\n    onAttachSkillToTemplate,\n    onRemoveSkillFromTemplate,\n    onAttachTemplateToTeam,\n    onRemoveTemplateFromTeam,\n    onDeleteTemplate,\n    onDeleteSkill,\n    onDeleteTeamTemplate,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateBrowseView",
+          "line": 98,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "matchesTemplate",
+          "callee": "[\n        template.name,\n        template.slug,\n        template.role,\n        template.description,\n        ...template.skills,\n        ...template.tags,\n        ...template.allowed_tools,\n        ...template.capabilities,\n    ]\n        .filter(Boolean)\n        .join(\" \")\n        .toLowerCase",
+          "lineNumber": 35
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "[\n        template.name,\n        template.slug,\n        template.role,\n        template.description,\n        ...template.skills,\n        ...template.tags,\n        ...template.allowed_tools,\n        ...template.capabilities,\n    ]\n        .filter(Boolean)\n        .join",
+          "lineNumber": 35
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "[\n        template.name,\n        template.slug,\n        template.role,\n        template.description,\n        ...template.skills,\n        ...template.tags,\n        ...template.allowed_tools,\n        ...template.capabilities,\n    ]\n        .filter",
+          "lineNumber": 35
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "haystack.includes",
+          "lineNumber": 49
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "searchQuery.toLowerCase",
+          "lineNumber": 49
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "filters.roles.includes",
+          "lineNumber": 51
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "filters.tools.some",
+          "lineNumber": 52
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "template.allowed_tools.includes",
+          "lineNumber": 52
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "filters.domains.some",
+          "lineNumber": 53
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "template.tags.includes",
+          "lineNumber": 53
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "filters.outcomes.some",
+          "lineNumber": 54
+        },
+        {
+          "caller": "matchesTemplate",
+          "callee": "template.capabilities.includes",
+          "lineNumber": 54
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "[\n        template.name,\n        template.description,\n        template.outcome,\n        ...template.roles,\n        ...template.tools,\n    ]\n        .join(\" \")\n        .toLowerCase",
+          "lineNumber": 59
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "[\n        template.name,\n        template.description,\n        template.outcome,\n        ...template.roles,\n        ...template.tools,\n    ]\n        .join",
+          "lineNumber": 59
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "haystack.includes",
+          "lineNumber": 68
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "searchQuery.toLowerCase",
+          "lineNumber": 68
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "filters.roles.some",
+          "lineNumber": 70
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "template.roles.includes",
+          "lineNumber": 70
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "filters.tools.some",
+          "lineNumber": 71
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "template.tools.includes",
+          "lineNumber": 71
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "filters.outcomes.includes",
+          "lineNumber": 72
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "filters.autonomy.includes",
+          "lineNumber": 73
+        },
+        {
+          "caller": "matchesTeamTemplate",
+          "callee": "filters.visibility.includes",
+          "lineNumber": 74
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "[\n        skill.name,\n        skill.slug,\n        skill.description,\n        ...skill.capabilities,\n        ...skill.tags,\n        ...skill.allowed_tools,\n    ]\n        .filter(Boolean)\n        .join(\" \")\n        .toLowerCase",
+          "lineNumber": 79
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "[\n        skill.name,\n        skill.slug,\n        skill.description,\n        ...skill.capabilities,\n        ...skill.tags,\n        ...skill.allowed_tools,\n    ]\n        .filter(Boolean)\n        .join",
+          "lineNumber": 79
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "[\n        skill.name,\n        skill.slug,\n        skill.description,\n        ...skill.capabilities,\n        ...skill.tags,\n        ...skill.allowed_tools,\n    ]\n        .filter",
+          "lineNumber": 79
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "haystack.includes",
+          "lineNumber": 90
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "searchQuery.toLowerCase",
+          "lineNumber": 90
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "filters.tools.some",
+          "lineNumber": 92
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "skill.allowed_tools.includes",
+          "lineNumber": 92
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "filters.domains.some",
+          "lineNumber": 93
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "skill.tags.includes",
+          "lineNumber": 93
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "filters.outcomes.some",
+          "lineNumber": 94
+        },
+        {
+          "caller": "matchesSkillTemplate",
+          "callee": "skill.capabilities.includes",
+          "lineNumber": 94
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "useState",
+          "lineNumber": 120
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "useMemo",
+          "lineNumber": 122
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "templates\n                .filter",
+          "lineNumber": 124
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "matchesTemplate",
+          "lineNumber": 125
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "useMemo",
+          "lineNumber": 128
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "teamTemplates\n                .filter",
+          "lineNumber": 130
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "matchesTeamTemplate",
+          "lineNumber": 131
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "useMemo",
+          "lineNumber": 134
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "skills\n                .filter",
+          "lineNumber": 136
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "matchesSkillTemplate",
+          "lineNumber": 137
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "onOpenAgentBuilder",
+          "lineNumber": 149
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "filteredTemplates.map",
+          "lineNumber": 152
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "setActiveDrag",
+          "lineNumber": 161
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "setActiveDrag",
+          "lineNumber": 162
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "filteredTeamTemplates.map",
+          "lineNumber": 179
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "template.agent_template_slugs.map",
+          "lineNumber": 183
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "templates.find",
+          "lineNumber": 185
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "setActiveDrag",
+          "lineNumber": 187
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "onDeleteTeamTemplate",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "filteredSkillTemplates.map",
+          "lineNumber": 204
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "setActiveDrag",
+          "lineNumber": 210
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "setActiveDrag",
+          "lineNumber": 211
+        },
+        {
+          "caller": "TemplateBrowseView",
+          "callee": "onDeleteSkill",
+          "lineNumber": 212
+        }
+      ],
+      "metrics": {
+        "importCount": 6,
+        "exportCount": 1,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateBuilderView.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 306,
+      "nonEmptyLines": 296,
+      "functions": [
+        {
+          "name": "TemplateBuilderView",
+          "startLine": 50,
+          "endLine": 306,
+          "params": [
+            "{\n    form,\n    setForm,\n    templates,\n    skills,\n    templatePreview,\n    validationError,\n    validationWarnings,\n    memoryScopeOptions,\n    outputFormatOptions,\n    permissionOptions,\n    onCreateAgent,\n    onImportMarkdown,\n    createAgentError,\n    isCreatingAgent,\n    agents,\n    isLoadingAgents,\n    agentLiveStatus,\n    simulationAgentId,\n    isSimulatingAgent,\n    getSkillDisplayName,\n    onDuplicateAgent,\n    onToggleAgent,\n    onOpenVersions,\n    onOpenTestRun,\n    onSimulateAgent,\n    showRegistryPanel = true,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateBuilderView",
+          "line": 50,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "useQuery",
+          "lineNumber": 78
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "listProviders",
+          "lineNumber": 80
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "useQuery",
+          "lineNumber": 82
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "useMemo",
+          "lineNumber": 86
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "perProvider.get",
+          "lineNumber": 89
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.includes",
+          "lineNumber": 90
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.push",
+          "lineNumber": 91
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.includes",
+          "lineNumber": 93
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.push",
+          "lineNumber": 94
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "perProvider.set",
+          "lineNumber": 96
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "perProvider.get",
+          "lineNumber": 100
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.includes",
+          "lineNumber": 102
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "bucket.models.push",
+          "lineNumber": 103
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "[...perProvider.values()].filter",
+          "lineNumber": 106
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "perProvider.values",
+          "lineNumber": 106
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "useMemo",
+          "lineNumber": 108
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "modelGroups.flatMap",
+          "lineNumber": 109
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "items.push",
+          "lineNumber": 115
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "modelGroups.forEach",
+          "lineNumber": 121
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "items.push",
+          "lineNumber": 122
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "bucket.models.forEach",
+          "lineNumber": 127
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "items.push",
+          "lineNumber": 128
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "availableModels.has",
+          "lineNumber": 135
+        },
+        {
+          "caller": "renderModelOptions",
+          "callee": "items.push",
+          "lineNumber": 136
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 158
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "templates.map",
+          "lineNumber": 163
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 173
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 174
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 175
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "ROLE_OPTIONS.map",
+          "lineNumber": 176
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 182
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 189
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 190
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 197
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 204
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "renderModelOptions",
+          "lineNumber": 211
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 218
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "renderModelOptions",
+          "lineNumber": 220
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 224
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 225
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "permissionOptions.map",
+          "lineNumber": 226
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 234
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "memoryScopeOptions.map",
+          "lineNumber": 235
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 241
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "outputFormatOptions.map",
+          "lineNumber": 242
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 250
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 251
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 252
+        },
+        {
+          "caller": "TemplateBuilderView",
+          "callee": "setForm",
+          "lineNumber": 263
+        }
+      ],
+      "metrics": {
+        "importCount": 6,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateCard.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 126,
+      "nonEmptyLines": 123,
+      "functions": [
+        {
+          "name": "TemplateCard",
+          "startLine": 21,
+          "endLine": 126,
+          "params": [
+            "{\n    template,\n    onOpenDetails,\n    onLoadTemplate,\n    onCreateFromTemplate,\n    onCopyTemplateContract,\n    onRemove,\n    onRemoveSkill,\n    onDragStart,\n    onDragEnd,\n    onDropSkill,\n    activeSkillSlug,\n    compact = false,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateCard",
+          "line": 21,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateCard",
+          "callee": "event.dataTransfer.setData",
+          "lineNumber": 39
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onDragStart",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "event.preventDefault",
+          "lineNumber": 48
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "event.dataTransfer.getData",
+          "lineNumber": 52
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "payload.startsWith",
+          "lineNumber": 53
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "payload.replace",
+          "lineNumber": 53
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "event.preventDefault",
+          "lineNumber": 57
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onDropSkill",
+          "lineNumber": 58
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onDragEnd",
+          "lineNumber": 59
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "template.skills.slice(0, compact ? 2 : 3).map",
+          "lineNumber": 81
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "template.skills.slice",
+          "lineNumber": 81
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onRemoveSkill",
+          "lineNumber": 88
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "template.tags.slice(0, compact ? 2 : 3).map",
+          "lineNumber": 91
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "template.tags.slice",
+          "lineNumber": 91
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onOpenDetails",
+          "lineNumber": 96
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onLoadTemplate",
+          "lineNumber": 99
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onCreateFromTemplate",
+          "lineNumber": 102
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onCopyTemplateContract",
+          "lineNumber": 105
+        },
+        {
+          "caller": "TemplateCard",
+          "callee": "onRemove",
+          "lineNumber": 119
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateDetailDrawer.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 77,
+      "nonEmptyLines": 74,
+      "functions": [
+        {
+          "name": "TemplateDetailDrawer",
+          "startLine": 14,
+          "endLine": 77,
+          "params": [
+            "{\n    open,\n    template,\n    onClose,\n    onLoadTemplate,\n    onCreateFromTemplate,\n    onCopyTemplateContract,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateDetailDrawer",
+          "line": 14,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "template.skills.map",
+          "lineNumber": 35
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "template.tags.map",
+          "lineNumber": 38
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "template.capabilities.map",
+          "lineNumber": 46
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "template.allowed_tools.map",
+          "lineNumber": 54
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "onCreateFromTemplate",
+          "lineNumber": 60
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "onLoadTemplate",
+          "lineNumber": 63
+        },
+        {
+          "caller": "TemplateDetailDrawer",
+          "callee": "onCopyTemplateContract",
+          "lineNumber": 66
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateFilterToolbar.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 209,
+      "nonEmptyLines": 198,
+      "functions": [
+        {
+          "name": "TemplateFilterToolbar",
+          "startLine": 32,
+          "endLine": 209,
+          "params": [
+            "{ value, groups, onChange }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateFilterToolbar",
+          "line": 32,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "useState",
+          "lineNumber": 33
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "useState",
+          "lineNumber": 34
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "useMemo",
+          "lineNumber": 36
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 39
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 39
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.roles.forEach",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.roles.filter",
+          "lineNumber": 41
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.domains.forEach",
+          "lineNumber": 42
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 42
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 42
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.domains.filter",
+          "lineNumber": 42
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.outcomes.forEach",
+          "lineNumber": 43
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 43
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 43
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.outcomes.filter",
+          "lineNumber": 43
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.tools.forEach",
+          "lineNumber": 44
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 44
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 44
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.tools.filter",
+          "lineNumber": 44
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.autonomy.forEach",
+          "lineNumber": 45
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 45
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 45
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.autonomy.filter",
+          "lineNumber": 45
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.visibility.forEach",
+          "lineNumber": 46
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "chips.push",
+          "lineNumber": 46
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "onChange",
+          "lineNumber": 46
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value.visibility.filter",
+          "lineNumber": 46
+        },
+        {
+          "caller": "isActive",
+          "callee": "Boolean",
+          "lineNumber": 53
+        },
+        {
+          "caller": "isActive",
+          "callee": "Array.isArray",
+          "lineNumber": 54
+        },
+        {
+          "caller": "isActive",
+          "callee": "Boolean",
+          "lineNumber": 54
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "onChange",
+          "lineNumber": 59
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "onChange",
+          "lineNumber": 63
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "Array.isArray",
+          "lineNumber": 67
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "current.includes",
+          "lineNumber": 69
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "current.includes",
+          "lineNumber": 72
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "current.filter",
+          "lineNumber": 73
+        },
+        {
+          "caller": "toggleOption",
+          "callee": "onChange",
+          "lineNumber": 75
+        },
+        {
+          "caller": "clearAll",
+          "callee": "onChange",
+          "lineNumber": 79
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "groups.map",
+          "lineNumber": 95
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "setAnchorEl",
+          "lineNumber": 101
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "setOpenGroup",
+          "lineNumber": 102
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "isActive",
+          "lineNumber": 110
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "isActive",
+          "lineNumber": 111
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "isActive",
+          "lineNumber": 113
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "activeChips.map",
+          "lineNumber": 130
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "Boolean",
+          "lineNumber": 166
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "setAnchorEl",
+          "lineNumber": 168
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "setOpenGroup",
+          "lineNumber": 169
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "openGroup?.options.map",
+          "lineNumber": 184
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "Array.isArray",
+          "lineNumber": 189
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "value[openGroup.key].includes",
+          "lineNumber": 189
+        },
+        {
+          "caller": "TemplateFilterToolbar",
+          "callee": "toggleOption",
+          "lineNumber": 194
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateSection.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 45,
+      "nonEmptyLines": 41,
+      "functions": [
+        {
+          "name": "TemplateSection",
+          "startLine": 15,
+          "endLine": 45,
+          "params": [
+            "{\n    title,\n    description,\n    action,\n    children,\n    defaultExpanded = true,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateSection",
+          "line": 15,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateSection",
+          "callee": "useState",
+          "lineNumber": 22
+        },
+        {
+          "caller": "TemplateSection",
+          "callee": "setExpanded",
+          "lineNumber": 35
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateTab.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 587,
+      "nonEmptyLines": 539,
+      "functions": [
+        {
+          "name": "buildSkillForm",
+          "startLine": 57,
+          "endLine": 67,
+          "params": [
+            "skill",
+            "duplicate"
+          ]
+        },
+        {
+          "name": "createTeamCanvasName",
+          "startLine": 69,
+          "endLine": 71,
+          "params": [
+            "existingCount"
+          ]
+        },
+        {
+          "name": "readFileAsText",
+          "startLine": 73,
+          "endLine": 84,
+          "params": [
+            "file"
+          ]
+        },
+        {
+          "name": "omitId",
+          "startLine": 86,
+          "endLine": 90,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "TemplateTab",
+          "startLine": 92,
+          "endLine": 587,
+          "params": [
+            "props"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateTab",
+          "line": 92,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "buildSkillForm",
+          "callee": "skill.capabilities.join",
+          "lineNumber": 65
+        },
+        {
+          "caller": "readFileAsText",
+          "callee": "file.text",
+          "lineNumber": 75
+        },
+        {
+          "caller": "readFileAsText",
+          "callee": "resolve",
+          "lineNumber": 80
+        },
+        {
+          "caller": "readFileAsText",
+          "callee": "String",
+          "lineNumber": 80
+        },
+        {
+          "caller": "readFileAsText",
+          "callee": "reject",
+          "lineNumber": 81
+        },
+        {
+          "caller": "readFileAsText",
+          "callee": "reader.readAsText",
+          "lineNumber": 82
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useQueryClient",
+          "lineNumber": 93
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 94
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 97
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 101
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Promise.all",
+          "lineNumber": 104
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 105
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 106
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 107
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 111
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "updateAgentTemplate",
+          "lineNumber": 113
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 115
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 118
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 121
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 124
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "updateSkillPack",
+          "lineNumber": 126
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 128
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 131
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 134
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useQuery",
+          "lineNumber": 137
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 141
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 144
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 147
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "updateTeamTemplate",
+          "lineNumber": 149
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 151
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMutation",
+          "lineNumber": 154
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 157
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 160
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 161
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 162
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 163
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 164
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 165
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 166
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 167
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 168
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useState",
+          "lineNumber": 169
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMemo",
+          "lineNumber": 175
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "agentTemplates.find",
+          "lineNumber": 176
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMemo",
+          "lineNumber": 180
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "buildInheritancePreview",
+          "lineNumber": 181
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "useMemo",
+          "lineNumber": 185
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set([...agentTemplates.map((item) => item.role), ...teamTemplates.flatMap((item) => item.roles)])).sort",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "agentTemplates.map",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "teamTemplates.flatMap",
+          "lineNumber": 191
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set(agentTemplates.flatMap((item) => item.tags))).sort",
+          "lineNumber": 196
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 196
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "agentTemplates.flatMap",
+          "lineNumber": 196
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set([...agentTemplates.flatMap((item) => item.capabilities), ...teamTemplates.map((item) => item.outcome)])).sort",
+          "lineNumber": 201
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 201
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "agentTemplates.flatMap",
+          "lineNumber": 201
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "teamTemplates.map",
+          "lineNumber": 201
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set([...agentTemplates.flatMap((item) => item.allowed_tools), ...teamTemplates.flatMap((item) => item.tools)])).sort",
+          "lineNumber": 206
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 206
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "agentTemplates.flatMap",
+          "lineNumber": 206
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "teamTemplates.flatMap",
+          "lineNumber": 206
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set(teamTemplates.map((item) => item.autonomy))).sort",
+          "lineNumber": 211
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 211
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "teamTemplates.map",
+          "lineNumber": 211
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from(new Set(teamTemplates.map((item) => item.visibility))).sort",
+          "lineNumber": 216
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "Array.from",
+          "lineNumber": 216
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "teamTemplates.map",
+          "lineNumber": 216
+        },
+        {
+          "caller": "openTemplateDetails",
+          "callee": "setSelectedTemplateSlug",
+          "lineNumber": 224
+        },
+        {
+          "caller": "openTemplateDetails",
+          "callee": "setDetailsOpen",
+          "lineNumber": 225
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "props.onResetBuilder",
+          "lineNumber": 229
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "props.setForm",
+          "lineNumber": 231
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "setEditingAgentTemplateSlug",
+          "lineNumber": 232
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "agentTemplates.find",
+          "lineNumber": 234
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "props.setForm",
+          "lineNumber": 238
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "buildTemplateBuilderForm",
+          "lineNumber": 238
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "setEditingAgentTemplateSlug",
+          "lineNumber": 239
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "setDetailsOpen",
+          "lineNumber": 241
+        },
+        {
+          "caller": "openAgentBuilder",
+          "callee": "setAgentBuilderOpen",
+          "lineNumber": 242
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "agentTemplates.find",
+          "lineNumber": 247
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "agentTemplates\n            .filter((item) => item.slug !== editingAgentTemplateSlug)\n            .map",
+          "lineNumber": 249
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "agentTemplates\n            .filter",
+          "lineNumber": 249
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "props.form.slug.trim",
+          "lineNumber": 252
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "createUniqueSlug",
+          "lineNumber": 252
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "buildAgentTemplateFromForm",
+          "lineNumber": 253
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "updateTemplateMutation.mutate",
+          "lineNumber": 259
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "omitId",
+          "lineNumber": 259
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "createTemplateMutation.mutate",
+          "lineNumber": 261
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "omitId",
+          "lineNumber": 261
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "props.setForm",
+          "lineNumber": 264
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "buildTemplateBuilderForm",
+          "lineNumber": 264
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "setEditingAgentTemplateSlug",
+          "lineNumber": 265
+        },
+        {
+          "caller": "saveAgentTemplate",
+          "callee": "setAgentBuilderOpen",
+          "lineNumber": 266
+        },
+        {
+          "caller": "handleDeleteTemplate",
+          "callee": "agentTemplates.find",
+          "lineNumber": 270
+        },
+        {
+          "caller": "handleDeleteTemplate",
+          "callee": "deleteTemplateMutation.mutate",
+          "lineNumber": 274
+        },
+        {
+          "caller": "openSkillBuilder",
+          "callee": "setEditingSkillSlug",
+          "lineNumber": 278
+        },
+        {
+          "caller": "openSkillBuilder",
+          "callee": "setSkillBuilderBase",
+          "lineNumber": 279
+        },
+        {
+          "caller": "openSkillBuilder",
+          "callee": "setSkillForm",
+          "lineNumber": 280
+        },
+        {
+          "caller": "openSkillBuilder",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 281
+        },
+        {
+          "caller": "openSkillBuilderFromCard",
+          "callee": "setEditingSkillSlug",
+          "lineNumber": 285
+        },
+        {
+          "caller": "openSkillBuilderFromCard",
+          "callee": "setSkillBuilderBase",
+          "lineNumber": 286
+        },
+        {
+          "caller": "openSkillBuilderFromCard",
+          "callee": "setSkillForm",
+          "lineNumber": 287
+        },
+        {
+          "caller": "openSkillBuilderFromCard",
+          "callee": "buildSkillForm",
+          "lineNumber": 287
+        },
+        {
+          "caller": "openSkillBuilderFromCard",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 288
+        },
+        {
+          "caller": "editSkill",
+          "callee": "setEditingSkillSlug",
+          "lineNumber": 292
+        },
+        {
+          "caller": "editSkill",
+          "callee": "setSkillBuilderBase",
+          "lineNumber": 293
+        },
+        {
+          "caller": "editSkill",
+          "callee": "setSkillForm",
+          "lineNumber": 294
+        },
+        {
+          "caller": "editSkill",
+          "callee": "buildSkillForm",
+          "lineNumber": 294
+        },
+        {
+          "caller": "editSkill",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 295
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "skillCatalog.find",
+          "lineNumber": 299
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "skillCatalog\n            .filter((item) => item.slug !== editingSkillSlug)\n            .map",
+          "lineNumber": 300
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "skillCatalog\n            .filter",
+          "lineNumber": 300
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "createUniqueSlug",
+          "lineNumber": 303
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "skillForm.name.trim",
+          "lineNumber": 307
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "skillForm.description.trim",
+          "lineNumber": 308
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "parseCsv",
+          "lineNumber": 309
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "updateSkillMutation.mutate",
+          "lineNumber": 316
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "createSkillMutation.mutate",
+          "lineNumber": 328
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "omitId",
+          "lineNumber": 328
+        },
+        {
+          "caller": "saveSkill",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 330
+        },
+        {
+          "caller": "handleSkillMarkdownUpload",
+          "callee": "readFileAsText",
+          "lineNumber": 334
+        },
+        {
+          "caller": "handleSkillMarkdownUpload",
+          "callee": "setSkillForm",
+          "lineNumber": 335
+        },
+        {
+          "caller": "handleSkillMarkdownUpload",
+          "callee": "parseSkillMarkdownDocument",
+          "lineNumber": 335
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "agentTemplates.find",
+          "lineNumber": 339
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "mergeUnique",
+          "lineNumber": 343
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "updateTemplateMutation.mutate",
+          "lineNumber": 347
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "omitId",
+          "lineNumber": 347
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "props.setForm",
+          "lineNumber": 349
+        },
+        {
+          "caller": "attachSkillToTemplate",
+          "callee": "mergeUnique",
+          "lineNumber": 349
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "agentTemplates.find",
+          "lineNumber": 354
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "template.skills.filter",
+          "lineNumber": 358
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "updateTemplateMutation.mutate",
+          "lineNumber": 362
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "omitId",
+          "lineNumber": 362
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "props.setForm",
+          "lineNumber": 364
+        },
+        {
+          "caller": "removeSkillFromTemplate",
+          "callee": "current.skills.filter",
+          "lineNumber": 364
+        },
+        {
+          "caller": "attachTemplateToTeam",
+          "callee": "teamTemplates.find",
+          "lineNumber": 369
+        },
+        {
+          "caller": "attachTemplateToTeam",
+          "callee": "updateTeamTemplateMutation.mutate",
+          "lineNumber": 373
+        },
+        {
+          "caller": "attachTemplateToTeam",
+          "callee": "mergeUnique",
+          "lineNumber": 376
+        },
+        {
+          "caller": "removeTemplateFromTeam",
+          "callee": "teamTemplates.find",
+          "lineNumber": 382
+        },
+        {
+          "caller": "removeTemplateFromTeam",
+          "callee": "updateTeamTemplateMutation.mutate",
+          "lineNumber": 386
+        },
+        {
+          "caller": "removeTemplateFromTeam",
+          "callee": "template.agent_template_slugs.filter",
+          "lineNumber": 389
+        },
+        {
+          "caller": "addTeamCanvas",
+          "callee": "createUniqueSlug",
+          "lineNumber": 395
+        },
+        {
+          "caller": "addTeamCanvas",
+          "callee": "createTeamCanvasName",
+          "lineNumber": 395
+        },
+        {
+          "caller": "addTeamCanvas",
+          "callee": "teamTemplates.map",
+          "lineNumber": 395
+        },
+        {
+          "caller": "addTeamCanvas",
+          "callee": "createTeamTemplateMutation.mutate",
+          "lineNumber": 396
+        },
+        {
+          "caller": "addTeamCanvas",
+          "callee": "createTeamCanvasName",
+          "lineNumber": 398
+        },
+        {
+          "caller": "handleDeleteSkill",
+          "callee": "deleteSkillMutation.mutate",
+          "lineNumber": 411
+        },
+        {
+          "caller": "handleDeleteTeamTemplate",
+          "callee": "deleteTeamTemplateMutation.mutate",
+          "lineNumber": 415
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setDetailsOpen",
+          "lineNumber": 453
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "openAgentBuilder",
+          "lineNumber": 455
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setDetailsOpen",
+          "lineNumber": 456
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setAgentBuilderOpen",
+          "lineNumber": 465
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setAgentBuilderOpen",
+          "lineNumber": 479
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "skillCatalog.find",
+          "lineNumber": 505
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "props.getSkillDisplayName",
+          "lineNumber": 505
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 519
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "handleSkillMarkdownUpload",
+          "lineNumber": 541
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setSkillBuilderOpen",
+          "lineNumber": 548
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setSkillForm",
+          "lineNumber": 560
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setSkillForm",
+          "lineNumber": 569
+        },
+        {
+          "caller": "TemplateTab",
+          "callee": "setSkillForm",
+          "lineNumber": 577
+        }
+      ],
+      "metrics": {
+        "importCount": 8,
+        "exportCount": 1,
+        "functionCount": 5,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateTopBar.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 35,
+      "nonEmptyLines": 33,
+      "functions": [
+        {
+          "name": "TemplateTopBar",
+          "startLine": 8,
+          "endLine": 35,
+          "params": [
+            "{\n    searchQuery,\n    onSearchQueryChange,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateTopBar",
+          "line": 8,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateTopBar",
+          "callee": "onSearchQueryChange",
+          "lineNumber": 27
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/TemplateValidationPanel.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 52,
+      "nonEmptyLines": 50,
+      "functions": [
+        {
+          "name": "TemplateValidationPanel",
+          "startLine": 13,
+          "endLine": 52,
+          "params": [
+            "{\n    validationError,\n    validationWarnings,\n    createAgentError,\n    isCreatingAgent,\n    onCreateAgent,\n    onImportMarkdown,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "TemplateValidationPanel",
+          "line": 13,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "TemplateValidationPanel",
+          "callee": "validationWarnings.map",
+          "lineNumber": 27
+        },
+        {
+          "caller": "TemplateValidationPanel",
+          "callee": "onImportMarkdown",
+          "lineNumber": 44
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/templateBuilderState.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 279,
+      "nonEmptyLines": 258,
+      "functions": [
+        {
+          "name": "parseCsv",
+          "startLine": 31,
+          "endLine": 36,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "mergeUnique",
+          "startLine": 38,
+          "endLine": 46,
+          "params": [
+            "...items"
+          ]
+        },
+        {
+          "name": "getTemplateBySlug",
+          "startLine": 48,
+          "endLine": 50,
+          "params": [
+            "templates",
+            "slug"
+          ]
+        },
+        {
+          "name": "buildTemplateBuilderForm",
+          "startLine": 52,
+          "endLine": 75,
+          "params": [
+            "template"
+          ]
+        },
+        {
+          "name": "slugifyValue",
+          "startLine": 77,
+          "endLine": 83,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "createUniqueSlug",
+          "startLine": 85,
+          "endLine": 94,
+          "params": [
+            "value",
+            "existingSlugs"
+          ]
+        },
+        {
+          "name": "buildAgentTemplateFromForm",
+          "startLine": 96,
+          "endLine": 141,
+          "params": [
+            "form",
+            "existingTemplate"
+          ]
+        },
+        {
+          "name": "buildInheritancePreview",
+          "startLine": 143,
+          "endLine": 218,
+          "params": [
+            "form",
+            "templates",
+            "skills"
+          ]
+        },
+        {
+          "name": "normalizeText",
+          "startLine": 220,
+          "endLine": 226,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "parseFrontmatterBlock",
+          "startLine": 228,
+          "endLine": 236,
+          "params": [
+            "frontmatter",
+            "key"
+          ]
+        },
+        {
+          "name": "parseMarkdownSection",
+          "startLine": 238,
+          "endLine": 242,
+          "params": [
+            "content",
+            "headings"
+          ]
+        },
+        {
+          "name": "parseSkillMarkdownDocument",
+          "startLine": 244,
+          "endLine": 279,
+          "params": [
+            "content",
+            "fileName"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "EMPTY_TEMPLATE_BUILDER_FORM",
+          "line": 8,
+          "isDefault": false
+        },
+        {
+          "name": "parseCsv",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "mergeUnique",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "getTemplateBySlug",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "buildTemplateBuilderForm",
+          "line": 52,
+          "isDefault": false
+        },
+        {
+          "name": "slugifyValue",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "createUniqueSlug",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "buildAgentTemplateFromForm",
+          "line": 96,
+          "isDefault": false
+        },
+        {
+          "name": "buildInheritancePreview",
+          "line": 143,
+          "isDefault": false
+        },
+        {
+          "name": "parseSkillMarkdownDocument",
+          "line": 244,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "parseCsv",
+          "callee": "value\n        .split(\",\")\n        .map((item) => item.trim())\n        .filter",
+          "lineNumber": 32
+        },
+        {
+          "caller": "parseCsv",
+          "callee": "value\n        .split(\",\")\n        .map",
+          "lineNumber": 32
+        },
+        {
+          "caller": "parseCsv",
+          "callee": "value\n        .split",
+          "lineNumber": 32
+        },
+        {
+          "caller": "parseCsv",
+          "callee": "item.trim",
+          "lineNumber": 34
+        },
+        {
+          "caller": "mergeUnique",
+          "callee": "items.flat().forEach",
+          "lineNumber": 40
+        },
+        {
+          "caller": "mergeUnique",
+          "callee": "items.flat",
+          "lineNumber": 40
+        },
+        {
+          "caller": "mergeUnique",
+          "callee": "merged.includes",
+          "lineNumber": 41
+        },
+        {
+          "caller": "mergeUnique",
+          "callee": "merged.push",
+          "lineNumber": 42
+        },
+        {
+          "caller": "getTemplateBySlug",
+          "callee": "templates.find",
+          "lineNumber": 49
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "template.capabilities.join",
+          "lineNumber": 60
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "template.allowed_tools.join",
+          "lineNumber": 61
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "template.tags.join",
+          "lineNumber": 63
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "Array.isArray",
+          "lineNumber": 64
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "template.metadata.task_filters.join",
+          "lineNumber": 64
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 65
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 66
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 67
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 68
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 69
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 70
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 71
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 72
+        },
+        {
+          "caller": "buildTemplateBuilderForm",
+          "callee": "String",
+          "lineNumber": 73
+        },
+        {
+          "caller": "slugifyValue",
+          "callee": "value\n        .toLowerCase()\n        .trim()\n        .replace(/[^a-z0-9]+/g, \"-\")\n        .replace",
+          "lineNumber": 78
+        },
+        {
+          "caller": "slugifyValue",
+          "callee": "value\n        .toLowerCase()\n        .trim()\n        .replace",
+          "lineNumber": 78
+        },
+        {
+          "caller": "slugifyValue",
+          "callee": "value\n        .toLowerCase()\n        .trim",
+          "lineNumber": 78
+        },
+        {
+          "caller": "slugifyValue",
+          "callee": "value\n        .toLowerCase",
+          "lineNumber": 78
+        },
+        {
+          "caller": "createUniqueSlug",
+          "callee": "slugifyValue",
+          "lineNumber": 86
+        },
+        {
+          "caller": "createUniqueSlug",
+          "callee": "existingSlugs.includes",
+          "lineNumber": 89
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "form.slug.trim",
+          "lineNumber": 102
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "slugifyValue",
+          "lineNumber": 102
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "form.name.trim",
+          "lineNumber": 103
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "form.description.trim",
+          "lineNumber": 104
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "form.system_prompt.trim",
+          "lineNumber": 107
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "form.description.trim",
+          "lineNumber": 108
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "parseCsv",
+          "lineNumber": 111
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "parseCsv",
+          "lineNumber": 112
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "parseCsv",
+          "lineNumber": 113
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "Number",
+          "lineNumber": 124
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "Number",
+          "lineNumber": 125
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "Number",
+          "lineNumber": 126
+        },
+        {
+          "caller": "buildAgentTemplateFromForm",
+          "callee": "parseCsv",
+          "lineNumber": 138
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "getTemplateBySlug",
+          "lineNumber": 148
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "skills.filter",
+          "lineNumber": 153
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "form.skills.includes",
+          "lineNumber": 153
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 154
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "selectedSkills.flatMap",
+          "lineNumber": 156
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 158
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "selectedSkills.flatMap",
+          "lineNumber": 160
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 162
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "selectedSkills.flatMap",
+          "lineNumber": 162
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "parseCsv",
+          "lineNumber": 164
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "parseCsv",
+          "lineNumber": 165
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "parseCsv",
+          "lineNumber": 166
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "form.system_prompt.trim",
+          "lineNumber": 177
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "form.system_prompt.trim",
+          "lineNumber": 178
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 196
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 197
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 198
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "mergeUnique",
+          "lineNumber": 199
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "Number",
+          "lineNumber": 203
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "Number",
+          "lineNumber": 204
+        },
+        {
+          "caller": "buildInheritancePreview",
+          "callee": "Number",
+          "lineNumber": 205
+        },
+        {
+          "caller": "normalizeText",
+          "callee": "value\n        .trim()\n        .replace(/\\r/g, \"\")\n        .replace(/\\n+/g, \" \")\n        .replace",
+          "lineNumber": 221
+        },
+        {
+          "caller": "normalizeText",
+          "callee": "value\n        .trim()\n        .replace(/\\r/g, \"\")\n        .replace",
+          "lineNumber": 221
+        },
+        {
+          "caller": "normalizeText",
+          "callee": "value\n        .trim()\n        .replace",
+          "lineNumber": 221
+        },
+        {
+          "caller": "normalizeText",
+          "callee": "value\n        .trim",
+          "lineNumber": 221
+        },
+        {
+          "caller": "parseFrontmatterBlock",
+          "callee": "frontmatter.match",
+          "lineNumber": 229
+        },
+        {
+          "caller": "parseFrontmatterBlock",
+          "callee": "normalizeText",
+          "lineNumber": 231
+        },
+        {
+          "caller": "parseFrontmatterBlock",
+          "callee": "blockMatch[1].replace",
+          "lineNumber": 231
+        },
+        {
+          "caller": "parseFrontmatterBlock",
+          "callee": "frontmatter.match",
+          "lineNumber": 234
+        },
+        {
+          "caller": "parseFrontmatterBlock",
+          "callee": "normalizeText",
+          "lineNumber": 235
+        },
+        {
+          "caller": "parseMarkdownSection",
+          "callee": "headings.map((heading) => heading.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\")).join",
+          "lineNumber": 239
+        },
+        {
+          "caller": "parseMarkdownSection",
+          "callee": "headings.map",
+          "lineNumber": 239
+        },
+        {
+          "caller": "parseMarkdownSection",
+          "callee": "heading.replace",
+          "lineNumber": 239
+        },
+        {
+          "caller": "parseMarkdownSection",
+          "callee": "content.match",
+          "lineNumber": 240
+        },
+        {
+          "caller": "parseMarkdownSection",
+          "callee": "match?.[1]?.trim",
+          "lineNumber": 241
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "content.trim",
+          "lineNumber": 245
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "trimmedContent.match",
+          "lineNumber": 246
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "trimmedContent.slice",
+          "lineNumber": 248
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "parseFrontmatterBlock",
+          "lineNumber": 250
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "body.match(/^\\s*#\\s+(.+)$/m)?.[1]?.trim",
+          "lineNumber": 251
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "body.match",
+          "lineNumber": 251
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "fileName.replace",
+          "lineNumber": 252
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "parseFrontmatterBlock",
+          "lineNumber": 254
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "parseMarkdownSection",
+          "lineNumber": 255
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "body\n        .split(/\\n\\s*\\n/)\n        .map((block) => block.trim())\n        .find",
+          "lineNumber": 256
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "body\n        .split(/\\n\\s*\\n/)\n        .map",
+          "lineNumber": 256
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "body\n        .split",
+          "lineNumber": 256
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "block.trim",
+          "lineNumber": 258
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "block.startsWith",
+          "lineNumber": 259
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "block.startsWith",
+          "lineNumber": 259
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "block.startsWith",
+          "lineNumber": 259
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "normalizeText",
+          "lineNumber": 260
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "normalizeText",
+          "lineNumber": 260
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "parseMarkdownSection",
+          "lineNumber": 262
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "capabilitiesSection\n        .split(\"\\n\")\n        .map((line) => line.replace(/^[-*]\\s*/, \"\").trim())\n        .filter",
+          "lineNumber": 269
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "capabilitiesSection\n        .split(\"\\n\")\n        .map",
+          "lineNumber": 269
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "capabilitiesSection\n        .split",
+          "lineNumber": 269
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "line.replace(/^[-*]\\s*/, \"\").trim",
+          "lineNumber": 271
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "line.replace",
+          "lineNumber": 271
+        },
+        {
+          "caller": "parseSkillMarkdownDocument",
+          "callee": "capabilityLines.join",
+          "lineNumber": 277
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 10,
+        "functionCount": 12,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "frontend/src/components/templates/types.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 86,
+      "nonEmptyLines": 79,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    }
+  ]
+}

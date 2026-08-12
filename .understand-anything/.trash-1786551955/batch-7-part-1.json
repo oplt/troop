@@ -1,0 +1,1220 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/api/admin.ts",
+      "type": "file",
+      "name": "admin.ts",
+      "filePath": "frontend/src/api/admin.ts",
+      "summary": "Provides typed frontend API calls for administrator user listing and status management.",
+      "tags": [
+        "api-client",
+        "admin",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/admin.ts:listAdminUsers",
+      "type": "function",
+      "name": "listAdminUsers",
+      "filePath": "frontend/src/api/admin.ts",
+      "lineRange": [
+        20,
+        30
+      ],
+      "summary": "Calls the backend API to perform list admin users.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/admin.ts:updateUserStatus",
+      "type": "function",
+      "name": "updateUserStatus",
+      "filePath": "frontend/src/api/admin.ts",
+      "lineRange": [
+        32,
+        40
+      ],
+      "summary": "Calls the backend API to perform update user status.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/api/ai.ts",
+      "type": "file",
+      "name": "ai.ts",
+      "filePath": "frontend/src/api/ai.ts",
+      "summary": "Defines AI-domain API types and calls for prompts, documents, retrieval, model runs, review, feedback, and evaluation.",
+      "tags": [
+        "api-client",
+        "ai",
+        "rag",
+        "typescript"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:getAiOverview",
+      "type": "function",
+      "name": "getAiOverview",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        170,
+        172
+      ],
+      "summary": "Calls the backend API to perform get ai overview.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listPromptVersions",
+      "type": "function",
+      "name": "listPromptVersions",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        174,
+        176
+      ],
+      "summary": "Calls the backend API to perform list prompt versions.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createPromptTemplate",
+      "type": "function",
+      "name": "createPromptTemplate",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        178,
+        187
+      ],
+      "summary": "Calls the backend API to perform create prompt template.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:updatePromptTemplate",
+      "type": "function",
+      "name": "updatePromptTemplate",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        189,
+        202
+      ],
+      "summary": "Calls the backend API to perform update prompt template.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createPromptVersion",
+      "type": "function",
+      "name": "createPromptVersion",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        204,
+        224
+      ],
+      "summary": "Calls the backend API to perform create prompt version.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:updatePromptVersion",
+      "type": "function",
+      "name": "updatePromptVersion",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        226,
+        238
+      ],
+      "summary": "Calls the backend API to perform update prompt version.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiDocument",
+      "type": "function",
+      "name": "createAiDocument",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        240,
+        251
+      ],
+      "summary": "Calls the backend API to perform create ai document.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:getAiDocument",
+      "type": "function",
+      "name": "getAiDocument",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        253,
+        255
+      ],
+      "summary": "Calls the backend API to perform get ai document.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:uploadAiDocument",
+      "type": "function",
+      "name": "uploadAiDocument",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        257,
+        267
+      ],
+      "summary": "Calls the backend API to perform upload ai document.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:retrieveAiChunks",
+      "type": "function",
+      "name": "retrieveAiChunks",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        269,
+        278
+      ],
+      "summary": "Calls the backend API to perform retrieve ai chunks.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiRun",
+      "type": "function",
+      "name": "createAiRun",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        280,
+        293
+      ],
+      "summary": "Calls the backend API to perform create ai run.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listAiReviews",
+      "type": "function",
+      "name": "listAiReviews",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        295,
+        297
+      ],
+      "summary": "Calls the backend API to perform list ai reviews.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiReview",
+      "type": "function",
+      "name": "createAiReview",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        299,
+        307
+      ],
+      "summary": "Calls the backend API to perform create ai review.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:decideAiReview",
+      "type": "function",
+      "name": "decideAiReview",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        309,
+        321
+      ],
+      "summary": "Calls the backend API to perform decide ai review.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listAiFeedback",
+      "type": "function",
+      "name": "listAiFeedback",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        323,
+        325
+      ],
+      "summary": "Calls the backend API to perform list ai feedback.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiFeedback",
+      "type": "function",
+      "name": "createAiFeedback",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        327,
+        335
+      ],
+      "summary": "Calls the backend API to perform create ai feedback.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listAiDatasets",
+      "type": "function",
+      "name": "listAiDatasets",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        337,
+        339
+      ],
+      "summary": "Calls the backend API to perform list ai datasets.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiDataset",
+      "type": "function",
+      "name": "createAiDataset",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        341,
+        349
+      ],
+      "summary": "Calls the backend API to perform create ai dataset.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listAiDatasetCases",
+      "type": "function",
+      "name": "listAiDatasetCases",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        351,
+        353
+      ],
+      "summary": "Calls the backend API to perform list ai dataset cases.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:createAiDatasetCase",
+      "type": "function",
+      "name": "createAiDatasetCase",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        355,
+        368
+      ],
+      "summary": "Calls the backend API to perform create ai dataset case.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:listAiEvaluationRuns",
+      "type": "function",
+      "name": "listAiEvaluationRuns",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        370,
+        372
+      ],
+      "summary": "Calls the backend API to perform list ai evaluation runs.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/ai.ts:runAiEvaluation",
+      "type": "function",
+      "name": "runAiEvaluation",
+      "filePath": "frontend/src/api/ai.ts",
+      "lineRange": [
+        374,
+        382
+      ],
+      "summary": "Calls the backend API to perform run ai evaluation.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/api/calendar.ts",
+      "type": "file",
+      "name": "calendar.ts",
+      "filePath": "frontend/src/api/calendar.ts",
+      "summary": "Provides typed CRUD requests for calendar and planner items.",
+      "tags": [
+        "api-client",
+        "calendar",
+        "typescript",
+        "crud"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/api/calendar.ts:listCalendarItems",
+      "type": "function",
+      "name": "listCalendarItems",
+      "filePath": "frontend/src/api/calendar.ts",
+      "lineRange": [
+        25,
+        34
+      ],
+      "summary": "Calls the backend API to perform list calendar items.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/calendar.ts:getCalendarItem",
+      "type": "function",
+      "name": "getCalendarItem",
+      "filePath": "frontend/src/api/calendar.ts",
+      "lineRange": [
+        36,
+        38
+      ],
+      "summary": "Calls the backend API to perform get calendar item.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/calendar.ts:updateCalendarItem",
+      "type": "function",
+      "name": "updateCalendarItem",
+      "filePath": "frontend/src/api/calendar.ts",
+      "lineRange": [
+        40,
+        54
+      ],
+      "summary": "Calls the backend API to perform update calendar item.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/calendar.ts:deleteCalendarItem",
+      "type": "function",
+      "name": "deleteCalendarItem",
+      "filePath": "frontend/src/api/calendar.ts",
+      "lineRange": [
+        56,
+        58
+      ],
+      "summary": "Calls the backend API to perform delete calendar item.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/calendar.ts:createCalendarItem",
+      "type": "function",
+      "name": "createCalendarItem",
+      "filePath": "frontend/src/api/calendar.ts",
+      "lineRange": [
+        60,
+        75
+      ],
+      "summary": "Calls the backend API to perform create calendar item.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/api/client.test.ts",
+      "type": "file",
+      "name": "client.test.ts",
+      "filePath": "frontend/src/api/client.test.ts",
+      "summary": "Verifies the shared API client's authentication expiry, error parsing, retry, and response behavior.",
+      "tags": [
+        "test",
+        "api-client",
+        "authentication",
+        "vitest"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/api/client.ts",
+      "type": "file",
+      "name": "client.ts",
+      "filePath": "frontend/src/api/client.ts",
+      "summary": "Implements the shared authenticated fetch client with CSRF headers, refresh-token retry, session-expiry notifications, and normalized request errors.",
+      "tags": [
+        "api-client",
+        "authentication",
+        "csrf",
+        "error-handling"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/api/client.ts:markAuthStateChanged",
+      "type": "function",
+      "name": "markAuthStateChanged",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        31,
+        33
+      ],
+      "summary": "Advances the authentication-state version used to prevent stale expiry notifications.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/client.ts:onAuthExpired",
+      "type": "function",
+      "name": "onAuthExpired",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        40,
+        43
+      ],
+      "summary": "Registers a listener that is notified when the current authenticated session expires.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/client.ts:readCookie",
+      "type": "function",
+      "name": "readCookie",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        45,
+        50
+      ],
+      "summary": "Reads and decodes a named browser cookie for request construction.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/client.ts:refreshAccessToken",
+      "type": "function",
+      "name": "refreshAccessToken",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        52,
+        63
+      ],
+      "summary": "Requests a fresh access token using the secure refresh-token flow.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/client.ts:apiFetch",
+      "type": "function",
+      "name": "apiFetch",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        75,
+        161
+      ],
+      "summary": "Executes authenticated API requests, applies CSRF protection, refreshes expired access tokens once, and normalizes failures.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:frontend/src/api/client.ts:SessionExpiredError",
+      "type": "class",
+      "name": "SessionExpiredError",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        12,
+        17
+      ],
+      "summary": "Error type signaling that authentication refresh failed and the current browser session expired.",
+      "tags": [
+        "error-handling",
+        "api-client",
+        "typescript"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:frontend/src/api/client.ts:ApiRequestError",
+      "type": "class",
+      "name": "ApiRequestError",
+      "filePath": "frontend/src/api/client.ts",
+      "lineRange": [
+        19,
+        29
+      ],
+      "summary": "Structured HTTP request error carrying status and parsed backend error detail.",
+      "tags": [
+        "error-handling",
+        "api-client",
+        "typescript"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/api/admin.ts",
+      "target": "function:frontend/src/api/admin.ts:listAdminUsers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/admin.ts",
+      "target": "function:frontend/src/api/admin.ts:listAdminUsers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/admin.ts",
+      "target": "function:frontend/src/api/admin.ts:updateUserStatus",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/admin.ts",
+      "target": "function:frontend/src/api/admin.ts:updateUserStatus",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:getAiOverview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:getAiOverview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listPromptVersions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listPromptVersions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createPromptTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createPromptTemplate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:updatePromptTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:updatePromptTemplate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createPromptVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createPromptVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:updatePromptVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:updatePromptVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:getAiDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:getAiDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:uploadAiDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:uploadAiDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:retrieveAiChunks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:retrieveAiChunks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiRun",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiRun",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiReviews",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiReviews",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiReview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiReview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:decideAiReview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:decideAiReview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiFeedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiFeedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiFeedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiFeedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiDatasets",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiDatasets",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDataset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDataset",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiDatasetCases",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiDatasetCases",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDatasetCase",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:createAiDatasetCase",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiEvaluationRuns",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:listAiEvaluationRuns",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:runAiEvaluation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "function:frontend/src/api/ai.ts:runAiEvaluation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:listCalendarItems",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:listCalendarItems",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:getCalendarItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:getCalendarItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:updateCalendarItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:updateCalendarItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:deleteCalendarItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:deleteCalendarItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:createCalendarItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "function:frontend/src/api/calendar.ts:createCalendarItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:markAuthStateChanged",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:markAuthStateChanged",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:onAuthExpired",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:onAuthExpired",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:readCookie",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:readCookie",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:refreshAccessToken",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:apiFetch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "function:frontend/src/api/client.ts:apiFetch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "class:frontend/src/api/client.ts:SessionExpiredError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "class:frontend/src/api/client.ts:SessionExpiredError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "class:frontend/src/api/client.ts:ApiRequestError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "class:frontend/src/api/client.ts:ApiRequestError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/admin.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/api/ai.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/api/calendar.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/api/client.test.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/api/client.ts",
+      "target": "file:frontend/src/api/client.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

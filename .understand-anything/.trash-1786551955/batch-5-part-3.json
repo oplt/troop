@@ -1,0 +1,286 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "type": "file",
+      "name": "langgraph_runner.py",
+      "filePath": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "summary": "Adapts orchestration run modes to a compact LangGraph state graph and invokes the supplied execution callback through the selected route.",
+      "tags": [
+        "execution",
+        "workflow",
+        "orchestration",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/langgraph_runner.py:_normalize_run_mode",
+      "type": "function",
+      "name": "_normalize_run_mode",
+      "filePath": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "lineRange": [
+        26,
+        30
+      ],
+      "summary": "LangGraph adapter operation that performs normalize run mode.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/langgraph_runner.py:_route_run_mode",
+      "type": "function",
+      "name": "_route_run_mode",
+      "filePath": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "lineRange": [
+        33,
+        34
+      ],
+      "summary": "LangGraph adapter operation that performs route run mode.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/langgraph_runner.py:run_via_langgraph",
+      "type": "function",
+      "name": "run_via_langgraph",
+      "filePath": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "lineRange": [
+        37,
+        91
+      ],
+      "summary": "LangGraph adapter operation that performs run via langgraph.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/orchestration/execution/langgraph_runner.py:OrchestrationGraphState",
+      "type": "class",
+      "name": "OrchestrationGraphState",
+      "filePath": "backend/modules/orchestration/execution/langgraph_runner.py",
+      "lineRange": [
+        20,
+        23
+      ],
+      "summary": "Typed LangGraph state contract for orchestration run routing.",
+      "tags": [
+        "workflow",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/execution/policies.py",
+      "type": "file",
+      "name": "policies.py",
+      "filePath": "backend/modules/orchestration/execution/policies.py",
+      "summary": "Centralizes task-transition validation and retry-number calculation using agent-specific retry policies.",
+      "tags": [
+        "execution",
+        "workflow",
+        "orchestration",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/policies.py:is_valid_task_transition",
+      "type": "function",
+      "name": "is_valid_task_transition",
+      "filePath": "backend/modules/orchestration/execution/policies.py",
+      "lineRange": [
+        31,
+        34
+      ],
+      "summary": "Policy helper that computes is valid task transition.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/policies.py:next_retry_numbers",
+      "type": "function",
+      "name": "next_retry_numbers",
+      "filePath": "backend/modules/orchestration/execution/policies.py",
+      "lineRange": [
+        37,
+        40
+      ],
+      "summary": "Policy helper that computes next retry numbers.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/execution/policies.py:RetryPolicy",
+      "type": "class",
+      "name": "RetryPolicy",
+      "filePath": "backend/modules/orchestration/execution/policies.py",
+      "lineRange": [
+        12,
+        28
+      ],
+      "summary": "Retry policy that derives attempt limits and backoff behavior from agent configuration.",
+      "tags": [
+        "workflow",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_normalize_run_mode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_normalize_run_mode",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_route_run_mode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_route_run_mode",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:run_via_langgraph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:run_via_langgraph",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "class:backend/modules/orchestration/execution/langgraph_runner.py:OrchestrationGraphState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "class:backend/modules/orchestration/execution/langgraph_runner.py:OrchestrationGraphState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "function:backend/modules/orchestration/execution/policies.py:is_valid_task_transition",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "function:backend/modules/orchestration/execution/policies.py:is_valid_task_transition",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "function:backend/modules/orchestration/execution/policies.py:next_retry_numbers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "function:backend/modules/orchestration/execution/policies.py:next_retry_numbers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "class:backend/modules/orchestration/execution/policies.py:RetryPolicy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "class:backend/modules/orchestration/execution/policies.py:RetryPolicy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/langgraph_runner.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "file:backend/modules/orchestration/constants.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/langgraph_runner.py:_route_run_mode",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_normalize_run_mode",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/langgraph_runner.py:run_via_langgraph",
+      "target": "function:backend/modules/orchestration/execution/langgraph_runner.py:_normalize_run_mode",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/policies.py",
+      "target": "file:backend/tests/test_phase6_modularization.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

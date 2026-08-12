@@ -1,0 +1,304 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/api/deps/orchestration.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/application.py",
+      "language": "python",
+      "sizeLines": 206,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/logging.py",
+      "language": "python",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/router.py",
+      "language": "python",
+      "sizeLines": 419,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/tools/__init__.py",
+      "language": "python",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/tools/registry.py",
+      "language": "python",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/app/agents/workspace.py",
+      "language": "python",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/db/base.py",
+      "language": "python",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/audit/models.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/calendar/models.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/calendar/repository.py",
+      "language": "python",
+      "sizeLines": 107,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/calendar/schemas.py",
+      "language": "python",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/calendar/service.py",
+      "language": "python",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/companies/models.py",
+      "language": "python",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/companies/repository.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/companies/service.py",
+      "language": "python",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/github/__init__.py",
+      "language": "python",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/github/models.py",
+      "language": "python",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/github/repository.py",
+      "language": "python",
+      "sizeLines": 335,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/github/service.py",
+      "language": "python",
+      "sizeLines": 2815,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/memory/entry_types.py",
+      "language": "python",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/memory/models.py",
+      "language": "python",
+      "sizeLines": 341,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/memory/repository.py",
+      "language": "python",
+      "sizeLines": 1114,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/notifications/models.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/notifications/repository.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/_helpers.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/constants.py",
+      "language": "python",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/control_plane.py",
+      "language": "python",
+      "sizeLines": 710,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/api/deps/orchestration.py": [
+      "backend/db/session.py",
+      "backend/modules/orchestration/services/application.py",
+      "backend/modules/orchestration/services/approvals_domain.py",
+      "backend/modules/orchestration/services/execution_domain.py",
+      "backend/modules/orchestration/services/github_sync_domain.py",
+      "backend/modules/orchestration/services/knowledge_domain.py",
+      "backend/modules/orchestration/services/memory_domain.py",
+      "backend/modules/orchestration/services/service.py"
+    ],
+    "backend/app/agents/application.py": [
+      "backend/app/agents/logging.py",
+      "backend/app/agents/workspace.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/execution/execution_workflow.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/services/application.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/app/agents/logging.py": [],
+    "backend/app/agents/router.py": [
+      "backend/api/deps/auth.py",
+      "backend/app/agents/application.py",
+      "backend/app/agents/logging.py",
+      "backend/app/agents/memory/base.py",
+      "backend/app/agents/tools/registry.py",
+      "backend/app/agents/workspace.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/presenters.py",
+      "backend/modules/orchestration/schemas.py",
+      "backend/modules/orchestration/services/application.py"
+    ],
+    "backend/app/agents/tools/__init__.py": [
+      "backend/app/agents/tools/registry.py"
+    ],
+    "backend/app/agents/tools/registry.py": [],
+    "backend/app/agents/workspace.py": [
+      "backend/modules/orchestration/models.py"
+    ],
+    "backend/db/base.py": [],
+    "backend/modules/audit/models.py": [
+      "backend/db/base.py"
+    ],
+    "backend/modules/calendar/models.py": [
+      "backend/db/base.py"
+    ],
+    "backend/modules/calendar/repository.py": [
+      "backend/modules/calendar/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/calendar/schemas.py": [
+      "backend/core/schemas.py"
+    ],
+    "backend/modules/calendar/service.py": [
+      "backend/modules/calendar/models.py",
+      "backend/modules/calendar/repository.py",
+      "backend/modules/calendar/schemas.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/companies/models.py": [
+      "backend/db/base.py",
+      "backend/modules/orchestration/model_utils.py"
+    ],
+    "backend/modules/companies/repository.py": [
+      "backend/modules/companies/models.py"
+    ],
+    "backend/modules/companies/service.py": [
+      "backend/modules/companies/models.py",
+      "backend/modules/companies/repository.py"
+    ],
+    "backend/modules/github/__init__.py": [
+      "backend/modules/github/models.py"
+    ],
+    "backend/modules/github/models.py": [
+      "backend/db/base.py",
+      "backend/modules/orchestration/model_utils.py"
+    ],
+    "backend/modules/github/repository.py": [
+      "backend/modules/github/models.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/github/service.py": [
+      "backend/core/config.py",
+      "backend/core/external_http.py",
+      "backend/core/http_clients.py",
+      "backend/core/logging.py",
+      "backend/modules/github/models.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/memory/entry_types.py",
+      "backend/modules/orchestration/constants.py",
+      "backend/modules/orchestration/hitl_policy.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/security.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/memory/entry_types.py": [],
+    "backend/modules/memory/models.py": [
+      "backend/db/base.py",
+      "backend/modules/orchestration/model_utils.py"
+    ],
+    "backend/modules/memory/repository.py": [
+      "backend/core/config.py",
+      "backend/modules/memory/models.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/models.py"
+    ],
+    "backend/modules/notifications/models.py": [
+      "backend/db/base.py"
+    ],
+    "backend/modules/notifications/repository.py": [
+      "backend/modules/notifications/models.py"
+    ],
+    "backend/modules/orchestration/_helpers.py": [
+      "backend/modules/memory/namespaces.py"
+    ],
+    "backend/modules/orchestration/constants.py": [],
+    "backend/modules/orchestration/control_plane.py": [
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/control_plane_runtime.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/repository.py",
+      "backend/modules/orchestration/services/service.py"
+    ]
+  }
+}

@@ -1,0 +1,1034 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/memory/lifecycle/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/memory/lifecycle/__init__.py",
+      "summary": "Re-exports the focused memory context, retention, and semantic lifecycle boundaries as a cohesive package API.",
+      "tags": [
+        "barrel",
+        "memory",
+        "exports",
+        "lifecycle"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/lifecycle/context.py",
+      "type": "file",
+      "name": "context.py",
+      "filePath": "backend/modules/memory/lifecycle/context.py",
+      "summary": "Wraps prompt-facing memory context assembly behind a persistence-independent lifecycle service.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle",
+        "domain-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/lifecycle/context.py:MemoryContextLifecycle",
+      "type": "class",
+      "name": "MemoryContextLifecycle",
+      "filePath": "backend/modules/memory/lifecycle/context.py",
+      "lineRange": [
+        7,
+        23
+      ],
+      "summary": "Persistence-independent lifecycle boundary for ranking and formatting memory records into prompt context.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/lifecycle/retention.py",
+      "type": "file",
+      "name": "retention.py",
+      "filePath": "backend/modules/memory/lifecycle/retention.py",
+      "summary": "Defines resolved memory retention policy values and derives bounded expiration timestamps from TTL settings.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle",
+        "domain-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/lifecycle/retention.py:resolve_retention",
+      "type": "function",
+      "name": "resolve_retention",
+      "filePath": "backend/modules/memory/lifecycle/retention.py",
+      "lineRange": [
+        14,
+        30
+      ],
+      "summary": "Resolves bounded memory retention settings into a concrete expiration policy.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/lifecycle/retention.py:MemoryRetention",
+      "type": "class",
+      "name": "MemoryRetention",
+      "filePath": "backend/modules/memory/lifecycle/retention.py",
+      "lineRange": [
+        8,
+        11
+      ],
+      "summary": "Resolved retention policy containing TTL, expiration time, and cleanup action.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/lifecycle/semantic.py",
+      "type": "file",
+      "name": "semantic.py",
+      "filePath": "backend/modules/memory/lifecycle/semantic.py",
+      "summary": "Provides a provider-neutral semantic memory lifecycle for add, search, update, delete, user cleanup, and duplicate lookup operations.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle",
+        "domain-logic"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/memory/lifecycle/semantic.py:SemanticMemoryLifecycle",
+      "type": "class",
+      "name": "SemanticMemoryLifecycle",
+      "filePath": "backend/modules/memory/lifecycle/semantic.py",
+      "lineRange": [
+        9,
+        76
+      ],
+      "summary": "Provider-neutral service that delegates semantic memory CRUD, search, cleanup, and deduplication.",
+      "tags": [
+        "service",
+        "memory",
+        "lifecycle"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/memory/metrics.py",
+      "type": "file",
+      "name": "metrics.py",
+      "filePath": "backend/modules/memory/metrics.py",
+      "summary": "Collects bounded in-process memory metrics, character-size histograms, context-packet rollups, and snapshot summaries.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory",
+        "telemetry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "function",
+      "name": "increment_memory_metric",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        12,
+        14
+      ],
+      "summary": "Memory observability helper that records or summarizes increment memory metric.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:_char_size_bucket",
+      "type": "function",
+      "name": "_char_size_bucket",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        17,
+        32
+      ],
+      "summary": "Memory observability helper that records or summarizes char size bucket.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "type": "function",
+      "name": "record_working_memory_char_histogram",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        35,
+        36
+      ],
+      "summary": "Memory observability helper that records or summarizes record working memory char histogram.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "type": "function",
+      "name": "record_context_section_char_histogram",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        39,
+        41
+      ],
+      "summary": "Memory observability helper that records or summarizes record context section char histogram.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:record_context_packet_histograms",
+      "type": "function",
+      "name": "record_context_packet_histograms",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        44,
+        49
+      ],
+      "summary": "Memory observability helper that records or summarizes record context packet histograms.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:_build_rollup",
+      "type": "function",
+      "name": "_build_rollup",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        52,
+        127
+      ],
+      "summary": "Memory observability helper that records or summarizes build rollup.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/metrics.py:snapshot_memory_metrics",
+      "type": "function",
+      "name": "snapshot_memory_metrics",
+      "filePath": "backend/modules/memory/metrics.py",
+      "lineRange": [
+        130,
+        134
+      ],
+      "summary": "Memory observability helper that records or summarizes snapshot memory metrics.",
+      "tags": [
+        "observability",
+        "metrics",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/namespaces.py",
+      "type": "file",
+      "name": "namespaces.py",
+      "filePath": "backend/modules/memory/namespaces.py",
+      "summary": "Defines and enforces the canonical scoped memory namespace taxonomy, builders, validators, and legacy namespace migration.",
+      "tags": [
+        "validation",
+        "namespace",
+        "memory",
+        "migration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/namespaces.py:parse_namespace",
+      "type": "function",
+      "name": "parse_namespace",
+      "filePath": "backend/modules/memory/namespaces.py",
+      "lineRange": [
+        37,
+        72
+      ],
+      "summary": "Canonical namespace utility that performs parse namespace.",
+      "tags": [
+        "validation",
+        "namespace",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "type": "function",
+      "name": "validate_namespace",
+      "filePath": "backend/modules/memory/namespaces.py",
+      "lineRange": [
+        75,
+        77
+      ],
+      "summary": "Canonical namespace utility that performs validate namespace.",
+      "tags": [
+        "validation",
+        "namespace",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "type": "function",
+      "name": "build_namespace",
+      "filePath": "backend/modules/memory/namespaces.py",
+      "lineRange": [
+        80,
+        91
+      ],
+      "summary": "Canonical namespace utility that performs build namespace.",
+      "tags": [
+        "validation",
+        "namespace",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/namespaces.py:coerce_legacy_namespace",
+      "type": "function",
+      "name": "coerce_legacy_namespace",
+      "filePath": "backend/modules/memory/namespaces.py",
+      "lineRange": [
+        94,
+        121
+      ],
+      "summary": "Canonical namespace utility that performs coerce legacy namespace.",
+      "tags": [
+        "validation",
+        "namespace",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/promotion_rules.py",
+      "type": "file",
+      "name": "promotion_rules.py",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "summary": "Scores project and company memory candidates against explicit rules to decide automatic promotion, suggested review, or rejection.",
+      "tags": [
+        "policy",
+        "classification",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:_score_body",
+      "type": "function",
+      "name": "_score_body",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        80,
+        93
+      ],
+      "summary": "Promotion policy helper that computes score body.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:_type_bonus",
+      "type": "function",
+      "name": "_type_bonus",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        96,
+        97
+      ],
+      "summary": "Promotion policy helper that computes type bonus.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:_length_penalty",
+      "type": "function",
+      "name": "_length_penalty",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        100,
+        107
+      ],
+      "summary": "Promotion policy helper that computes length penalty.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "type": "function",
+      "name": "evaluate_project_promotion",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        110,
+        135
+      ],
+      "summary": "Promotion policy helper that computes evaluate project promotion.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "type": "function",
+      "name": "evaluate_company_promotion",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        138,
+        164
+      ],
+      "summary": "Promotion policy helper that computes evaluate company promotion.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/promotion_rules.py:evaluate",
+      "type": "function",
+      "name": "evaluate",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        167,
+        170
+      ],
+      "summary": "Promotion policy helper that computes evaluate.",
+      "tags": [
+        "policy",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/promotion_rules.py:PromotionCandidate",
+      "type": "class",
+      "name": "PromotionCandidate",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        29,
+        38
+      ],
+      "summary": "Structured memory promotion value representing promotion candidate.",
+      "tags": [
+        "data-model",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/promotion_rules.py:PromotionEvaluation",
+      "type": "class",
+      "name": "PromotionEvaluation",
+      "filePath": "backend/modules/memory/promotion_rules.py",
+      "lineRange": [
+        42,
+        46
+      ],
+      "summary": "Structured memory promotion value representing promotion evaluation.",
+      "tags": [
+        "data-model",
+        "memory",
+        "scoring"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/memory/lifecycle/context.py",
+      "target": "class:backend/modules/memory/lifecycle/context.py:MemoryContextLifecycle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/context.py",
+      "target": "class:backend/modules/memory/lifecycle/context.py:MemoryContextLifecycle",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/retention.py",
+      "target": "function:backend/modules/memory/lifecycle/retention.py:resolve_retention",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/retention.py",
+      "target": "function:backend/modules/memory/lifecycle/retention.py:resolve_retention",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/retention.py",
+      "target": "class:backend/modules/memory/lifecycle/retention.py:MemoryRetention",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/retention.py",
+      "target": "class:backend/modules/memory/lifecycle/retention.py:MemoryRetention",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/semantic.py",
+      "target": "class:backend/modules/memory/lifecycle/semantic.py:SemanticMemoryLifecycle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/semantic.py",
+      "target": "class:backend/modules/memory/lifecycle/semantic.py:SemanticMemoryLifecycle",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:_char_size_bucket",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:_char_size_bucket",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_context_packet_histograms",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:record_context_packet_histograms",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:_build_rollup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:_build_rollup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:snapshot_memory_metrics",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/metrics.py",
+      "target": "function:backend/modules/memory/metrics.py:snapshot_memory_metrics",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:parse_namespace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:parse_namespace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:coerce_legacy_namespace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "function:backend/modules/memory/namespaces.py:coerce_legacy_namespace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_score_body",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_score_body",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_type_bonus",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_type_bonus",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_length_penalty",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:_length_penalty",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionCandidate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionCandidate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionEvaluation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/promotion_rules.py",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionEvaluation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/__init__.py",
+      "target": "file:backend/modules/memory/lifecycle/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/__init__.py",
+      "target": "file:backend/modules/memory/lifecycle/retention.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/__init__.py",
+      "target": "file:backend/modules/memory/lifecycle/semantic.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/context.py",
+      "target": "file:backend/modules/memory/layer/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/context.py",
+      "target": "file:backend/modules/memory/layer/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/semantic.py",
+      "target": "file:backend/modules/memory/layer/provider.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/lifecycle/semantic.py",
+      "target": "file:backend/modules/memory/layer/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/memory/lifecycle/context.py:MemoryContextLifecycle",
+      "target": "function:backend/modules/memory/layer/context.py:build_memory_context",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/lifecycle/retention.py:resolve_retention",
+      "target": "class:backend/modules/memory/lifecycle/retention.py:MemoryRetention",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "target": "function:backend/modules/memory/metrics.py:_char_size_bucket",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "target": "function:backend/modules/memory/metrics.py:increment_memory_metric",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "target": "function:backend/modules/memory/metrics.py:_char_size_bucket",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_context_packet_histograms",
+      "target": "function:backend/modules/memory/metrics.py:record_context_section_char_histogram",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:record_context_packet_histograms",
+      "target": "function:backend/modules/memory/metrics.py:record_working_memory_char_histogram",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/metrics.py:snapshot_memory_metrics",
+      "target": "function:backend/modules/memory/metrics.py:_build_rollup",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "target": "function:backend/modules/memory/namespaces.py:parse_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "target": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/namespaces.py:coerce_legacy_namespace",
+      "target": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/namespaces.py:coerce_legacy_namespace",
+      "target": "function:backend/modules/memory/namespaces.py:validate_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_score_body",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_type_bonus",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_length_penalty",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionEvaluation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_score_body",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_type_bonus",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "target": "function:backend/modules/memory/promotion_rules.py:_length_penalty",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "target": "class:backend/modules/memory/promotion_rules.py:PromotionEvaluation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_company_promotion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/memory/promotion_rules.py:evaluate",
+      "target": "function:backend/modules/memory/promotion_rules.py:evaluate_project_promotion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/namespaces.py",
+      "target": "file:backend/tests/test_phase5_memory_architecture.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -1,0 +1,400 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "type": "file",
+      "name": "hierarchy_policy.py",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "summary": "Normalizes, validates, reads, and applies hierarchical agent reporting and delegation policies for project execution settings.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hierarchy_policy.py:_clean_ids",
+      "type": "function",
+      "name": "_clean_ids",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "lineRange": [
+        28,
+        38
+      ],
+      "summary": "Hierarchy-policy helper that performs clean ids.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "function",
+      "name": "normalize_hierarchy_policy",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "lineRange": [
+        41,
+        106
+      ],
+      "summary": "Hierarchy-policy helper that performs normalize hierarchy policy.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "type": "function",
+      "name": "policy_from_execution",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "lineRange": [
+        109,
+        129
+      ],
+      "summary": "Hierarchy-policy helper that performs policy from execution.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hierarchy_policy.py:apply_policy_to_execution",
+      "type": "function",
+      "name": "apply_policy_to_execution",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "lineRange": [
+        132,
+        143
+      ],
+      "summary": "Hierarchy-policy helper that performs apply policy to execution.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hierarchy_policy.py:validate_hierarchy_policy",
+      "type": "function",
+      "name": "validate_hierarchy_policy",
+      "filePath": "backend/modules/orchestration/hierarchy_policy.py",
+      "lineRange": [
+        146,
+        219
+      ],
+      "summary": "Hierarchy-policy helper that performs validate hierarchy policy.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/orchestration/hitl_policy.py",
+      "type": "file",
+      "name": "hitl_policy.py",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "summary": "Normalizes human-in-the-loop approval gates and autonomy levels, evaluates gated actions, and redacts sensitive approval payloads.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hitl_policy.py:normalize_approval_gates",
+      "type": "function",
+      "name": "normalize_approval_gates",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "lineRange": [
+        46,
+        57
+      ],
+      "summary": "Human-in-the-loop policy helper that performs normalize approval gates.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hitl_policy.py:normalize_autonomy_level",
+      "type": "function",
+      "name": "normalize_autonomy_level",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "lineRange": [
+        60,
+        66
+      ],
+      "summary": "Human-in-the-loop policy helper that performs normalize autonomy level.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "type": "function",
+      "name": "action_requires_approval",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "lineRange": [
+        69,
+        75
+      ],
+      "summary": "Human-in-the-loop policy helper that performs action requires approval.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hitl_policy.py:normalize_hitl_settings",
+      "type": "function",
+      "name": "normalize_hitl_settings",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "lineRange": [
+        78,
+        89
+      ],
+      "summary": "Human-in-the-loop policy helper that performs normalize hitl settings.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/hitl_policy.py:redact_approval_payload",
+      "type": "function",
+      "name": "redact_approval_payload",
+      "filePath": "backend/modules/orchestration/hitl_policy.py",
+      "lineRange": [
+        92,
+        118
+      ],
+      "summary": "Human-in-the-loop policy helper that performs redact approval payload.",
+      "tags": [
+        "policy",
+        "validation",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:_clean_ids",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:_clean_ids",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:apply_policy_to_execution",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:apply_policy_to_execution",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:validate_hierarchy_policy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:validate_hierarchy_policy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_approval_gates",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_approval_gates",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_autonomy_level",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_autonomy_level",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_hitl_settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_hitl_settings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:redact_approval_payload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:redact_approval_payload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:_clean_ids",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hierarchy_policy.py:apply_policy_to_execution",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hierarchy_policy.py:validate_hierarchy_policy",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_autonomy_level",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/hitl_policy.py:action_requires_approval",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_approval_gates",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "target": "file:backend/tests/test_hierarchy_policy.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/hitl_policy.py",
+      "target": "file:backend/tests/test_hitl_policy.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

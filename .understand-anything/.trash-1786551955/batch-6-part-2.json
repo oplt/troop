@@ -1,0 +1,1097 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/projects/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/projects/service.py",
+      "summary": "Implements project lifecycle, hierarchy, membership, repository workspace, indexing, portfolio, live snapshot, configuration, and bootstrap business workflows.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "class",
+      "name": "ProjectsService",
+      "filePath": "backend/modules/projects/service.py",
+      "lineRange": [
+        75,
+        324
+      ],
+      "summary": "Provides core project and task CRUD workflows with assignment and status notifications.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "class",
+      "name": "OrchestrationProjectsServiceMixin",
+      "filePath": "backend/modules/projects/service.py",
+      "lineRange": [
+        327,
+        2167
+      ],
+      "summary": "Implements advanced project hierarchy, membership, repository, indexing, configuration, portfolio, snapshot, and bootstrap workflows.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/projects/tasks_service.py",
+      "type": "file",
+      "name": "tasks_service.py",
+      "filePath": "backend/modules/projects/tasks_service.py",
+      "summary": "Implements task lifecycle, DAG scheduling, work sessions, merge resolution, SLA escalation, comments, artifacts, decomposition, evidence, and acceptance checking.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "class",
+      "name": "OrchestrationTasksServiceMixin",
+      "filePath": "backend/modules/projects/tasks_service.py",
+      "lineRange": [
+        32,
+        1626
+      ],
+      "summary": "Implements task DAG execution, work sessions, evidence, acceptance, decomposition, merge resolution, and SLA workflows.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "projects"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/team/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/team/__init__.py",
+      "summary": "Exposes the team module's public agent, template, skill-pack, profile, membership, repository, and service types.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "exports",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/team/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/team/models.py",
+      "summary": "Defines persistent agents, versions, skill packs, team profiles, template catalogs, and project-agent memberships.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "SQLAlchemy declarative mappings use typed attributes, JSON payloads, foreign keys, and explicit indexes."
+    },
+    {
+      "id": "class:backend/modules/team/models.py:AgentProfile",
+      "type": "class",
+      "name": "AgentProfile",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        11,
+        63
+      ],
+      "summary": "Persists agent profile state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:AgentProfileVersion",
+      "type": "class",
+      "name": "AgentProfileVersion",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        66,
+        82
+      ],
+      "summary": "Persists agent profile version state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:SkillPack",
+      "type": "class",
+      "name": "SkillPack",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        85,
+        99
+      ],
+      "summary": "Persists skill pack state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:TeamTemplateCatalog",
+      "type": "class",
+      "name": "TeamTemplateCatalog",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        102,
+        119
+      ],
+      "summary": "Persists team template catalog state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:TeamProfile",
+      "type": "class",
+      "name": "TeamProfile",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        122,
+        141
+      ],
+      "summary": "Persists team profile state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:AgentTemplateCatalog",
+      "type": "class",
+      "name": "AgentTemplateCatalog",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        144,
+        169
+      ],
+      "summary": "Persists agent template catalog state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/team/models.py:ProjectAgentMembership",
+      "type": "class",
+      "name": "ProjectAgentMembership",
+      "filePath": "backend/modules/team/models.py",
+      "lineRange": [
+        172,
+        186
+      ],
+      "summary": "Persists project agent membership state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/team/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/team/repository.py",
+      "summary": "Provides database access for agents, versions, skill packs, templates, profiles, and project memberships.",
+      "tags": [
+        "repository",
+        "data-access",
+        "bounded-query",
+        "team"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "type": "class",
+      "name": "TeamRepositoryMixin",
+      "filePath": "backend/modules/team/repository.py",
+      "lineRange": [
+        16,
+        188
+      ],
+      "summary": "Encapsulates persistence for the agent registry, catalogs, templates, profiles, skill packs, and memberships.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "team"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/team/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/team/service.py",
+      "summary": "Implements agent registry, markdown contracts, inheritance, linting, templates, skill packs, profiles, duplication, hierarchy, and catalog seeding.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "team"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "class",
+      "name": "TeamServiceMixin",
+      "filePath": "backend/modules/team/service.py",
+      "lineRange": [
+        31,
+        1239
+      ],
+      "summary": "Implements the agent registry and its markdown, inheritance, linting, template, skill, profile, hierarchy, and catalog rules.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "team"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/team/service.py:TeamService",
+      "type": "class",
+      "name": "TeamService",
+      "filePath": "backend/modules/team/service.py",
+      "lineRange": [
+        1242,
+        1263
+      ],
+      "summary": "Concrete session-bound team service built from the team domain mixin.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration",
+        "team"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_agent_registry_contract.py",
+      "type": "file",
+      "name": "test_agent_registry_contract.py",
+      "filePath": "backend/tests/test_agent_registry_contract.py",
+      "summary": "Verifies that agent markdown normalization and model mapping preserve the complete registry contract.",
+      "tags": [
+        "test",
+        "agent-registry-contract",
+        "contract-verification",
+        "pytest"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Pytest tests express behavioral contracts with focused mocks and asynchronous fixtures where needed."
+    },
+    {
+      "id": "function:backend/tests/test_agent_registry_contract.py:test_agent_markdown_normalizes_the_full_registry_contract",
+      "type": "function",
+      "name": "test_agent_markdown_normalizes_the_full_registry_contract",
+      "filePath": "backend/tests/test_agent_registry_contract.py",
+      "lineRange": [
+        5,
+        40
+      ],
+      "summary": "Verifies that agent markdown normalizes the full registry contract.",
+      "tags": [
+        "test",
+        "agent-registry-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_agent_registry_contract.py:test_agent_payload_mapping_keeps_contract_fields_explicit",
+      "type": "function",
+      "name": "test_agent_payload_mapping_keeps_contract_fields_explicit",
+      "filePath": "backend/tests/test_agent_registry_contract.py",
+      "lineRange": [
+        43,
+        59
+      ],
+      "summary": "Verifies that agent payload mapping keeps contract fields explicit.",
+      "tags": [
+        "test",
+        "agent-registry-contract",
+        "pytest",
+        "contract"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "class:backend/modules/projects/service.py:ProjectsService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentProfileVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentProfileVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:SkillPack",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:SkillPack",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:TeamTemplateCatalog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:TeamTemplateCatalog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:TeamProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:TeamProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentTemplateCatalog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:AgentTemplateCatalog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:ProjectAgentMembership",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "class:backend/modules/team/models.py:ProjectAgentMembership",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/repository.py",
+      "target": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/repository.py",
+      "target": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "class:backend/modules/team/service.py:TeamService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "class:backend/modules/team/service.py:TeamService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "function:backend/tests/test_agent_registry_contract.py:test_agent_markdown_normalizes_the_full_registry_contract",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "function:backend/tests/test_agent_registry_contract.py:test_agent_markdown_normalizes_the_full_registry_contract",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "function:backend/tests/test_agent_registry_contract.py:test_agent_payload_mapping_keeps_contract_fields_explicit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "function:backend/tests/test_agent_registry_contract.py:test_agent_payload_mapping_keeps_contract_fields_explicit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/memory/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/notifications/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/orchestration/hierarchy_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/orchestration/hitl_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/orchestration/local_repo.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/projects/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/projects/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/projects/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/service.py",
+      "target": "file:backend/modules/users/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/github/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/orchestration/local_repo.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/projects/tasks_service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/__init__.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/models.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/repository.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "file:backend/modules/orchestration/markdown.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/team/service.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "file:backend/modules/orchestration/markdown.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "file:backend/modules/team/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:ProjectsService",
+      "target": "class:backend/modules/projects/repository.py:ProjectsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:ProjectsService",
+      "target": "class:backend/modules/users/repository.py:UsersRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:ProjectsService",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:normalize_hierarchy_policy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "class:backend/modules/projects/orchestration_models.py:PortfolioExecutionPolicy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:policy_from_execution",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:validate_hierarchy_policy",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hierarchy_policy.py:apply_policy_to_execution",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/core/cache.py:invalidate_project_memory_settings_cache",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/core/cache.py:invalidate_project_acl_cache_for_project",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_autonomy_level",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_approval_gates",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:normalize_workspace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:inspect_workspace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:create_isolated_worktree",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:build_context_pack",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:run_safe_command",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:read_repo_file",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:normalize_hitl_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "target": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_normalize_task_priority",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "target": "function:backend/modules/orchestration/local_repo.py:normalize_workspace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:AgentProfile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:AgentProfileVersion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:SkillPack",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:TeamTemplateCatalog",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:TeamProfile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:AgentTemplateCatalog",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/repository.py:TeamRepositoryMixin",
+      "target": "class:backend/modules/team/models.py:ProjectAgentMembership",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "target": "function:backend/modules/orchestration/markdown.py:parse_agent_markdown",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "target": "function:backend/modules/orchestration/markdown.py:_slugify",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_agent_registry_contract.py:test_agent_markdown_normalizes_the_full_registry_contract",
+      "target": "function:backend/modules/orchestration/markdown.py:parse_agent_markdown",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_agent_registry_contract.py:test_agent_payload_mapping_keeps_contract_fields_explicit",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/team/models.py:AgentProfile",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:AgentProfileVersion",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:SkillPack",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:TeamTemplateCatalog",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:TeamProfile",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:AgentTemplateCatalog",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/models.py:ProjectAgentMembership",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/team/service.py:TeamService",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "file:backend/modules/orchestration/markdown.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tests/test_agent_registry_contract.py",
+      "target": "file:backend/modules/team/service.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

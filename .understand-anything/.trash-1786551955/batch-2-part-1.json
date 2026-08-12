@@ -1,0 +1,1675 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/companies/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/companies/schemas.py",
+      "summary": "Defines request and response models for creating, updating, and returning company records.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "companies"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Pydantic models separate validated request payloads from serialized response shapes."
+    },
+    {
+      "id": "class:backend/modules/companies/schemas.py:CompanyResponse",
+      "type": "class",
+      "name": "CompanyResponse",
+      "filePath": "backend/modules/companies/schemas.py",
+      "lineRange": [
+        9,
+        19
+      ],
+      "summary": "Serializes company data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "companies"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/companies/schemas.py:CompanyCreate",
+      "type": "class",
+      "name": "CompanyCreate",
+      "filePath": "backend/modules/companies/schemas.py",
+      "lineRange": [
+        22,
+        26
+      ],
+      "summary": "Validates the company create payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "companies"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/companies/schemas.py:CompanyUpdate",
+      "type": "class",
+      "name": "CompanyUpdate",
+      "filePath": "backend/modules/companies/schemas.py",
+      "lineRange": [
+        29,
+        32
+      ],
+      "summary": "Validates the company update payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "companies"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/github/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/github/router.py",
+      "summary": "Exposes authenticated GitHub integration endpoints for connections, repositories, issue imports, approval-backed writes, sync replay, and webhook ingestion.",
+      "tags": [
+        "api-handler",
+        "routing",
+        "fastapi",
+        "github"
+      ],
+      "complexity": "complex",
+      "languageNotes": "FastAPI dependency injection supplies authenticated users and database sessions at endpoint boundaries."
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_github_connection",
+      "type": "function",
+      "name": "_github_connection",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        32,
+        47
+      ],
+      "summary": "Maps a stored GitHub connection and installation metadata to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_github_repository",
+      "type": "function",
+      "name": "_github_repository",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        50,
+        64
+      ],
+      "summary": "Maps a synchronized GitHub repository record to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_github_issue_link",
+      "type": "function",
+      "name": "_github_issue_link",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        67,
+        86
+      ],
+      "summary": "Maps a GitHub issue-to-task link and synchronization state to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_github_sync_event",
+      "type": "function",
+      "name": "_github_sync_event",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        89,
+        99
+      ],
+      "summary": "Maps a persisted GitHub synchronization event to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_approval",
+      "type": "function",
+      "name": "_approval",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        102,
+        117
+      ],
+      "summary": "Serializes an approval request while redacting sensitive approval payload fields.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_task",
+      "type": "function",
+      "name": "_task",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        120,
+        157
+      ],
+      "summary": "Builds a task response enriched with its linked GitHub issue summary.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:_tasks_to_responses",
+      "type": "function",
+      "name": "_tasks_to_responses",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        160,
+        170
+      ],
+      "summary": "Bulk-loads GitHub issue summaries and converts task records to API responses without per-item lookups.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:list_github_connections",
+      "type": "function",
+      "name": "list_github_connections",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        174,
+        179
+      ],
+      "summary": "Lists GitHub connections visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:github_app_install_url",
+      "type": "function",
+      "name": "github_app_install_url",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        183,
+        189
+      ],
+      "summary": "GitHub app install url operation for the github module.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:github_app_callback",
+      "type": "function",
+      "name": "github_app_callback",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        193,
+        207
+      ],
+      "summary": "GitHub app callback operation for the github module.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:create_github_connection",
+      "type": "function",
+      "name": "create_github_connection",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        211,
+        217
+      ],
+      "summary": "Validates and creates GitHub connection.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:delete_github_connection",
+      "type": "function",
+      "name": "delete_github_connection",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        221,
+        228
+      ],
+      "summary": "Deletes GitHub connection after authorization checks.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:sync_github_repositories",
+      "type": "function",
+      "name": "sync_github_repositories",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        232,
+        238
+      ],
+      "summary": "Synchronizes GitHub repositories with the external GitHub state.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:list_github_repositories",
+      "type": "function",
+      "name": "list_github_repositories",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        242,
+        247
+      ],
+      "summary": "Lists GitHub repositories visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:import_github_issues",
+      "type": "function",
+      "name": "import_github_issues",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        251,
+        258
+      ],
+      "summary": "Imports GitHub issues into orchestration tasks.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:list_github_issue_links",
+      "type": "function",
+      "name": "list_github_issue_links",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        262,
+        268
+      ],
+      "summary": "Lists GitHub issue links visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:refresh_github_issue_link",
+      "type": "function",
+      "name": "refresh_github_issue_link",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        272,
+        278
+      ],
+      "summary": "Refreshes GitHub issue link from its authoritative state.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:list_github_sync_events",
+      "type": "function",
+      "name": "list_github_sync_events",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        282,
+        288
+      ],
+      "summary": "Lists GitHub sync events visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:request_github_comment",
+      "type": "function",
+      "name": "request_github_comment",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        292,
+        307
+      ],
+      "summary": "Creates an approval-backed request to GitHub comment.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:request_github_pr",
+      "type": "function",
+      "name": "request_github_pr",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        311,
+        324
+      ],
+      "summary": "Creates an approval-backed request to GitHub pr.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:replay_github_sync_event",
+      "type": "function",
+      "name": "replay_github_sync_event",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        328,
+        340
+      ],
+      "summary": "Replays GitHub sync event using the stored event payload.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/github/router.py:github_webhook",
+      "type": "function",
+      "name": "github_webhook",
+      "filePath": "backend/modules/github/router.py",
+      "lineRange": [
+        344,
+        367
+      ],
+      "summary": "GitHub webhook operation for the github module.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/github/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/github/schemas.py",
+      "summary": "Defines validation and serialization contracts for GitHub connections, repositories, issue links, synchronization events, pull requests, comments, and webhooks.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Pydantic models separate validated request payloads from serialized response shapes."
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubConnectionCreate",
+      "type": "class",
+      "name": "GithubConnectionCreate",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        9,
+        12
+      ],
+      "summary": "Validates the github connection create payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubConnectionResponse",
+      "type": "class",
+      "name": "GithubConnectionResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        15,
+        29
+      ],
+      "summary": "Serializes github connection data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubRepositoryResponse",
+      "type": "class",
+      "name": "GithubRepositoryResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        32,
+        46
+      ],
+      "summary": "Serializes github repository data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubIssueImportRequest",
+      "type": "class",
+      "name": "GithubIssueImportRequest",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        49,
+        53
+      ],
+      "summary": "Validates the github issue import request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubIssueLinkResponse",
+      "type": "class",
+      "name": "GithubIssueLinkResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        56,
+        75
+      ],
+      "summary": "Serializes github issue link data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubSyncEventResponse",
+      "type": "class",
+      "name": "GithubSyncEventResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        78,
+        88
+      ],
+      "summary": "Serializes github sync event data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubCommentRequest",
+      "type": "class",
+      "name": "GithubCommentRequest",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        91,
+        95
+      ],
+      "summary": "Validates the github comment request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubPrRequest",
+      "type": "class",
+      "name": "GithubPrRequest",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        98,
+        100
+      ],
+      "summary": "Validates the github pr request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubSyncReplayRequest",
+      "type": "class",
+      "name": "GithubSyncReplayRequest",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        103,
+        104
+      ],
+      "summary": "Validates the github sync replay request payload accepted by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubAppInstallResponse",
+      "type": "class",
+      "name": "GithubAppInstallResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        107,
+        108
+      ],
+      "summary": "Serializes github app install data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/github/schemas.py:GithubWebhookResponse",
+      "type": "class",
+      "name": "GithubWebhookResponse",
+      "filePath": "backend/modules/github/schemas.py",
+      "lineRange": [
+        111,
+        113
+      ],
+      "summary": "Serializes github webhook data returned by the API.",
+      "tags": [
+        "api-schema",
+        "validation",
+        "serialization",
+        "github"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/identity_access/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/identity_access/models.py",
+      "summary": "Defines persistent user accounts and refresh sessions, including identity, verification, MFA, and token lifecycle fields.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "identity-access"
+      ],
+      "complexity": "simple",
+      "languageNotes": "SQLAlchemy declarative models map typed Python attributes to relational columns and indexes."
+    },
+    {
+      "id": "class:backend/modules/identity_access/models.py:User",
+      "type": "class",
+      "name": "User",
+      "filePath": "backend/modules/identity_access/models.py",
+      "lineRange": [
+        10,
+        24
+      ],
+      "summary": "Persists user state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/identity_access/models.py:RefreshSession",
+      "type": "class",
+      "name": "RefreshSession",
+      "filePath": "backend/modules/identity_access/models.py",
+      "lineRange": [
+        27,
+        37
+      ],
+      "summary": "Persists refresh session state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "identity-access"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/identity_access/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/identity_access/repository.py",
+      "summary": "Encapsulates database queries and mutations for users and refresh sessions used by the authentication service.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "identity-access"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/identity_access/repository.py:IdentityRepository",
+      "type": "class",
+      "name": "IdentityRepository",
+      "filePath": "backend/modules/identity_access/repository.py",
+      "lineRange": [
+        9,
+        91
+      ],
+      "summary": "Encapsulates user and refresh-session persistence operations behind a session-bound repository.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "identity-access"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "class:backend/modules/companies/schemas.py:CompanyUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_connection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_connection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_repository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_repository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_issue_link",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_issue_link",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_sync_event",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_github_sync_event",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_approval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_approval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_tasks_to_responses",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:_tasks_to_responses",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_connections",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_connections",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_app_install_url",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_app_install_url",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_app_callback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_app_callback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:create_github_connection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:create_github_connection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:delete_github_connection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:delete_github_connection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:sync_github_repositories",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:sync_github_repositories",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_repositories",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_repositories",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:import_github_issues",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:import_github_issues",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_issue_links",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_issue_links",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:refresh_github_issue_link",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:refresh_github_issue_link",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_sync_events",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:list_github_sync_events",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:request_github_comment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:request_github_comment",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:request_github_pr",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:request_github_pr",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:replay_github_sync_event",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:replay_github_sync_event",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "function:backend/modules/github/router.py:github_webhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubConnectionCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubConnectionCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubConnectionResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubConnectionResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubRepositoryResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubRepositoryResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubIssueImportRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubIssueImportRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubIssueLinkResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubIssueLinkResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubSyncEventResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubSyncEventResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubCommentRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubCommentRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubPrRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubPrRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubSyncReplayRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubSyncReplayRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubAppInstallResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubAppInstallResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubWebhookResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "class:backend/modules/github/schemas.py:GithubWebhookResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "class:backend/modules/identity_access/models.py:User",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "class:backend/modules/identity_access/models.py:User",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "class:backend/modules/identity_access/models.py:RefreshSession",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "class:backend/modules/identity_access/models.py:RefreshSession",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/identity_access/repository.py",
+      "target": "class:backend/modules/identity_access/repository.py:IdentityRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/identity_access/repository.py",
+      "target": "class:backend/modules/identity_access/repository.py:IdentityRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/companies/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/modules/github/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/modules/orchestration/hitl_policy.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/router.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/github/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/identity_access/repository.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/github/router.py:_approval",
+      "target": "class:backend/modules/orchestration/schemas.py:ApprovalResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:_approval",
+      "target": "function:backend/modules/orchestration/hitl_policy.py:redact_approval_payload",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:_task",
+      "target": "class:backend/modules/orchestration/schemas.py:TaskResponse",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:_tasks_to_responses",
+      "target": "function:backend/modules/github/router.py:_task",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_connections",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_connections",
+      "target": "function:backend/modules/github/router.py:_github_connection",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:github_app_install_url",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:github_app_callback",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:create_github_connection",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:create_github_connection",
+      "target": "function:backend/modules/github/router.py:_github_connection",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:delete_github_connection",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:sync_github_repositories",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:sync_github_repositories",
+      "target": "function:backend/modules/github/router.py:_github_repository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_repositories",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_repositories",
+      "target": "function:backend/modules/github/router.py:_github_repository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:import_github_issues",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:import_github_issues",
+      "target": "function:backend/modules/github/router.py:_tasks_to_responses",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_issue_links",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_issue_links",
+      "target": "function:backend/modules/github/router.py:_github_issue_link",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:refresh_github_issue_link",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:refresh_github_issue_link",
+      "target": "function:backend/modules/github/router.py:_github_issue_link",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_sync_events",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:list_github_sync_events",
+      "target": "function:backend/modules/github/router.py:_github_sync_event",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:request_github_comment",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:request_github_comment",
+      "target": "function:backend/modules/github/router.py:_approval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:request_github_pr",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:request_github_pr",
+      "target": "function:backend/modules/github/router.py:_approval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:replay_github_sync_event",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:replay_github_sync_event",
+      "target": "function:backend/modules/github/router.py:_github_sync_event",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/github/router.py:github_webhook",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/companies/schemas.py:CompanyCreate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/companies/schemas.py:CompanyUpdate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/github/schemas.py:GithubConnectionCreate",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/github/schemas.py:GithubIssueImportRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/github/schemas.py:GithubCommentRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/github/schemas.py:GithubPrRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/github/schemas.py:GithubSyncReplayRequest",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/models.py:User",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/identity_access/models.py:RefreshSession",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/modules/identity_access/models.py",
+      "target": "file:backend/tests/conftest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

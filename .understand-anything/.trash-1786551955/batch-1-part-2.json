@@ -1,0 +1,2144 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/api/middleware/security_headers.py",
+      "type": "file",
+      "name": "security_headers.py",
+      "filePath": "backend/api/middleware/security_headers.py",
+      "summary": "Rejects disallowed hosts and adds browser-facing security headers to API responses.",
+      "tags": [
+        "middleware",
+        "security",
+        "http-headers",
+        "request-validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/api/middleware/security_headers.py:SecurityHeadersMiddleware",
+      "type": "class",
+      "name": "SecurityHeadersMiddleware",
+      "filePath": "backend/api/middleware/security_headers.py",
+      "lineRange": [
+        8,
+        25
+      ],
+      "summary": "ASGI middleware that validates hosts and attaches protective browser response headers.",
+      "tags": [
+        "middleware",
+        "fastapi",
+        "request-processing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/api/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/api/router.py",
+      "summary": "Aggregates the product's domain routers into the versioned FastAPI API surface.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "routing",
+        "barrel"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/api/v1/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/api/v1/__init__.py",
+      "summary": "Marks the version-one API namespace for Python package discovery.",
+      "tags": [
+        "entry-point",
+        "package",
+        "api",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/api/v1/health.py",
+      "type": "file",
+      "name": "health.py",
+      "filePath": "backend/api/v1/health.py",
+      "summary": "Exposes liveness, readiness, and version endpoints, including dependency health checks and visibility controls.",
+      "tags": [
+        "api-handler",
+        "health-check",
+        "observability",
+        "fastapi"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/v1/health.py:live",
+      "type": "function",
+      "name": "live",
+      "filePath": "backend/api/v1/health.py",
+      "lineRange": [
+        12,
+        13
+      ],
+      "summary": "Implements the live API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/v1/health.py:ready",
+      "type": "function",
+      "name": "ready",
+      "filePath": "backend/api/v1/health.py",
+      "lineRange": [
+        17,
+        28
+      ],
+      "summary": "Implements the ready API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/api/v1/health.py:version",
+      "type": "function",
+      "name": "version",
+      "filePath": "backend/api/v1/health.py",
+      "lineRange": [
+        32,
+        42
+      ],
+      "summary": "Implements the version API operation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/cache.py",
+      "type": "file",
+      "name": "cache.py",
+      "filePath": "backend/core/cache.py",
+      "summary": "Implements the Redis-backed cache layer, cache policies, namespace versioning, single-flight loading, metrics, and domain-specific cache helpers.",
+      "tags": [
+        "cache",
+        "redis",
+        "performance",
+        "infrastructure"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_policy",
+      "type": "function",
+      "name": "cache_policy",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        135,
+        137
+      ],
+      "summary": "Implements cache policy behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_enabled",
+      "type": "function",
+      "name": "cache_enabled",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        140,
+        141
+      ],
+      "summary": "Implements cache enabled behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:session_cache_key",
+      "type": "function",
+      "name": "session_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        144,
+        145
+      ],
+      "summary": "Implements session cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:embedding_cache_key",
+      "type": "function",
+      "name": "embedding_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        148,
+        151
+      ],
+      "summary": "Implements embedding cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:rag_retrieval_cache_key",
+      "type": "function",
+      "name": "rag_retrieval_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        154,
+        174
+      ],
+      "summary": "Implements rag retrieval cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:rag_retrieval_cache_pattern",
+      "type": "function",
+      "name": "rag_retrieval_cache_pattern",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        177,
+        178
+      ],
+      "summary": "Implements rag retrieval cache pattern behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:project_acl_cache_key",
+      "type": "function",
+      "name": "project_acl_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        181,
+        182
+      ],
+      "summary": "Implements project acl cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:platform_metadata_cache_key",
+      "type": "function",
+      "name": "platform_metadata_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        185,
+        186
+      ],
+      "summary": "Implements platform metadata cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:memory_settings_cache_key",
+      "type": "function",
+      "name": "memory_settings_cache_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        189,
+        190
+      ],
+      "summary": "Implements memory settings cache key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:memory_context_cache_pattern",
+      "type": "function",
+      "name": "memory_context_cache_pattern",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        193,
+        194
+      ],
+      "summary": "Implements memory context cache pattern behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_namespace_generation_key",
+      "type": "function",
+      "name": "cache_namespace_generation_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        197,
+        198
+      ],
+      "summary": "Implements cache namespace generation key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_namespace_generation",
+      "type": "function",
+      "name": "_namespace_generation",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        201,
+        209
+      ],
+      "summary": "Implements namespace generation behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_bump_namespace_generation",
+      "type": "function",
+      "name": "_bump_namespace_generation",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        212,
+        218
+      ],
+      "summary": "Implements bump namespace generation behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_versioned_key",
+      "type": "function",
+      "name": "_versioned_key",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        221,
+        223
+      ],
+      "summary": "Implements versioned key behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_cache_metric_name",
+      "type": "function",
+      "name": "_cache_metric_name",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        226,
+        241
+      ],
+      "summary": "Implements cache metric name behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_raw_get",
+      "type": "function",
+      "name": "_raw_get",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        244,
+        255
+      ],
+      "summary": "Implements raw get behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_raw_set",
+      "type": "function",
+      "name": "_raw_set",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        258,
+        268
+      ],
+      "summary": "Implements raw set behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_raw_delete",
+      "type": "function",
+      "name": "_raw_delete",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        271,
+        279
+      ],
+      "summary": "Implements raw delete behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:_cache_get_json_state",
+      "type": "function",
+      "name": "_cache_get_json_state",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        282,
+        294
+      ],
+      "summary": "Implements cache get json state behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_get_json",
+      "type": "function",
+      "name": "cache_get_json",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        297,
+        305
+      ],
+      "summary": "Implements cache get json behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_set_json",
+      "type": "function",
+      "name": "cache_set_json",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        308,
+        314
+      ],
+      "summary": "Implements cache set json behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_delete",
+      "type": "function",
+      "name": "cache_delete",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        317,
+        323
+      ],
+      "summary": "Implements cache delete behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_delete_pattern",
+      "type": "function",
+      "name": "cache_delete_pattern",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        326,
+        348
+      ],
+      "summary": "Implements cache delete pattern behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_get_or_set_json",
+      "type": "function",
+      "name": "cache_get_or_set_json",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        351,
+        384
+      ],
+      "summary": "Implements cache get or set json behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:cache_singleflight",
+      "type": "function",
+      "name": "cache_singleflight",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        387,
+        389
+      ],
+      "summary": "Implements cache singleflight behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_project_acl",
+      "type": "function",
+      "name": "get_cached_project_acl",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        392,
+        404
+      ],
+      "summary": "Implements get cached project acl behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_project_acl",
+      "type": "function",
+      "name": "set_cached_project_acl",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        407,
+        419
+      ],
+      "summary": "Implements set cached project acl behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_acl_cache",
+      "type": "function",
+      "name": "invalidate_project_acl_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        422,
+        429
+      ],
+      "summary": "Implements invalidate project acl cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_acl_cache_for_project",
+      "type": "function",
+      "name": "invalidate_project_acl_cache_for_project",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        432,
+        433
+      ],
+      "summary": "Implements invalidate project acl cache for project behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_platform_metadata",
+      "type": "function",
+      "name": "get_cached_platform_metadata",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        436,
+        438
+      ],
+      "summary": "Implements get cached platform metadata behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_platform_metadata",
+      "type": "function",
+      "name": "set_cached_platform_metadata",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        441,
+        446
+      ],
+      "summary": "Implements set cached platform metadata behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_platform_metadata_cache",
+      "type": "function",
+      "name": "invalidate_platform_metadata_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        449,
+        450
+      ],
+      "summary": "Implements invalidate platform metadata cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_memory_settings",
+      "type": "function",
+      "name": "get_cached_memory_settings",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        453,
+        455
+      ],
+      "summary": "Implements get cached memory settings behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_memory_settings",
+      "type": "function",
+      "name": "set_cached_memory_settings",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        458,
+        463
+      ],
+      "summary": "Implements set cached memory settings behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_memory_settings_cache",
+      "type": "function",
+      "name": "invalidate_project_memory_settings_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        466,
+        467
+      ],
+      "summary": "Implements invalidate project memory settings cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_memory_context_cache",
+      "type": "function",
+      "name": "invalidate_project_memory_context_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        470,
+        471
+      ],
+      "summary": "Implements invalidate project memory context cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_knowledge_caches",
+      "type": "function",
+      "name": "invalidate_project_knowledge_caches",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        474,
+        477
+      ],
+      "summary": "Implements invalidate project knowledge caches behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_session_valid",
+      "type": "function",
+      "name": "get_cached_session_valid",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        480,
+        490
+      ],
+      "summary": "Implements get cached session valid behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_session_valid",
+      "type": "function",
+      "name": "set_cached_session_valid",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        493,
+        504
+      ],
+      "summary": "Implements set cached session valid behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_session_cache",
+      "type": "function",
+      "name": "invalidate_session_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        507,
+        513
+      ],
+      "summary": "Implements invalidate session cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_user_session_caches",
+      "type": "function",
+      "name": "invalidate_user_session_caches",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        516,
+        523
+      ],
+      "summary": "Implements invalidate user session caches behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_embeddings",
+      "type": "function",
+      "name": "get_cached_embeddings",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        526,
+        547
+      ],
+      "summary": "Implements get cached embeddings behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_embeddings",
+      "type": "function",
+      "name": "set_cached_embeddings",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        550,
+        562
+      ],
+      "summary": "Implements set cached embeddings behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:get_cached_rag_retrieval",
+      "type": "function",
+      "name": "get_cached_rag_retrieval",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        565,
+        584
+      ],
+      "summary": "Implements get cached rag retrieval behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:set_cached_rag_retrieval",
+      "type": "function",
+      "name": "set_cached_rag_retrieval",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        587,
+        602
+      ],
+      "summary": "Implements set cached rag retrieval behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/cache.py:invalidate_project_rag_retrieval_cache",
+      "type": "function",
+      "name": "invalidate_project_rag_retrieval_cache",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        605,
+        608
+      ],
+      "summary": "Implements invalidate project rag retrieval cache behavior for the shared Redis-backed cache layer.",
+      "tags": [
+        "cache",
+        "redis",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/cache.py:CacheKey",
+      "type": "class",
+      "name": "CacheKey",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        31,
+        36
+      ],
+      "summary": "Value object describing a cache namespace, raw key value, and optional namespace versioning.",
+      "tags": [
+        "cache",
+        "redis",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/cache.py:CachePolicy",
+      "type": "class",
+      "name": "CachePolicy",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        40,
+        54
+      ],
+      "summary": "Cache behavior definition containing TTL, negative caching, jitter, and fail-open settings.",
+      "tags": [
+        "cache",
+        "redis",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/cache.py:CacheStore",
+      "type": "class",
+      "name": "CacheStore",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        57,
+        68
+      ],
+      "summary": "Abstract asynchronous cache-store contract for lookup, mutation, deletion, and counters.",
+      "tags": [
+        "cache",
+        "redis",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/cache.py:RedisCacheStore",
+      "type": "class",
+      "name": "RedisCacheStore",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        71,
+        91
+      ],
+      "summary": "Redis implementation of the shared asynchronous cache-store contract.",
+      "tags": [
+        "cache",
+        "redis",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/cache.py:AsyncSingleFlight",
+      "type": "class",
+      "name": "AsyncSingleFlight",
+      "filePath": "backend/core/cache.py",
+      "lineRange": [
+        94,
+        111
+      ],
+      "summary": "Coalesces concurrent requests for the same cache key into one in-flight loader operation.",
+      "tags": [
+        "cache",
+        "redis",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/config.py",
+      "type": "file",
+      "name": "config.py",
+      "filePath": "backend/core/config.py",
+      "summary": "Defines and validates the application's centralized environment-driven settings for runtime, security, orchestration, storage, AI, RAG, and observability.",
+      "tags": [
+        "configuration",
+        "pydantic",
+        "environment",
+        "security"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/core/config.py:Settings",
+      "type": "class",
+      "name": "Settings",
+      "filePath": "backend/core/config.py",
+      "lineRange": [
+        27,
+        344
+      ],
+      "summary": "Central Pydantic settings model that validates operational, security, infrastructure, and AI runtime configuration.",
+      "tags": [
+        "configuration",
+        "pydantic",
+        "environment"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/core/distributed_lock.py",
+      "type": "file",
+      "name": "distributed_lock.py",
+      "filePath": "backend/core/distributed_lock.py",
+      "summary": "Provides a Redis lease with ownership-safe acquisition and release for coordinating distributed work.",
+      "tags": [
+        "distributed-lock",
+        "redis",
+        "concurrency",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/distributed_lock.py:RedisLease",
+      "type": "class",
+      "name": "RedisLease",
+      "filePath": "backend/core/distributed_lock.py",
+      "lineRange": [
+        21,
+        55
+      ],
+      "summary": "Ownership-aware Redis lease supporting explicit and asynchronous-context-manager lifecycle operations.",
+      "tags": [
+        "distributed-lock",
+        "redis",
+        "concurrency"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/api/middleware/security_headers.py",
+      "target": "class:backend/api/middleware/security_headers.py:SecurityHeadersMiddleware",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/middleware/security_headers.py",
+      "target": "class:backend/api/middleware/security_headers.py:SecurityHeadersMiddleware",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:live",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:live",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:ready",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:ready",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:version",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "function:backend/api/v1/health.py:version",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_policy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_policy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_enabled",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_enabled",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:session_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:session_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:embedding_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:embedding_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:rag_retrieval_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:rag_retrieval_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:rag_retrieval_cache_pattern",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:rag_retrieval_cache_pattern",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:project_acl_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:project_acl_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:platform_metadata_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:platform_metadata_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:memory_settings_cache_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:memory_settings_cache_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:memory_context_cache_pattern",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:memory_context_cache_pattern",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_namespace_generation_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_namespace_generation_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_namespace_generation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_namespace_generation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_bump_namespace_generation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_bump_namespace_generation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_versioned_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_versioned_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_cache_metric_name",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_cache_metric_name",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_get",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_get",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_set",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_set",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_delete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_raw_delete",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_cache_get_json_state",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:_cache_get_json_state",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_get_json",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_get_json",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_set_json",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_set_json",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_delete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_delete",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_delete_pattern",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_delete_pattern",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_get_or_set_json",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_get_or_set_json",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_singleflight",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:cache_singleflight",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_project_acl",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_project_acl",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_project_acl",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_project_acl",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_acl_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_acl_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_acl_cache_for_project",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_acl_cache_for_project",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_platform_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_platform_metadata",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_platform_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_platform_metadata",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_platform_metadata_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_platform_metadata_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_memory_settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_memory_settings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_memory_settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_memory_settings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_memory_settings_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_memory_settings_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_memory_context_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_memory_context_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_knowledge_caches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_knowledge_caches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_session_valid",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_session_valid",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_session_valid",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_session_valid",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_session_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_session_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_user_session_caches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_user_session_caches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_embeddings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_embeddings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_embeddings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_embeddings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_rag_retrieval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:get_cached_rag_retrieval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_rag_retrieval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:set_cached_rag_retrieval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_rag_retrieval_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "function:backend/core/cache.py:invalidate_project_rag_retrieval_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CacheKey",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CacheKey",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CachePolicy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CachePolicy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CacheStore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:CacheStore",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:RedisCacheStore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:RedisCacheStore",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:AsyncSingleFlight",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "class:backend/core/cache.py:AsyncSingleFlight",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "class:backend/core/config.py:Settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "class:backend/core/config.py:Settings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/distributed_lock.py",
+      "target": "class:backend/core/distributed_lock.py:RedisLease",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/distributed_lock.py",
+      "target": "class:backend/core/distributed_lock.py:RedisLease",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/api/middleware/security_headers.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/app/agents/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/admin/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/ai/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/calendar/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/companies/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/github/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/identity_access/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/notifications/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/orchestration/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/platform/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/profile/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/rag/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/settings/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/router.py",
+      "target": "file:backend/modules/users/router.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/v1/health.py",
+      "target": "file:backend/modules/observability/health.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "file:backend/modules/observability/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/distributed_lock.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/distributed_lock.py",
+      "target": "file:backend/modules/observability/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/api/v1/__init__.py",
+      "target": "file:backend/tests/test_phase2_observability.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "function:backend/api/v1/health.py:ready",
+      "target": "function:backend/modules/observability/health.py:readiness_report",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/cache.py",
+      "target": "file:backend/tests/test_cache_layer.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "function:backend/core/cache.py:_raw_get",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/cache.py:_raw_set",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/cache.py:_raw_delete",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/cache.py:cache_delete_pattern",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/cache.py:get_cached_embeddings",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/cache.py:set_cached_embeddings",
+      "target": "function:backend/modules/observability/metrics.py:record_cache_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "file:backend/tests/conftest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "file:backend/tests/test_bounded_queries.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "file:backend/tests/test_db_session.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/config.py",
+      "target": "file:backend/tests/test_durable_execution_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/distributed_lock.py",
+      "target": "file:backend/tests/test_phase7_reliability.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "class:backend/core/distributed_lock.py:RedisLease",
+      "target": "function:backend/modules/observability/metrics.py:record_distributed_lock",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

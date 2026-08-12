@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "config:.understand-anything/tmp/frontend-structure-input.json",
+      "type": "config",
+      "name": "frontend-structure-input.json",
+      "filePath": ".understand-anything/tmp/frontend-structure-input.json",
+      "summary": "Intermediate Understand-Anything structural-analysis input containing the project root, a frontend file batch, and its deterministic project-internal import data.",
+      "tags": ["configuration", "analysis-input", "frontend", "knowledge-graph"],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:.understand-anything/tmp/ua-import-map-input.json",
+      "type": "config",
+      "name": "ua-import-map-input.json",
+      "filePath": ".understand-anything/tmp/ua-import-map-input.json",
+      "summary": "Intermediate Understand-Anything import-resolution input listing the project root and scanned files with their languages and categories.",
+      "tags": ["configuration", "analysis-input", "import-map", "file-inventory"],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:.understand-anything/tmp/ua-import-map-output.json",
+      "type": "config",
+      "name": "ua-import-map-output.json",
+      "filePath": ".understand-anything/tmp/ua-import-map-output.json",
+      "summary": "Intermediate Understand-Anything import-resolution result containing completion statistics and resolved project-internal imports for each scanned file.",
+      "tags": ["configuration", "analysis-output", "import-map", "knowledge-graph"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:.understand-anything/tmp/ua-import-map-output.json",
+      "target": "config:.understand-anything/tmp/ua-import-map-input.json",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

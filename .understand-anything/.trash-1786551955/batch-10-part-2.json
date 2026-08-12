@@ -1,0 +1,725 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/components/layout/CommandPalette.tsx",
+      "type": "file",
+      "name": "CommandPalette.tsx",
+      "filePath": "frontend/src/components/layout/CommandPalette.tsx",
+      "summary": "Implements keyboard-driven route discovery and navigation with fuzzy filtering and dialog focus management.",
+      "tags": [
+        "component",
+        "command-palette",
+        "navigation",
+        "accessibility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/components/layout/CommandPalette.tsx:CommandPalette",
+      "type": "function",
+      "name": "CommandPalette",
+      "filePath": "frontend/src/components/layout/CommandPalette.tsx",
+      "lineRange": [
+        25,
+        35
+      ],
+      "summary": "Renders the command palette React interface.",
+      "tags": [
+        "component",
+        "layout",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/layout/CommandPalette.tsx:CommandPaletteContent",
+      "type": "function",
+      "name": "CommandPaletteContent",
+      "filePath": "frontend/src/components/layout/CommandPalette.tsx",
+      "lineRange": [
+        37,
+        130
+      ],
+      "summary": "Renders the command palette content React interface.",
+      "tags": [
+        "component",
+        "layout",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/components/ui/StatCard.test.tsx",
+      "type": "file",
+      "name": "StatCard.test.tsx",
+      "filePath": "frontend/src/components/ui/StatCard.test.tsx",
+      "summary": "Verifies accessible labeling and descriptive content in the shared statistics card.",
+      "tags": [
+        "test",
+        "component",
+        "accessibility",
+        "vitest"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/config/queryClient.ts",
+      "type": "file",
+      "name": "queryClient.ts",
+      "filePath": "frontend/src/config/queryClient.ts",
+      "summary": "Configures the shared TanStack Query client with cache defaults, retry behavior, and mutation policies.",
+      "tags": [
+        "configuration",
+        "react-query",
+        "cache",
+        "data-fetching"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "type": "file",
+      "name": "AuthContext.tsx",
+      "filePath": "frontend/src/features/auth/context/AuthContext.tsx",
+      "summary": "Implements authentication state hydration, sign-in, sign-up, sign-out, and session-expiry coordination for the React application.",
+      "tags": [
+        "provider",
+        "authentication",
+        "react-context",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/features/auth/context/AuthContext.tsx:AuthProvider",
+      "type": "function",
+      "name": "AuthProvider",
+      "filePath": "frontend/src/features/auth/context/AuthContext.tsx",
+      "lineRange": [
+        11,
+        68
+      ],
+      "summary": "Renders the auth provider React interface.",
+      "tags": [
+        "frontend",
+        "typescript",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/features/auth/context/authContext.ts",
+      "type": "file",
+      "name": "authContext.ts",
+      "filePath": "frontend/src/features/auth/context/authContext.ts",
+      "summary": "Defines the authentication context state contract and guarded consumer hook.",
+      "tags": [
+        "react-context",
+        "authentication",
+        "hook",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/features/auth/context/authContext.ts:useAuth",
+      "type": "function",
+      "name": "useAuth",
+      "filePath": "frontend/src/features/auth/context/authContext.ts",
+      "lineRange": [
+        24,
+        26
+      ],
+      "summary": "Provides the use auth React hook behavior.",
+      "tags": [
+        "hook",
+        "authentication",
+        "react-query"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/features/auth/schemas.ts",
+      "type": "file",
+      "name": "schemas.ts",
+      "filePath": "frontend/src/features/auth/schemas.ts",
+      "summary": "Defines Zod validation schemas for sign-in, registration, and password-recovery forms.",
+      "tags": [
+        "validation",
+        "authentication",
+        "zod",
+        "schema-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/hooks/useAuth.ts",
+      "type": "file",
+      "name": "useAuth.ts",
+      "filePath": "frontend/src/hooks/useAuth.ts",
+      "summary": "Re-exports the canonical authentication hook for convenient feature imports.",
+      "tags": [
+        "barrel",
+        "hook",
+        "authentication",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "type": "file",
+      "name": "useCanonicalUser.ts",
+      "filePath": "frontend/src/hooks/useCanonicalUser.ts",
+      "summary": "Combines authentication context with a cached profile query to expose the canonical current user and refresh state.",
+      "tags": [
+        "hook",
+        "authentication",
+        "profile",
+        "react-query"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/hooks/useCanonicalUser.ts:useCanonicalUser",
+      "type": "function",
+      "name": "useCanonicalUser",
+      "filePath": "frontend/src/hooks/useCanonicalUser.ts",
+      "lineRange": [
+        7,
+        24
+      ],
+      "summary": "Provides the use canonical user React hook behavior.",
+      "tags": [
+        "hook",
+        "authentication",
+        "react-query"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/main.tsx",
+      "type": "file",
+      "name": "main.tsx",
+      "filePath": "frontend/src/main.tsx",
+      "summary": "Bootstraps the React application, mounting the global providers and router into the browser root.",
+      "tags": [
+        "entry-point",
+        "react",
+        "bootstrap",
+        "provider"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/pages/AuthHomePage.tsx",
+      "type": "file",
+      "name": "AuthHomePage.tsx",
+      "filePath": "frontend/src/pages/AuthHomePage.tsx",
+      "summary": "Renders the combined sign-in and registration experience with validation, MFA handling, redirects, and branded product context.",
+      "tags": [
+        "page",
+        "authentication",
+        "forms",
+        "react"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AuthHomePage.tsx:PasswordField",
+      "type": "function",
+      "name": "PasswordField",
+      "filePath": "frontend/src/pages/AuthHomePage.tsx",
+      "lineRange": [
+        35,
+        58
+      ],
+      "summary": "Renders the password field React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AuthHomePage.tsx:SignInForm",
+      "type": "function",
+      "name": "SignInForm",
+      "filePath": "frontend/src/pages/AuthHomePage.tsx",
+      "lineRange": [
+        60,
+        190
+      ],
+      "summary": "Renders the sign in form React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/AuthHomePage.tsx:SignUpForm",
+      "type": "function",
+      "name": "SignUpForm",
+      "filePath": "frontend/src/pages/AuthHomePage.tsx",
+      "lineRange": [
+        192,
+        259
+      ],
+      "summary": "Renders the sign up form React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/AuthHomePage.tsx:AuthHomePage",
+      "type": "function",
+      "name": "AuthHomePage",
+      "filePath": "frontend/src/pages/AuthHomePage.tsx",
+      "lineRange": [
+        261,
+        354
+      ],
+      "summary": "Renders the auth home page React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "type": "file",
+      "name": "ResetPasswordPage.tsx",
+      "filePath": "frontend/src/pages/ResetPasswordPage.tsx",
+      "summary": "Renders the token-based password reset workflow with validation, submission feedback, and navigation back to authentication.",
+      "tags": [
+        "page",
+        "authentication",
+        "password-reset",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/ResetPasswordPage.tsx:ResetPasswordPage",
+      "type": "function",
+      "name": "ResetPasswordPage",
+      "filePath": "frontend/src/pages/ResetPasswordPage.tsx",
+      "lineRange": [
+        24,
+        126
+      ],
+      "summary": "Renders the reset password page React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "type": "file",
+      "name": "VerifyEmailPage.tsx",
+      "filePath": "frontend/src/pages/VerifyEmailPage.tsx",
+      "summary": "Processes email verification tokens and renders success, error, resend, and navigation states.",
+      "tags": [
+        "page",
+        "authentication",
+        "email-verification",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/VerifyEmailPage.tsx:VerifyEmailPage",
+      "type": "function",
+      "name": "VerifyEmailPage",
+      "filePath": "frontend/src/pages/VerifyEmailPage.tsx",
+      "lineRange": [
+        9,
+        131
+      ],
+      "summary": "Renders the verify email page React interface.",
+      "tags": [
+        "page",
+        "authentication",
+        "react"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/components/layout/CommandPalette.tsx",
+      "target": "function:frontend/src/components/layout/CommandPalette.tsx:CommandPalette",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/layout/CommandPalette.tsx",
+      "target": "function:frontend/src/components/layout/CommandPalette.tsx:CommandPalette",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/layout/CommandPalette.tsx",
+      "target": "function:frontend/src/components/layout/CommandPalette.tsx:CommandPaletteContent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "function:frontend/src/features/auth/context/AuthContext.tsx:AuthProvider",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "function:frontend/src/features/auth/context/AuthContext.tsx:AuthProvider",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/authContext.ts",
+      "target": "function:frontend/src/features/auth/context/authContext.ts:useAuth",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/authContext.ts",
+      "target": "function:frontend/src/features/auth/context/authContext.ts:useAuth",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "target": "function:frontend/src/hooks/useCanonicalUser.ts:useCanonicalUser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "target": "function:frontend/src/hooks/useCanonicalUser.ts:useCanonicalUser",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "function:frontend/src/pages/AuthHomePage.tsx:PasswordField",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "function:frontend/src/pages/AuthHomePage.tsx:SignInForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "function:frontend/src/pages/AuthHomePage.tsx:SignUpForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "function:frontend/src/pages/AuthHomePage.tsx:AuthHomePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "function:frontend/src/pages/AuthHomePage.tsx:AuthHomePage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "function:frontend/src/pages/ResetPasswordPage.tsx:ResetPasswordPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "function:frontend/src/pages/ResetPasswordPage.tsx:ResetPasswordPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "function:frontend/src/pages/VerifyEmailPage.tsx:VerifyEmailPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "function:frontend/src/pages/VerifyEmailPage.tsx:VerifyEmailPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/ui/StatCard.test.tsx",
+      "target": "file:frontend/src/app/theme.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/ui/StatCard.test.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/ui/StatCard.test.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:frontend/src/config/queryClient.ts",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "file:frontend/src/api/auth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "file:frontend/src/features/auth/context/authContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/authContext.ts",
+      "target": "file:frontend/src/api/auth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "target": "file:frontend/src/api/profile.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/hooks/useCanonicalUser.ts",
+      "target": "file:frontend/src/hooks/useAuth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/main.tsx",
+      "target": "file:frontend/src/app/providers.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/main.tsx",
+      "target": "file:frontend/src/app/router.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/main.tsx",
+      "target": "file:frontend/src/index.css",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/api/auth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/components/auth/AuthShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/features/auth/schemas.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/hooks/useAuth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AuthHomePage.tsx",
+      "target": "file:frontend/src/hooks/usePlatformMetadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "file:frontend/src/api/auth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "file:frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "file:frontend/src/components/auth/AuthShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ResetPasswordPage.tsx",
+      "target": "file:frontend/src/hooks/usePlatformMetadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "file:frontend/src/api/auth.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "file:frontend/src/components/auth/AuthMarketingPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "file:frontend/src/components/auth/AuthShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/VerifyEmailPage.tsx",
+      "target": "file:frontend/src/hooks/usePlatformMetadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/features/auth/context/AuthContext.tsx:AuthProvider",
+      "target": "function:frontend/src/api/client.ts:onAuthExpired",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/features/auth/context/AuthContext.tsx",
+      "target": "function:frontend/src/api/client.ts:markAuthStateChanged",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AuthHomePage.tsx:AuthHomePage",
+      "target": "function:frontend/src/hooks/usePlatformMetadata.ts:usePlatformMetadata",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ResetPasswordPage.tsx:ResetPasswordPage",
+      "target": "function:frontend/src/hooks/usePlatformMetadata.ts:usePlatformMetadata",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/VerifyEmailPage.tsx:VerifyEmailPage",
+      "target": "function:frontend/src/hooks/usePlatformMetadata.ts:usePlatformMetadata",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

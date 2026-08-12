@@ -1,0 +1,1776 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "type": "file",
+      "name": "ActivityAuditPage.tsx",
+      "filePath": "frontend/src/pages/ActivityAuditPage.tsx",
+      "summary": "Presents searchable audit and approval activity, including status filters, date bounds, decision actions, and richly formatted event details.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/ActivityAuditPage.tsx:describeAction",
+      "type": "function",
+      "name": "describeAction",
+      "filePath": "frontend/src/pages/ActivityAuditPage.tsx",
+      "lineRange": [
+        42,
+        84
+      ],
+      "summary": "Page-level helper that computes or formats describe action.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "type": "function",
+      "name": "ApprovalCard",
+      "filePath": "frontend/src/pages/ActivityAuditPage.tsx",
+      "lineRange": [
+        98,
+        258
+      ],
+      "summary": "React view component responsible for the approval card interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "type": "function",
+      "name": "ActivityAuditPage",
+      "filePath": "frontend/src/pages/ActivityAuditPage.tsx",
+      "lineRange": [
+        260,
+        575
+      ],
+      "summary": "React view component responsible for the activity audit page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "type": "file",
+      "name": "AdminPlatformPage.tsx",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "summary": "Provides the administrator control plane for platform configuration, module plans, feature flags, app templates, cloning, and operational metadata.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:buildConfigDraft",
+      "type": "function",
+      "name": "buildConfigDraft",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        70,
+        79
+      ],
+      "summary": "Page-level helper that computes or formats build config draft.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:buildPlanDrafts",
+      "type": "function",
+      "name": "buildPlanDrafts",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        81,
+        96
+      ],
+      "summary": "Page-level helper that computes or formats build plan drafts.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:buildFlagDrafts",
+      "type": "function",
+      "name": "buildFlagDrafts",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        98,
+        111
+      ],
+      "summary": "Page-level helper that computes or formats build flag drafts.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:buildTemplateDrafts",
+      "type": "function",
+      "name": "buildTemplateDrafts",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        113,
+        126
+      ],
+      "summary": "Page-level helper that computes or formats build template drafts.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "type": "function",
+      "name": "AdminPlatformContent",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        128,
+        1070
+      ],
+      "summary": "React view component responsible for the admin platform content interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformPage",
+      "type": "function",
+      "name": "AdminPlatformPage",
+      "filePath": "frontend/src/pages/AdminPlatformPage.tsx",
+      "lineRange": [
+        1072,
+        1124
+      ],
+      "summary": "React view component responsible for the admin platform page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "type": "file",
+      "name": "AdminSettingsPage.tsx",
+      "filePath": "frontend/src/pages/AdminSettingsPage.tsx",
+      "summary": "Combines configuration, database parameters, platform, companies, GitHub, providers, users, and profile administration into a tabbed settings workspace.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminSettingsPage.tsx:DatabaseSettingEditor",
+      "type": "function",
+      "name": "DatabaseSettingEditor",
+      "filePath": "frontend/src/pages/AdminSettingsPage.tsx",
+      "lineRange": [
+        56,
+        169
+      ],
+      "summary": "Page-level helper that computes or formats database setting editor.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsContent",
+      "type": "function",
+      "name": "AdminSettingsContent",
+      "filePath": "frontend/src/pages/AdminSettingsPage.tsx",
+      "lineRange": [
+        171,
+        468
+      ],
+      "summary": "React view component responsible for the admin settings content interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsPage",
+      "type": "function",
+      "name": "AdminSettingsPage",
+      "filePath": "frontend/src/pages/AdminSettingsPage.tsx",
+      "lineRange": [
+        470,
+        529
+      ],
+      "summary": "React view component responsible for the admin settings page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "type": "file",
+      "name": "AdminUsersPage.tsx",
+      "filePath": "frontend/src/pages/AdminUsersPage.tsx",
+      "summary": "Provides an administrative user directory with debounced search, status filtering, pagination, statistics, and account management actions.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "type": "function",
+      "name": "AdminUsersPage",
+      "filePath": "frontend/src/pages/AdminUsersPage.tsx",
+      "lineRange": [
+        32,
+        242
+      ],
+      "summary": "React view component responsible for the admin users page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "type": "file",
+      "name": "AgentProfilesPage.tsx",
+      "filePath": "frontend/src/pages/AgentProfilesPage.tsx",
+      "summary": "Lists and edits agent profiles, validates contracts, manages activation state, and coordinates agent creation through orchestration queries.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/AgentProfilesPage.tsx:agentForm",
+      "type": "function",
+      "name": "agentForm",
+      "filePath": "frontend/src/pages/AgentProfilesPage.tsx",
+      "lineRange": [
+        62,
+        79
+      ],
+      "summary": "Page-level helper that computes or formats agent form.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AgentProfilesPage.tsx:contract",
+      "type": "function",
+      "name": "contract",
+      "filePath": "frontend/src/pages/AgentProfilesPage.tsx",
+      "lineRange": [
+        81,
+        104
+      ],
+      "summary": "Page-level helper that computes or formats contract.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "type": "function",
+      "name": "AgentProfilesPage",
+      "filePath": "frontend/src/pages/AgentProfilesPage.tsx",
+      "lineRange": [
+        106,
+        215
+      ],
+      "summary": "React view component responsible for the agent profiles page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "type": "file",
+      "name": "AgentRunDetailPage.tsx",
+      "filePath": "frontend/src/pages/AgentRunDetailPage.tsx",
+      "summary": "Displays an agent run plan, step timeline, artifacts, approval controls, status, and cancellation state with periodic refresh.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "type": "function",
+      "name": "AgentRunDetailPage",
+      "filePath": "frontend/src/pages/AgentRunDetailPage.tsx",
+      "lineRange": [
+        30,
+        158
+      ],
+      "summary": "React view component responsible for the agent run detail page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/AiStudioPage.tsx",
+      "type": "file",
+      "name": "AiStudioPage.tsx",
+      "filePath": "frontend/src/pages/AiStudioPage.tsx",
+      "summary": "Offers a comprehensive AI operations workspace for prompts, versions, documents, retrieval, runs, reviews, feedback, datasets, and evaluations.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/AiStudioPage.tsx:parseJsonObject",
+      "type": "function",
+      "name": "parseJsonObject",
+      "filePath": "frontend/src/pages/AiStudioPage.tsx",
+      "lineRange": [
+        56,
+        65
+      ],
+      "summary": "Page-level helper that computes or formats parse json object.",
+      "tags": [
+        "utility",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AiStudioPage.tsx:AiSectionPanel",
+      "type": "function",
+      "name": "AiSectionPanel",
+      "filePath": "frontend/src/pages/AiStudioPage.tsx",
+      "lineRange": [
+        73,
+        87
+      ],
+      "summary": "React view component responsible for the ai section panel interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "type": "function",
+      "name": "AiStudioPage",
+      "filePath": "frontend/src/pages/AiStudioPage.tsx",
+      "lineRange": [
+        89,
+        946
+      ],
+      "summary": "React view component responsible for the ai studio page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "type": "file",
+      "name": "BenchmarkPage.tsx",
+      "filePath": "frontend/src/pages/BenchmarkPage.tsx",
+      "summary": "Manages evaluation records and benchmarks, presents comparative scores and leaderboards, and launches current or historical benchmark runs.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "type": "function",
+      "name": "EvalCard",
+      "filePath": "frontend/src/pages/BenchmarkPage.tsx",
+      "lineRange": [
+        52,
+        218
+      ],
+      "summary": "React view component responsible for the eval card interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "type": "function",
+      "name": "BenchmarkPage",
+      "filePath": "frontend/src/pages/BenchmarkPage.tsx",
+      "lineRange": [
+        220,
+        411
+      ],
+      "summary": "React view component responsible for the benchmark page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "type": "file",
+      "name": "BrainstormDetailPage.tsx",
+      "filePath": "frontend/src/pages/BrainstormDetailPage.tsx",
+      "summary": "Coordinates a multi-agent brainstorm workspace with participants, messages, rounds, consensus insights, finalization, and artifact promotion.",
+      "tags": [
+        "component",
+        "page",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "type": "function",
+      "name": "BrainstormDetailPage",
+      "filePath": "frontend/src/pages/BrainstormDetailPage.tsx",
+      "lineRange": [
+        57,
+        494
+      ],
+      "summary": "React view component responsible for the brainstorm detail page interface and interactions.",
+      "tags": [
+        "component",
+        "react",
+        "frontend"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "function:frontend/src/pages/ActivityAuditPage.tsx:describeAction",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildConfigDraft",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildPlanDrafts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildFlagDrafts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildTemplateDrafts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "function:frontend/src/pages/AdminSettingsPage.tsx:DatabaseSettingEditor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsContent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:agentForm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:contract",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "target": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "target": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "function:frontend/src/pages/AiStudioPage.tsx:parseJsonObject",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "function:frontend/src/pages/AiStudioPage.tsx:AiSectionPanel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/ActivityAuditPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "file:frontend/src/api/platform.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/api/settings.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/AdminPlatformPage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/CompaniesPage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/GithubSyncPage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/ProfilePage.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/pages/ProviderSettingsPanel.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminSettingsPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/api/admin.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/hooks/useDebounce.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AdminUsersPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentProfilesPage.tsx",
+      "target": "file:frontend/src/utils/apiErrors.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AgentRunDetailPage.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/api/ai.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/components/ui/StatCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/utils/apiErrors.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/AiStudioPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BenchmarkPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/pages/BrainstormDetailPage.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:describeAction",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "target": "function:frontend/src/api/orchestration.ts:decideApproval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "target": "function:frontend/src/pages/ActivityAuditPage.tsx:describeAction",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ApprovalCard",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/api/orchestration.ts:listRuns",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/api/orchestration.ts:listGithubSyncEvents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/api/orchestration.ts:listHITLAuditLogs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/ActivityAuditPage.tsx:ActivityAuditPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildConfigDraft",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildPlanDrafts",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildFlagDrafts",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/pages/AdminPlatformPage.tsx:buildTemplateDrafts",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/api/platform.ts:updateAdminPlan",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/api/platform.ts:updateAdminFeatureFlag",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminPlatformPage.tsx:AdminPlatformContent",
+      "target": "function:frontend/src/api/platform.ts:updateAdminEmailTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminSettingsPage.tsx:DatabaseSettingEditor",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsContent",
+      "target": "function:frontend/src/api/orchestration.ts:listProviders",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsContent",
+      "target": "function:frontend/src/api/orchestration.ts:listGithubConnections",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminSettingsPage.tsx:AdminSettingsContent",
+      "target": "function:frontend/src/api/settings.ts:updateDatabaseSetting",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "target": "function:frontend/src/hooks/useDebounce.ts:useDebounce",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "target": "function:frontend/src/api/admin.ts:listAdminUsers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "target": "function:frontend/src/api/admin.ts:updateUserStatus",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AdminUsersPage.tsx:AdminUsersPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:agentForm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgentVersions",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/pages/AgentProfilesPage.tsx:contract",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:updateAgent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:createAgent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:validateAgentContract",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:createAgentFromTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:duplicateAgent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:activateAgent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentProfilesPage.tsx:AgentProfilesPage",
+      "target": "function:frontend/src/api/orchestration.ts:testRunAgent",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:getAgentRun",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgentRunSteps",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgentRunArtifacts",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:getOrchestrationTask",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:approveAgentRunPlan",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AgentRunDetailPage.tsx:AgentRunDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:cancelAgentRun",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:listPromptVersions",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:listAiDatasetCases",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:createPromptVersion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:updatePromptTemplate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:updatePromptVersion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:uploadAiDocument",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:createAiReview",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:decideAiReview",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:createAiFeedback",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:createAiDatasetCase",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/api/ai.ts:runAiEvaluation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/utils/apiErrors.ts:extractApiErrorMessage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/pages/AiStudioPage.tsx:parseJsonObject",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/AiStudioPage.tsx:AiStudioPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "target": "function:frontend/src/api/orchestration.ts:startBenchmark",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "target": "function:frontend/src/api/orchestration.ts:scoreEvalRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "target": "function:frontend/src/api/orchestration.ts:updateEvalRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:EvalCard",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:listEvalRecords",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:listOrchestrationTasks",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:getEvalLeaderboard",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:createEvalRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BenchmarkPage.tsx:BenchmarkPage",
+      "target": "function:frontend/src/api/orchestration.ts:startHistoricalBenchmarks",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:getBrainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listBrainstormParticipants",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listBrainstormMessages",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:getBrainstormDiscourseInsights",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:listProjectAgents",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:promoteBrainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:promoteBrainstormAdr",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:promoteBrainstormDocument",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:startBrainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:startBrainstormNextRound",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:forceBrainstormSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:addBrainstormParticipant",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:removeBrainstormParticipant",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:updateBrainstormParticipant",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/api/orchestration.ts:exportBrainstormArtifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/pages/BrainstormDetailPage.tsx:BrainstormDetailPage",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateTime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

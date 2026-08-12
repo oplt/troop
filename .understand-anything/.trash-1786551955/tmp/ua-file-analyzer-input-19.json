@@ -1,0 +1,14 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": ".github/workflows/quality.yml",
+      "language": "yaml",
+      "sizeLines": 288,
+      "fileCategory": "infra"
+    }
+  ],
+  "batchImportData": {
+    ".github/workflows/quality.yml": []
+  }
+}

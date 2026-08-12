@@ -56,6 +56,8 @@ import { getInitials } from "../../utils/formatters";
 import { CommandPalette } from "./CommandPalette";
 import GroupsIcon from '@mui/icons-material/Groups';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import BusinessIcon from '@mui/icons-material/Business';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
@@ -270,15 +272,9 @@ export function AppLayout() {
     const navItems = useMemo<NavItem[]>(
         () => [
             { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-            { label: "Agent Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
-            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
-            { label: "Team", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
-            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
-            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
-            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
-            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
+            { label: "Projects", icon: <AgentProjectsIcon />, path: "/agent-projects", group: "workspace" },
             {
-                label: "Audit & approvals",
+                label: "Approvals",
                 icon: <ActivityIcon />,
                 path: "/activity",
                 group: "workspace",
@@ -288,11 +284,20 @@ export function AppLayout() {
                         ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
                         : undefined,
             },
+            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
+            { label: "Skills", icon: <PsychologyIcon />, path: "/skills", group: "workspace" },
+            { label: "Teams", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
+            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
+            { label: "Departments", icon: <BusinessIcon />, path: "/departments", group: "workspace" },
+            { label: "Knowledge", icon: <AutoAwesomeIcon />, path: "/companies", group: "workspace" },
+            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
+            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
+            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
+            { label: "Execution insights", icon: <ActivityIcon />, path: "/analytics/execution", group: "workspace" },
+            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
             ...(hasAiModule
                 ? [{ label: "AI Studio", icon: <AutoAwesomeIcon />, path: "/ai", group: "workspace" as const }]
                 : []),
-            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
-            { label: "Execution insights", icon: <ActivityIcon />, path: "/analytics/execution", group: "workspace" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
         [hasAiModule, pendingCount]

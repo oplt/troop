@@ -1,0 +1,35 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/.env.example",
+      "language": "config",
+      "sizeLines": 162,
+      "fileCategory": "config"
+    },
+    {
+      "path": "backend/alembic.ini",
+      "language": "config",
+      "sizeLines": 149,
+      "fileCategory": "config"
+    },
+    {
+      "path": "backend/pyproject.toml",
+      "language": "toml",
+      "sizeLines": 63,
+      "fileCategory": "config"
+    },
+    {
+      "path": "backend/requirements.txt",
+      "language": "txt",
+      "sizeLines": 80,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    "backend/.env.example": [],
+    "backend/alembic.ini": [],
+    "backend/pyproject.toml": [],
+    "backend/requirements.txt": []
+  }
+}

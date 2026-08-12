@@ -1,0 +1,132 @@
+{
+  "nodes": [
+    {
+      "id": "document:DESIGN.md",
+      "type": "document",
+      "name": "DESIGN.md",
+      "filePath": "DESIGN.md",
+      "summary": "Defines the frontend design system across 40 sections covering visual atmosphere, color, typography, components, layout, depth, responsive behavior, and agent-facing design prompts.",
+      "tags": ["documentation", "design-system", "frontend", "responsive-design"],
+      "complexity": "complex"
+    },
+    {
+      "id": "service:Makefile",
+      "type": "service",
+      "name": "Makefile",
+      "filePath": "Makefile",
+      "summary": "Provides the repository's top-level build automation for local or Docker development, production startup, formatting, checks, hooks, and commit readiness.",
+      "tags": ["build-system", "automation", "development", "quality-gates"],
+      "complexity": "simple",
+      "languageNotes": "Phony Make targets delegate environment-specific startup to subordinate makefiles and centralize Python and frontend quality commands."
+    },
+    {
+      "id": "function:Makefile:local-dev",
+      "type": "function",
+      "name": "local-dev",
+      "filePath": "Makefile",
+      "lineRange": [3, 5],
+      "summary": "Delegates local development startup to the dedicated local makefile.",
+      "tags": ["build-target", "development", "local-runtime"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:docker-dev",
+      "type": "function",
+      "name": "docker-dev",
+      "filePath": "Makefile",
+      "lineRange": [6, 8],
+      "summary": "Delegates containerized development startup to the Docker makefile.",
+      "tags": ["build-target", "development", "docker"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:prod-dev",
+      "type": "function",
+      "name": "prod-dev",
+      "filePath": "Makefile",
+      "lineRange": [9, 11],
+      "summary": "Delegates production-like development startup to the deployment makefile.",
+      "tags": ["build-target", "deployment", "production"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:fix",
+      "type": "function",
+      "name": "fix",
+      "filePath": "Makefile",
+      "lineRange": [12, 16],
+      "summary": "Applies Ruff formatting and lint fixes to Python code and Biome fixes to the frontend.",
+      "tags": ["build-target", "formatting", "linting", "auto-fix"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:check",
+      "type": "function",
+      "name": "check",
+      "filePath": "Makefile",
+      "lineRange": [17, 22],
+      "summary": "Runs Python lint and format checks plus frontend Biome and TypeScript validation.",
+      "tags": ["build-target", "quality-gates", "linting", "type-checking"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:install-hooks",
+      "type": "function",
+      "name": "install-hooks",
+      "filePath": "Makefile",
+      "lineRange": [23, 25],
+      "summary": "Installs the repository's pre-commit hooks into the local Git checkout.",
+      "tags": ["build-target", "git-hooks", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:Makefile:commit-ready",
+      "type": "function",
+      "name": "commit-ready",
+      "filePath": "Makefile",
+      "lineRange": [26, 26],
+      "summary": "Combines automatic fixes and validation checks into the pre-commit readiness target.",
+      "tags": ["build-target", "quality-gates", "pre-commit"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Comprehensive 48-section project guide covering Troop's purpose, architecture, agent capabilities, workflows, technology stack, setup, configuration, APIs, tests, security, and limitations.",
+      "tags": ["documentation", "entry-point", "architecture", "getting-started"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:prompt.txt",
+      "type": "document",
+      "name": "prompt.txt",
+      "filePath": "prompt.txt",
+      "summary": "Records an architectural assessment and roadmap for evolving Troop from software-focused orchestration into a generic AI work operating system for multiple business domains.",
+      "tags": ["documentation", "architecture", "roadmap", "product-strategy"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:tasks.txt",
+      "type": "document",
+      "name": "tasks.txt",
+      "filePath": "tasks.txt",
+      "summary": "Empty placeholder reserved for project task notes.",
+      "tags": ["documentation", "placeholder", "task-notes"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {"source": "service:Makefile", "target": "function:Makefile:local-dev", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:docker-dev", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:prod-dev", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:fix", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:check", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:install-hooks", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "service:Makefile", "target": "function:Makefile:commit-ready", "type": "contains", "direction": "forward", "weight": 1.0},
+    {"source": "document:README.md", "target": "service:Makefile", "type": "documents", "direction": "forward", "weight": 0.5},
+    {"source": "document:README.md", "target": "document:DESIGN.md", "type": "related", "direction": "forward", "weight": 0.5},
+    {"source": "document:prompt.txt", "target": "document:README.md", "type": "documents", "direction": "forward", "weight": 0.5}
+  ]
+}

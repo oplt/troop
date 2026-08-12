@@ -1,0 +1,1812 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/tests/test_phase2_observability.py",
+      "type": "file",
+      "name": "test_phase2_observability.py",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "summary": "Exercises Prometheus metric rendering, gauge bounds, readiness dependency checks, and observability API behavior.",
+      "tags": [
+        "test",
+        "backend",
+        "pytest",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_metrics_registry_renders_bounded_prometheus_samples",
+      "type": "function",
+      "name": "test_metrics_registry_renders_bounded_prometheus_samples",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        17,
+        36
+      ],
+      "summary": "Tests that metrics registry renders bounded prometheus samples.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_active_gauge_is_clamped_at_zero",
+      "type": "function",
+      "name": "test_active_gauge_is_clamped_at_zero",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        39,
+        49
+      ],
+      "summary": "Tests that active gauge is clamped at zero.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "type": "function",
+      "name": "test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        74,
+        84
+      ],
+      "summary": "Tests that readiness report is ready when required dependencies are healthy.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "type": "function",
+      "name": "test_readiness_report_is_not_ready_on_dependency_failure",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        88,
+        98
+      ],
+      "summary": "Tests that readiness report is not ready on dependency failure.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_metrics_endpoint_exposes_prometheus_content",
+      "type": "function",
+      "name": "test_metrics_endpoint_exposes_prometheus_content",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        102,
+        109
+      ],
+      "summary": "Tests that metrics endpoint exposes prometheus content.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "type": "function",
+      "name": "test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        113,
+        122
+      ],
+      "summary": "Tests that readiness endpoint returns 503 when redis is unavailable.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase2_observability.py:test_registry_label_shape_is_explicit",
+      "type": "function",
+      "name": "test_registry_label_shape_is_explicit",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        125,
+        129
+      ],
+      "summary": "Tests that registry label shape is explicit.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_phase2_observability.py:_HealthyConnection",
+      "type": "class",
+      "name": "_HealthyConnection",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        52,
+        54
+      ],
+      "summary": "Class implementing healthy connection behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "class",
+      "name": "_HealthyEngine",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        57,
+        60
+      ],
+      "summary": "Class implementing healthy engine behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_phase2_observability.py:_HealthyRedis",
+      "type": "class",
+      "name": "_HealthyRedis",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        63,
+        65
+      ],
+      "summary": "Class implementing healthy redis behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_phase2_observability.py:_BrokenRedis",
+      "type": "class",
+      "name": "_BrokenRedis",
+      "filePath": "backend/tests/test_phase2_observability.py",
+      "lineRange": [
+        68,
+        70
+      ],
+      "summary": "Class implementing broken redis behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_phase7_queue_metrics.py",
+      "type": "file",
+      "name": "test_phase7_queue_metrics.py",
+      "filePath": "backend/tests/test_phase7_queue_metrics.py",
+      "summary": "Validates durable queue-age calculation and bounded queue labels during metrics refresh.",
+      "tags": [
+        "test",
+        "backend",
+        "pytest",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_age_normalizes_naive_and_aware_timestamps",
+      "type": "function",
+      "name": "test_queue_age_normalizes_naive_and_aware_timestamps",
+      "filePath": "backend/tests/test_phase7_queue_metrics.py",
+      "lineRange": [
+        11,
+        15
+      ],
+      "summary": "Tests that queue age normalizes naive and aware timestamps.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_refresh_uses_bounded_queue_names_and_durable_age",
+      "type": "function",
+      "name": "test_queue_refresh_uses_bounded_queue_names_and_durable_age",
+      "filePath": "backend/tests/test_phase7_queue_metrics.py",
+      "lineRange": [
+        19,
+        49
+      ],
+      "summary": "Tests that queue refresh uses bounded queue names and durable age.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_phase7_reliability.py",
+      "type": "file",
+      "name": "test_phase7_reliability.py",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "summary": "Tests distributed-lock ownership, SLO metadata, duplicate delivery policy, HTTP load statistics, and percentile edge cases.",
+      "tags": [
+        "test",
+        "backend",
+        "pytest",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_reliability.py:test_redis_lease_is_ownership_safe_and_reports_contention",
+      "type": "function",
+      "name": "test_redis_lease_is_ownership_safe_and_reports_contention",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        28,
+        44
+      ],
+      "summary": "Tests that redis lease is ownership safe and reports contention.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_reliability.py:test_slo_catalog_has_owned_budgets_and_runbooks",
+      "type": "function",
+      "name": "test_slo_catalog_has_owned_budgets_and_runbooks",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        47,
+        51
+      ],
+      "summary": "Tests that slo catalog has owned budgets and runbooks.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_reliability.py:test_duplicate_delivery_claim_policy_is_terminal_and_explicit",
+      "type": "function",
+      "name": "test_duplicate_delivery_claim_policy_is_terminal_and_explicit",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        54,
+        60
+      ],
+      "summary": "Tests that duplicate delivery claim policy is terminal and explicit.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_reliability.py:test_bounded_http_load_reports_percentiles_and_failures",
+      "type": "function",
+      "name": "test_bounded_http_load_reports_percentiles_and_failures",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        64,
+        82
+      ],
+      "summary": "Tests that bounded http load reports percentiles and failures.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase7_reliability.py:test_percentile_is_bounded_for_empty_and_small_samples",
+      "type": "function",
+      "name": "test_percentile_is_bounded_for_empty_and_small_samples",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        85,
+        87
+      ],
+      "summary": "Tests that percentile is bounded for empty and small samples.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_phase7_reliability.py:FakeRedis",
+      "type": "class",
+      "name": "FakeRedis",
+      "filePath": "backend/tests/test_phase7_reliability.py",
+      "lineRange": [
+        13,
+        24
+      ],
+      "summary": "Class implementing fake redis behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "test"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_worker_blocking_sync.py",
+      "type": "file",
+      "name": "test_worker_blocking_sync.py",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "summary": "Tests Docker enforcement and host fallback for code execution plus non-blocking polling and timeout behavior for Celery results.",
+      "tags": [
+        "test",
+        "backend",
+        "pytest",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_requires_docker_in_production_when_unavailable",
+      "type": "function",
+      "name": "test_execute_code_job_requires_docker_in_production_when_unavailable",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "lineRange": [
+        11,
+        25
+      ],
+      "summary": "Tests that execute code job requires docker in production when unavailable.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_allows_host_fallback_when_docker_not_required",
+      "type": "function",
+      "name": "test_execute_code_job_allows_host_fallback_when_docker_not_required",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "lineRange": [
+        28,
+        46
+      ],
+      "summary": "Tests that execute code job allows host fallback when docker not required.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_worker_blocking_sync.py:test_project_sandbox_policy_requires_docker_before_host_execution",
+      "type": "function",
+      "name": "test_project_sandbox_policy_requires_docker_before_host_execution",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "lineRange": [
+        49,
+        64
+      ],
+      "summary": "Tests that project sandbox policy requires docker before host execution.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_polls_until_ready",
+      "type": "function",
+      "name": "test_await_celery_result_polls_until_ready",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "lineRange": [
+        68,
+        78
+      ],
+      "summary": "Tests that await celery result polls until ready.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_times_out",
+      "type": "function",
+      "name": "test_await_celery_result_times_out",
+      "filePath": "backend/tests/test_worker_blocking_sync.py",
+      "lineRange": [
+        82,
+        88
+      ],
+      "summary": "Tests that await celery result times out.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tools/phase0_baseline.py",
+      "type": "file",
+      "name": "phase0_baseline.py",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "summary": "Command-line diagnostics tool that benchmarks HTTP, Redis, database, queue, and process health and emits a redacted operational baseline report.",
+      "tags": [
+        "utility",
+        "observability",
+        "validation",
+        "operations"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:percentile",
+      "type": "function",
+      "name": "percentile",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        35,
+        47
+      ],
+      "summary": "Operational diagnostics helper that computes or collects percentile.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "function",
+      "name": "summarize_timings",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        50,
+        58
+      ],
+      "summary": "Operational diagnostics helper that computes or collects summarize timings.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "function",
+      "name": "_safe_error",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        61,
+        62
+      ],
+      "summary": "Operational diagnostics helper that computes or collects safe error.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:benchmark_url",
+      "type": "function",
+      "name": "benchmark_url",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        65,
+        97
+      ],
+      "summary": "Operational diagnostics helper that computes or collects benchmark url.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "type": "function",
+      "name": "benchmark_redis",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        100,
+        115
+      ],
+      "summary": "Operational diagnostics helper that computes or collects benchmark redis.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "type": "function",
+      "name": "benchmark_database",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        118,
+        139
+      ],
+      "summary": "Operational diagnostics helper that computes or collects benchmark database.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:queue_depths",
+      "type": "function",
+      "name": "queue_depths",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        142,
+        162
+      ],
+      "summary": "Operational diagnostics helper that computes or collects queue depths.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:_proc_sample",
+      "type": "function",
+      "name": "_proc_sample",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        165,
+        176
+      ],
+      "summary": "Operational diagnostics helper that computes or collects proc sample.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:process_snapshot",
+      "type": "function",
+      "name": "process_snapshot",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        179,
+        191
+      ],
+      "summary": "Operational diagnostics helper that computes or collects process snapshot.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:_redact_url",
+      "type": "function",
+      "name": "_redact_url",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        194,
+        199
+      ],
+      "summary": "Operational diagnostics helper that computes or collects redact url.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:_git_revision",
+      "type": "function",
+      "name": "_git_revision",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        202,
+        213
+      ],
+      "summary": "Operational diagnostics helper that computes or collects git revision.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:collect",
+      "type": "function",
+      "name": "collect",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        216,
+        271
+      ],
+      "summary": "Operational diagnostics helper that computes or collects collect.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:parse_args",
+      "type": "function",
+      "name": "parse_args",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        274,
+        294
+      ],
+      "summary": "Parses command-line options for the operational validation tool.",
+      "tags": [
+        "utility",
+        "observability",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase0_baseline.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "backend/tools/phase0_baseline.py",
+      "lineRange": [
+        297,
+        306
+      ],
+      "summary": "Command-line entry point that runs the validation workflow and emits its report.",
+      "tags": [
+        "utility",
+        "observability",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tools/phase7_validation.py",
+      "type": "file",
+      "name": "phase7_validation.py",
+      "filePath": "backend/tools/phase7_validation.py",
+      "summary": "Runs bounded concurrent HTTP load checks and summarizes latency percentiles, throughput, and failures for reliability validation.",
+      "tags": [
+        "utility",
+        "observability",
+        "validation",
+        "operations"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tools/phase7_validation.py:percentile",
+      "type": "function",
+      "name": "percentile",
+      "filePath": "backend/tools/phase7_validation.py",
+      "lineRange": [
+        32,
+        37
+      ],
+      "summary": "Operational diagnostics helper that computes or collects percentile.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase7_validation.py:run_http_load",
+      "type": "function",
+      "name": "run_http_load",
+      "filePath": "backend/tools/phase7_validation.py",
+      "lineRange": [
+        40,
+        88
+      ],
+      "summary": "Operational diagnostics helper that computes or collects run http load.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tools/phase7_validation.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "backend/tools/phase7_validation.py",
+      "lineRange": [
+        91,
+        106
+      ],
+      "summary": "Command-line entry point that runs the validation workflow and emits its report.",
+      "tags": [
+        "utility",
+        "observability",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tools/phase7_validation.py:LoadSummary",
+      "type": "class",
+      "name": "LoadSummary",
+      "filePath": "backend/tools/phase7_validation.py",
+      "lineRange": [
+        20,
+        29
+      ],
+      "summary": "Structured result model for load summary.",
+      "tags": [
+        "utility",
+        "observability",
+        "benchmark"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_metrics_registry_renders_bounded_prometheus_samples",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_metrics_registry_renders_bounded_prometheus_samples",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_active_gauge_is_clamped_at_zero",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_active_gauge_is_clamped_at_zero",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_metrics_endpoint_exposes_prometheus_content",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_metrics_endpoint_exposes_prometheus_content",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_registry_label_shape_is_explicit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "function:backend/tests/test_phase2_observability.py:test_registry_label_shape_is_explicit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyConnection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyConnection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyRedis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyRedis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_BrokenRedis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "class:backend/tests/test_phase2_observability.py:_BrokenRedis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_age_normalizes_naive_and_aware_timestamps",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_age_normalizes_naive_and_aware_timestamps",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_refresh_uses_bounded_queue_names_and_durable_age",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_refresh_uses_bounded_queue_names_and_durable_age",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_redis_lease_is_ownership_safe_and_reports_contention",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_redis_lease_is_ownership_safe_and_reports_contention",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_slo_catalog_has_owned_budgets_and_runbooks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_slo_catalog_has_owned_budgets_and_runbooks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_duplicate_delivery_claim_policy_is_terminal_and_explicit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_duplicate_delivery_claim_policy_is_terminal_and_explicit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_bounded_http_load_reports_percentiles_and_failures",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_bounded_http_load_reports_percentiles_and_failures",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_percentile_is_bounded_for_empty_and_small_samples",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "function:backend/tests/test_phase7_reliability.py:test_percentile_is_bounded_for_empty_and_small_samples",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "class:backend/tests/test_phase7_reliability.py:FakeRedis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "class:backend/tests/test_phase7_reliability.py:FakeRedis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_requires_docker_in_production_when_unavailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_requires_docker_in_production_when_unavailable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_allows_host_fallback_when_docker_not_required",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_allows_host_fallback_when_docker_not_required",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_project_sandbox_policy_requires_docker_before_host_execution",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_project_sandbox_policy_requires_docker_before_host_execution",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_polls_until_ready",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_polls_until_ready",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_times_out",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_times_out",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:percentile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:percentile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_url",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_url",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:queue_depths",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:queue_depths",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_proc_sample",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_proc_sample",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:process_snapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:process_snapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_redact_url",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_redact_url",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_git_revision",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:_git_revision",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:collect",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:collect",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:parse_args",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:parse_args",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "function:backend/tools/phase0_baseline.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:percentile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:percentile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:run_http_load",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:run_http_load",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "function:backend/tools/phase7_validation.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "class:backend/tools/phase7_validation.py:LoadSummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "class:backend/tools/phase7_validation.py:LoadSummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "file:backend/api/main.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "file:backend/api/v1/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "file:backend/modules/observability/health.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase2_observability.py",
+      "target": "file:backend/modules/observability/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "file:backend/modules/observability/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_queue_metrics.py",
+      "target": "file:backend/modules/observability/queue.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "file:backend/core/distributed_lock.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "file:backend/modules/observability/slo.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase7_reliability.py",
+      "target": "file:backend/tools/phase7_validation.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "file:backend/modules/orchestration/execution/cpu_executor.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_worker_blocking_sync.py",
+      "target": "file:backend/workers/celery_async.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_metrics_registry_renders_bounded_prometheus_samples",
+      "target": "class:backend/modules/observability/metrics.py:MetricsRegistry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_metrics_registry_renders_bounded_prometheus_samples",
+      "target": "function:backend/modules/observability/metrics.py:bounded_route",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_active_gauge_is_clamped_at_zero",
+      "target": "class:backend/modules/observability/metrics.py:MetricsRegistry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyConnection",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "target": "function:backend/modules/observability/health.py:readiness_report",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_ready_when_required_dependencies_are_healthy",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyRedis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "target": "function:backend/modules/observability/health.py:readiness_report",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_report_is_not_ready_on_dependency_failure",
+      "target": "class:backend/tests/test_phase2_observability.py:_BrokenRedis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "target": "class:backend/tests/test_phase2_observability.py:_HealthyEngine",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_readiness_endpoint_returns_503_when_redis_is_unavailable",
+      "target": "class:backend/tests/test_phase2_observability.py:_BrokenRedis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase2_observability.py:test_registry_label_shape_is_explicit",
+      "target": "class:backend/modules/observability/metrics.py:MetricsRegistry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_queue_metrics.py:test_queue_age_normalizes_naive_and_aware_timestamps",
+      "target": "function:backend/modules/observability/queue.py:_age_seconds",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_redis_lease_is_ownership_safe_and_reports_contention",
+      "target": "class:backend/tests/test_phase7_reliability.py:FakeRedis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_redis_lease_is_ownership_safe_and_reports_contention",
+      "target": "class:backend/core/distributed_lock.py:RedisLease",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_slo_catalog_has_owned_budgets_and_runbooks",
+      "target": "function:backend/modules/observability/slo.py:slo_catalog",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_duplicate_delivery_claim_policy_is_terminal_and_explicit",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:is_run_execution_claimable",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_bounded_http_load_reports_percentiles_and_failures",
+      "target": "function:backend/tools/phase7_validation.py:run_http_load",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase7_reliability.py:test_percentile_is_bounded_for_empty_and_small_samples",
+      "target": "function:backend/tools/phase7_validation.py:percentile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_requires_docker_in_production_when_unavailable",
+      "target": "function:backend/modules/orchestration/execution/cpu_executor.py:execute_code_job",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_worker_blocking_sync.py:test_execute_code_job_allows_host_fallback_when_docker_not_required",
+      "target": "function:backend/modules/orchestration/execution/cpu_executor.py:execute_code_job",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_worker_blocking_sync.py:test_project_sandbox_policy_requires_docker_before_host_execution",
+      "target": "function:backend/modules/orchestration/execution/cpu_executor.py:execute_code_job",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_polls_until_ready",
+      "target": "function:backend/workers/celery_async.py:await_celery_result",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_worker_blocking_sync.py:test_await_celery_result_times_out",
+      "target": "function:backend/workers/celery_async.py:await_celery_result",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "target": "function:backend/tools/phase0_baseline.py:percentile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_url",
+      "target": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "target": "function:backend/tools/phase0_baseline.py:_redact_url",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "target": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "target": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "target": "function:backend/tools/phase0_baseline.py:_redact_url",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "target": "function:backend/tools/phase0_baseline.py:summarize_timings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "target": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:queue_depths",
+      "target": "function:backend/tools/phase0_baseline.py:_safe_error",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:process_snapshot",
+      "target": "function:backend/tools/phase0_baseline.py:_proc_sample",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:process_snapshot",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_url",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_redis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:benchmark_database",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:queue_depths",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:collect",
+      "target": "function:backend/tools/phase0_baseline.py:_git_revision",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:main",
+      "target": "function:backend/tools/phase0_baseline.py:parse_args",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase0_baseline.py:main",
+      "target": "function:backend/tools/phase0_baseline.py:collect",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase7_validation.py:run_http_load",
+      "target": "class:backend/tools/phase7_validation.py:LoadSummary",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase7_validation.py:run_http_load",
+      "target": "function:backend/tools/phase7_validation.py:percentile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tools/phase7_validation.py:main",
+      "target": "function:backend/tools/phase7_validation.py:run_http_load",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tools/phase0_baseline.py",
+      "target": "file:backend/tests/test_phase0_context.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/tools/phase7_validation.py",
+      "target": "file:backend/tests/test_phase7_reliability.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

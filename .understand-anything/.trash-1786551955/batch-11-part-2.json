@@ -1,0 +1,860 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/security.py",
+      "type": "file",
+      "name": "security.py",
+      "filePath": "backend/modules/orchestration/security.py",
+      "summary": "Encrypts provider credentials at rest, decrypts them for use, and produces safe masked representations.",
+      "tags": [
+        "security",
+        "encryption",
+        "secrets",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/security.py:_fernet",
+      "type": "function",
+      "name": "_fernet",
+      "filePath": "backend/modules/orchestration/security.py",
+      "lineRange": [
+        10,
+        13
+      ],
+      "summary": "Implements fernet for protected provider secrets.",
+      "tags": [
+        "security",
+        "encryption",
+        "secrets"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/security.py:encrypt_secret",
+      "type": "function",
+      "name": "encrypt_secret",
+      "filePath": "backend/modules/orchestration/security.py",
+      "lineRange": [
+        16,
+        17
+      ],
+      "summary": "Implements encrypt secret for protected provider secrets.",
+      "tags": [
+        "security",
+        "encryption",
+        "secrets"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/security.py:decrypt_secret",
+      "type": "function",
+      "name": "decrypt_secret",
+      "filePath": "backend/modules/orchestration/security.py",
+      "lineRange": [
+        20,
+        26
+      ],
+      "summary": "Implements decrypt secret for protected provider secrets.",
+      "tags": [
+        "security",
+        "encryption",
+        "secrets"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/security.py:mask_secret",
+      "type": "function",
+      "name": "mask_secret",
+      "filePath": "backend/modules/orchestration/security.py",
+      "lineRange": [
+        29,
+        35
+      ],
+      "summary": "Implements mask secret for protected provider secrets.",
+      "tags": [
+        "security",
+        "encryption",
+        "secrets"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/services/providers_service.py",
+      "type": "file",
+      "name": "providers_service.py",
+      "filePath": "backend/modules/orchestration/services/providers_service.py",
+      "summary": "Coordinates provider CRUD, validation, model discovery, health checks, comparisons, capability records, cost estimates, and runtime resolution.",
+      "tags": [
+        "service",
+        "ai-provider",
+        "health-check",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/providers_service.py:OrchestrationProvidersServiceMixin",
+      "type": "class",
+      "name": "OrchestrationProvidersServiceMixin",
+      "filePath": "backend/modules/orchestration/services/providers_service.py",
+      "lineRange": [
+        27,
+        591
+      ],
+      "summary": "Application-service mixin coordinating provider configuration, health, discovery, comparisons, cost, and execution resolution.",
+      "tags": [
+        "backend",
+        "python",
+        "class"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/orchestration/tools.py",
+      "type": "file",
+      "name": "tools.py",
+      "filePath": "backend/modules/orchestration/tools.py",
+      "summary": "Executes approval-aware orchestration tools for GitHub, web access, code, scoped filesystems, database queries, repository search, and knowledge retrieval.",
+      "tags": [
+        "tool-execution",
+        "orchestration",
+        "security",
+        "sandbox"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/orchestration/tools.py:sanitize_tool_result",
+      "type": "function",
+      "name": "sanitize_tool_result",
+      "filePath": "backend/modules/orchestration/tools.py",
+      "lineRange": [
+        621,
+        625
+      ],
+      "summary": "Implements sanitize tool result for safe orchestration tool results.",
+      "tags": [
+        "tool-execution",
+        "security",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/tools.py:ToolExecutionError",
+      "type": "class",
+      "name": "ToolExecutionError",
+      "filePath": "backend/modules/orchestration/tools.py",
+      "lineRange": [
+        35,
+        36
+      ],
+      "summary": "Normalized exception raised when an orchestration tool cannot execute safely or successfully.",
+      "tags": [
+        "tool-execution",
+        "orchestration",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/tools.py:OrchestrationToolbox",
+      "type": "class",
+      "name": "OrchestrationToolbox",
+      "filePath": "backend/modules/orchestration/tools.py",
+      "lineRange": [
+        39,
+        618
+      ],
+      "summary": "Approval-aware dispatcher implementing GitHub, web, code, filesystem, database, repository, and knowledge tools.",
+      "tags": [
+        "tool-execution",
+        "orchestration",
+        "security"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/rag/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/rag/__init__.py",
+      "summary": "Publishes the RAG router and core request/response schemas as the module's package API.",
+      "tags": [
+        "barrel",
+        "rag",
+        "api",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/rag/bulk_ingest.py",
+      "type": "file",
+      "name": "bulk_ingest.py",
+      "filePath": "backend/modules/rag/bulk_ingest.py",
+      "summary": "Ingests multiple RAG documents concurrently with bounded parallelism, per-item error capture, and optional asynchronous indexing.",
+      "tags": [
+        "rag",
+        "bulk-ingest",
+        "concurrency",
+        "data-pipeline"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/rag/bulk_ingest.py:bulk_ingest_documents_parallel",
+      "type": "function",
+      "name": "bulk_ingest_documents_parallel",
+      "filePath": "backend/modules/rag/bulk_ingest.py",
+      "lineRange": [
+        16,
+        76
+      ],
+      "summary": "Implements bulk ingest documents parallel within the retrieval-augmented generation pipeline.",
+      "tags": [
+        "rag",
+        "utility",
+        "data-pipeline"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/rag/chunking.py",
+      "type": "file",
+      "name": "chunking.py",
+      "filePath": "backend/modules/rag/chunking.py",
+      "summary": "Splits normalized document text into overlapping token-aware chunks and attaches indexing metadata.",
+      "tags": [
+        "rag",
+        "chunking",
+        "data-pipeline",
+        "text-processing"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/rag/chunking.py:ChunkingOptions",
+      "type": "class",
+      "name": "ChunkingOptions",
+      "filePath": "backend/modules/rag/chunking.py",
+      "lineRange": [
+        11,
+        13
+      ],
+      "summary": "Chunk-size and overlap parameters used by the document chunking pipeline.",
+      "tags": [
+        "rag",
+        "service",
+        "data-pipeline"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/rag/chunking.py:ChunkingService",
+      "type": "class",
+      "name": "ChunkingService",
+      "filePath": "backend/modules/rag/chunking.py",
+      "lineRange": [
+        16,
+        77
+      ],
+      "summary": "Token-aware text chunker that emits indexed RAG chunks with source metadata.",
+      "tags": [
+        "rag",
+        "service",
+        "data-pipeline"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/rag/citations.py",
+      "type": "file",
+      "name": "citations.py",
+      "filePath": "backend/modules/rag/citations.py",
+      "summary": "Transforms retrieval matches into stable source citations and formats inline reference context.",
+      "tags": [
+        "rag",
+        "citations",
+        "serialization",
+        "service"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/rag/citations.py:SourceCitationService",
+      "type": "class",
+      "name": "SourceCitationService",
+      "filePath": "backend/modules/rag/citations.py",
+      "lineRange": [
+        6,
+        34
+      ],
+      "summary": "Builds structured citations and inline references from retrieval results.",
+      "tags": [
+        "rag",
+        "service",
+        "data-pipeline"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/rag/config.py",
+      "type": "file",
+      "name": "config.py",
+      "filePath": "backend/modules/rag/config.py",
+      "summary": "Defines the resolved RAG runtime configuration and derives provider-specific score thresholds from application settings.",
+      "tags": [
+        "configuration",
+        "rag",
+        "pydantic",
+        "retrieval"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/rag/config.py:resolve_rag_config",
+      "type": "function",
+      "name": "resolve_rag_config",
+      "filePath": "backend/modules/rag/config.py",
+      "lineRange": [
+        65,
+        66
+      ],
+      "summary": "Implements resolve rag config within the retrieval-augmented generation pipeline.",
+      "tags": [
+        "rag",
+        "utility",
+        "data-pipeline"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/rag/config.py:RagConfig",
+      "type": "class",
+      "name": "RagConfig",
+      "filePath": "backend/modules/rag/config.py",
+      "lineRange": [
+        9,
+        62
+      ],
+      "summary": "Resolved RAG settings model covering providers, chunking, retrieval, reranking, context, and fallbacks.",
+      "tags": [
+        "rag",
+        "configuration",
+        "data-pipeline"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:_fernet",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:_fernet",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:encrypt_secret",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:encrypt_secret",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:decrypt_secret",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:decrypt_secret",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:mask_secret",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "function:backend/modules/orchestration/security.py:mask_secret",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "class:backend/modules/orchestration/services/providers_service.py:OrchestrationProvidersServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "class:backend/modules/orchestration/services/providers_service.py:OrchestrationProvidersServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "function:backend/modules/orchestration/tools.py:sanitize_tool_result",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "function:backend/modules/orchestration/tools.py:sanitize_tool_result",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "class:backend/modules/orchestration/tools.py:ToolExecutionError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "class:backend/modules/orchestration/tools.py:ToolExecutionError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "class:backend/modules/orchestration/tools.py:OrchestrationToolbox",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "class:backend/modules/orchestration/tools.py:OrchestrationToolbox",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "function:backend/modules/rag/bulk_ingest.py:bulk_ingest_documents_parallel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "function:backend/modules/rag/bulk_ingest.py:bulk_ingest_documents_parallel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "class:backend/modules/rag/chunking.py:ChunkingOptions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "class:backend/modules/rag/chunking.py:ChunkingOptions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "class:backend/modules/rag/chunking.py:ChunkingService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "class:backend/modules/rag/chunking.py:ChunkingService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/citations.py",
+      "target": "class:backend/modules/rag/citations.py:SourceCitationService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/citations.py",
+      "target": "class:backend/modules/rag/citations.py:SourceCitationService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "function:backend/modules/rag/config.py:resolve_rag_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "function:backend/modules/rag/config.py:resolve_rag_config",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "class:backend/modules/rag/config.py:RagConfig",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "class:backend/modules/rag/config.py:RagConfig",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/security.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/orchestration/providers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/orchestration/security.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/providers_service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/core/external_http.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/core/http_clients.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/modules/orchestration/execution/cpu_executor.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/modules/orchestration/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/modules/orchestration/security.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/__init__.py",
+      "target": "file:backend/modules/rag/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/__init__.py",
+      "target": "file:backend/modules/rag/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/__init__.py",
+      "target": "file:backend/modules/rag/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/modules/rag/observability.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/modules/rag/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "file:backend/modules/rag/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "file:backend/modules/rag/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/citations.py",
+      "target": "file:backend/modules/rag/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/providers_service.py:OrchestrationProvidersServiceMixin",
+      "target": "function:backend/modules/orchestration/_helpers.py:_provider_type_aliases",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/tests/test_algorithm_ai_improvements.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/tools.py",
+      "target": "file:backend/tests/test_architectural_improvements.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "class:backend/modules/orchestration/tools.py:OrchestrationToolbox",
+      "target": "function:backend/modules/orchestration/execution/cpu_executor.py:execute_code_job_async",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/tests/test_phase4_concurrency.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "file:backend/tests/test_rag_request_path.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/bulk_ingest.py",
+      "target": "class:backend/modules/rag/service.py:RagService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/chunking.py",
+      "target": "file:backend/tests/test_rag_layer.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "class:backend/modules/rag/chunking.py:ChunkingService",
+      "target": "class:backend/modules/rag/schemas.py:RagChunk",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/rag/citations.py:SourceCitationService",
+      "target": "class:backend/modules/rag/schemas.py:RagCitation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/tests/test_algorithm_ai_improvements.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/tests/test_golden_retrieval.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/tests/test_rag_layer.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/tests/test_rag_request_path.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/rag/config.py",
+      "target": "file:backend/tests/test_vector_retrieval.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

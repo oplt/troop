@@ -1,0 +1,70 @@
+# Troop → generic AI workforce platform
+
+## Phase 1 — Domain foundation [P0]
+[x] Inspect canonical orchestrator_* vs legacy projects
+[x] Department model + CRUD under companies (`/api/v1/workforce/departments`)
+[x] Skill / SkillVersion / SkillDraft tables + migration from SkillPack
+[x] AgentSkillAssignment table + repo helpers
+[x] OrchestratorProject.department_id + policy fields
+[x] OrchestratorTask: objective, human_assignee, risk_level, autonomy_level, assignment_mode
+[x] Generic task statuses + legacy status aliases (synced_to_github → completed)
+[x] SkillPack APIs retained (compat path)
+[x] Alembic migration `e8a1c2d3f4b5` + env.py model import
+
+## Phase 2 — Task intelligence [P0]
+[x] TaskAnalysis + TaskRequirement models
+[x] Task Capability Analyzer (structured schema + heuristic offline)
+[x] Skill matching engine (deterministic Jaccard scoring)
+[x] Gap detection in skill-matches endpoint
+[x] Duplicate / near-duplicate skill detection service
+[x] Persist analysis; fingerprint cache for reanalyze
+
+## Phase 3 — Skill generation [P0]
+[x] AI/heuristic Skill Generator → SkillDraft
+[x] Draft validate / publish → SkillVersion
+[x] Scope + promote endpoint
+[ ] Full LLM improvement loop UX polish
+
+## Phase 4 — Agent intelligence [P0]
+[x] Agent matching from required skills
+[x] Auto agent assembly proposal endpoint
+[ ] Runtime prefers AgentSkillAssignment over skills_json (partial — table ready)
+
+## Phase 5 — Generic execution [P1]
+[x] ToolDefinition registry + Native catalog seed in migration
+[x] ToolProvider scaffolding in tool_registry service
+[ ] Deeper removal of GitHub assumptions from core execution paths
+
+## Phase 6 — Workflow architecture [P1]
+[x] WorkflowDefinition / Version / Run / StepRun models
+[x] List workflows API
+[ ] Full runtime for data-driven workflow graph execution
+
+## Phase 7 — Permissions + integrations [P1]
+[x] ToolGrant / ActionPolicy / Connector* models
+[x] Action policy resolution helper
+[ ] MCP live connector execute path
+[ ] A2A remote agent adapter beyond interface scaffolding
+
+## Phase 8 — Frontend [P0]
+[x] Nav IA: Projects / Skills / Departments / Approvals / Teams / Workflows
+[x] Departments page
+[x] Skills page + Skill Builder
+[x] TaskIntelligencePanel wired into project detail
+[x] Frontend API client `/api/workforce.ts` with response normalizers
+[ ] Light project create department picker polish (API ready)
+
+## Phase 9 — Evaluation + learning [P1]
+[x] SkillEvaluation + SkillUsageStat models + EvaluationService
+[x] Usage endpoint on skills
+[x] Unit tests: workforce domain + task transitions + panel vitest
+[ ] Full integration E2E against live DB
+[ ] Migration apply verified in deployed env
+
+## Tech debt discovered
+[ ] /skills/marketplace route missing service impl
+[ ] Legacy projects.router unmounted but tables remain
+[ ] SkillPack.slug not unique in DB (skills table has owner+slug unique)
+[ ] BUILTIN_SKILL_PACKS seed no-ops (_ensure_catalog_seeded)
+[ ] Frontend Skill type still partially flattened vs Skill+SkillVersion split
+[ ] control_plane_runtime still resolves SkillPack via skills_json primarily

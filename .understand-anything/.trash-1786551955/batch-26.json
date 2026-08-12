@@ -1,0 +1,855 @@
+{
+  "nodes": [
+    {
+      "id": "file:.understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Defines the project-specific file and directory patterns excluded from knowledge-graph analysis.",
+      "tags": [
+        "configuration",
+        "analysis",
+        "ignore-rules"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:.understand-anything/config.json",
+      "type": "config",
+      "name": "config.json",
+      "filePath": ".understand-anything/config.json",
+      "summary": "Stores the Understand Anything project preference to generate graph text in English.",
+      "tags": [
+        "configuration",
+        "baseline",
+        "metrics",
+        "artifact"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:artifacts/frontend-build-baseline.json",
+      "type": "config",
+      "name": "frontend-build-baseline.json",
+      "filePath": "artifacts/frontend-build-baseline.json",
+      "summary": "Captures a frontend bundle-size baseline with asset counts, total bytes, JavaScript and CSS totals, and largest generated assets.",
+      "tags": [
+        "configuration",
+        "baseline",
+        "metrics",
+        "artifact"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:artifacts/phase0-baseline.json",
+      "type": "config",
+      "name": "phase0-baseline.json",
+      "filePath": "artifacts/phase0-baseline.json",
+      "summary": "Captures the initial runtime baseline across database, HTTP endpoints, process, queue, Redis, revision, and measurement parameters.",
+      "tags": [
+        "configuration",
+        "baseline",
+        "metrics",
+        "artifact"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/__init__.py",
+      "summary": "Marks the backend directory as the root Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/README",
+      "type": "file",
+      "name": "README",
+      "filePath": "backend/alembic/README",
+      "summary": "Documents that the Alembic environment uses a generic asynchronous single-database configuration.",
+      "tags": [
+        "documentation",
+        "backend",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/script.py.mako",
+      "type": "file",
+      "name": "script.py.mako",
+      "filePath": "backend/alembic/script.py.mako",
+      "summary": "Defines the Mako template Alembic uses to generate typed migration revision modules with upgrade and downgrade hooks.",
+      "tags": [
+        "database",
+        "migration",
+        "template",
+        "alembic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "type": "file",
+      "name": "9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "filePath": "backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "summary": "Adds a unique constraint for agent template slugs and provides a reversible downgrade.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "lineRange": [
+        20,
+        39
+      ],
+      "summary": "Applies the unique agent-template slug constraint.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "lineRange": [
+        42,
+        44
+      ],
+      "summary": "Reverts the unique agent-template slug constraint.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "type": "file",
+      "name": "b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "filePath": "backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "summary": "Adds pgvector support and vector indexes for AI document chunk similarity queries with a reversible downgrade.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "lineRange": [
+        60,
+        70
+      ],
+      "summary": "Applies pgvector columns and similarity indexes for AI chunks.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "lineRange": [
+        73,
+        76
+      ],
+      "summary": "Reverts pgvector columns and similarity indexes for AI chunks.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "type": "file",
+      "name": "c1a8fcb8c9aa_add_team_profiles.py",
+      "filePath": "backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "summary": "Creates persistent team profiles and their supporting constraints and indexes.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "lineRange": [
+        22,
+        50
+      ],
+      "summary": "Applies team profile tables, constraints, and indexes.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "lineRange": [
+        53,
+        57
+      ],
+      "summary": "Reverts team profile tables, constraints, and indexes.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "type": "file",
+      "name": "d5e6f7a8b9c0_memory_retention_metadata.py",
+      "filePath": "backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "summary": "Adds retention and archival metadata used by the memory lifecycle subsystem.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "lineRange": [
+        20,
+        57
+      ],
+      "summary": "Applies memory retention and archival metadata.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "lineRange": [
+        60,
+        72
+      ],
+      "summary": "Reverts memory retention and archival metadata.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "type": "file",
+      "name": "e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "filePath": "backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "summary": "Widens the episodic search source identifier column and supports reverting its prior width.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "lineRange": [
+        22,
+        29
+      ],
+      "summary": "Applies the widened episodic search source identifier.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "lineRange": [
+        32,
+        39
+      ],
+      "summary": "Reverts the widened episodic search source identifier.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "type": "file",
+      "name": "f4bdbfb299ae_generate_tables.py",
+      "filePath": "backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "summary": "Creates the initial Troop relational schema and provides a full reverse-order teardown of generated tables and constraints.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "schema-change"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Alembic revision identifiers and down-revision links define a reversible linear migration chain."
+    },
+    {
+      "id": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:upgrade",
+      "type": "function",
+      "name": "upgrade",
+      "filePath": "backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "lineRange": [
+        22,
+        1343
+      ],
+      "summary": "Applies the initial application database schema.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "upgrade"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:downgrade",
+      "type": "function",
+      "name": "downgrade",
+      "filePath": "backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "lineRange": [
+        1346,
+        1611
+      ],
+      "summary": "Reverts the initial application database schema.",
+      "tags": [
+        "database",
+        "migration",
+        "alembic",
+        "downgrade"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/api/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/api/__init__.py",
+      "summary": "Marks the API directory as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/api/deps/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/api/deps/__init__.py",
+      "summary": "Marks the API dependency providers directory as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/api/middleware/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/api/middleware/__init__.py",
+      "summary": "Marks the API middleware directory as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app.db",
+      "type": "file",
+      "name": "app.db",
+      "filePath": "backend/app.db",
+      "summary": "Empty SQLite database placeholder used by local backend development defaults.",
+      "tags": [
+        "database",
+        "sqlite",
+        "development",
+        "placeholder"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/app/__init__.py",
+      "summary": "Marks the application compatibility namespace as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/agents/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/app/agents/__init__.py",
+      "summary": "Marks the application agent runtime namespace as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/core/__init__.py",
+      "summary": "Marks shared backend infrastructure and configuration utilities as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/db/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/db/__init__.py",
+      "summary": "Marks database base, model registration, and session infrastructure as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/__init__.py",
+      "summary": "Marks the backend business modules namespace as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/admin/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/modules/admin/__init__.py",
+      "summary": "Marks the administrative domain module as a Python package.",
+      "tags": [
+        "python-package",
+        "namespace",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/observability/exceptions.py",
+      "type": "file",
+      "name": "exceptions.py",
+      "filePath": "backend/modules/observability/exceptions.py",
+      "summary": "Defines the configuration error raised when observability setup is invalid.",
+      "tags": [
+        "exception",
+        "observability",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/observability/exceptions.py:ObservabilityConfigurationError",
+      "type": "class",
+      "name": "ObservabilityConfigurationError",
+      "filePath": "backend/modules/observability/exceptions.py",
+      "lineRange": [
+        1,
+        2
+      ],
+      "summary": "Signals invalid or unsupported observability configuration during application startup.",
+      "tags": [
+        "exception",
+        "observability",
+        "configuration",
+        "error-handling"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:backend/modules/observability/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "backend/modules/observability/README.md",
+      "summary": "Documents the observability compatibility boundary, instrumentation responsibilities, optional exporters, and bounded metric-label policy.",
+      "tags": [
+        "documentation",
+        "backend",
+        "configuration"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "target": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "target": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "target": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "target": "function:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "target": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "target": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "target": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "target": "function:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "target": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "target": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "target": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "target": "function:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "target": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "target": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "target": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "target": "function:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "target": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "target": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "target": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "target": "function:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "target": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:upgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "target": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:upgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "target": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:downgrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "target": "function:backend/alembic/versions/f4bdbfb299ae_generate_tables.py:downgrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/observability/exceptions.py",
+      "target": "class:backend/modules/observability/exceptions.py:ObservabilityConfigurationError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/observability/exceptions.py",
+      "target": "class:backend/modules/observability/exceptions.py:ObservabilityConfigurationError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "target": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "target": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "target": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "target": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "target": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/9f2d1b8c4e77_agent_templates_slug_unique.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/b7c3d9e2a1f4_pgvector_indexes_and_ai_chunk_vectors.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/c1a8fcb8c9aa_add_team_profiles.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/d5e6f7a8b9c0_memory_retention_metadata.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/e2b7c4d1a0f3_widen_episodic_search_source_id.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/alembic/script.py.mako",
+      "target": "file:backend/alembic/versions/f4bdbfb299ae_generate_tables.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:artifacts/frontend-build-baseline.json",
+      "target": "config:artifacts/phase0-baseline.json",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:.understand-anything/.understandignore",
+      "target": "config:.understand-anything/config.json",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

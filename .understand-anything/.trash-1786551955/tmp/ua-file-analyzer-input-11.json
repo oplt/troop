@@ -1,0 +1,245 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/api/deps/rag.py",
+      "language": "python",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/external_http.py",
+      "language": "python",
+      "sizeLines": 118,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/http_cache.py",
+      "language": "python",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/core/http_clients.py",
+      "language": "python",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/ai/providers.py",
+      "language": "python",
+      "sizeLines": 437,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/observability/decorators.py",
+      "language": "python",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/local_runtime.py",
+      "language": "python",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/providers.py",
+      "language": "python",
+      "sizeLines": 900,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/security.py",
+      "language": "python",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/services/providers_service.py",
+      "language": "python",
+      "sizeLines": 591,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/tools.py",
+      "language": "python",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/__init__.py",
+      "language": "python",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/bulk_ingest.py",
+      "language": "python",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/chunking.py",
+      "language": "python",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/citations.py",
+      "language": "python",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/config.py",
+      "language": "python",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/embedding.py",
+      "language": "python",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/evaluation.py",
+      "language": "python",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/observability.py",
+      "language": "python",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/parsing.py",
+      "language": "python",
+      "sizeLines": 115,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/prompt_builder.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/rag/reranker.py",
+      "language": "python",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "backend/api/deps/rag.py": [
+      "backend/db/session.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/core/external_http.py": [
+      "backend/core/config.py",
+      "backend/core/request_context.py"
+    ],
+    "backend/core/http_cache.py": [
+      "backend/core/config.py"
+    ],
+    "backend/core/http_clients.py": [
+      "backend/core/config.py",
+      "backend/core/external_http.py"
+    ],
+    "backend/modules/ai/providers.py": [
+      "backend/core/cache.py",
+      "backend/core/config.py",
+      "backend/core/external_http.py",
+      "backend/core/http_clients.py",
+      "backend/core/logging.py",
+      "backend/modules/observability/decorators.py"
+    ],
+    "backend/modules/observability/decorators.py": [
+      "backend/modules/observability/metrics.py"
+    ],
+    "backend/modules/orchestration/local_runtime.py": [
+      "backend/core/http_clients.py",
+      "backend/core/logging.py",
+      "backend/modules/orchestration/models.py"
+    ],
+    "backend/modules/orchestration/providers.py": [
+      "backend/core/external_http.py",
+      "backend/core/http_clients.py",
+      "backend/modules/ai/providers.py",
+      "backend/modules/observability/decorators.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/security.py"
+    ],
+    "backend/modules/orchestration/security.py": [
+      "backend/core/config.py"
+    ],
+    "backend/modules/orchestration/services/providers_service.py": [
+      "backend/core/logging.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/_helpers.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/providers.py",
+      "backend/modules/orchestration/security.py",
+      "backend/modules/projects/orchestration_models.py"
+    ],
+    "backend/modules/orchestration/tools.py": [
+      "backend/core/config.py",
+      "backend/core/external_http.py",
+      "backend/core/http_clients.py",
+      "backend/modules/orchestration/execution/cpu_executor.py",
+      "backend/modules/orchestration/models.py",
+      "backend/modules/orchestration/repository.py",
+      "backend/modules/orchestration/security.py"
+    ],
+    "backend/modules/rag/__init__.py": [
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/schemas.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/modules/rag/bulk_ingest.py": [
+      "backend/core/config.py",
+      "backend/db/session.py",
+      "backend/modules/identity_access/models.py",
+      "backend/modules/orchestration/services/service.py",
+      "backend/modules/rag/observability.py",
+      "backend/modules/rag/service.py"
+    ],
+    "backend/modules/rag/chunking.py": [
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/citations.py": [
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/config.py": [
+      "backend/core/config.py"
+    ],
+    "backend/modules/rag/embedding.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py",
+      "backend/modules/ai/providers.py",
+      "backend/modules/rag/config.py",
+      "backend/modules/rag/observability.py"
+    ],
+    "backend/modules/rag/evaluation.py": [
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/observability.py": [
+      "backend/core/config.py",
+      "backend/core/logging.py"
+    ],
+    "backend/modules/rag/parsing.py": [
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/prompt_builder.py": [
+      "backend/modules/rag/schemas.py"
+    ],
+    "backend/modules/rag/reranker.py": [
+      "backend/modules/rag/schemas.py"
+    ]
+  }
+}

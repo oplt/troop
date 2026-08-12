@@ -1,0 +1,683 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/execution/execution_state.py",
+      "type": "file",
+      "name": "execution_state.py",
+      "filePath": "backend/modules/orchestration/execution/execution_state.py",
+      "summary": "Extracts stable execution snapshot views, working-memory details, and bounded checkpoint excerpts from run metadata.",
+      "tags": [
+        "execution",
+        "workflow",
+        "orchestration",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_metadata_views",
+      "type": "function",
+      "name": "extract_execution_metadata_views",
+      "filePath": "backend/modules/orchestration/execution/execution_state.py",
+      "lineRange": [
+        63,
+        86
+      ],
+      "summary": "Extracts or formats extract execution metadata views from durable execution metadata.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_memory_details",
+      "type": "function",
+      "name": "extract_execution_memory_details",
+      "filePath": "backend/modules/orchestration/execution/execution_state.py",
+      "lineRange": [
+        89,
+        100
+      ],
+      "summary": "Extracts or formats extract execution memory details from durable execution metadata.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_state.py:checkpoint_excerpt",
+      "type": "function",
+      "name": "checkpoint_excerpt",
+      "filePath": "backend/modules/orchestration/execution/execution_state.py",
+      "lineRange": [
+        103,
+        134
+      ],
+      "summary": "Extracts or formats checkpoint excerpt from durable execution metadata.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "type": "file",
+      "name": "execution_workflow.py",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "summary": "Provides deterministic state-machine helpers for durable workflow steps, artifacts, signals, resume counters, query snapshots, and trace summaries.",
+      "tags": [
+        "execution",
+        "workflow",
+        "orchestration",
+        "reliability"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "function",
+      "name": "utcnow_iso",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        17,
+        18
+      ],
+      "summary": "Deterministic durable-workflow helper for utcnow iso.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:normalize_workflow_steps",
+      "type": "function",
+      "name": "normalize_workflow_steps",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        21,
+        41
+      ],
+      "summary": "Deterministic durable-workflow helper for normalize workflow steps.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "type": "function",
+      "name": "ensure_workflow_state",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        44,
+        92
+      ],
+      "summary": "Deterministic durable-workflow helper for ensure workflow state.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:durable_handle",
+      "type": "function",
+      "name": "durable_handle",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        95,
+        97
+      ],
+      "summary": "Deterministic durable-workflow helper for durable handle.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "function",
+      "name": "workflow_state",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        100,
+        101
+      ],
+      "summary": "Deterministic durable-workflow helper for workflow state.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_steps",
+      "type": "function",
+      "name": "workflow_steps",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        104,
+        105
+      ],
+      "summary": "Deterministic durable-workflow helper for workflow steps.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:current_step",
+      "type": "function",
+      "name": "current_step",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        108,
+        116
+      ],
+      "summary": "Deterministic durable-workflow helper for current step.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "type": "function",
+      "name": "mark_step",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        119,
+        171
+      ],
+      "summary": "Deterministic durable-workflow helper for mark step.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:increment_resume_count",
+      "type": "function",
+      "name": "increment_resume_count",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        174,
+        183
+      ],
+      "summary": "Deterministic durable-workflow helper for increment resume count.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:set_workflow_artifact",
+      "type": "function",
+      "name": "set_workflow_artifact",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        186,
+        199
+      ],
+      "summary": "Deterministic durable-workflow helper for set workflow artifact.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:get_workflow_artifact",
+      "type": "function",
+      "name": "get_workflow_artifact",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        202,
+        203
+      ],
+      "summary": "Deterministic durable-workflow helper for get workflow artifact.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:enqueue_signal",
+      "type": "function",
+      "name": "enqueue_signal",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        206,
+        228
+      ],
+      "summary": "Deterministic durable-workflow helper for enqueue signal.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:consume_signal_queue",
+      "type": "function",
+      "name": "consume_signal_queue",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        231,
+        248
+      ],
+      "summary": "Deterministic durable-workflow helper for consume signal queue.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:update_query_snapshot",
+      "type": "function",
+      "name": "update_query_snapshot",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        251,
+        265
+      ],
+      "summary": "Deterministic durable-workflow helper for update query snapshot.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/execution_workflow.py:summarize_trace",
+      "type": "function",
+      "name": "summarize_trace",
+      "filePath": "backend/modules/orchestration/execution/execution_workflow.py",
+      "lineRange": [
+        268,
+        290
+      ],
+      "summary": "Deterministic durable-workflow helper for summarize trace.",
+      "tags": [
+        "utility",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_metadata_views",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_metadata_views",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_memory_details",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_memory_details",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:checkpoint_excerpt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_state.py",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:checkpoint_excerpt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:normalize_workflow_steps",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:normalize_workflow_steps",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:durable_handle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:durable_handle",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_steps",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_steps",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:current_step",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:current_step",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:increment_resume_count",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:increment_resume_count",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:set_workflow_artifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:set_workflow_artifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:get_workflow_artifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:get_workflow_artifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:enqueue_signal",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:enqueue_signal",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:consume_signal_queue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:consume_signal_queue",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:update_query_snapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:update_query_snapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:summarize_trace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:summarize_trace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:normalize_workflow_steps",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:durable_handle",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_steps",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:current_step",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:increment_resume_count",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:set_workflow_artifact",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:get_workflow_artifact",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:enqueue_signal",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:consume_signal_queue",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:update_query_snapshot",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:utcnow_iso",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/execution_workflow.py:summarize_trace",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

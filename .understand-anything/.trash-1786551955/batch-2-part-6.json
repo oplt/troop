@@ -1,0 +1,2682 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "type": "file",
+      "name": "durable_execution.py",
+      "filePath": "backend/modules/orchestration/execution/durable_execution.py",
+      "summary": "Defines durable execution capability checks and submits orchestration runs only when the configured backend satisfies delivery guarantees.",
+      "tags": [
+        "execution",
+        "durability",
+        "queue",
+        "reliability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/durable_execution.py:is_run_execution_claimable",
+      "type": "function",
+      "name": "is_run_execution_claimable",
+      "filePath": "backend/modules/orchestration/execution/durable_execution.py",
+      "lineRange": [
+        20,
+        22
+      ],
+      "summary": "Reports whether a run state may be claimed by a durable worker.",
+      "tags": [
+        "execution",
+        "reliability",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/durable_execution.py:durable_backend_status",
+      "type": "function",
+      "name": "durable_backend_status",
+      "filePath": "backend/modules/orchestration/execution/durable_execution.py",
+      "lineRange": [
+        25,
+        35
+      ],
+      "summary": "Describes whether the configured queue backend satisfies durable execution requirements.",
+      "tags": [
+        "execution",
+        "reliability",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/execution/durable_execution.py:submit_orchestration_run",
+      "type": "function",
+      "name": "submit_orchestration_run",
+      "filePath": "backend/modules/orchestration/execution/durable_execution.py",
+      "lineRange": [
+        38,
+        55
+      ],
+      "summary": "Validates durable delivery support and submits an orchestration run to the worker queue.",
+      "tags": [
+        "execution",
+        "reliability",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/graphql_router.py",
+      "type": "file",
+      "name": "graphql_router.py",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "summary": "Defines the Strawberry GraphQL schema, resolvers, mutations, subscription stream, and context bridge for the orchestration control plane.",
+      "tags": [
+        "api-handler",
+        "graphql",
+        "strawberry",
+        "control-plane"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Strawberry decorators derive the GraphQL schema directly from typed Python classes and resolver methods."
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "type": "function",
+      "name": "_model_profile",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        197,
+        200
+      ],
+      "summary": "Maps a provider model profile into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration",
+        "profile"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "type": "function",
+      "name": "_task",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        203,
+        204
+      ],
+      "summary": "Builds a task response enriched with its linked GitHub issue summary.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "type": "function",
+      "name": "_run",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        207,
+        208
+      ],
+      "summary": "Maps an orchestration run into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_approval",
+      "type": "function",
+      "name": "_approval",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        211,
+        212
+      ],
+      "summary": "Serializes an approval request while redacting sensitive approval payload fields.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration",
+        "graphql"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "type": "function",
+      "name": "_brainstorm",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        215,
+        216
+      ],
+      "summary": "Maps a brainstorming session into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "type": "function",
+      "name": "_member",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        219,
+        228
+      ],
+      "summary": "Maps a team member and hierarchy data into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "type": "function",
+      "name": "_snapshot",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        231,
+        238
+      ],
+      "summary": "Maps the hierarchy control-plane snapshot into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:_artifact",
+      "type": "function",
+      "name": "_artifact",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        241,
+        251
+      ],
+      "summary": "Maps a task artifact into its GraphQL representation.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/graphql_router.py:graphql_context",
+      "type": "function",
+      "name": "graphql_context",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        254,
+        261
+      ],
+      "summary": "Builds the authenticated database-backed context supplied to GraphQL resolvers.",
+      "tags": [
+        "api-handler",
+        "graphql",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:ModelProfileType",
+      "type": "class",
+      "name": "ModelProfileType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        24,
+        36
+      ],
+      "summary": "Defines the GraphQL representation of model profile data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:TaskType",
+      "type": "class",
+      "name": "TaskType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        40,
+        51
+      ],
+      "summary": "Defines the GraphQL representation of task data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:RunType",
+      "type": "class",
+      "name": "RunType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        55,
+        66
+      ],
+      "summary": "Defines the GraphQL representation of run data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:ApprovalType",
+      "type": "class",
+      "name": "ApprovalType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        70,
+        77
+      ],
+      "summary": "Defines the GraphQL representation of approval data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:BrainstormType",
+      "type": "class",
+      "name": "BrainstormType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        81,
+        88
+      ],
+      "summary": "Defines the GraphQL representation of brainstorm data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:ArtifactType",
+      "type": "class",
+      "name": "ArtifactType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        92,
+        100
+      ],
+      "summary": "Defines the GraphQL representation of artifact data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:MemberType",
+      "type": "class",
+      "name": "MemberType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        104,
+        127
+      ],
+      "summary": "Defines the GraphQL representation of member data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:ProjectSummaryType",
+      "type": "class",
+      "name": "ProjectSummaryType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        131,
+        137
+      ],
+      "summary": "Defines the GraphQL representation of project summary data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:HierarchySnapshotType",
+      "type": "class",
+      "name": "HierarchySnapshotType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        141,
+        146
+      ],
+      "summary": "Defines the GraphQL representation of hierarchy snapshot data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:ControlPlaneEventType",
+      "type": "class",
+      "name": "ControlPlaneEventType",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        150,
+        158
+      ],
+      "summary": "Defines the GraphQL representation of control plane event data.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:TeamMemberInput",
+      "type": "class",
+      "name": "TeamMemberInput",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        162,
+        180
+      ],
+      "summary": "Defines the GraphQL input fields for team member operations.",
+      "tags": [
+        "graphql",
+        "input-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:TaskInput",
+      "type": "class",
+      "name": "TaskInput",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        184,
+        194
+      ],
+      "summary": "Defines the GraphQL input fields for task operations.",
+      "tags": [
+        "graphql",
+        "input-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "type": "class",
+      "name": "Query",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        265,
+        288
+      ],
+      "summary": "Provides read-only GraphQL resolvers for hierarchy, models, runtime profiles, and task artifacts.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "type": "class",
+      "name": "Mutation",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        292,
+        373
+      ],
+      "summary": "Provides GraphQL commands for team hierarchy, task lifecycle, approvals, runs, and brainstorming.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/orchestration/graphql_router.py:Subscription",
+      "type": "class",
+      "name": "Subscription",
+      "filePath": "backend/modules/orchestration/graphql_router.py",
+      "lineRange": [
+        377,
+        392
+      ],
+      "summary": "Streams hierarchy control-plane events over GraphQL subscriptions.",
+      "tags": [
+        "graphql",
+        "object-type",
+        "control-plane",
+        "orchestration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/platform/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/platform/models.py",
+      "summary": "Defines subscription, API key, webhook, feature flag, and email template persistence models for platform administration.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "SQLAlchemy declarative models map typed Python attributes to relational columns and indexes."
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:SubscriptionPlan",
+      "type": "class",
+      "name": "SubscriptionPlan",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        10,
+        29
+      ],
+      "summary": "Persists subscription plan state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:UserSubscription",
+      "type": "class",
+      "name": "UserSubscription",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        32,
+        55
+      ],
+      "summary": "Persists user subscription state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:ApiKey",
+      "type": "class",
+      "name": "ApiKey",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        58,
+        70
+      ],
+      "summary": "Persists api key state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:WebhookEndpoint",
+      "type": "class",
+      "name": "WebhookEndpoint",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        73,
+        92
+      ],
+      "summary": "Persists webhook endpoint state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:FeatureFlag",
+      "type": "class",
+      "name": "FeatureFlag",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        95,
+        109
+      ],
+      "summary": "Persists feature flag state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/platform/models.py:EmailTemplate",
+      "type": "class",
+      "name": "EmailTemplate",
+      "filePath": "backend/modules/platform/models.py",
+      "lineRange": [
+        112,
+        126
+      ],
+      "summary": "Persists email template state as a SQLAlchemy database entity.",
+      "tags": [
+        "data-model",
+        "database",
+        "sqlalchemy",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/platform/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/platform/repository.py",
+      "summary": "Provides database access for plans, subscriptions, API keys, webhooks, feature flags, and email templates.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "platform"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/platform/repository.py:PlatformRepository",
+      "type": "class",
+      "name": "PlatformRepository",
+      "filePath": "backend/modules/platform/repository.py",
+      "lineRange": [
+        14,
+        140
+      ],
+      "summary": "Encapsulates persistence operations for all platform administration entities.",
+      "tags": [
+        "repository",
+        "data-access",
+        "database",
+        "platform"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/platform/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/platform/router.py",
+      "summary": "Exposes user and administrator platform APIs for metadata, subscriptions, API keys, webhooks, feature flags, configuration, plans, and email templates.",
+      "tags": [
+        "api-handler",
+        "routing",
+        "fastapi",
+        "platform"
+      ],
+      "complexity": "complex",
+      "languageNotes": "FastAPI dependency injection supplies authenticated users and database sessions at endpoint boundaries."
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "function",
+      "name": "_log_admin_action",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        39,
+        58
+      ],
+      "summary": "Writes a structured audit record for a platform administrator action.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "function",
+      "name": "_plan_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        61,
+        74
+      ],
+      "summary": "Maps a subscription plan record to its public response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "type": "function",
+      "name": "_subscription_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        77,
+        87
+      ],
+      "summary": "Maps a user subscription record to its public response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "function",
+      "name": "_api_key_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        90,
+        98
+      ],
+      "summary": "Maps an API key record to a response without exposing the secret.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "function",
+      "name": "_webhook_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        101,
+        112
+      ],
+      "summary": "Maps an outbound webhook record to its public response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "github",
+        "integration",
+        "platform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "function",
+      "name": "_feature_flag_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        115,
+        125
+      ],
+      "summary": "Maps a feature flag record to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "function",
+      "name": "_email_template_to_response",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        128,
+        138
+      ],
+      "summary": "Maps an email template record to its API response.",
+      "tags": [
+        "api-handler",
+        "utility",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:get_platform_metadata",
+      "type": "function",
+      "name": "get_platform_metadata",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        142,
+        144
+      ],
+      "summary": "Retrieves platform metadata for the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_subscription_plans",
+      "type": "function",
+      "name": "list_subscription_plans",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        148,
+        155
+      ],
+      "summary": "Lists subscription plans visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:get_subscription",
+      "type": "function",
+      "name": "get_subscription",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        159,
+        170
+      ],
+      "summary": "Retrieves subscription for the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:select_subscription_plan",
+      "type": "function",
+      "name": "select_subscription_plan",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        174,
+        183
+      ],
+      "summary": "Select subscription plan operation for the platform module.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_api_keys",
+      "type": "function",
+      "name": "list_api_keys",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        187,
+        193
+      ],
+      "summary": "Lists API keys visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:create_api_key",
+      "type": "function",
+      "name": "create_api_key",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        197,
+        205
+      ],
+      "summary": "Validates and creates API key.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:revoke_api_key",
+      "type": "function",
+      "name": "revoke_api_key",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        209,
+        216
+      ],
+      "summary": "Revokes API key and persists the change.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_webhooks",
+      "type": "function",
+      "name": "list_webhooks",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        220,
+        226
+      ],
+      "summary": "Lists webhooks visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:create_webhook",
+      "type": "function",
+      "name": "create_webhook",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        230,
+        243
+      ],
+      "summary": "Validates and creates webhook.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:update_webhook",
+      "type": "function",
+      "name": "update_webhook",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        247,
+        258
+      ],
+      "summary": "Validates and updates webhook.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:delete_webhook",
+      "type": "function",
+      "name": "delete_webhook",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        262,
+        269
+      ],
+      "summary": "Deletes webhook after authorization checks.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:test_webhook",
+      "type": "function",
+      "name": "test_webhook",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        273,
+        279
+      ],
+      "summary": "Test webhook operation for the platform module.",
+      "tags": [
+        "api-handler",
+        "github",
+        "integration",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_effective_feature_flags",
+      "type": "function",
+      "name": "list_effective_feature_flags",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        283,
+        288
+      ],
+      "summary": "Lists effective feature flags visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:get_platform_config",
+      "type": "function",
+      "name": "get_platform_config",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        292,
+        297
+      ],
+      "summary": "Retrieves platform config for the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:update_platform_config",
+      "type": "function",
+      "name": "update_platform_config",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        301,
+        317
+      ],
+      "summary": "Validates and updates platform config.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_admin_plans",
+      "type": "function",
+      "name": "list_admin_plans",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        321,
+        326
+      ],
+      "summary": "Lists admin plans visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:create_plan",
+      "type": "function",
+      "name": "create_plan",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        330,
+        348
+      ],
+      "summary": "Validates and creates plan.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:update_plan",
+      "type": "function",
+      "name": "update_plan",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        352,
+        370
+      ],
+      "summary": "Validates and updates plan.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_feature_flags",
+      "type": "function",
+      "name": "list_feature_flags",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        374,
+        379
+      ],
+      "summary": "Lists feature flags visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:create_feature_flag",
+      "type": "function",
+      "name": "create_feature_flag",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        383,
+        401
+      ],
+      "summary": "Validates and creates feature flag.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:update_feature_flag",
+      "type": "function",
+      "name": "update_feature_flag",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        405,
+        425
+      ],
+      "summary": "Validates and updates feature flag.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:list_email_templates",
+      "type": "function",
+      "name": "list_email_templates",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        429,
+        434
+      ],
+      "summary": "Lists email templates visible to the current caller.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:create_email_template",
+      "type": "function",
+      "name": "create_email_template",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        438,
+        456
+      ],
+      "summary": "Validates and creates email template.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/platform/router.py:update_email_template",
+      "type": "function",
+      "name": "update_email_template",
+      "filePath": "backend/modules/platform/router.py",
+      "lineRange": [
+        460,
+        480
+      ],
+      "summary": "Validates and updates email template.",
+      "tags": [
+        "api-handler",
+        "platform",
+        "business-logic"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:is_run_execution_claimable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:is_run_execution_claimable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:durable_backend_status",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:durable_backend_status",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:submit_orchestration_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:submit_orchestration_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_approval",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_approval",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_artifact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_artifact",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:graphql_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "function:backend/modules/orchestration/graphql_router.py:graphql_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ModelProfileType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ModelProfileType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TaskType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TaskType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:RunType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:RunType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ApprovalType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ApprovalType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:BrainstormType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:BrainstormType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ArtifactType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ArtifactType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:MemberType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:MemberType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ProjectSummaryType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ProjectSummaryType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:HierarchySnapshotType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:HierarchySnapshotType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ControlPlaneEventType",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ControlPlaneEventType",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TeamMemberInput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TeamMemberInput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TaskInput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TaskInput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Subscription",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "class:backend/modules/orchestration/graphql_router.py:Subscription",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:SubscriptionPlan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:SubscriptionPlan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:UserSubscription",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:UserSubscription",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:ApiKey",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:ApiKey",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:WebhookEndpoint",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:WebhookEndpoint",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:FeatureFlag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:FeatureFlag",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:EmailTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "class:backend/modules/platform/models.py:EmailTemplate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/repository.py",
+      "target": "class:backend/modules/platform/repository.py:PlatformRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/repository.py",
+      "target": "class:backend/modules/platform/repository.py:PlatformRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_platform_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_platform_metadata",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_subscription_plans",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_subscription_plans",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_subscription",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_subscription",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:select_subscription_plan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:select_subscription_plan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_api_keys",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_api_keys",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_api_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_api_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:revoke_api_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:revoke_api_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_webhooks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_webhooks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_webhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_webhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:delete_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:delete_webhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:test_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:test_webhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_effective_feature_flags",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_effective_feature_flags",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_platform_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:get_platform_config",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_platform_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_platform_config",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_admin_plans",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_admin_plans",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_plan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_plan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_plan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_plan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_feature_flags",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_feature_flags",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_feature_flag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_feature_flag",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_feature_flag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_feature_flag",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_email_templates",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:list_email_templates",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_email_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:create_email_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_email_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "function:backend/modules/platform/router.py:update_email_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/graphql_router.py",
+      "target": "file:backend/modules/orchestration/control_plane.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/repository.py",
+      "target": "file:backend/modules/platform/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/api/deps/admin.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/api/deps/auth.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/modules/audit/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/modules/platform/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/platform/router.py",
+      "target": "file:backend/modules/platform/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/orchestration/execution/durable_execution.py:submit_orchestration_run",
+      "target": "function:backend/core/logging.py:get_logger",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ModelProfileType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "target": "class:backend/modules/orchestration/graphql_router.py:TaskType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "target": "class:backend/modules/orchestration/graphql_router.py:RunType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_approval",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ApprovalType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "target": "class:backend/modules/orchestration/graphql_router.py:BrainstormType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "target": "class:backend/modules/orchestration/graphql_router.py:MemberType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "target": "class:backend/modules/orchestration/graphql_router.py:HierarchySnapshotType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ProjectSummaryType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_approval",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/graphql_router.py:_artifact",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ArtifactType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "target": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_snapshot",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_model_profile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Query",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_artifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "target": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_member",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_task",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_run",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Mutation",
+      "target": "function:backend/modules/orchestration/graphql_router.py:_brainstorm",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/graphql_router.py:Subscription",
+      "target": "class:backend/modules/orchestration/graphql_router.py:ControlPlaneEventType",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:_log_admin_action",
+      "target": "class:backend/modules/audit/repository.py:AuditRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_subscription_plans",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:get_subscription",
+      "target": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:select_subscription_plan",
+      "target": "function:backend/modules/platform/router.py:_subscription_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_api_keys",
+      "target": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_api_key",
+      "target": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:revoke_api_key",
+      "target": "function:backend/modules/platform/router.py:_api_key_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_webhooks",
+      "target": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_webhook",
+      "target": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_webhook",
+      "target": "function:backend/modules/platform/router.py:_webhook_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_platform_config",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_admin_plans",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_plan",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_plan",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_plan",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_plan",
+      "target": "function:backend/modules/platform/router.py:_plan_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_feature_flags",
+      "target": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_feature_flag",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_feature_flag",
+      "target": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_feature_flag",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_feature_flag",
+      "target": "function:backend/modules/platform/router.py:_feature_flag_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:list_email_templates",
+      "target": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_email_template",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:create_email_template",
+      "target": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_email_template",
+      "target": "function:backend/modules/platform/router.py:_log_admin_action",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/platform/router.py:update_email_template",
+      "target": "function:backend/modules/platform/router.py:_email_template_to_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:SubscriptionPlan",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:UserSubscription",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:ApiKey",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:WebhookEndpoint",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:FeatureFlag",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/platform/models.py:EmailTemplate",
+      "target": "class:backend/db/base.py:Base",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "file:backend/tests/test_durable_execution_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "target": "file:backend/tests/test_phase7_reliability.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

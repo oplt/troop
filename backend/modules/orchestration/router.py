@@ -332,6 +332,11 @@ def _project(item) -> ProjectResponse:
         settings=item.settings_json,
         memory_scope=item.memory_scope,
         knowledge_summary=item.knowledge_summary,
+        company_id=getattr(item, "company_id", None),
+        department_id=getattr(item, "department_id", None),
+        knowledge_policy=getattr(item, "knowledge_policy_json", {}),
+        budget=getattr(item, "budget_json", {}),
+        metadata=getattr(item, "metadata_json", {}),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )

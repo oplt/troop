@@ -20,6 +20,7 @@ from backend.modules.rag.router import router as rag_router
 from backend.modules.profile.router import router as profile_router
 from backend.modules.settings.router import router as settings_router
 from backend.modules.users.router import router as users_router
+from backend.modules.workforce.routers import router as workforce_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -41,3 +42,4 @@ api_router.include_router(tools_router, prefix="/tools", tags=["tools"])
 api_router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(runs_router, prefix="/runs", tags=["runs"])
 api_router.include_router(memory_router, prefix="/memory", tags=["memory"])
+api_router.include_router(workforce_router, prefix="/workforce", tags=["workforce"])

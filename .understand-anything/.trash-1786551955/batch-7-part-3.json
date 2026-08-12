@@ -1,0 +1,859 @@
+{
+  "nodes": [
+    {
+      "id": "file:frontend/src/api/settings.ts",
+      "type": "file",
+      "name": "settings.ts",
+      "filePath": "frontend/src/api/settings.ts",
+      "summary": "Provides typed administration calls for environment-backed and database-backed runtime settings.",
+      "tags": [
+        "api-client",
+        "settings",
+        "admin",
+        "configuration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:getConfigSettings",
+      "type": "function",
+      "name": "getConfigSettings",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        40,
+        42
+      ],
+      "summary": "Calls the backend API to perform get config settings.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:updateConfigSettings",
+      "type": "function",
+      "name": "updateConfigSettings",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        44,
+        51
+      ],
+      "summary": "Calls the backend API to perform update config settings.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:listDatabaseSettings",
+      "type": "function",
+      "name": "listDatabaseSettings",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        53,
+        55
+      ],
+      "summary": "Calls the backend API to perform list database settings.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:listParameterCatalog",
+      "type": "function",
+      "name": "listParameterCatalog",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        57,
+        59
+      ],
+      "summary": "Calls the backend API to perform list parameter catalog.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:createDatabaseSetting",
+      "type": "function",
+      "name": "createDatabaseSetting",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        61,
+        70
+      ],
+      "summary": "Calls the backend API to perform create database setting.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:updateDatabaseSetting",
+      "type": "function",
+      "name": "updateDatabaseSetting",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        72,
+        83
+      ],
+      "summary": "Calls the backend API to perform update database setting.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/settings.ts:deleteDatabaseSetting",
+      "type": "function",
+      "name": "deleteDatabaseSetting",
+      "filePath": "frontend/src/api/settings.ts",
+      "lineRange": [
+        85,
+        89
+      ],
+      "summary": "Calls the backend API to perform delete database setting.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/api/users.ts",
+      "type": "file",
+      "name": "users.ts",
+      "filePath": "frontend/src/api/users.ts",
+      "summary": "Provides typed current-user, password, session, and directory API calls.",
+      "tags": [
+        "api-client",
+        "users",
+        "authentication",
+        "typescript"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:getMe",
+      "type": "function",
+      "name": "getMe",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        23,
+        25
+      ],
+      "summary": "Calls the backend API to perform get me.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:updateMe",
+      "type": "function",
+      "name": "updateMe",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        27,
+        29
+      ],
+      "summary": "Calls the backend API to perform update me.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:changePassword",
+      "type": "function",
+      "name": "changePassword",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        31,
+        36
+      ],
+      "summary": "Calls the backend API to perform change password.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:getSessions",
+      "type": "function",
+      "name": "getSessions",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        38,
+        40
+      ],
+      "summary": "Calls the backend API to perform get sessions.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:revokeSession",
+      "type": "function",
+      "name": "revokeSession",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        42,
+        44
+      ],
+      "summary": "Calls the backend API to perform revoke session.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/api/users.ts:listUserDirectory",
+      "type": "function",
+      "name": "listUserDirectory",
+      "filePath": "frontend/src/api/users.ts",
+      "lineRange": [
+        46,
+        48
+      ],
+      "summary": "Calls the backend API to perform list user directory.",
+      "tags": [
+        "api-client",
+        "typescript",
+        "http"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/app/snackbarContext.ts",
+      "type": "file",
+      "name": "snackbarContext.ts",
+      "filePath": "frontend/src/app/snackbarContext.ts",
+      "summary": "Defines the React context contract and hook used to publish global snackbar notifications.",
+      "tags": [
+        "react-context",
+        "hook",
+        "notifications",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "function",
+      "name": "useSnackbar",
+      "filePath": "frontend/src/app/snackbarContext.ts",
+      "lineRange": [
+        17,
+        19
+      ],
+      "summary": "Reads the global snackbar context and enforces use within its provider.",
+      "tags": [
+        "hook",
+        "react",
+        "real-time"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "type": "file",
+      "name": "DashboardCalendar.tsx",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "summary": "Renders the interactive dashboard calendar with month, week, and day views plus planner item creation, editing, deletion, and orchestration context.",
+      "tags": [
+        "component",
+        "calendar",
+        "dashboard",
+        "react"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getWeekItemColor",
+      "type": "function",
+      "name": "getWeekItemColor",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        108,
+        128
+      ],
+      "summary": "Computes or renders get week item color data for the surrounding React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getDateCalendarSx",
+      "type": "function",
+      "name": "getDateCalendarSx",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        140,
+        170
+      ],
+      "summary": "Computes or renders get date calendar sx data for the surrounding React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getMonthGridColumns",
+      "type": "function",
+      "name": "getMonthGridColumns",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        172,
+        182
+      ],
+      "summary": "Computes or renders get month grid columns data for the surrounding React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getQueryRange",
+      "type": "function",
+      "name": "getQueryRange",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        184,
+        210
+      ],
+      "summary": "Computes or renders get query range data for the surrounding React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:shiftAnchorDate",
+      "type": "function",
+      "name": "shiftAnchorDate",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        212,
+        223
+      ],
+      "summary": "Computes or renders shift anchor date data for the surrounding React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DayItems",
+      "type": "function",
+      "name": "DayItems",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        225,
+        294
+      ],
+      "summary": "Renders the day items React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DashboardCalendar",
+      "type": "function",
+      "name": "DashboardCalendar",
+      "filePath": "frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "lineRange": [
+        296,
+        1319
+      ],
+      "summary": "Renders the dashboard calendar React interface.",
+      "tags": [
+        "component",
+        "calendar",
+        "react"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "type": "file",
+      "name": "RouteErrorBoundary.tsx",
+      "filePath": "frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "summary": "Catches route rendering failures, reports diagnostic context, and presents a recoverable error state.",
+      "tags": [
+        "component",
+        "error-boundary",
+        "error-handling",
+        "react"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:frontend/src/components/guards/RouteErrorBoundary.tsx:reportRouteError",
+      "type": "function",
+      "name": "reportRouteError",
+      "filePath": "frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "lineRange": [
+        36,
+        54
+      ],
+      "summary": "Computes or renders report route error data for the surrounding React interface.",
+      "tags": [
+        "error-handling",
+        "route-guard",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:frontend/src/components/guards/RouteErrorBoundary.tsx:RouteErrorBoundary",
+      "type": "class",
+      "name": "RouteErrorBoundary",
+      "filePath": "frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "lineRange": [
+        56,
+        100
+      ],
+      "summary": "React error boundary that reports route failures and lets users retry the failed render tree.",
+      "tags": [
+        "component",
+        "error-boundary",
+        "react"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:getConfigSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:getConfigSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:updateConfigSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:updateConfigSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:listDatabaseSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:listDatabaseSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:listParameterCatalog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:listParameterCatalog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:createDatabaseSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:createDatabaseSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:updateDatabaseSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:updateDatabaseSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:deleteDatabaseSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "function:frontend/src/api/settings.ts:deleteDatabaseSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:getMe",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:getMe",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:updateMe",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:updateMe",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:changePassword",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:changePassword",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:getSessions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:getSessions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:revokeSession",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:revokeSession",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:listUserDirectory",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "function:frontend/src/api/users.ts:listUserDirectory",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/app/snackbarContext.ts",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/app/snackbarContext.ts",
+      "target": "function:frontend/src/app/snackbarContext.ts:useSnackbar",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getWeekItemColor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getDateCalendarSx",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getMonthGridColumns",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:getQueryRange",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:shiftAnchorDate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DayItems",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DashboardCalendar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DashboardCalendar",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "target": "function:frontend/src/components/guards/RouteErrorBoundary.tsx:reportRouteError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "target": "class:frontend/src/components/guards/RouteErrorBoundary.tsx:RouteErrorBoundary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "target": "class:frontend/src/components/guards/RouteErrorBoundary.tsx:RouteErrorBoundary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/api/settings.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/api/users.ts",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/api/calendar.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/api/orchestration.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/app/snackbarContext.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/components/ui/SectionCard.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/config/queryKeys.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/config/queryPolicies.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "file:frontend/src/utils/formatters.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "target": "file:frontend/src/components/ui/EmptyState.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:frontend/src/components/guards/RouteErrorBoundary.tsx",
+      "target": "file:frontend/src/components/ui/PageShell.tsx",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DayItems",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DashboardCalendar",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateOnly",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:frontend/src/components/dashboard/DashboardCalendar.tsx",
+      "target": "function:frontend/src/utils/formatters.ts:humanizeKey",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:frontend/src/components/dashboard/DashboardCalendar.tsx:DashboardCalendar",
+      "target": "function:frontend/src/utils/formatters.ts:formatDateOnly",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

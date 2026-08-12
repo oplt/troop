@@ -1,0 +1,133 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/profile/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/profile/models.py",
+      "summary": "Defines the persisted user profile record, including biography, avatar storage, location, website, and update metadata.",
+      "tags": ["data-model", "sqlalchemy", "profile", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/profile/models.py:UserProfile",
+      "type": "class",
+      "name": "UserProfile",
+      "filePath": "backend/modules/profile/models.py",
+      "lineRange": [10, 26],
+      "summary": "SQLAlchemy persistence model for a user's public profile and avatar metadata.",
+      "tags": ["data-model", "sqlalchemy", "profile"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/profile/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/profile/repository.py",
+      "summary": "Provides asynchronous profile lookup, default creation, and update persistence operations.",
+      "tags": ["repository", "profile", "database", "sqlalchemy"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/profile/repository.py:ProfileRepository",
+      "type": "class",
+      "name": "ProfileRepository",
+      "filePath": "backend/modules/profile/repository.py",
+      "lineRange": [7, 30],
+      "summary": "Asynchronous data-access layer for retrieving, provisioning, and updating user profiles.",
+      "tags": ["repository", "profile", "data-access"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/profile/service.py",
+      "type": "file",
+      "name": "service.py",
+      "filePath": "backend/modules/profile/service.py",
+      "summary": "Coordinates profile retrieval and updates plus safe avatar replacement and cleanup through the profile repository.",
+      "tags": ["service", "profile", "avatar", "business-logic"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/profile/service.py:ProfileService",
+      "type": "class",
+      "name": "ProfileService",
+      "filePath": "backend/modules/profile/service.py",
+      "lineRange": [7, 58],
+      "summary": "Application service implementing profile mutation rules and avatar URL and storage-key lifecycle operations.",
+      "tags": ["service", "profile", "avatar"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/profile/models.py",
+      "target": "class:backend/modules/profile/models.py:UserProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/modules/profile/models.py",
+      "target": "class:backend/modules/profile/models.py:UserProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/profile/repository.py",
+      "target": "class:backend/modules/profile/repository.py:ProfileRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/modules/profile/repository.py",
+      "target": "class:backend/modules/profile/repository.py:ProfileRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/profile/service.py",
+      "target": "class:backend/modules/profile/service.py:ProfileService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/modules/profile/service.py",
+      "target": "class:backend/modules/profile/service.py:ProfileService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/profile/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/profile/repository.py",
+      "target": "file:backend/modules/profile/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/profile/service.py",
+      "target": "file:backend/modules/profile/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/profile/service.py",
+      "target": "file:backend/modules/profile/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ]
+}

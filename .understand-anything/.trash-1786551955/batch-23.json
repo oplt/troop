@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "id": "config:backend/.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": "backend/.env.example",
+      "summary": "Reference environment configuration covering application identity, database and Redis pools, Celery routing, orchestration limits, authentication, email, observability, storage, memory, RAG, query bounds, concurrency, and cache policies.",
+      "tags": [
+        "configuration",
+        "environment",
+        "runtime",
+        "security",
+        "operations"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Groups 127 environment variables into operational domains while using development-safe placeholders instead of production credentials."
+    },
+    {
+      "id": "config:backend/alembic.ini",
+      "type": "config",
+      "name": "alembic.ini",
+      "filePath": "backend/alembic.ini",
+      "summary": "Alembic migration configuration selecting the backend migration directory, path behavior, placeholder database URL, and console logging policy.",
+      "tags": [
+        "configuration",
+        "database",
+        "migration",
+        "alembic"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:backend/pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "backend/pyproject.toml",
+      "summary": "Python 3.12 backend package manifest declaring FastAPI, GraphQL, Celery, persistence, security, observability, pgvector, and LangGraph dependencies plus pytest and Ruff policy.",
+      "tags": [
+        "configuration",
+        "python",
+        "build-system",
+        "testing",
+        "linting"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:backend/requirements.txt",
+      "type": "document",
+      "name": "requirements.txt",
+      "filePath": "backend/requirements.txt",
+      "summary": "Fully pinned Python dependency snapshot for reproducible backend environments, spanning API, async database, workers, security, cloud storage, telemetry, and development transitive packages.",
+      "tags": [
+        "documentation",
+        "dependencies",
+        "python",
+        "reproducibility"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:backend/.env.example",
+      "target": "file:backend/core/config.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/.env.example",
+      "target": "file:backend/workers/celery_app.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/.env.example",
+      "target": "file:backend/modules/rag/config.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/.env.example",
+      "target": "file:backend/modules/memory/layer/config.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/alembic.ini",
+      "target": "file:backend/alembic/env.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/pyproject.toml",
+      "target": "file:backend/api/main.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/pyproject.toml",
+      "target": "file:backend/tests/conftest.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:backend/requirements.txt",
+      "target": "config:backend/pyproject.toml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

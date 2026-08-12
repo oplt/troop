@@ -2,6 +2,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCompanies } from "../api/companies";
+import { listDepartments, analyzeProject } from "../api/workforce";
 import {
     Accordion,
     AccordionDetails,
@@ -63,6 +64,7 @@ type ProjectForm = {
     goals_markdown: string;
     company_id: string;
     team_profile_id: string;
+    department_id: string;
     local_repo_path: string;
     dirty_worktree_policy: string;
     allowed_branches: string;
@@ -120,6 +122,7 @@ export default function OrchestrationProjectsPage() {
             goals_markdown: "",
             company_id: "",
             team_profile_id: "",
+            department_id: "",
             local_repo_path: "",
             dirty_worktree_policy: "block",
             allowed_branches: "main, master, develop",
@@ -135,6 +138,11 @@ export default function OrchestrationProjectsPage() {
     });
     const selectedCompanyId = useWatch({ control, name: "company_id" });
     const selectedTeamProfileId = useWatch({ control, name: "team_profile_id" });
+    const { data: departments = [] } = useQuery({
+        queryKey: ["workforce", "departments", selectedCompanyId],
+        queryFn: () => listDepartments(selectedCompanyId),
+        enabled: Boolean(selectedCompanyId),
+    });
     const watchedLocalRepoPath = useWatch({ control, name: "local_repo_path" });
     const watchedDirtyPolicy = useWatch({ control, name: "dirty_worktree_policy" });
     const watchedAllowedBranches = useWatch({ control, name: "allowed_branches" });
@@ -300,6 +308,17 @@ export default function OrchestrationProjectsPage() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
             reset();
             showToast({ message: "Project created.", severity: "success" });
+            
+            const shouldAnalyze = window.confirm("Analyze this project with AI to identify skills and agents?");
+            if (shouldAnalyze) {
+                try {
+                    await analyzeProject(project.id);
+                    showToast({ message: "Project analysis started.", severity: "success" });
+                } catch (error) {
+                    showToast({ message: `Analysis failed: ${(error as Error).message}`, severity: "warning" });
+                }
+            }
+            
             navigate(`/agent-projects/${project.id}`);
         },
     });
@@ -391,6 +410,9 @@ export default function OrchestrationProjectsPage() {
             settings: {
                 ...(values.team_profile_id
                     ? { execution: { team_profile_id: values.team_profile_id } }
+                    : {}),
+                ...(values.department_id
+                    ? { department_id: values.department_id }
                     : {}),
                 local_repo: localRepo,
             },
@@ -932,6 +954,21 @@ export default function OrchestrationProjectsPage() {
                                         {teamProfiles.map((profile) => (
                                             <MenuItem key={profile.id} value={profile.id}>
                                                 {profile.name}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        label="Department"
+                                        value={watch("department_id")}
+                                        onChange={(e) => setValue("department_id", e.target.value)}
+                                        helperText="Optional department for organizational tracking"
+                                        fullWidth
+                                    >
+                                        <MenuItem value="">None</MenuItem>
+                                        {departments.map((dept) => (
+                                            <MenuItem key={dept.id} value={dept.id}>
+                                                {dept.name}
                                             </MenuItem>
                                         ))}
                                     </TextField>

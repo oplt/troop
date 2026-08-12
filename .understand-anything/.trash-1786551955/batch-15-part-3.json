@@ -1,0 +1,1492 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/procedural_context.py",
+      "type": "file",
+      "name": "procedural_context.py",
+      "filePath": "backend/modules/orchestration/procedural_context.py",
+      "summary": "Formats ranked procedural playbooks into compact prompt snippets within item and character budgets.",
+      "tags": [
+        "context",
+        "memory",
+        "prompt",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/procedural_context.py:build_procedural_snippets",
+      "type": "function",
+      "name": "build_procedural_snippets",
+      "filePath": "backend/modules/orchestration/procedural_context.py",
+      "lineRange": [
+        13,
+        54
+      ],
+      "summary": "Procedural prompt-context helper that performs build procedural snippets.",
+      "tags": [
+        "utility",
+        "context",
+        "prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/procedural_context.py:_ellipsis",
+      "type": "function",
+      "name": "_ellipsis",
+      "filePath": "backend/modules/orchestration/procedural_context.py",
+      "lineRange": [
+        57,
+        58
+      ],
+      "summary": "Procedural prompt-context helper that performs ellipsis.",
+      "tags": [
+        "utility",
+        "context",
+        "prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_concurrency_opportunities.py",
+      "type": "file",
+      "name": "test_concurrency_opportunities.py",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "summary": "Tests parallel memory ingestion with separate sessions, pending-job guards, concurrent context fetches, and domain service exposure.",
+      "tags": [
+        "test",
+        "pytest",
+        "memory",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "type": "function",
+      "name": "test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "lineRange": [
+        22,
+        77
+      ],
+      "summary": "Tests that process memory ingest jobs worker parallelizes with separate sessions.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_job_by_id_skips_non_pending",
+      "type": "function",
+      "name": "test_process_memory_ingest_job_by_id_skips_non_pending",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "lineRange": [
+        81,
+        98
+      ],
+      "summary": "Tests that process memory ingest job by id skips non pending.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_concurrency_opportunities.py:test_assemble_user_context_packet_batches_independent_fetches",
+      "type": "function",
+      "name": "test_assemble_user_context_packet_batches_independent_fetches",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "lineRange": [
+        102,
+        158
+      ],
+      "summary": "Tests that assemble user context packet batches independent fetches.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_concurrency_opportunities.py:test_memory_service_exposes_ingest_job_helpers",
+      "type": "function",
+      "name": "test_memory_service_exposes_ingest_job_helpers",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "lineRange": [
+        161,
+        165
+      ],
+      "summary": "Tests that memory service exposes ingest job helpers.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "class",
+      "name": "_MemoryHarness",
+      "filePath": "backend/tests/test_concurrency_opportunities.py",
+      "lineRange": [
+        14,
+        18
+      ],
+      "summary": "Test double supporting memory harness memory behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_memory_architecture_contract.py",
+      "type": "file",
+      "name": "test_memory_architecture_contract.py",
+      "filePath": "backend/tests/test_memory_architecture_contract.py",
+      "summary": "Validates bounded memory write contracts, expiry constraints, long-term scope, and enabled-by-default memory layers.",
+      "tags": [
+        "test",
+        "pytest",
+        "memory",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_supports_expiry_and_long_term_scope",
+      "type": "function",
+      "name": "test_agent_memory_write_contract_supports_expiry_and_long_term_scope",
+      "filePath": "backend/tests/test_memory_architecture_contract.py",
+      "lineRange": [
+        8,
+        18
+      ],
+      "summary": "Tests that agent memory write contract supports expiry and long term scope.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_rejects_unbounded_ttl",
+      "type": "function",
+      "name": "test_agent_memory_write_contract_rejects_unbounded_ttl",
+      "filePath": "backend/tests/test_memory_architecture_contract.py",
+      "lineRange": [
+        21,
+        28
+      ],
+      "summary": "Tests that agent memory write contract rejects unbounded ttl.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_architecture_contract.py:test_memory_defaults_keep_all_layers_enabled",
+      "type": "function",
+      "name": "test_memory_defaults_keep_all_layers_enabled",
+      "filePath": "backend/tests/test_memory_architecture_contract.py",
+      "lineRange": [
+        31,
+        37
+      ],
+      "summary": "Tests that memory defaults keep all layers enabled.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_memory_layer.py",
+      "type": "file",
+      "name": "test_memory_layer.py",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "summary": "Exercises memory redaction, storage safety, deduplication, context ranking, extraction, disabled behavior, and provider-backed CRUD.",
+      "tags": [
+        "test",
+        "pytest",
+        "memory",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "type": "function",
+      "name": "test_redaction_blocks_api_keys_and_passwords",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        22,
+        29
+      ],
+      "summary": "Tests that redaction blocks api keys and passwords.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_rejects_mostly_secret_content",
+      "type": "function",
+      "name": "test_sanitize_for_storage_rejects_mostly_secret_content",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        32,
+        34
+      ],
+      "summary": "Tests that sanitize for storage rejects mostly secret content.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_allows_clean_facts",
+      "type": "function",
+      "name": "test_sanitize_for_storage_allows_clean_facts",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        37,
+        41
+      ],
+      "summary": "Tests that sanitize for storage allows clean facts.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_content_hash_dedup",
+      "type": "function",
+      "name": "test_content_hash_dedup",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        44,
+        49
+      ],
+      "summary": "Tests that content hash dedup.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_build_memory_context_formatting",
+      "type": "function",
+      "name": "test_build_memory_context_formatting",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        52,
+        71
+      ],
+      "summary": "Tests that build memory context formatting.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_rule_extractor_finds_preferences",
+      "type": "function",
+      "name": "test_rule_extractor_finds_preferences",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        74,
+        83
+      ],
+      "summary": "Tests that rule extractor finds preferences.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_parse_llm_extraction_json",
+      "type": "function",
+      "name": "test_parse_llm_extraction_json",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        86,
+        90
+      ],
+      "summary": "Tests that parse llm extraction json.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "type": "function",
+      "name": "test_memory_service_disabled_is_noop",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        153,
+        162
+      ],
+      "summary": "Tests that memory service disabled is noop.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "type": "function",
+      "name": "test_memory_service_add_search_update_delete",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        166,
+        201
+      ],
+      "summary": "Tests that memory service add search update delete.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "type": "function",
+      "name": "test_memory_service_dedup_skips_duplicate",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        205,
+        217
+      ],
+      "summary": "Tests that memory service dedup skips duplicate.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "class",
+      "name": "_FakeProvider",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        94,
+        144
+      ],
+      "summary": "Test double supporting fake provider memory behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "memory"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "class",
+      "name": "_FakeSession",
+      "filePath": "backend/tests/test_memory_layer.py",
+      "lineRange": [
+        147,
+        149
+      ],
+      "summary": "Test double supporting fake session memory behavior.",
+      "tags": [
+        "test-double",
+        "pytest",
+        "memory"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_memory_read_paths.py",
+      "type": "file",
+      "name": "test_memory_read_paths.py",
+      "filePath": "backend/tests/test_memory_read_paths.py",
+      "summary": "Guards read paths against accidental expiration and verifies scheduled and global memory cleanup availability.",
+      "tags": [
+        "test",
+        "pytest",
+        "memory",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_read_paths.py:test_read_paths_do_not_expire_memory_on_access",
+      "type": "function",
+      "name": "test_read_paths_do_not_expire_memory_on_access",
+      "filePath": "backend/tests/test_memory_read_paths.py",
+      "lineRange": [
+        9,
+        12
+      ],
+      "summary": "Tests that read paths do not expire memory on access.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_read_paths.py:test_memory_expiration_sweep_task_is_registered",
+      "type": "function",
+      "name": "test_memory_expiration_sweep_task_is_registered",
+      "filePath": "backend/tests/test_memory_read_paths.py",
+      "lineRange": [
+        15,
+        16
+      ],
+      "summary": "Tests that memory expiration sweep task is registered.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_memory_read_paths.py:test_global_sweep_remains_available",
+      "type": "function",
+      "name": "test_global_sweep_remains_available",
+      "filePath": "backend/tests/test_memory_read_paths.py",
+      "lineRange": [
+        19,
+        20
+      ],
+      "summary": "Tests that global sweep remains available.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/test_phase5_memory_architecture.py",
+      "type": "file",
+      "name": "test_phase5_memory_architecture.py",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "summary": "Tests memory access scoping, namespace validation, retention configuration, context bounds, provider isolation, and lifecycle metadata.",
+      "tags": [
+        "test",
+        "pytest",
+        "memory",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_access_context_builds_scoped_filters",
+      "type": "function",
+      "name": "test_memory_access_context_builds_scoped_filters",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        16,
+        30
+      ],
+      "summary": "Tests that memory access context builds scoped filters.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_user_and_task_namespaces_are_explicitly_validated",
+      "type": "function",
+      "name": "test_user_and_task_namespaces_are_explicitly_validated",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        33,
+        38
+      ],
+      "summary": "Tests that user and task namespaces are explicitly validated.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_project_memory_config_includes_retention_and_context_limits",
+      "type": "function",
+      "name": "test_project_memory_config_includes_retention_and_context_limits",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        41,
+        54
+      ],
+      "summary": "Tests that project memory config includes retention and context limits.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_canonical_memory_service_records_retention_metadata",
+      "type": "function",
+      "name": "test_canonical_memory_service_records_retention_metadata",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        58,
+        87
+      ],
+      "summary": "Tests that canonical memory service records retention metadata.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_context_is_ranked_and_bounded",
+      "type": "function",
+      "name": "test_memory_context_is_ranked_and_bounded",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        90,
+        111
+      ],
+      "summary": "Tests that memory context is ranked and bounded.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/tests/test_phase5_memory_architecture.py:test_provider_builds_user_namespace_without_project_leakage",
+      "type": "function",
+      "name": "test_provider_builds_user_namespace_without_project_leakage",
+      "filePath": "backend/tests/test_phase5_memory_architecture.py",
+      "lineRange": [
+        115,
+        157
+      ],
+      "summary": "Tests that provider builds user namespace without project leakage.",
+      "tags": [
+        "test",
+        "pytest",
+        "validation"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/procedural_context.py",
+      "target": "function:backend/modules/orchestration/procedural_context.py:build_procedural_snippets",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/procedural_context.py",
+      "target": "function:backend/modules/orchestration/procedural_context.py:build_procedural_snippets",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/procedural_context.py",
+      "target": "function:backend/modules/orchestration/procedural_context.py:_ellipsis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/procedural_context.py",
+      "target": "function:backend/modules/orchestration/procedural_context.py:_ellipsis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_job_by_id_skips_non_pending",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_job_by_id_skips_non_pending",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_assemble_user_context_packet_batches_independent_fetches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_assemble_user_context_packet_batches_independent_fetches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_memory_service_exposes_ingest_job_helpers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "function:backend/tests/test_concurrency_opportunities.py:test_memory_service_exposes_ingest_job_helpers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_supports_expiry_and_long_term_scope",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_supports_expiry_and_long_term_scope",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_rejects_unbounded_ttl",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_rejects_unbounded_ttl",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_memory_defaults_keep_all_layers_enabled",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "function:backend/tests/test_memory_architecture_contract.py:test_memory_defaults_keep_all_layers_enabled",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_rejects_mostly_secret_content",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_rejects_mostly_secret_content",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_allows_clean_facts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_allows_clean_facts",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_content_hash_dedup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_content_hash_dedup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_build_memory_context_formatting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_build_memory_context_formatting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_rule_extractor_finds_preferences",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_rule_extractor_finds_preferences",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_parse_llm_extraction_json",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_parse_llm_extraction_json",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_read_paths_do_not_expire_memory_on_access",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_read_paths_do_not_expire_memory_on_access",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_memory_expiration_sweep_task_is_registered",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_memory_expiration_sweep_task_is_registered",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_global_sweep_remains_available",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "function:backend/tests/test_memory_read_paths.py:test_global_sweep_remains_available",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_access_context_builds_scoped_filters",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_access_context_builds_scoped_filters",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_user_and_task_namespaces_are_explicitly_validated",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_user_and_task_namespaces_are_explicitly_validated",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_project_memory_config_includes_retention_and_context_limits",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_project_memory_config_includes_retention_and_context_limits",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_canonical_memory_service_records_retention_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_canonical_memory_service_records_retention_metadata",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_context_is_ranked_and_bounded",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_context_is_ranked_and_bounded",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_provider_builds_user_namespace_without_project_leakage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "function:backend/tests/test_phase5_memory_architecture.py:test_provider_builds_user_namespace_without_project_leakage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "file:backend/modules/memory/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_concurrency_opportunities.py",
+      "target": "file:backend/modules/orchestration/services/memory_domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "file:backend/modules/memory/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_architecture_contract.py",
+      "target": "file:backend/modules/orchestration/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/dedup.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/extractor.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/redaction.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_layer.py",
+      "target": "file:backend/modules/memory/layer/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "file:backend/modules/memory/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_memory_read_paths.py",
+      "target": "file:backend/workers/orchestration.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/layer/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/layer/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/layer/provider.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/layer/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/layer/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/tests/test_phase5_memory_architecture.py",
+      "target": "file:backend/modules/memory/namespaces.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/orchestration/procedural_context.py:build_procedural_snippets",
+      "target": "function:backend/modules/orchestration/procedural_context.py:_ellipsis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "target": "class:backend/modules/memory/models.py:MemoryIngestJob",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_jobs_worker_parallelizes_with_separate_sessions",
+      "target": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_job_by_id_skips_non_pending",
+      "target": "class:backend/modules/memory/models.py:MemoryIngestJob",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_process_memory_ingest_job_by_id_skips_non_pending",
+      "target": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_assemble_user_context_packet_batches_independent_fetches",
+      "target": "class:backend/tests/test_concurrency_opportunities.py:_MemoryHarness",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_concurrency_opportunities.py:test_memory_service_exposes_ingest_job_helpers",
+      "target": "class:backend/modules/orchestration/services/memory_domain.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_supports_expiry_and_long_term_scope",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryCreate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_architecture_contract.py:test_agent_memory_write_contract_rejects_unbounded_ttl",
+      "target": "class:backend/modules/orchestration/schemas.py:AgentMemoryEntryCreate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_architecture_contract.py:test_memory_defaults_keep_all_layers_enabled",
+      "target": "function:backend/modules/memory/settings.py:merge_memory_settings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "target": "function:backend/modules/memory/layer/redaction.py:contains_sensitive_content",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "target": "function:backend/modules/memory/layer/redaction.py:redact_sensitive_content",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_redaction_blocks_api_keys_and_passwords",
+      "target": "function:backend/modules/memory/layer/redaction.py:is_safe_to_store",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_rejects_mostly_secret_content",
+      "target": "function:backend/modules/memory/layer/redaction.py:sanitize_for_storage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_sanitize_for_storage_allows_clean_facts",
+      "target": "function:backend/modules/memory/layer/redaction.py:sanitize_for_storage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_content_hash_dedup",
+      "target": "function:backend/modules/memory/layer/dedup.py:content_hash",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_content_hash_dedup",
+      "target": "function:backend/modules/memory/layer/dedup.py:is_duplicate",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_build_memory_context_formatting",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_build_memory_context_formatting",
+      "target": "function:backend/modules/memory/layer/context.py:build_memory_context",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_rule_extractor_finds_preferences",
+      "target": "function:backend/modules/memory/layer/extractor.py:extract_with_rules",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_parse_llm_extraction_json",
+      "target": "function:backend/modules/memory/layer/extractor.py:parse_llm_extraction",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "target": "class:backend/modules/memory/layer/service.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_disabled_is_noop",
+      "target": "class:backend/modules/memory/layer/config.py:MemoryConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "target": "class:backend/modules/memory/layer/service.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "target": "class:backend/modules/memory/layer/config.py:MemoryConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_add_search_update_delete",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryFilters",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeProvider",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "target": "class:backend/modules/memory/layer/service.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "target": "class:backend/tests/test_memory_layer.py:_FakeSession",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_memory_layer.py:test_memory_service_dedup_skips_duplicate",
+      "target": "class:backend/modules/memory/layer/config.py:MemoryConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_access_context_builds_scoped_filters",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryAccessContext",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_user_and_task_namespaces_are_explicitly_validated",
+      "target": "function:backend/modules/memory/namespaces.py:build_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_user_and_task_namespaces_are_explicitly_validated",
+      "target": "function:backend/modules/memory/namespaces.py:parse_namespace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_canonical_memory_service_records_retention_metadata",
+      "target": "class:backend/modules/memory/layer/service.py:MemoryService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_canonical_memory_service_records_retention_metadata",
+      "target": "class:backend/modules/memory/layer/config.py:MemoryConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_context_is_ranked_and_bounded",
+      "target": "class:backend/modules/memory/layer/schemas.py:MemoryRecord",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_memory_context_is_ranked_and_bounded",
+      "target": "function:backend/modules/memory/layer/context.py:build_memory_context",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/tests/test_phase5_memory_architecture.py:test_provider_builds_user_namespace_without_project_leakage",
+      "target": "class:backend/modules/memory/layer/provider.py:SemanticMemoryProvider",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

@@ -1,0 +1,1233 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/memory/entry_types.py",
+      "type": "file",
+      "name": "entry_types.py",
+      "filePath": "backend/modules/memory/entry_types.py",
+      "summary": "Defines supported semantic-memory entry types and validates their type-specific metadata contracts.",
+      "tags": [
+        "memory",
+        "validation",
+        "type-definition",
+        "metadata"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/memory/entry_types.py:validate_entry_type",
+      "type": "function",
+      "name": "validate_entry_type",
+      "filePath": "backend/modules/memory/entry_types.py",
+      "lineRange": [
+        39,
+        45
+      ],
+      "summary": "Validates validate entry type against the semantic-memory contract.",
+      "tags": [
+        "memory",
+        "validation",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/memory/entry_types.py:validate_entry_metadata",
+      "type": "function",
+      "name": "validate_entry_metadata",
+      "filePath": "backend/modules/memory/entry_types.py",
+      "lineRange": [
+        48,
+        57
+      ],
+      "summary": "Validates validate entry metadata against the semantic-memory contract.",
+      "tags": [
+        "memory",
+        "validation",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/memory/models.py",
+      "summary": "Defines persistence models for project documents, vector chunks, agent and semantic memory, playbooks, ingest jobs, episodic archives, and knowledge links.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "memory",
+        "vector-search"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:ProjectDocument",
+      "type": "class",
+      "name": "ProjectDocument",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        16,
+        52
+      ],
+      "summary": "SQLAlchemy persistence model representing project document records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:ProjectDocumentChunk",
+      "type": "class",
+      "name": "ProjectDocumentChunk",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        55,
+        84
+      ],
+      "summary": "SQLAlchemy persistence model representing project document chunk records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:AgentMemoryEntry",
+      "type": "class",
+      "name": "AgentMemoryEntry",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        87,
+        129
+      ],
+      "summary": "SQLAlchemy persistence model representing agent memory entry records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:SemanticMemoryEntry",
+      "type": "class",
+      "name": "SemanticMemoryEntry",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        132,
+        197
+      ],
+      "summary": "SQLAlchemy persistence model representing semantic memory entry records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:ProceduralPlaybook",
+      "type": "class",
+      "name": "ProceduralPlaybook",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        200,
+        220
+      ],
+      "summary": "SQLAlchemy persistence model representing procedural playbook records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:MemoryIngestJob",
+      "type": "class",
+      "name": "MemoryIngestJob",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        223,
+        239
+      ],
+      "summary": "SQLAlchemy persistence model representing memory ingest job records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:EpisodicArchiveManifest",
+      "type": "class",
+      "name": "EpisodicArchiveManifest",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        242,
+        256
+      ],
+      "summary": "SQLAlchemy persistence model representing episodic archive manifest records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:EpisodicSearchIndex",
+      "type": "class",
+      "name": "EpisodicSearchIndex",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        259,
+        275
+      ],
+      "summary": "SQLAlchemy persistence model representing episodic search index records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:KnowledgeGraphEdge",
+      "type": "class",
+      "name": "KnowledgeGraphEdge",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        278,
+        306
+      ],
+      "summary": "SQLAlchemy persistence model representing knowledge graph edge records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/memory/models.py:SemanticMemoryLink",
+      "type": "class",
+      "name": "SemanticMemoryLink",
+      "filePath": "backend/modules/memory/models.py",
+      "lineRange": [
+        309,
+        325
+      ],
+      "summary": "SQLAlchemy persistence model representing semantic memory link records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/memory/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/memory/repository.py",
+      "summary": "Provides persistence and vector-retrieval operations across documents, semantic and episodic memory, playbooks, ingest jobs, and knowledge-graph relationships.",
+      "tags": [
+        "repository",
+        "database",
+        "memory",
+        "vector-search"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/memory/repository.py:MemoryRepositoryMixin",
+      "type": "class",
+      "name": "MemoryRepositoryMixin",
+      "filePath": "backend/modules/memory/repository.py",
+      "lineRange": [
+        37,
+        1114
+      ],
+      "summary": "Repository mixin implementing document, vector, semantic, episodic, procedural, ingest, and knowledge-link persistence operations.",
+      "tags": [
+        "repository",
+        "database",
+        "data-access"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/modules/notifications/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/notifications/models.py",
+      "summary": "Defines user notifications and per-user delivery preference persistence models.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "notifications",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/notifications/models.py:Notification",
+      "type": "class",
+      "name": "Notification",
+      "filePath": "backend/modules/notifications/models.py",
+      "lineRange": [
+        10,
+        21
+      ],
+      "summary": "SQLAlchemy persistence model representing notification records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/notifications/models.py:NotificationPreference",
+      "type": "class",
+      "name": "NotificationPreference",
+      "filePath": "backend/modules/notifications/models.py",
+      "lineRange": [
+        24,
+        33
+      ],
+      "summary": "SQLAlchemy persistence model representing notification preference records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/notifications/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/notifications/repository.py",
+      "summary": "Creates and queries notifications, marks them read, and manages user notification preferences.",
+      "tags": [
+        "repository",
+        "database",
+        "notifications",
+        "sqlalchemy"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "class",
+      "name": "NotificationsRepository",
+      "filePath": "backend/modules/notifications/repository.py",
+      "lineRange": [
+        7,
+        63
+      ],
+      "summary": "Data-access layer for notifications, read state, and delivery preferences.",
+      "tags": [
+        "repository",
+        "database",
+        "data-access"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/modules/orchestration/_helpers.py",
+      "type": "file",
+      "name": "_helpers.py",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "summary": "Provides shared orchestration helpers for namespaces, priorities, provider aliases, text chunking, similarity, query limits, and background jobs.",
+      "tags": [
+        "utility",
+        "orchestration",
+        "vector-search",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_default_semantic_namespace",
+      "type": "function",
+      "name": "_default_semantic_namespace",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        11,
+        28
+      ],
+      "summary": "Implements the shared default semantic namespace orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_normalize_task_priority",
+      "type": "function",
+      "name": "_normalize_task_priority",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        31,
+        37
+      ],
+      "summary": "Implements the shared normalize task priority orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_provider_type_aliases",
+      "type": "function",
+      "name": "_provider_type_aliases",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        40,
+        45
+      ],
+      "summary": "Implements the shared provider type aliases orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_estimate_embedding_tokens",
+      "type": "function",
+      "name": "_estimate_embedding_tokens",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        48,
+        49
+      ],
+      "summary": "Implements the shared estimate embedding tokens orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_chunk_text",
+      "type": "function",
+      "name": "_chunk_text",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        52,
+        66
+      ],
+      "summary": "Implements the shared chunk text orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:_cosine_similarity",
+      "type": "function",
+      "name": "_cosine_similarity",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        69,
+        77
+      ],
+      "summary": "Implements the shared cosine similarity orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:resolve_query_limit",
+      "type": "function",
+      "name": "resolve_query_limit",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        84,
+        94
+      ],
+      "summary": "Implements the shared resolve query limit orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/_helpers.py:run_orchestration_job",
+      "type": "function",
+      "name": "run_orchestration_job",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        97,
+        103
+      ],
+      "summary": "Implements the shared run orchestration job orchestration helper.",
+      "tags": [
+        "orchestration",
+        "utility",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/_helpers.py:BlockedExecution",
+      "type": "class",
+      "name": "BlockedExecution",
+      "filePath": "backend/modules/orchestration/_helpers.py",
+      "lineRange": [
+        80,
+        81
+      ],
+      "summary": "Domain exception signaling that orchestration execution cannot proceed under current constraints.",
+      "tags": [
+        "error-handling",
+        "orchestration",
+        "control-flow"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/constants.py",
+      "type": "file",
+      "name": "constants.py",
+      "filePath": "backend/modules/orchestration/constants.py",
+      "summary": "Centralizes orchestration status sets, execution modes, priority values, relation types, and API limit defaults.",
+      "tags": [
+        "constants",
+        "orchestration",
+        "configuration",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/control_plane.py",
+      "type": "file",
+      "name": "control_plane.py",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "summary": "Implements the hierarchical orchestration control plane for team members, tasks, approvals, brainstorms, runs, events, and runtime snapshots.",
+      "tags": [
+        "service",
+        "orchestration",
+        "control-plane",
+        "event-stream"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane.py:_slugify",
+      "type": "function",
+      "name": "_slugify",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        31,
+        33
+      ],
+      "summary": "Implements slugify behavior for the orchestration control plane.",
+      "tags": [
+        "orchestration",
+        "control-plane",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane.py:_now",
+      "type": "function",
+      "name": "_now",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        36,
+        37
+      ],
+      "summary": "Implements now behavior for the orchestration control plane.",
+      "tags": [
+        "orchestration",
+        "control-plane",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane.py:_task_is_active",
+      "type": "function",
+      "name": "_task_is_active",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        40,
+        41
+      ],
+      "summary": "Implements task is active behavior for the orchestration control plane.",
+      "tags": [
+        "orchestration",
+        "control-plane",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane.py:ControlPlaneEvent",
+      "type": "class",
+      "name": "ControlPlaneEvent",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        45,
+        53
+      ],
+      "summary": "Structured event emitted when hierarchical control-plane state changes.",
+      "tags": [
+        "event",
+        "control-plane",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane.py:ControlPlanePubSub",
+      "type": "class",
+      "name": "ControlPlanePubSub",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        56,
+        73
+      ],
+      "summary": "In-process asynchronous publisher and subscriber for control-plane events.",
+      "tags": [
+        "event-stream",
+        "pub-sub",
+        "control-plane"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "type": "class",
+      "name": "HierarchyControlPlaneService",
+      "filePath": "backend/modules/orchestration/control_plane.py",
+      "lineRange": [
+        79,
+        710
+      ],
+      "summary": "Coordinates hierarchy-aware members, tasks, runs, approvals, brainstorms, artifacts, and live control-plane snapshots.",
+      "tags": [
+        "service",
+        "business-logic",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/memory/entry_types.py",
+      "target": "function:backend/modules/memory/entry_types.py:validate_entry_type",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/entry_types.py",
+      "target": "function:backend/modules/memory/entry_types.py:validate_entry_type",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/entry_types.py",
+      "target": "function:backend/modules/memory/entry_types.py:validate_entry_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/entry_types.py",
+      "target": "function:backend/modules/memory/entry_types.py:validate_entry_metadata",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProjectDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProjectDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProjectDocumentChunk",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProjectDocumentChunk",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:AgentMemoryEntry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:AgentMemoryEntry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:SemanticMemoryEntry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:SemanticMemoryEntry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProceduralPlaybook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:ProceduralPlaybook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:MemoryIngestJob",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:MemoryIngestJob",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:EpisodicArchiveManifest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:EpisodicArchiveManifest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:EpisodicSearchIndex",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:EpisodicSearchIndex",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:KnowledgeGraphEdge",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:KnowledgeGraphEdge",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:SemanticMemoryLink",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "class:backend/modules/memory/models.py:SemanticMemoryLink",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "class:backend/modules/memory/repository.py:MemoryRepositoryMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "class:backend/modules/memory/repository.py:MemoryRepositoryMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/models.py",
+      "target": "class:backend/modules/notifications/models.py:Notification",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/models.py",
+      "target": "class:backend/modules/notifications/models.py:Notification",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/models.py",
+      "target": "class:backend/modules/notifications/models.py:NotificationPreference",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/models.py",
+      "target": "class:backend/modules/notifications/models.py:NotificationPreference",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/notifications/repository.py",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/notifications/repository.py",
+      "target": "class:backend/modules/notifications/repository.py:NotificationsRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_default_semantic_namespace",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_default_semantic_namespace",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_normalize_task_priority",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_normalize_task_priority",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_provider_type_aliases",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_provider_type_aliases",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_estimate_embedding_tokens",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_estimate_embedding_tokens",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_chunk_text",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_chunk_text",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_cosine_similarity",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:_cosine_similarity",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:resolve_query_limit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:resolve_query_limit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:run_orchestration_job",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "function:backend/modules/orchestration/_helpers.py:run_orchestration_job",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "class:backend/modules/orchestration/_helpers.py:BlockedExecution",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "class:backend/modules/orchestration/_helpers.py:BlockedExecution",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_slugify",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_slugify",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_now",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_now",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_task_is_active",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "function:backend/modules/orchestration/control_plane.py:_task_is_active",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:ControlPlaneEvent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:ControlPlaneEvent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:ControlPlanePubSub",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:ControlPlanePubSub",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "file:backend/modules/memory/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/repository.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/notifications/repository.py",
+      "target": "file:backend/modules/notifications/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "file:backend/modules/memory/namespaces.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "file:backend/modules/orchestration/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "file:backend/tests/test_blocking_dead_code.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/memory/models.py",
+      "target": "file:backend/tests/test_concurrency_opportunities.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/_helpers.py",
+      "target": "file:backend/tests/test_bounded_queries.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/constants.py",
+      "target": "file:backend/tests/test_architectural_improvements.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/constants.py",
+      "target": "file:backend/tests/test_task_orchestration_contract.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "target": "class:backend/modules/orchestration/repository.py:OrchestrationRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/control_plane.py:HierarchyControlPlaneService",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

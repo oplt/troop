@@ -98,6 +98,7 @@ import { ExternalLinksEditor, type ExternalLinkRecord } from "../../features/orc
 import { createProjectTaskDraft, normalizeProjectTaskDraft, type ProjectTaskDraft } from "../../features/orchestration/project/taskForm";
 import { SubtaskPanel } from "../../features/orchestration/project/components/SubtaskPanel";
 import { AcceptanceDialog } from "../../features/orchestration/project/components/AcceptanceDialog";
+import { TaskIntelligencePanel } from "../../features/workforce/TaskIntelligencePanel";
 import { extractApiErrorMessage } from "../../utils/apiErrors";
 import { ApiRequestError } from "../../api/client";
 import { MAIN_KANBAN_COLUMNS } from "./kanbanConstants";
@@ -1680,6 +1681,15 @@ const KanbanBoard = memo(function KanbanBoard({
                                 >
                                     Save links
                                 </Button>
+
+                                <Divider />
+
+                                <Typography variant="subtitle2">Task Intelligence</Typography>
+
+                                <TaskIntelligencePanel
+                                    projectId={projectId}
+                                    taskId={drawerTask.id}
+                                />
 
                                 <Divider />
 

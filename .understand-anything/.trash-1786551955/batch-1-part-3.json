@@ -1,0 +1,1104 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/core/error_handler.py",
+      "type": "file",
+      "name": "error_handler.py",
+      "filePath": "backend/core/error_handler.py",
+      "summary": "Registers FastAPI exception handlers that normalize validation, HTTP, and unexpected failures into structured error payloads.",
+      "tags": [
+        "error-handling",
+        "fastapi",
+        "api",
+        "logging"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/core/error_handler.py:register_exception_handlers",
+      "type": "function",
+      "name": "register_exception_handlers",
+      "filePath": "backend/core/error_handler.py",
+      "lineRange": [
+        11,
+        72
+      ],
+      "summary": "Implements register exception handlers behavior for normalized API error handling.",
+      "tags": [
+        "error-handling",
+        "api",
+        "serialization"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/core/error_payloads.py",
+      "type": "file",
+      "name": "error_payloads.py",
+      "filePath": "backend/core/error_payloads.py",
+      "summary": "Builds the canonical API error envelope with codes, correlation identifiers, and optional details.",
+      "tags": [
+        "error-handling",
+        "serialization",
+        "api",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/error_payloads.py:error_payload",
+      "type": "function",
+      "name": "error_payload",
+      "filePath": "backend/core/error_payloads.py",
+      "lineRange": [
+        6,
+        22
+      ],
+      "summary": "Implements error payload behavior for normalized API error handling.",
+      "tags": [
+        "error-handling",
+        "api",
+        "serialization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/logging.py",
+      "type": "file",
+      "name": "logging.py",
+      "filePath": "backend/core/logging.py",
+      "summary": "Configures structured application logging, sensitive-value redaction, noisy-event filtering, and daily rotating files.",
+      "tags": [
+        "logging",
+        "observability",
+        "security",
+        "configuration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/core/logging.py:get_logger",
+      "type": "function",
+      "name": "get_logger",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        16,
+        18
+      ],
+      "summary": "Implements get logger behavior for the structured logging configuration.",
+      "tags": [
+        "logging",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/logging.py:_redact_sensitive_values",
+      "type": "function",
+      "name": "_redact_sensitive_values",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        21,
+        23
+      ],
+      "summary": "Implements redact sensitive values behavior for the structured logging configuration.",
+      "tags": [
+        "logging",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/logging.py:_add_common_filter",
+      "type": "function",
+      "name": "_add_common_filter",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        53,
+        60
+      ],
+      "summary": "Implements add common filter behavior for the structured logging configuration.",
+      "tags": [
+        "logging",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/logging.py:_add_daily_file_handler",
+      "type": "function",
+      "name": "_add_daily_file_handler",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        63,
+        80
+      ],
+      "summary": "Implements add daily file handler behavior for the structured logging configuration.",
+      "tags": [
+        "logging",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/logging.py:setup_logging",
+      "type": "function",
+      "name": "setup_logging",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        83,
+        106
+      ],
+      "summary": "Implements setup logging behavior for the structured logging configuration.",
+      "tags": [
+        "logging",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/logging.py:_RedactSensitiveValues",
+      "type": "class",
+      "name": "_RedactSensitiveValues",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        26,
+        33
+      ],
+      "summary": "Logging filter that recursively redacts sensitive values before records are emitted.",
+      "tags": [
+        "logging",
+        "observability",
+        "filter"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/logging.py:_IgnoreSqlalchemyPoolCancelledTerminate",
+      "type": "class",
+      "name": "_IgnoreSqlalchemyPoolCancelledTerminate",
+      "filePath": "backend/core/logging.py",
+      "lineRange": [
+        36,
+        50
+      ],
+      "summary": "Logging filter that suppresses expected SQLAlchemy pool cancellation noise.",
+      "tags": [
+        "logging",
+        "observability",
+        "filter"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/rate_limit.py",
+      "type": "file",
+      "name": "rate_limit.py",
+      "filePath": "backend/core/rate_limit.py",
+      "summary": "Provides reusable Redis-backed rate-limit checks, counters, key construction, and HTTP error generation.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:_build_rate_limit_exception",
+      "type": "function",
+      "name": "_build_rate_limit_exception",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        6,
+        11
+      ],
+      "summary": "Implements build rate limit exception behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "function",
+      "name": "check_rate_limit",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        14,
+        20
+      ],
+      "summary": "Implements check rate limit behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:enforce_rate_limit",
+      "type": "function",
+      "name": "enforce_rate_limit",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        23,
+        29
+      ],
+      "summary": "Implements enforce rate limit behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:increment_rate_limit",
+      "type": "function",
+      "name": "increment_rate_limit",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        32,
+        36
+      ],
+      "summary": "Implements increment rate limit behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:clear_rate_limit",
+      "type": "function",
+      "name": "clear_rate_limit",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        39,
+        40
+      ],
+      "summary": "Implements clear rate limit behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/rate_limit.py:auth_rate_limit_key",
+      "type": "function",
+      "name": "auth_rate_limit_key",
+      "filePath": "backend/core/rate_limit.py",
+      "lineRange": [
+        43,
+        45
+      ],
+      "summary": "Implements auth rate limit key behavior for reusable request throttling.",
+      "tags": [
+        "rate-limiting",
+        "redis",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/request_context.py",
+      "type": "file",
+      "name": "request_context.py",
+      "filePath": "backend/core/request_context.py",
+      "summary": "Maintains request-scoped correlation, trace, user, project, task, run, and job metadata for logs and asynchronous task propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "context-vars",
+        "logging"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/core/request_context.py:_new_context_var",
+      "type": "function",
+      "name": "_new_context_var",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        60,
+        61
+      ],
+      "summary": "Implements new context var behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/request_context.py:sanitize_context_value",
+      "type": "function",
+      "name": "sanitize_context_value",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        98,
+        105
+      ],
+      "summary": "Implements sanitize context value behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/request_context.py:get_request_context",
+      "type": "function",
+      "name": "get_request_context",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        108,
+        109
+      ],
+      "summary": "Implements get request context behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/request_context.py:set_context",
+      "type": "function",
+      "name": "set_context",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        112,
+        117
+      ],
+      "summary": "Implements set context behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/request_context.py:bind_context",
+      "type": "function",
+      "name": "bind_context",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        121,
+        133
+      ],
+      "summary": "Implements bind context behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/request_context.py:context_from_headers",
+      "type": "function",
+      "name": "context_from_headers",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        136,
+        144
+      ],
+      "summary": "Implements context from headers behavior for request-scoped metadata propagation.",
+      "tags": [
+        "request-context",
+        "observability",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/request_context.py:RequestContext",
+      "type": "class",
+      "name": "RequestContext",
+      "filePath": "backend/core/request_context.py",
+      "lineRange": [
+        70,
+        95
+      ],
+      "summary": "Immutable request metadata model that serializes identifiers into log fields and task headers.",
+      "tags": [
+        "request-context",
+        "observability",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/core/schemas.py",
+      "summary": "Defines the shared strict request-model base used by API validation schemas.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/schemas.py:RequestModel",
+      "type": "class",
+      "name": "RequestModel",
+      "filePath": "backend/core/schemas.py",
+      "lineRange": [
+        4,
+        5
+      ],
+      "summary": "Strict Pydantic base model that rejects undeclared request fields.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/core/security.py",
+      "type": "file",
+      "name": "security.py",
+      "filePath": "backend/core/security.py",
+      "summary": "Provides password hashing, JWT access tokens, CSRF tokens, and refresh-token generation and hashing primitives.",
+      "tags": [
+        "security",
+        "authentication",
+        "cryptography",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:hash_password",
+      "type": "function",
+      "name": "hash_password",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        13,
+        14
+      ],
+      "summary": "Implements the hash password security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:verify_password",
+      "type": "function",
+      "name": "verify_password",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        17,
+        18
+      ],
+      "summary": "Implements the verify password security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:create_access_token",
+      "type": "function",
+      "name": "create_access_token",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        21,
+        31
+      ],
+      "summary": "Implements the create access token security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:generate_csrf_token",
+      "type": "function",
+      "name": "generate_csrf_token",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        34,
+        35
+      ],
+      "summary": "Implements the generate csrf token security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:decode_token",
+      "type": "function",
+      "name": "decode_token",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        38,
+        39
+      ],
+      "summary": "Implements the decode token security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:generate_refresh_token",
+      "type": "function",
+      "name": "generate_refresh_token",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        42,
+        43
+      ],
+      "summary": "Implements the generate refresh token security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/security.py:hash_refresh_token",
+      "type": "function",
+      "name": "hash_refresh_token",
+      "filePath": "backend/core/security.py",
+      "lineRange": [
+        46,
+        47
+      ],
+      "summary": "Implements the hash refresh token security primitive used by authentication flows.",
+      "tags": [
+        "security",
+        "authentication",
+        "utility"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/core/error_handler.py",
+      "target": "function:backend/core/error_handler.py:register_exception_handlers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/error_handler.py",
+      "target": "function:backend/core/error_handler.py:register_exception_handlers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/error_payloads.py",
+      "target": "function:backend/core/error_payloads.py:error_payload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/error_payloads.py",
+      "target": "function:backend/core/error_payloads.py:error_payload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:get_logger",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:get_logger",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_redact_sensitive_values",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_redact_sensitive_values",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_add_common_filter",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_add_common_filter",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_add_daily_file_handler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:_add_daily_file_handler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:setup_logging",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "function:backend/core/logging.py:setup_logging",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "class:backend/core/logging.py:_RedactSensitiveValues",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "class:backend/core/logging.py:_RedactSensitiveValues",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "class:backend/core/logging.py:_IgnoreSqlalchemyPoolCancelledTerminate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "class:backend/core/logging.py:_IgnoreSqlalchemyPoolCancelledTerminate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:_build_rate_limit_exception",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:_build_rate_limit_exception",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:check_rate_limit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:enforce_rate_limit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:enforce_rate_limit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:increment_rate_limit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:increment_rate_limit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:clear_rate_limit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:clear_rate_limit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:auth_rate_limit_key",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "function:backend/core/rate_limit.py:auth_rate_limit_key",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:_new_context_var",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:_new_context_var",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:sanitize_context_value",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:sanitize_context_value",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:get_request_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:get_request_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:set_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:set_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:bind_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:bind_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:context_from_headers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "function:backend/core/request_context.py:context_from_headers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "class:backend/core/request_context.py:RequestContext",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "class:backend/core/request_context.py:RequestContext",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/schemas.py",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/schemas.py",
+      "target": "class:backend/core/schemas.py:RequestModel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:hash_password",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:hash_password",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:verify_password",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:verify_password",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:create_access_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:create_access_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:generate_csrf_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:generate_csrf_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:decode_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:decode_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:generate_refresh_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:generate_refresh_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:hash_refresh_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "function:backend/core/security.py:hash_refresh_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/error_handler.py",
+      "target": "file:backend/core/error_payloads.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/error_handler.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/rate_limit.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/error_payloads.py",
+      "target": "file:backend/tests/test_error_payloads.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/logging.py",
+      "target": "file:backend/tests/test_phase1_operations.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "file:backend/tests/test_phase0_context.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/request_context.py",
+      "target": "file:backend/tests/test_phase1_operations.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/core/security.py",
+      "target": "file:backend/tests/conftest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

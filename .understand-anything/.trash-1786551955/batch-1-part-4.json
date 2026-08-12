@@ -1,0 +1,1216 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/core/storage.py",
+      "type": "file",
+      "name": "storage.py",
+      "filePath": "backend/core/storage.py",
+      "summary": "Wraps S3-compatible object storage with bucket initialization, upload, download, deletion, public URL construction, and normalized errors.",
+      "tags": [
+        "object-storage",
+        "s3",
+        "infrastructure",
+        "service"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/core/storage.py:StorageNotConfiguredError",
+      "type": "class",
+      "name": "StorageNotConfiguredError",
+      "filePath": "backend/core/storage.py",
+      "lineRange": [
+        10,
+        11
+      ],
+      "summary": "Signals that an object-storage operation was attempted without usable storage configuration.",
+      "tags": [
+        "object-storage",
+        "s3",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/storage.py:ObjectStorageError",
+      "type": "class",
+      "name": "ObjectStorageError",
+      "filePath": "backend/core/storage.py",
+      "lineRange": [
+        14,
+        15
+      ],
+      "summary": "Normalizes failures raised by the S3-compatible object-storage adapter.",
+      "tags": [
+        "object-storage",
+        "s3",
+        "infrastructure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/core/storage.py:ObjectStorage",
+      "type": "class",
+      "name": "ObjectStorage",
+      "filePath": "backend/core/storage.py",
+      "lineRange": [
+        18,
+        148
+      ],
+      "summary": "Asynchronous facade over S3-compatible bucket, object, and public URL operations.",
+      "tags": [
+        "object-storage",
+        "s3",
+        "infrastructure"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/core/telemetry.py",
+      "type": "file",
+      "name": "telemetry.py",
+      "filePath": "backend/core/telemetry.py",
+      "summary": "Connects application startup to the shared Sentry and OpenTelemetry instrumentation setup.",
+      "tags": [
+        "observability",
+        "telemetry",
+        "sentry",
+        "opentelemetry"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/telemetry.py:setup_telemetry",
+      "type": "function",
+      "name": "setup_telemetry",
+      "filePath": "backend/core/telemetry.py",
+      "lineRange": [
+        9,
+        11
+      ],
+      "summary": "Configures setup telemetry as part of application telemetry startup.",
+      "tags": [
+        "telemetry",
+        "observability",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/telemetry.py:_setup_sentry",
+      "type": "function",
+      "name": "_setup_sentry",
+      "filePath": "backend/core/telemetry.py",
+      "lineRange": [
+        14,
+        16
+      ],
+      "summary": "Configures setup sentry as part of application telemetry startup.",
+      "tags": [
+        "telemetry",
+        "observability",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/core/telemetry.py:_setup_otel",
+      "type": "function",
+      "name": "_setup_otel",
+      "filePath": "backend/core/telemetry.py",
+      "lineRange": [
+        19,
+        21
+      ],
+      "summary": "Configures setup otel as part of application telemetry startup.",
+      "tags": [
+        "telemetry",
+        "observability",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/db/session.py",
+      "type": "file",
+      "name": "session.py",
+      "filePath": "backend/db/session.py",
+      "summary": "Creates the asynchronous SQLAlchemy engine and session factory and exposes request-scoped database sessions.",
+      "tags": [
+        "database",
+        "sqlalchemy",
+        "session",
+        "api-dependency"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/db/session.py:get_db",
+      "type": "function",
+      "name": "get_db",
+      "filePath": "backend/db/session.py",
+      "lineRange": [
+        26,
+        31
+      ],
+      "summary": "Implements get db for the backend application.",
+      "tags": [
+        "utility",
+        "python",
+        "backend"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/admin/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/modules/admin/router.py",
+      "summary": "Implements administrator APIs for user management, audit-log inspection, and platform metrics.",
+      "tags": [
+        "api-handler",
+        "admin",
+        "fastapi",
+        "audit"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:_user_to_response",
+      "type": "function",
+      "name": "_user_to_response",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        22,
+        37
+      ],
+      "summary": "Converts user domain data into its API response representation.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:list_users",
+      "type": "function",
+      "name": "list_users",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        41,
+        75
+      ],
+      "summary": "Handles the API operation that lists users.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:get_user",
+      "type": "function",
+      "name": "get_user",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        79,
+        88
+      ],
+      "summary": "Handles the API operation that retrieves user.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:update_user_status",
+      "type": "function",
+      "name": "update_user_status",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        92,
+        114
+      ],
+      "summary": "Handles the API operation that updates user status.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:list_audit_logs",
+      "type": "function",
+      "name": "list_audit_logs",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        118,
+        131
+      ],
+      "summary": "Handles the API operation that lists audit logs.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/admin/router.py:get_metrics",
+      "type": "function",
+      "name": "get_metrics",
+      "filePath": "backend/modules/admin/router.py",
+      "lineRange": [
+        135,
+        151
+      ],
+      "summary": "Handles the API operation that retrieves metrics.",
+      "tags": [
+        "api-handler",
+        "fastapi",
+        "endpoint"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/admin/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "backend/modules/admin/schemas.py",
+      "summary": "Defines request and response schemas for administrator user management, audit logs, and aggregate metrics.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "admin",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/admin/schemas.py:AdminUserResponse",
+      "type": "class",
+      "name": "AdminUserResponse",
+      "filePath": "backend/modules/admin/schemas.py",
+      "lineRange": [
+        8,
+        17
+      ],
+      "summary": "Pydantic API schema representing admin user response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/admin/schemas.py:AdminUserListResponse",
+      "type": "class",
+      "name": "AdminUserListResponse",
+      "filePath": "backend/modules/admin/schemas.py",
+      "lineRange": [
+        20,
+        24
+      ],
+      "summary": "Pydantic API schema representing admin user list response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/admin/schemas.py:AdminUserStatusUpdate",
+      "type": "class",
+      "name": "AdminUserStatusUpdate",
+      "filePath": "backend/modules/admin/schemas.py",
+      "lineRange": [
+        27,
+        28
+      ],
+      "summary": "Pydantic API schema representing admin user status update data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/admin/schemas.py:AuditLogResponse",
+      "type": "class",
+      "name": "AuditLogResponse",
+      "filePath": "backend/modules/admin/schemas.py",
+      "lineRange": [
+        31,
+        38
+      ],
+      "summary": "Pydantic API schema representing audit log response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/admin/schemas.py:MetricsResponse",
+      "type": "class",
+      "name": "MetricsResponse",
+      "filePath": "backend/modules/admin/schemas.py",
+      "lineRange": [
+        41,
+        45
+      ],
+      "summary": "Pydantic API schema representing metrics response data.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/ai/models.py",
+      "type": "file",
+      "name": "models.py",
+      "filePath": "backend/modules/ai/models.py",
+      "summary": "Defines SQLAlchemy persistence models for prompts, documents and chunks, AI runs, human review, feedback, and evaluation datasets.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "ai",
+        "database"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiPromptTemplate",
+      "type": "class",
+      "name": "AiPromptTemplate",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        12,
+        32
+      ],
+      "summary": "SQLAlchemy persistence model representing ai prompt template records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiPromptVersion",
+      "type": "class",
+      "name": "AiPromptVersion",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        35,
+        61
+      ],
+      "summary": "SQLAlchemy persistence model representing ai prompt version records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiDocument",
+      "type": "class",
+      "name": "AiDocument",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        64,
+        85
+      ],
+      "summary": "SQLAlchemy persistence model representing ai document records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiDocumentChunk",
+      "type": "class",
+      "name": "AiDocumentChunk",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        88,
+        106
+      ],
+      "summary": "SQLAlchemy persistence model representing ai document chunk records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiRun",
+      "type": "class",
+      "name": "AiRun",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        109,
+        154
+      ],
+      "summary": "SQLAlchemy persistence model representing ai run records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiReviewItem",
+      "type": "class",
+      "name": "AiReviewItem",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        157,
+        189
+      ],
+      "summary": "SQLAlchemy persistence model representing ai review item records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiFeedback",
+      "type": "class",
+      "name": "AiFeedback",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        192,
+        206
+      ],
+      "summary": "SQLAlchemy persistence model representing ai feedback records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiEvaluationDataset",
+      "type": "class",
+      "name": "AiEvaluationDataset",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        209,
+        223
+      ],
+      "summary": "SQLAlchemy persistence model representing ai evaluation dataset records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiEvaluationCase",
+      "type": "class",
+      "name": "AiEvaluationCase",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        226,
+        240
+      ],
+      "summary": "SQLAlchemy persistence model representing ai evaluation case records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiEvaluationRun",
+      "type": "class",
+      "name": "AiEvaluationRun",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        243,
+        263
+      ],
+      "summary": "SQLAlchemy persistence model representing ai evaluation run records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/ai/models.py:AiEvaluationRunItem",
+      "type": "class",
+      "name": "AiEvaluationRunItem",
+      "filePath": "backend/modules/ai/models.py",
+      "lineRange": [
+        266,
+        284
+      ],
+      "summary": "SQLAlchemy persistence model representing ai evaluation run item records.",
+      "tags": [
+        "data-model",
+        "sqlalchemy",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/ai/repository.py",
+      "type": "file",
+      "name": "repository.py",
+      "filePath": "backend/modules/ai/repository.py",
+      "summary": "Provides asynchronous persistence queries and mutations for AI prompts, documents, runs, reviews, feedback, and evaluations.",
+      "tags": [
+        "repository",
+        "database",
+        "sqlalchemy",
+        "ai"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/ai/repository.py:AiRepository",
+      "type": "class",
+      "name": "AiRepository",
+      "filePath": "backend/modules/ai/repository.py",
+      "lineRange": [
+        21,
+        306
+      ],
+      "summary": "Asynchronous data-access layer for AI prompt, document, run, review, feedback, and evaluation records.",
+      "tags": [
+        "repository",
+        "database",
+        "data-access"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:StorageNotConfiguredError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:StorageNotConfiguredError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:ObjectStorageError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:ObjectStorageError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:ObjectStorage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "class:backend/core/storage.py:ObjectStorage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:setup_telemetry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:setup_telemetry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:_setup_sentry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:_setup_sentry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:_setup_otel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "function:backend/core/telemetry.py:_setup_otel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/db/session.py",
+      "target": "function:backend/db/session.py:get_db",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/db/session.py",
+      "target": "function:backend/db/session.py:get_db",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:_user_to_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:_user_to_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:list_users",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:list_users",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:get_user",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:get_user",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:update_user_status",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:update_user_status",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:list_audit_logs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:list_audit_logs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:get_metrics",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "function:backend/modules/admin/router.py:get_metrics",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserListResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserListResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserStatusUpdate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AdminUserStatusUpdate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AuditLogResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:AuditLogResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:MetricsResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "class:backend/modules/admin/schemas.py:MetricsResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiPromptTemplate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiPromptTemplate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiPromptVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiPromptVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiDocument",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiDocumentChunk",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiDocumentChunk",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiRun",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiRun",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiReviewItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiReviewItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiFeedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiFeedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationDataset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationDataset",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationCase",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationCase",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationRun",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationRun",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationRunItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "class:backend/modules/ai/models.py:AiEvaluationRunItem",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/ai/repository.py",
+      "target": "class:backend/modules/ai/repository.py:AiRepository",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/ai/repository.py",
+      "target": "class:backend/modules/ai/repository.py:AiRepository",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/storage.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "file:backend/modules/observability/instrumentation.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/core/telemetry.py",
+      "target": "file:backend/modules/observability/tracing.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/db/session.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/api/deps/admin.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/db/session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/modules/admin/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/modules/audit/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/modules/identity_access/repository.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/router.py",
+      "target": "file:backend/modules/notifications/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/admin/schemas.py",
+      "target": "file:backend/core/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "file:backend/db/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/models.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/repository.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/repository.py",
+      "target": "file:backend/modules/ai/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/ai/repository.py",
+      "target": "file:backend/modules/orchestration/model_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/core/telemetry.py:setup_telemetry",
+      "target": "function:backend/modules/observability/instrumentation.py:setup_observability",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/telemetry.py:_setup_sentry",
+      "target": "function:backend/modules/observability/tracing.py:setup_sentry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/core/telemetry.py:_setup_otel",
+      "target": "function:backend/modules/observability/tracing.py:setup_tracing",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/db/session.py",
+      "target": "file:backend/tests/conftest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/db/session.py",
+      "target": "file:backend/tests/test_db_session.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "function:backend/modules/admin/router.py:get_user",
+      "target": "class:backend/modules/identity_access/repository.py:IdentityRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/admin/router.py:update_user_status",
+      "target": "class:backend/modules/identity_access/repository.py:IdentityRepository",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/ai/repository.py:AiRepository",
+      "target": "function:backend/modules/orchestration/model_utils.py:normalize_embedding_for_vector",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

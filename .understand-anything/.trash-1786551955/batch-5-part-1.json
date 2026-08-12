@@ -1,0 +1,849 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "type": "file",
+      "name": "control_plane_runtime.py",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "summary": "Builds validated agent runtime profiles from persisted agents, skill packs, providers, model capabilities, prompt templates, tool bindings, and structured-operation contracts.",
+      "tags": [
+        "runtime",
+        "agent-profile",
+        "llm",
+        "structured-output"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:_skill_map",
+      "type": "function",
+      "name": "_skill_map",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        86,
+        87
+      ],
+      "summary": "Builds or resolves skill map for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:_resolve_model_capability",
+      "type": "function",
+      "name": "_resolve_model_capability",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        90,
+        99
+      ],
+      "summary": "Builds or resolves resolve model capability for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "type": "function",
+      "name": "_runtime_model_profile",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        102,
+        124
+      ],
+      "summary": "Builds or resolves runtime model profile for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:_prompt_messages",
+      "type": "function",
+      "name": "_prompt_messages",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        127,
+        137
+      ],
+      "summary": "Builds or resolves prompt messages for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "type": "function",
+      "name": "_operation",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        140,
+        155
+      ],
+      "summary": "Builds or resolves operation for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "type": "function",
+      "name": "build_agent_runtime_profile",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        158,
+        264
+      ],
+      "summary": "Builds or resolves build agent runtime profile for an executable agent runtime profile.",
+      "tags": [
+        "factory",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeToolBinding",
+      "type": "class",
+      "name": "RuntimeToolBinding",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        12,
+        15
+      ],
+      "summary": "Validated runtime contract for runtime tool binding.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeModelProfile",
+      "type": "class",
+      "name": "RuntimeModelProfile",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        18,
+        28
+      ],
+      "summary": "Validated runtime contract for runtime model profile.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeStructuredOperation",
+      "type": "class",
+      "name": "RuntimeStructuredOperation",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        31,
+        35
+      ],
+      "summary": "Validated runtime contract for runtime structured operation.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:AgentRuntimeProfile",
+      "type": "class",
+      "name": "AgentRuntimeProfile",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        38,
+        56
+      ],
+      "summary": "Validated runtime contract for agent runtime profile.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:ManagerPlanningOutput",
+      "type": "class",
+      "name": "ManagerPlanningOutput",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        59,
+        63
+      ],
+      "summary": "Validated runtime contract for manager planning output.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:TaskAssignmentOutput",
+      "type": "class",
+      "name": "TaskAssignmentOutput",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        66,
+        70
+      ],
+      "summary": "Validated runtime contract for task assignment output.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:QAReviewOutput",
+      "type": "class",
+      "name": "QAReviewOutput",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        73,
+        77
+      ],
+      "summary": "Validated runtime contract for qareview output.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/modules/orchestration/control_plane_runtime.py:RevisionRequestOutput",
+      "type": "class",
+      "name": "RevisionRequestOutput",
+      "filePath": "backend/modules/orchestration/control_plane_runtime.py",
+      "lineRange": [
+        80,
+        83
+      ],
+      "summary": "Validated runtime contract for revision request output.",
+      "tags": [
+        "type-definition",
+        "agent-runtime",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/modules/orchestration/execution/execution_service.py",
+      "type": "file",
+      "name": "execution_service.py",
+      "filePath": "backend/modules/orchestration/execution/execution_service.py",
+      "summary": "Implements the core orchestration run lifecycle, including durable workflow checkpoints, budgets, HITL grants, manager-worker execution, tool calls, retries, events, artifacts, and task transitions.",
+      "tags": [
+        "execution",
+        "workflow",
+        "orchestration",
+        "reliability"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "type": "class",
+      "name": "OrchestrationExecutionServiceMixin",
+      "filePath": "backend/modules/orchestration/execution/execution_service.py",
+      "lineRange": [
+        59,
+        3132
+      ],
+      "summary": "Execution-domain mixin implementing durable run lifecycle, budgets, tools, approvals, events, and workflow transitions.",
+      "tags": [
+        "workflow",
+        "execution",
+        "reliability"
+      ],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_skill_map",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_skill_map",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_resolve_model_capability",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_resolve_model_capability",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_prompt_messages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_prompt_messages",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeToolBinding",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeToolBinding",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeModelProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeModelProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeStructuredOperation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeStructuredOperation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:AgentRuntimeProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:AgentRuntimeProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:ManagerPlanningOutput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:ManagerPlanningOutput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:TaskAssignmentOutput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:TaskAssignmentOutput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:QAReviewOutput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:QAReviewOutput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RevisionRequestOutput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RevisionRequestOutput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/control_plane_runtime.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/identity_access/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/memory/working_memory.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/_helpers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/constants.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/execution/durable_execution.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/execution/execution_state.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/execution/execution_workflow.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/execution/policies.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/orchestration/tools.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/projects/orchestration_models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/modules/team/models.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_resolve_model_capability",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeModelProfile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeStructuredOperation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_prompt_messages",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_skill_map",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:RuntimeToolBinding",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_runtime_model_profile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "target": "function:backend/modules/orchestration/control_plane_runtime.py:_operation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/modules/orchestration/control_plane_runtime.py:build_agent_runtime_profile",
+      "target": "class:backend/modules/orchestration/control_plane_runtime.py:AgentRuntimeProfile",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:ensure_workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:workflow_state",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:summarize_trace",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:current_step",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:mark_step",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:get_workflow_artifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:set_workflow_artifact",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:durable_handle",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:checkpoint_excerpt",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_memory_details",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_state.py:extract_execution_metadata_views",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:enqueue_signal",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:durable_backend_status",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:update_query_snapshot",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:submit_orchestration_run",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:increment_resume_count",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "class:backend/modules/orchestration/_helpers.py:BlockedExecution",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/policies.py:next_retry_numbers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/durable_execution.py:is_run_execution_claimable",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/execution_workflow.py:consume_signal_queue",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "function:backend/modules/orchestration/execution/policies.py:is_valid_task_transition",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "target": "class:backend/modules/orchestration/tools.py:OrchestrationToolbox",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/tests/test_bounded_queries.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/modules/orchestration/execution/execution_service.py",
+      "target": "file:backend/tests/test_rate_limit_security.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

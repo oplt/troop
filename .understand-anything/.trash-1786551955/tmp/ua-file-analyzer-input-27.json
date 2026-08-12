@@ -1,0 +1,184 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "backend/modules/orchestration/execution/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/routers/__init__.py",
+      "language": "python",
+      "sizeLines": 2,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/orchestration/templates.py",
+      "language": "python",
+      "sizeLines": 208,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/modules/users/models.py",
+      "language": "python",
+      "sizeLines": 2,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tests/fixtures/rag_eval_golden.json",
+      "language": "json",
+      "sizeLines": 67,
+      "fileCategory": "config"
+    },
+    {
+      "path": "backend/tests/test_external_call_policy.py",
+      "language": "python",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/check_external_call_policy.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/check_logging_policy.py",
+      "language": "python",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "backend/tools/troop_cli.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/eslint.config.js",
+      "language": "javascript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "language": "typescript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/scripts/phase0-build-baseline.mjs",
+      "language": "javascript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/hierarchy/HierarchyBuilderCanvas.tsx",
+      "language": "typescript",
+      "sizeLines": 2103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/components/ui/Subsection.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/index.css",
+      "language": "css",
+      "sizeLines": 46,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "frontend/src/pages/AgentLibraryPage.tsx",
+      "language": "typescript",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/test/setup.ts",
+      "language": "typescript",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/types/qrcode.d.ts",
+      "language": "typescript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/vitest.config.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "infra/.env.example",
+      "language": "config",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "infra/docker-compose.yml",
+      "language": "yaml",
+      "sizeLines": 49,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "infra/observability/docker-compose.observability.yml",
+      "language": "yaml",
+      "sizeLines": 64,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "infra/observability/grafana/dashboards/troop-overview.json",
+      "language": "json",
+      "sizeLines": 57,
+      "fileCategory": "config"
+    },
+    {
+      "path": "infra/observability/grafana/provisioning/dashboards/dashboards.yml",
+      "language": "yaml",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "backend/modules/orchestration/execution/__init__.py": [],
+    "backend/modules/orchestration/routers/__init__.py": [],
+    "backend/modules/orchestration/templates.py": [],
+    "backend/modules/users/models.py": [],
+    "backend/tests/fixtures/rag_eval_golden.json": [],
+    "backend/tests/test_external_call_policy.py": [
+      "backend/tools/check_external_call_policy.py"
+    ],
+    "backend/tools/check_external_call_policy.py": [],
+    "backend/tools/check_logging_policy.py": [],
+    "backend/tools/troop_cli.py": [],
+    "frontend/eslint.config.js": [],
+    "frontend/playwright.config.ts": [],
+    "frontend/scripts/phase0-build-baseline.mjs": [],
+    "frontend/src/components/hierarchy/HierarchyBuilderCanvas.tsx": [],
+    "frontend/src/components/ui/Subsection.tsx": [],
+    "frontend/src/index.css": [],
+    "frontend/src/pages/AgentLibraryPage.tsx": [],
+    "frontend/src/test/setup.ts": [],
+    "frontend/src/types/qrcode.d.ts": [],
+    "frontend/vite.config.ts": [],
+    "frontend/vitest.config.ts": [],
+    "infra/.env.example": [],
+    "infra/docker-compose.yml": [],
+    "infra/observability/docker-compose.observability.yml": [],
+    "infra/observability/grafana/dashboards/troop-overview.json": [],
+    "infra/observability/grafana/provisioning/dashboards/dashboards.yml": []
+  }
+}

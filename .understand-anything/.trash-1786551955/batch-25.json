@@ -1,0 +1,189 @@
+{
+  "nodes": [
+    {
+      "id": "config:frontend/.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": "frontend/.env.example",
+      "summary": "Documents the Vite API base URL used by the frontend for backend requests while retaining the shared cookie-based authentication flow.",
+      "tags": [
+        "configuration",
+        "environment",
+        "api-client",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:frontend/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "frontend/README.md",
+      "summary": "Frontend getting-started guide covering development, verification commands, the React 19 and Vite stack, lazy routing, and feature-oriented source structure.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "frontend",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:frontend/index.html",
+      "type": "file",
+      "name": "index.html",
+      "filePath": "frontend/index.html",
+      "summary": "Minimal Vite HTML shell defining Troop metadata, the React root mount element, responsive viewport behavior, and the main TypeScript module entry.",
+      "tags": [
+        "entry-point",
+        "markup",
+        "vite",
+        "react"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:frontend/package.json",
+      "type": "config",
+      "name": "package.json",
+      "filePath": "frontend/package.json",
+      "summary": "Frontend package manifest defining Vite build and preview scripts, Vitest coverage, ESLint, build-baseline capture, and the React, Material UI, TanStack Query, form, schema, and graph dependencies.",
+      "tags": [
+        "configuration",
+        "javascript",
+        "build-system",
+        "dependencies",
+        "testing"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:frontend/tsconfig.app.json",
+      "type": "config",
+      "name": "tsconfig.app.json",
+      "filePath": "frontend/tsconfig.app.json",
+      "summary": "Strict TypeScript configuration for browser application and test sources using ES2023, React JSX, bundler resolution, no emit, and unused-code safeguards.",
+      "tags": [
+        "configuration",
+        "typescript",
+        "frontend",
+        "strict-mode"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:frontend/tsconfig.json",
+      "type": "config",
+      "name": "tsconfig.json",
+      "filePath": "frontend/tsconfig.json",
+      "summary": "Root TypeScript project-reference configuration that composes the browser application and Node-based Vite configurations.",
+      "tags": [
+        "configuration",
+        "typescript",
+        "project-references",
+        "build-system"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:frontend/tsconfig.node.json",
+      "type": "config",
+      "name": "tsconfig.node.json",
+      "filePath": "frontend/tsconfig.node.json",
+      "summary": "Strict TypeScript configuration for the Node-executed Vite configuration with ES2023, bundler module resolution, and no emitted output.",
+      "tags": [
+        "configuration",
+        "typescript",
+        "nodejs",
+        "vite"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:frontend/.env.example",
+      "target": "file:frontend/src/api/client.ts",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:frontend/README.md",
+      "target": "file:frontend/src/main.tsx",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:frontend/README.md",
+      "target": "file:frontend/src/app/router.tsx",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:frontend/index.html",
+      "target": "file:frontend/src/main.tsx",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "file:frontend/src/main.tsx",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "file:frontend/vite.config.ts",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "file:frontend/eslint.config.js",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "file:frontend/scripts/phase0-build-baseline.mjs",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/tsconfig.json",
+      "target": "config:frontend/tsconfig.app.json",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/tsconfig.json",
+      "target": "config:frontend/tsconfig.node.json",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/tsconfig.app.json",
+      "target": "file:frontend/src/main.tsx",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:frontend/tsconfig.node.json",
+      "target": "file:frontend/vite.config.ts",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

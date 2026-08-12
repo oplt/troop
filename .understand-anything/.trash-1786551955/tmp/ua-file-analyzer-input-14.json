@@ -1,0 +1,203 @@
+{
+  "projectRoot": "/home/polat/Desktop/Projects/troop",
+  "batchFiles": [
+    {
+      "path": "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx",
+      "language": "typescript",
+      "sizeLines": 389,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/parser.test.ts",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/parser.ts",
+      "language": "typescript",
+      "sizeLines": 873,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/schema.ts",
+      "language": "typescript",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplateImport/types.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/agentTemplates/formState.ts",
+      "language": "typescript",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/api.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/graph/graphSignature.test.ts",
+      "language": "typescript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/graph/graphSignature.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/queries.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/templates/templateState.test.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/templates/templateState.ts",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/validation.test.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/hierarchy/validation.ts",
+      "language": "typescript",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx",
+      "language": "typescript",
+      "sizeLines": 272,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/parser.test.ts",
+      "language": "typescript",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/parser.ts",
+      "language": "typescript",
+      "sizeLines": 472,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/features/skillTemplateImport/types.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "frontend/src/pages/HierarchyPage.tsx",
+      "language": "typescript",
+      "sizeLines": 4361,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx": [
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplateImport/types.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/parser.test.ts": [
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplates/formState.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/parser.ts": [
+      "frontend/src/features/agentTemplateImport/schema.ts",
+      "frontend/src/features/agentTemplateImport/types.ts",
+      "frontend/src/features/agentTemplates/formState.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/schema.ts": [
+      "frontend/src/features/agentTemplateImport/types.ts"
+    ],
+    "frontend/src/features/agentTemplateImport/types.ts": [],
+    "frontend/src/features/agentTemplates/formState.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/features/hierarchy/api.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/features/hierarchy/graph/graphSignature.test.ts": [
+      "frontend/src/features/hierarchy/graph/graphSignature.ts"
+    ],
+    "frontend/src/features/hierarchy/graph/graphSignature.ts": [],
+    "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts": [],
+    "frontend/src/features/hierarchy/queries.ts": [
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/features/hierarchy/api.ts"
+    ],
+    "frontend/src/features/hierarchy/templates/templateState.test.ts": [
+      "frontend/src/features/hierarchy/templates/templateState.ts"
+    ],
+    "frontend/src/features/hierarchy/templates/templateState.ts": [
+      "frontend/src/api/orchestration.ts"
+    ],
+    "frontend/src/features/hierarchy/validation.test.ts": [
+      "frontend/src/features/hierarchy/validation.ts"
+    ],
+    "frontend/src/features/hierarchy/validation.ts": [],
+    "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx": [
+      "frontend/src/features/skillTemplateImport/parser.ts",
+      "frontend/src/features/skillTemplateImport/types.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/parser.test.ts": [
+      "frontend/src/features/skillTemplateImport/parser.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/parser.ts": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/features/skillTemplateImport/types.ts"
+    ],
+    "frontend/src/features/skillTemplateImport/types.ts": [],
+    "frontend/src/pages/HierarchyPage.tsx": [
+      "frontend/src/api/orchestration.ts",
+      "frontend/src/app/snackbarContext.ts",
+      "frontend/src/components/ui/EmptyState.tsx",
+      "frontend/src/components/ui/PageShell.tsx",
+      "frontend/src/components/ui/SectionCard.tsx",
+      "frontend/src/config/queryKeys.ts",
+      "frontend/src/features/agentTemplateImport/AgentTemplateImportReviewDrawer.tsx",
+      "frontend/src/features/agentTemplateImport/parser.ts",
+      "frontend/src/features/agentTemplateImport/types.ts",
+      "frontend/src/features/agentTemplates/formState.ts",
+      "frontend/src/features/hierarchy/graph/graphSignature.ts",
+      "frontend/src/features/hierarchy/graph/useHierarchyGraphState.ts",
+      "frontend/src/features/hierarchy/live/useHierarchyLiveState.ts",
+      "frontend/src/features/hierarchy/queries.ts",
+      "frontend/src/features/hierarchy/templates/templateState.ts",
+      "frontend/src/features/hierarchy/validation.ts",
+      "frontend/src/features/skillTemplateImport/parser.ts",
+      "frontend/src/features/skillTemplateImport/SkillTemplateImportReviewDrawer.tsx",
+      "frontend/src/features/skillTemplateImport/types.ts",
+      "frontend/src/utils/formatters.ts"
+    ]
+  }
+}

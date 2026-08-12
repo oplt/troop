@@ -1,0 +1,1336 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/workers/celery_async.py",
+      "type": "file",
+      "name": "celery_async.py",
+      "filePath": "backend/workers/celery_async.py",
+      "summary": "Provides an async polling adapter for Celery AsyncResult objects with bounded timeout handling.",
+      "tags": [
+        "background-job",
+        "celery",
+        "orchestration",
+        "async"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses async boundaries around Celery workers so blocking result polling and synchronous task entry points do not stall the application event loop."
+    },
+    {
+      "id": "function:backend/workers/celery_async.py:await_celery_result",
+      "type": "function",
+      "name": "await_celery_result",
+      "filePath": "backend/workers/celery_async.py",
+      "lineRange": [
+        10,
+        26
+      ],
+      "summary": "Polls a Celery result without blocking the event loop and raises on timeout.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/workers/context.py",
+      "type": "file",
+      "name": "context.py",
+      "filePath": "backend/workers/context.py",
+      "summary": "Propagates allowlisted request context through Celery task headers and binds and restores it around worker execution signals.",
+      "tags": [
+        "background-job",
+        "celery",
+        "orchestration",
+        "async"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses async boundaries around Celery workers so blocking result polling and synchronous task entry points do not stall the application event loop."
+    },
+    {
+      "id": "function:backend/workers/context.py:task_context_headers",
+      "type": "function",
+      "name": "task_context_headers",
+      "filePath": "backend/workers/context.py",
+      "lineRange": [
+        20,
+        22
+      ],
+      "summary": "Worker context helper that handles task context headers across Celery task boundaries.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/context.py:_bind_task_context",
+      "type": "function",
+      "name": "_bind_task_context",
+      "filePath": "backend/workers/context.py",
+      "lineRange": [
+        25,
+        38
+      ],
+      "summary": "Worker context helper that handles bind task context across Celery task boundaries.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/context.py:_restore_task_context",
+      "type": "function",
+      "name": "_restore_task_context",
+      "filePath": "backend/workers/context.py",
+      "lineRange": [
+        41,
+        46
+      ],
+      "summary": "Worker context helper that handles restore task context across Celery task boundaries.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/context.py:register_task_context_signals",
+      "type": "function",
+      "name": "register_task_context_signals",
+      "filePath": "backend/workers/context.py",
+      "lineRange": [
+        49,
+        64
+      ],
+      "summary": "Worker context helper that handles register task context signals across Celery task boundaries.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/workers/email.py",
+      "type": "file",
+      "name": "email.py",
+      "filePath": "backend/workers/email.py",
+      "summary": "Implements asynchronous SMTP delivery, synchronous bridging, Celery queue dispatch, and templated verification and password-reset emails.",
+      "tags": [
+        "background-job",
+        "celery",
+        "orchestration",
+        "async"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses async boundaries around Celery workers so blocking result polling and synchronous task entry points do not stall the application event loop."
+    },
+    {
+      "id": "function:backend/workers/email.py:send_email",
+      "type": "function",
+      "name": "send_email",
+      "filePath": "backend/workers/email.py",
+      "lineRange": [
+        14,
+        45
+      ],
+      "summary": "Email worker operation that performs send email.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/email.py:send_email_sync",
+      "type": "function",
+      "name": "send_email_sync",
+      "filePath": "backend/workers/email.py",
+      "lineRange": [
+        48,
+        56
+      ],
+      "summary": "Email worker operation that performs send email sync.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/email.py:queue_email",
+      "type": "function",
+      "name": "queue_email",
+      "filePath": "backend/workers/email.py",
+      "lineRange": [
+        59,
+        83
+      ],
+      "summary": "Email worker operation that performs queue email.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/email.py:send_verification_email",
+      "type": "function",
+      "name": "send_verification_email",
+      "filePath": "backend/workers/email.py",
+      "lineRange": [
+        86,
+        99
+      ],
+      "summary": "Email worker operation that performs send verification email.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/email.py:send_password_reset_email",
+      "type": "function",
+      "name": "send_password_reset_email",
+      "filePath": "backend/workers/email.py",
+      "lineRange": [
+        102,
+        117
+      ],
+      "summary": "Email worker operation that performs send password reset email.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/workers/orchestration.py",
+      "type": "file",
+      "name": "orchestration.py",
+      "filePath": "backend/workers/orchestration.py",
+      "summary": "Defines Celery-facing orchestration tasks and an async worker runtime for runs, GitHub synchronization, provider health, memory maintenance, SLA scans, semantic embedding, and code execution.",
+      "tags": [
+        "background-job",
+        "celery",
+        "orchestration",
+        "async"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses async boundaries around Celery workers so blocking result polling and synchronous task entry points do not stall the application event loop."
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:run_code_execution",
+      "type": "function",
+      "name": "run_code_execution",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        152,
+        166
+      ],
+      "summary": "Celery task or dispatch helper that performs run code execution work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:run_orchestration_task",
+      "type": "function",
+      "name": "run_orchestration_task",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        176,
+        177
+      ],
+      "summary": "Celery task or dispatch helper that performs run orchestration task work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:process_github_webhook_event",
+      "type": "function",
+      "name": "process_github_webhook_event",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        187,
+        188
+      ],
+      "summary": "Celery task or dispatch helper that performs process github webhook event work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:github_connection_resync",
+      "type": "function",
+      "name": "github_connection_resync",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        198,
+        199
+      ],
+      "summary": "Celery task or dispatch helper that performs github connection resync work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:provider_healthcheck",
+      "type": "function",
+      "name": "provider_healthcheck",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        209,
+        210
+      ],
+      "summary": "Celery task or dispatch helper that performs provider healthcheck work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:github_issue_poll",
+      "type": "function",
+      "name": "github_issue_poll",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        220,
+        221
+      ],
+      "summary": "Celery task or dispatch helper that performs github issue poll work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:memory_expiration_sweep",
+      "type": "function",
+      "name": "memory_expiration_sweep",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        231,
+        232
+      ],
+      "summary": "Celery task or dispatch helper that performs memory expiration sweep work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:sla_escalation_scan",
+      "type": "function",
+      "name": "sla_escalation_scan",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        242,
+        243
+      ],
+      "summary": "Celery task or dispatch helper that performs sla escalation scan work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:embed_semantic_memory_entry",
+      "type": "function",
+      "name": "embed_semantic_memory_entry",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        253,
+        254
+      ],
+      "summary": "Celery task or dispatch helper that performs embed semantic memory entry work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:process_memory_ingest_jobs",
+      "type": "function",
+      "name": "process_memory_ingest_jobs",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        264,
+        265
+      ],
+      "summary": "Celery task or dispatch helper that performs process memory ingest jobs work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:episodic_retention_archive",
+      "type": "function",
+      "name": "episodic_retention_archive",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        275,
+        276
+      ],
+      "summary": "Celery task or dispatch helper that performs episodic retention archive work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:memory_compaction_backfill",
+      "type": "function",
+      "name": "memory_compaction_backfill",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        286,
+        287
+      ],
+      "summary": "Celery task or dispatch helper that performs memory compaction backfill work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:episodic_index_embedding_batch",
+      "type": "function",
+      "name": "episodic_index_embedding_batch",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        297,
+        298
+      ],
+      "summary": "Celery task or dispatch helper that performs episodic index embedding batch work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:queue_orchestration_run",
+      "type": "function",
+      "name": "queue_orchestration_run",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        301,
+        314
+      ],
+      "summary": "Celery task or dispatch helper that performs queue orchestration run work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:queue_github_webhook_event",
+      "type": "function",
+      "name": "queue_github_webhook_event",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        317,
+        330
+      ],
+      "summary": "Celery task or dispatch helper that performs queue github webhook event work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:queue_semantic_embedding",
+      "type": "function",
+      "name": "queue_semantic_embedding",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        333,
+        346
+      ],
+      "summary": "Celery task or dispatch helper that performs queue semantic embedding work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:queue_provider_healthcheck",
+      "type": "function",
+      "name": "queue_provider_healthcheck",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        349,
+        361
+      ],
+      "summary": "Celery task or dispatch helper that performs queue provider healthcheck work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/workers/orchestration.py:queue_memory_ingest_jobs",
+      "type": "function",
+      "name": "queue_memory_ingest_jobs",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        364,
+        376
+      ],
+      "summary": "Celery task or dispatch helper that performs queue memory ingest jobs work.",
+      "tags": [
+        "background-job",
+        "celery",
+        "async"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "class",
+      "name": "OrchestrationWorkerRuntime",
+      "filePath": "backend/workers/orchestration.py",
+      "lineRange": [
+        17,
+        141
+      ],
+      "summary": "Async orchestration worker runtime that opens service sessions and serializes singleton maintenance jobs with distributed leases.",
+      "tags": [
+        "service",
+        "celery",
+        "async"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/workers/celery_async.py",
+      "target": "function:backend/workers/celery_async.py:await_celery_result",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/celery_async.py",
+      "target": "function:backend/workers/celery_async.py:await_celery_result",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:_bind_task_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:_bind_task_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:_restore_task_context",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:_restore_task_context",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:register_task_context_signals",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "function:backend/workers/context.py:register_task_context_signals",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_email_sync",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_email_sync",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:queue_email",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:queue_email",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_verification_email",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_verification_email",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_password_reset_email",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "function:backend/workers/email.py:send_password_reset_email",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:run_code_execution",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:run_code_execution",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:run_orchestration_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:run_orchestration_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:process_github_webhook_event",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:process_github_webhook_event",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:github_connection_resync",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:github_connection_resync",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:provider_healthcheck",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:provider_healthcheck",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:github_issue_poll",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:github_issue_poll",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:memory_expiration_sweep",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:memory_expiration_sweep",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:sla_escalation_scan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:sla_escalation_scan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:embed_semantic_memory_entry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:embed_semantic_memory_entry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:process_memory_ingest_jobs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:process_memory_ingest_jobs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:episodic_retention_archive",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:episodic_retention_archive",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:memory_compaction_backfill",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:memory_compaction_backfill",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:episodic_index_embedding_batch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:episodic_index_embedding_batch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_orchestration_run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_orchestration_run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_github_webhook_event",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_github_webhook_event",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_semantic_embedding",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_semantic_embedding",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_provider_healthcheck",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_provider_healthcheck",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_memory_ingest_jobs",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "function:backend/workers/orchestration.py:queue_memory_ingest_jobs",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "file:backend/core/request_context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/email.py",
+      "target": "file:backend/workers/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/core/cache.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/core/config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/core/distributed_lock.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/core/logging.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/modules/observability/metrics.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/modules/orchestration/execution/cpu_executor.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/modules/orchestration/services/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/workers/celery_app.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/workers/context.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/workers/orchestration.py",
+      "target": "file:backend/workers/retry.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:backend/workers/context.py:task_context_headers",
+      "target": "function:backend/core/request_context.py:get_request_context",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/context.py:_bind_task_context",
+      "target": "function:backend/core/request_context.py:context_from_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/context.py:_bind_task_context",
+      "target": "function:backend/core/request_context.py:bind_context",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:send_email_sync",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:queue_email",
+      "target": "function:backend/workers/email.py:send_email_sync",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:queue_email",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:queue_email",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:send_verification_email",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/email.py:send_password_reset_email",
+      "target": "function:backend/workers/email.py:send_email",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "target": "class:backend/core/distributed_lock.py:RedisLease",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "target": "function:backend/modules/observability/metrics.py:record_run_outcome",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:github_connection_resync",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:embed_semantic_memory_entry",
+      "target": "class:backend/modules/orchestration/services/service.py:OrchestrationService",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:run_code_execution",
+      "target": "function:backend/modules/orchestration/execution/cpu_executor.py:execute_code_job",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:run_orchestration_task",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:process_github_webhook_event",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:github_connection_resync",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:provider_healthcheck",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:github_issue_poll",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:memory_expiration_sweep",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:sla_escalation_scan",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:embed_semantic_memory_entry",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:process_memory_ingest_jobs",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:episodic_retention_archive",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:memory_compaction_backfill",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:episodic_index_embedding_batch",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_orchestration_run",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_orchestration_run",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_github_webhook_event",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_github_webhook_event",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_semantic_embedding",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_semantic_embedding",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_provider_healthcheck",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_provider_healthcheck",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_memory_ingest_jobs",
+      "target": "class:backend/workers/orchestration.py:OrchestrationWorkerRuntime",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:backend/workers/orchestration.py:queue_memory_ingest_jobs",
+      "target": "function:backend/workers/context.py:task_context_headers",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/workers/context.py",
+      "target": "file:backend/tests/test_phase0_context.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/workers/celery_async.py",
+      "target": "file:backend/tests/test_worker_blocking_sync.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

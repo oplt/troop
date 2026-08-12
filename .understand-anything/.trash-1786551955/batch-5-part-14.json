@@ -1,0 +1,206 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/modules/orchestration/services/execution_domain.py",
+      "type": "file",
+      "name": "execution_domain.py",
+      "filePath": "backend/modules/orchestration/services/execution_domain.py",
+      "summary": "Composes the execution domain boundary from run, approval, routing, provider, GitHub, memory, task, project, and team behaviors.",
+      "tags": [
+        "service",
+        "domain-logic",
+        "orchestration",
+        "composition"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses cooperative multiple inheritance to compose narrowly owned domain mixins behind a session-scoped service boundary."
+    },
+    {
+      "id": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "type": "class",
+      "name": "ExecutionService",
+      "filePath": "backend/modules/orchestration/services/execution_domain.py",
+      "lineRange": [
+        26,
+        39
+      ],
+      "summary": "Composable domain service boundary for execution service operations.",
+      "tags": [
+        "service",
+        "orchestration",
+        "composition"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/github/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/memory/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/orchestration/execution/execution_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/orchestration/services/approvals_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/orchestration/services/base.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/orchestration/services/providers_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/orchestration/services/routing_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/projects/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/projects/tasks_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/modules/team/service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationRunQueryMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/services/base.py:OrchestrationServiceBase",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/execution/execution_service.py:OrchestrationExecutionServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/services/approvals_service.py:OrchestrationApprovalsServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/services/routing_service.py:OrchestrationRoutingServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/orchestration/services/providers_service.py:OrchestrationProvidersServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/github/service.py:OrchestrationGithubServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/memory/service.py:OrchestrationMemoryServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/projects/tasks_service.py:OrchestrationTasksServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/projects/service.py:OrchestrationProjectsServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:backend/modules/orchestration/services/execution_domain.py:ExecutionService",
+      "target": "class:backend/modules/team/service.py:TeamServiceMixin",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:backend/modules/orchestration/services/execution_domain.py",
+      "target": "file:backend/tests/test_orchestration_domain_services.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

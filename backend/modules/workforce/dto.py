@@ -8,7 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.workforce.models import Skill, SkillDraft, SkillVersion
-from backend.modules.workforce.schemas import SkillDraftResponse, SkillResponse, SkillVersionResponse
+from backend.modules.workforce.schemas import (
+    SkillDraftResponse,
+    SkillResponse,
+    SkillVersionResponse,
+)
 
 
 def _constraints_list(markdown: str | None) -> list[str]:

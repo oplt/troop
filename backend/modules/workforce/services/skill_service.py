@@ -61,9 +61,7 @@ class SkillService:
         await self.db.commit()
         return skill
 
-    async def update(
-        self, owner_id: str, skill_id: str, **kwargs: Any
-    ) -> Skill:
+    async def update(self, owner_id: str, skill_id: str, **kwargs: Any) -> Skill:
         skill = await self.repo.get_skill(skill_id, owner_id)
         if skill is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="skill not found")
@@ -183,7 +181,8 @@ class SkillService:
 
         if target_scope not in {"project", "organization"}:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, detail="target_scope must be project or organization"
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="target_scope must be project or organization",
             )
 
         current_hierarchy = ["task", "project", "organization"]
@@ -212,9 +211,7 @@ class SkillService:
         await self.db.commit()
         return draft
 
-    async def update_draft(
-        self, owner_id: str, draft_id: str, **kwargs: Any
-    ) -> SkillDraft:
+    async def update_draft(self, owner_id: str, draft_id: str, **kwargs: Any) -> SkillDraft:
         draft = await self.repo.get_skill_draft(draft_id, owner_id)
         if draft is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="draft not found")
@@ -283,9 +280,7 @@ class SkillService:
             notes.append(f"Evaluation id: `{evaluation_id}`")
         if feedback_clean:
             notes.append("### Reviewer feedback\n" + feedback_clean)
-        notes.append(
-            "### Current instructions\n" + (version.instructions_markdown or "").strip()
-        )
+        notes.append("### Current instructions\n" + (version.instructions_markdown or "").strip())
         improved_instructions = "\n\n".join(notes)
 
         draft = await self.repo.create_skill_draft(

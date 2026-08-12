@@ -82,6 +82,7 @@ class EvaluationService:
     async def get_usage_stats(self, skill_id: str) -> list[SkillUsageStat]:
         """Get usage stats for a skill (all versions)."""
         from sqlalchemy import select
+
         from backend.modules.workforce.models import SkillUsageStat
 
         res = await self.db.execute(

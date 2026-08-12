@@ -44,15 +44,28 @@ async def migrate_skill_packs(
         SkillPackDeprecationService,
     )
 
-    results = await SkillPackDeprecationService(db).migrate_all_for_owner(
-        user.id, publish=publish
-    )
+    results = await SkillPackDeprecationService(db).migrate_all_for_owner(user.id, publish=publish)
     return {
         "migrated": sum(1 for r in results if r.get("status") == "migrated"),
         "drafts": sum(1 for r in results if r.get("status") == "draft_created"),
         "skipped": sum(1 for r in results if r.get("status") == "skipped"),
         "results": results,
     }
+
+
+@router.post("/reconcile-uncertain-ownership")
+async def reconcile_uncertain_ownership(
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Disable skills whose SkillPack ownership bridge is uncertain."""
+    from backend.modules.workforce.services.skill_ownership_reconciliation import (
+        disable_skills_needing_reconciliation,
+    )
+
+    # Auth gate: any authenticated owner may run; effect is global bridge-linked skills.
+    _ = user
+    return await disable_skills_needing_reconciliation(db)
 
 
 @router.get("/{skill_id}", response_model=SkillResponse)
@@ -90,10 +103,10 @@ async def get_skill_usage(
     await service.get(user.id, skill_id)
     eval_service = EvaluationService(db)
     stats = await eval_service.get_usage_stats(skill_id)
-    
+
     if not stats:
         return SkillUsageResponse(skill_id=skill_id)
-    
+
     # Aggregate across all versions
     total_runs = sum(s.run_count for s in stats)
     total_success = sum(s.success_count for s in stats)
@@ -102,12 +115,12 @@ async def get_skill_usage(
     total_cost = sum(s.total_cost_usd for s in stats)
     total_retries = sum(s.total_retries for s in stats)
     last_used = max((s.last_used_at for s in stats if s.last_used_at), default=None)
-    
+
     success_rate = total_success / total_runs if total_runs > 0 else 0.0
     avg_latency = total_latency / total_runs if total_runs > 0 else None
     avg_cost = total_cost / total_runs if total_runs > 0 else None
     retry_rate = total_retries / total_runs if total_runs > 0 else 0.0
-    
+
     # Get promotion recommendation
     recommendation = await eval_service.recommend_promotion(skill_id, user.id)
     promo = None
@@ -115,7 +128,7 @@ async def get_skill_usage(
         eligible_scopes = recommendation.get("eligible_scopes", [])
         if eligible_scopes:
             promo = f"Ready for {', '.join(eligible_scopes)}"
-    
+
     return SkillUsageResponse(
         skill_id=skill_id,
         run_count=total_runs,

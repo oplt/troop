@@ -452,43 +452,21 @@ class TeamServiceMixin:
         return [self._skill_model_to_payload(item) for item in skills]
 
     async def create_skill_pack(self, payload: dict[str, Any]) -> dict[str, Any]:
-        await self._ensure_catalog_seeded()
-        existing = await self.repo.get_skill_pack_by_slug(payload["slug"])
-        if existing is not None:
-            raise HTTPException(status_code=409, detail="Skill slug already exists")
-        skill = await self.repo.create_skill_pack(
-            slug=payload["slug"],
-            name=payload["name"],
-            description=payload.get("description"),
-            capabilities_json=payload.get("capabilities", []),
-            allowed_tools_json=payload.get("allowed_tools", []),
-            rules_markdown=payload.get("rules_markdown", ""),
-            tags_json=payload.get("tags", []),
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "SkillPack writes are retired. Create a SkillDraft via /skill-drafts "
+                "and publish a SkillVersion instead."
+            ),
         )
-        await self.db.commit()
-        await self.db.refresh(skill)
-        return self._skill_model_to_payload(skill)
 
     async def update_skill_pack(self, slug: str, payload: dict[str, Any]) -> dict[str, Any]:
-        await self._ensure_catalog_seeded()
-        skill = await self.repo.get_skill_pack_by_slug(slug)
-        if skill is None:
-            raise HTTPException(status_code=404, detail=f"Skill '{slug}' not found")
-        field_map = {
-            "name": "name",
-            "description": "description",
-            "capabilities": "capabilities_json",
-            "allowed_tools": "allowed_tools_json",
-            "rules_markdown": "rules_markdown",
-            "tags": "tags_json",
-        }
-        for key, value in payload.items():
-            target = field_map.get(key)
-            if target is not None:
-                setattr(skill, target, value)
-        await self.db.commit()
-        await self.db.refresh(skill)
-        return self._skill_model_to_payload(skill)
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "SkillPack writes are retired. Update skills via SkillDraft / SkillVersion APIs."
+            ),
+        )
 
     async def delete_skill_pack(self, slug: str) -> None:
         await self._ensure_catalog_seeded()

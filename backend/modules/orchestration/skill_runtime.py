@@ -37,8 +37,7 @@ async def load_assigned_skill_versions(
     need_current_ids = [
         skill.current_version_id
         for assignment, skill, pinned in rows
-        if skill.current_version_id
-        and (assignment.version_policy != "pinned" or pinned is None)
+        if skill.current_version_id and (assignment.version_policy != "pinned" or pinned is None)
     ]
     current_by_id: dict[str, SkillVersion] = {}
     if need_current_ids:
@@ -50,9 +49,8 @@ async def load_assigned_skill_versions(
     payloads: list[dict[str, Any]] = []
     for assignment, skill, pinned in rows:
         version = pinned
-        if assignment.version_policy != "pinned" or version is None:
-            if skill.current_version_id:
-                version = current_by_id.get(skill.current_version_id)
+        if (assignment.version_policy != "pinned" or version is None) and skill.current_version_id:
+            version = current_by_id.get(skill.current_version_id)
         if version is None:
             continue
         payloads.append(

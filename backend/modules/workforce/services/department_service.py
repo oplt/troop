@@ -56,9 +56,7 @@ class DepartmentService:
         if parent_department_id:
             parent = await self.repo.get_department(parent_department_id, company_id)
             if parent is None:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND, detail="parent department not found"
-                )
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="parent department not found")
 
         dept = await self.repo.create_department(
             company_id=company_id,
@@ -98,23 +96,39 @@ class DepartmentService:
         if "parent_department_id" in kwargs:
             parent_id = kwargs["parent_department_id"]
             if parent_id:
+                if parent_id == department_id:
+                    raise HTTPException(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="department cannot be its own parent",
+                    )
                 parent = await self.repo.get_department(parent_id, company_id)
                 if parent is None:
                     raise HTTPException(
                         status.HTTP_404_NOT_FOUND, detail="parent department not found"
                     )
+                await self._assert_no_parent_cycle(company_id, department_id, parent_id)
             dept.parent_department_id = parent_id
-        if "default_knowledge_policy_json" in kwargs and kwargs["default_knowledge_policy_json"]:
+        # Explicit is not None so {} clears an existing policy
+        if (
+            "default_knowledge_policy_json" in kwargs
+            and kwargs["default_knowledge_policy_json"] is not None
+        ):
             dept.default_knowledge_policy_json = kwargs["default_knowledge_policy_json"]
-        if "default_tool_policy_json" in kwargs and kwargs["default_tool_policy_json"]:
+        if "default_tool_policy_json" in kwargs and kwargs["default_tool_policy_json"] is not None:
             dept.default_tool_policy_json = kwargs["default_tool_policy_json"]
-        if "default_model_policy_json" in kwargs and kwargs["default_model_policy_json"]:
+        if (
+            "default_model_policy_json" in kwargs
+            and kwargs["default_model_policy_json"] is not None
+        ):
             dept.default_model_policy_json = kwargs["default_model_policy_json"]
-        if "default_approval_policy_json" in kwargs and kwargs["default_approval_policy_json"]:
+        if (
+            "default_approval_policy_json" in kwargs
+            and kwargs["default_approval_policy_json"] is not None
+        ):
             dept.default_approval_policy_json = kwargs["default_approval_policy_json"]
-        if "budget_policy_json" in kwargs and kwargs["budget_policy_json"]:
+        if "budget_policy_json" in kwargs and kwargs["budget_policy_json"] is not None:
             dept.budget_policy_json = kwargs["budget_policy_json"]
-        if "metadata_json" in kwargs and kwargs["metadata_json"]:
+        if "metadata_json" in kwargs and kwargs["metadata_json"] is not None:
             dept.metadata_json = kwargs["metadata_json"]
         if "is_archived" in kwargs and kwargs["is_archived"] is not None:
             dept.is_archived = kwargs["is_archived"]
@@ -122,6 +136,24 @@ class DepartmentService:
         await self.db.commit()
         await self.db.refresh(dept)
         return dept
+
+    async def _assert_no_parent_cycle(
+        self, company_id: str, department_id: str, new_parent_id: str
+    ) -> None:
+        """Walk ancestors of new_parent; reject if we encounter department_id."""
+        seen: set[str] = set()
+        cursor: str | None = new_parent_id
+        while cursor:
+            if cursor == department_id:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="department parent would create a cycle",
+                )
+            if cursor in seen:
+                break
+            seen.add(cursor)
+            parent = await self.repo.get_department(cursor, company_id)
+            cursor = parent.parent_department_id if parent else None
 
     async def list(
         self, owner_id: str, company_id: str, include_archived: bool = False

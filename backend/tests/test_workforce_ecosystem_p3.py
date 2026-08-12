@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from backend.modules.workforce.catalog import (
     AGENT_TEMPLATE_CATALOG,
     CONNECTOR_CATALOG,

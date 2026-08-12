@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 MIGRATION_PATH = (
     Path(__file__).parent.parent
     / "alembic"
@@ -29,13 +28,13 @@ def test_no_sqlite_uuid_generation():
     content = MIGRATION_PATH.read_text()
 
     # Check for SQLite-specific functions
-    assert (
-        "randomblob" not in content.lower()
-    ), "Found 'randomblob' - use Python uuid.uuid4() for PostgreSQL compatibility"
+    assert "randomblob" not in content.lower(), (
+        "Found 'randomblob' - use Python uuid.uuid4() for PostgreSQL compatibility"
+    )
 
-    assert (
-        "hex(" not in content.lower() or "hex(randomblob" not in content.lower()
-    ), "Found 'hex(' with randomblob - use Python uuid.uuid4() for PostgreSQL compatibility"
+    assert "hex(" not in content.lower() or "hex(randomblob" not in content.lower(), (
+        "Found 'hex(' with randomblob - use Python uuid.uuid4() for PostgreSQL compatibility"
+    )
 
 
 def test_no_first_user_ownership_pattern():
@@ -43,7 +42,7 @@ def test_no_first_user_ownership_pattern():
     content = MIGRATION_PATH.read_text()
 
     # Look for the problematic pattern of getting first user
-    first_user_pattern = re.compile(
+    re.compile(
         r"ORDER\s+BY\s+created_at\s+LIMIT\s+1.*first.*user",
         re.IGNORECASE | re.DOTALL,
     )
@@ -84,7 +83,7 @@ def test_no_purpose_column_in_skill_packs_select():
                 columns = select_match.group(1)
                 # Check if 'purpose' appears as a column name
                 if re.search(r"\bpurpose\b", columns, re.IGNORECASE):
-                    assert False, (
+                    raise AssertionError(
                         "Found 'purpose' column in skill_packs SELECT. "
                         "SkillPack model has no 'purpose' column - use description instead."
                     )
@@ -98,9 +97,9 @@ def test_uses_python_uuid_generation():
     assert "import uuid" in content, "Migration should import uuid module"
 
     # Should use uuid.uuid4()
-    assert (
-        "uuid.uuid4()" in content
-    ), "Migration should use uuid.uuid4() for PostgreSQL-compatible UUID generation"
+    assert "uuid.uuid4()" in content, (
+        "Migration should use uuid.uuid4() for PostgreSQL-compatible UUID generation"
+    )
 
 
 def test_uses_postgresql_boolean_syntax():
@@ -123,7 +122,7 @@ def test_uses_postgresql_boolean_syntax():
                         # Pattern: column_name, value, value could be 1 or 0
                         pattern = rf"{col}['\"]?\s*,?\s*(?:VALUES|SET).*?[\(,\s]([01])[\),\s]"
                         if re.search(pattern, sql, re.IGNORECASE):
-                            assert False, (
+                            raise AssertionError(
                                 f"Found integer (0/1) for boolean column '{col}'. "
                                 "Use 'true'/'false' for PostgreSQL compatibility."
                             )
@@ -135,7 +134,7 @@ def test_has_ownership_strategy_documentation():
 
     # Should have a comment explaining ownership strategy
     doc_keywords = ["ownership", "owner", "strategy"]
-    comment_section = content[: content.find("def upgrade()")]
+    content[: content.find("def upgrade()")]
 
     # Check for explanation in comments or docstrings near data migration
     data_migration_section = content[content.find("# Data migrations") :]
@@ -155,9 +154,9 @@ def test_idempotent_skill_creation():
     content = MIGRATION_PATH.read_text()
 
     # Should check for existing skills before inserting
-    assert (
-        "existing_skill" in content.lower() or "SELECT id FROM skills" in content
-    ), "Migration should check if skills already exist (idempotency)"
+    assert "existing_skill" in content.lower() or "SELECT id FROM skills" in content, (
+        "Migration should check if skills already exist (idempotency)"
+    )
 
 
 def test_idempotent_tool_creation():
@@ -165,9 +164,9 @@ def test_idempotent_tool_creation():
     content = MIGRATION_PATH.read_text()
 
     # Should check for existing tools before inserting
-    assert (
-        "existing" in content.lower() and "tool_definitions" in content
-    ), "Migration should check if tools already exist (idempotency)"
+    assert "existing" in content.lower() and "tool_definitions" in content, (
+        "Migration should check if tools already exist (idempotency)"
+    )
 
 
 def test_idempotent_agent_skill_assignments():
@@ -187,13 +186,14 @@ def test_uses_current_timestamp_for_postgresql():
 
     # Check for SQLite-specific datetime function
     if "datetime('now')" in content:
-        assert False, "Found datetime('now') - use CURRENT_TIMESTAMP for PostgreSQL compatibility"
+        raise AssertionError(
+            "Found datetime('now') - use CURRENT_TIMESTAMP for PostgreSQL compatibility"
+        )
 
 
 if __name__ == "__main__":
     # Allow running tests directly without pytest
     import sys
-    import traceback
 
     test_functions = [
         test_migration_file_exists,

@@ -86,7 +86,9 @@ class MarketplaceService:
         for item in AGENT_TEMPLATE_CATALOG:
             if item["slug"] == slug:
                 return item
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="marketplace agent template not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="marketplace agent template not found"
+        )
 
     async def install_skill(
         self,

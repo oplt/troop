@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.workforce.models import (
     ActionPolicy,
     AgentSkillAssignment,
+    ConnectorDefinition,
+    ConnectorInstallation,
     Department,
     ProjectAnalysis,
     Skill,
@@ -20,6 +22,7 @@ from backend.modules.workforce.models import (
     TaskAnalysis,
     TaskRequirement,
     ToolDefinition,
+    ToolGrant,
     WorkflowDefinition,
 )
 
@@ -51,9 +54,7 @@ class WorkforceRepository:
         return result.scalar_one_or_none()
 
     async def get_department_by_id(self, department_id: str) -> Department | None:
-        result = await self.db.execute(
-            select(Department).where(Department.id == department_id)
-        )
+        result = await self.db.execute(select(Department).where(Department.id == department_id))
         return result.scalar_one_or_none()
 
     async def find_department_by_slug(self, company_id: str, slug: str) -> Department | None:
@@ -134,9 +135,7 @@ class WorkforceRepository:
         return list(result.scalars().all())
 
     async def get_skill_version(self, version_id: str) -> SkillVersion | None:
-        result = await self.db.execute(
-            select(SkillVersion).where(SkillVersion.id == version_id)
-        )
+        result = await self.db.execute(select(SkillVersion).where(SkillVersion.id == version_id))
         return result.scalar_one_or_none()
 
     async def get_latest_skill_version_number(self, skill_id: str) -> int:
@@ -287,6 +286,78 @@ class WorkforceRepository:
         await self.db.flush()
         return item
 
+    async def list_skill_usage_stats(self, skill_ids: list[str]) -> list[SkillUsageStat]:
+        if not skill_ids:
+            return []
+        result = await self.db.execute(
+            select(SkillUsageStat).where(SkillUsageStat.skill_id.in_(skill_ids))
+        )
+        return list(result.scalars().all())
+
+    # ─── Connectors ──────────────────────────────────────────────
+
+    async def list_connector_installations(self, owner_id: str) -> list[ConnectorInstallation]:
+        result = await self.db.execute(
+            select(ConnectorInstallation)
+            .where(ConnectorInstallation.owner_id == owner_id)
+            .order_by(ConnectorInstallation.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def list_connector_definitions_by_ids(
+        self, definition_ids: list[str]
+    ) -> list[ConnectorDefinition]:
+        if not definition_ids:
+            return []
+        result = await self.db.execute(
+            select(ConnectorDefinition).where(ConnectorDefinition.id.in_(definition_ids))
+        )
+        return list(result.scalars().all())
+
+    # ─── Tool Grants ─────────────────────────────────────────────
+
+    async def list_tool_grants_for_subject(
+        self, subject_type: str, subject_id: str, *, effect: str | None = "allow"
+    ) -> list[ToolGrant]:
+        stmt = select(ToolGrant).where(
+            ToolGrant.subject_type == subject_type,
+            ToolGrant.subject_id == subject_id,
+        )
+        if effect is not None:
+            stmt = stmt.where(ToolGrant.effect == effect)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_tool_grants_for_subjects(
+        self, subject_type: str, subject_ids: list[str], *, effect: str | None = "allow"
+    ) -> list[ToolGrant]:
+        if not subject_ids:
+            return []
+        stmt = select(ToolGrant).where(
+            ToolGrant.subject_type == subject_type,
+            ToolGrant.subject_id.in_(subject_ids),
+        )
+        if effect is not None:
+            stmt = stmt.where(ToolGrant.effect == effect)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_tool_definitions_by_ids(self, ids: list[str]) -> list[ToolDefinition]:
+        if not ids:
+            return []
+        result = await self.db.execute(select(ToolDefinition).where(ToolDefinition.id.in_(ids)))
+        return list(result.scalars().all())
+
+    # ─── Action Policies ─────────────────────────────────────────
+
+    async def list_action_policies(self, owner_id: str) -> list[ActionPolicy]:
+        result = await self.db.execute(
+            select(ActionPolicy)
+            .where(ActionPolicy.owner_id == owner_id)
+            .order_by(ActionPolicy.action_key.asc())
+        )
+        return list(result.scalars().all())
+
     # ─── Tool Definitions ────────────────────────────────────────
 
     async def list_tool_definitions(self, *, is_active: bool | None = True) -> list[ToolDefinition]:
@@ -298,9 +369,7 @@ class WorkforceRepository:
         return list(result.scalars().all())
 
     async def get_tool_definition(self, slug: str) -> ToolDefinition | None:
-        result = await self.db.execute(
-            select(ToolDefinition).where(ToolDefinition.slug == slug)
-        )
+        result = await self.db.execute(select(ToolDefinition).where(ToolDefinition.slug == slug))
         return result.scalar_one_or_none()
 
     async def create_tool_definition(self, **kwargs: Any) -> ToolDefinition:

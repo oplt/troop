@@ -5,7 +5,7 @@
 ## P0 — Correctness / broken behavior
 
 [x] Restore GitHub Actions quality workflow (backend lint/format/tests + FE tsc/lint/test/build + Postgres alembic)
-[~] CI editable install fixed via setuptools package discovery — confirm green on next Action run
+[~] CI editable install fixed; Ruff CI paths green locally — confirm Action run after push
 [x] Fix FE skill scope contract (task|project|organization|template|global — no company/personal)
 [x] Fix invalid FE imports (`@tantml:react-query` removed)
 [x] MarketplacePage uses PageHeader (PageShell no longer gets invalid title/subtitle)
@@ -16,42 +16,54 @@
 [x] Department PATCH/archive resolve company from ownership (company_id query optional)
 [x] ToolExecutionContext is server-owned (never trust call.allowed_tools / approval_granted)
 [x] Tool policy fail-closed (TOOL_POLICY_FAIL_OPEN only for allowlisted low-risk tools)
+[x] One-time tool approvals bound to tool + arguments_hash; consumed after use
+[x] Workflow approval resume binds/consumes ApprovalRequest to current node
+[x] Workflow human_input completes separately from approval (no infinite pause loop)
 [x] Connector secrets encrypted into secrets_ref; config_json is non-secret only
-[x] MCP/A2A outbound URL validation (SSRF guards; TROOP_ALLOW_PRIVATE_CONNECTOR_URLS for local)
+[x] MCP/A2A outbound URL validation (HTTPS default; TROOP_ALLOW_PRIVATE_CONNECTOR_URLS for local http)
+[x] jsonschema is a runtime dependency; ImportError vs SchemaError distinguished
+[x] TaskRun freezes SkillVersion snapshot at create_run; eval/runtime prefer snapshot
+[x] Evaluation criteria_scores use measured|unmeasured (no invented 1.0/0.0); failures emit RunEvents
 [x] Freeze e8a1c2d3f4b5; corrective migration f9c8d7e6a5b4 skill_pack_ownership_bridge (no invented reassignment)
 [x] Migration contract tests (SQLite constructs, ownership, idempotency)
-[x] CI includes workforce acceptance + action_policy + ecosystem_p3 tests
+[x] CI includes workforce acceptance + action_policy + ecosystem_p3 + workflow_runtime tests
 
 ## P1 — Core architecture integration
 
 [x] Departments CRUD API + DepartmentsPage
+[x] Department parent cycle detection + policy clear via `is not None`
 [x] Skills / SkillVersions / SkillDrafts domain models + APIs
+[x] FE normalizeSkillVersion + normalizeSkillUsage (+ contract tests)
 [x] Task analysis API with provider resolution + heuristic fallback (`deterministic`)
-[~] Task analysis fingerprint/context includes project + tool/skill catalog (semantic matching still TBD)
-[~] Provider resolution purpose-aware among owner providers (full cost/latency router reuse still TBD)
+[~] Task analysis fingerprint/context includes dept policies, connectors, grants, skill version hashes
+[x] Provider resolution uses ModelCapability cost/context/structured signals (fallback to default)
 [x] Persist TaskRequirement coverage after skill-matches (covered|partial|missing)
 [x] Generate-skills / project analyze default to LLM when provider exists (deterministic=true → heuristic)
 [x] /skill-matches passes task_id/project_id/company_id for scoped skills
 [x] /agent-matches passes required tools + matched skill slugs
 [x] Skill matcher hard filters + batched version load + explainable scores
-[~] Skill matching scoring: IO/knowledge/ToolGrant/eval/cost/semantic still TBD
+[~] Skill matching: knowledge/risk/eval history added; ToolGrant feasibility / semantic / cost still shallow
 [x] SkillValidationService uses real JSON Schema check + ecosystem tool warnings
 [x] publish_draft validates at service domain layer (not only router)
 [x] Skill improve → new SkillDraft from active SkillVersion (immutable versions)
 [x] recommend-workforce composes analysis + skill plan + agent plan + workflow/approvals
 [x] Agent matcher uses AgentSkillAssignment coverage (batched, no fake success %)
-[~] Agent matcher project membership / load / eval history scoring still TBD
+[~] Agent matcher project-membership boost + composed-agent ToolGrant/ActionPolicy gate; load/eval history TBD
 [x] Assemble-agent creates composed AgentProfile + assignments + ProjectAgentMembership + provider policy
-[~] Runtime prefers AgentSkillAssignment → SkillVersion; TaskRun SkillVersion snapshot wiring still partial
+[x] Runtime prefers AgentSkillAssignment → SkillVersion; TaskRun SkillVersion snapshot wired
 [x] ActionPolicy deny-overrides resolution + unit tests
 [x] ToolRegistry/ActionPolicy gates OrchestrationToolbox (prohibited + approval_required → HITL)
-[~] WorkflowRuntimeService exists; agent/skill/tool nodes still delegated — not full orchestration engine
+[~] WorkflowRuntime connects tool/skill/agent/delay/subworkflow to durable primitives; parallel join + Celery delay still MVP
 [x] Workflow resume requires durable ApprovalRequest / human_input (rejects client approval_granted)
-[x] SkillEvaluation prefers used SkillVersion snapshot; criteria_scores populated; errors not fully silent
+[x] SkillEvaluation prefers used SkillVersion snapshot; criteria unmeasured unless judged; errors → RunEvents
 [x] Canonical `/projects` routes (legacy `/agent-projects` redirects)
 [x] Project.department_id first-class on create/update
 [x] TaskIntelligencePanel wired + loads existing analysis + assemble without fake success %
 [x] Legacy Project/ProjectTask router marked deprecated and unmounted
+[x] SkillPack writes return 410; migrate + reconcile-uncertain-ownership disables uncertain skills
+[~] Legacy projects/project_tasks + SkillPack tables still present for compatibility (drop pending)
+[~] Manager-worker stages use generic artifact/evidence titles; github_sync step id retained as specialization
+[~] PostgreSQL HTTP E2E added (`test_workforce_pg_e2e.py`); full approval-consume→eval path still expanding
 
 ## P2 — Product improvements
 
@@ -60,7 +72,7 @@
 [x] SkillPack deprecation tooling (`POST /skills/migrate-skill-packs`)
 [x] Project analyzer provider-aware
 [x] Workforce workflow builder UI (`/workforce-workflows`)
-[~] Generic execution result fields exist; manager-worker still has GitHub-centric stages in places
+[~] Generic execution result fields exist; external sync specialization still named github_sync internally
 [x] My Tasks dedicated inbox (`/my-tasks`)
 [x] Auth hardening for workforce foreign IDs (company/project/task on drafts + workflow runs + skill usage)
 [x] Sales greenhouse acceptance scenario automated (deterministic heuristic + markdown import tests)
@@ -76,14 +88,14 @@
 ## Known technical debt
 
 - Legacy `projects`/`project_tasks` tables/models still exist for migration compatibility (router unmounted).
-- SkillPack catalog remains readable for compatibility; new imports write SkillDraft; ownership bridge records uncertain packs.
-- Workflow agent/tool/parallel/delay nodes are not a full durable orchestration engine yet.
-- TemplateTab may still expose legacy SkillPack create for older template flows.
-- Full live HTTP E2E with DB fixtures not yet added (acceptance tests are deterministic unit/contract; MCP/A2A covered with mocked httpx).
-- Confirm GitHub Actions quality job is green after setuptools install fix.
+- SkillPack catalog remains readable; writes blocked (410); uncertain ownership can be disabled via reconcile endpoint.
+- Workflow parallel join / Celery auto-resume for delay nodes still MVP.
+- Full live HTTP E2E covers analyze→publish→snapshot freeze; tool approval consume→eval loop still expanding.
+- Confirm GitHub Actions quality job is green after this pass.
 
 ## Verification notes (latest)
 
-- Incomplete.txt P0 security/contract items implemented in this pass
-- `pytest` workforce suite + ecosystem_p3; FE lint/tsc/tests
-- Honest `[~]` retained where incomplete.txt still requires deeper runtime work
+- incomplete.txt P0 items implemented: Ruff green on CI paths, one-time approvals, human_input, SkillVersion snapshot, honest eval, SSRF HTTPS default, jsonschema runtime dep
+- P1: workflow node execution wired, matching/FE/dept/SkillPack retirement, ModelCapability provider routing, PG E2E scaffold
+- pytest workforce suite (51) green; FE normalize tests + full FE suite green; tsc green
+- Honest `[~]` retained for deeper parallel/Celery, table drops, and full approval E2E loop

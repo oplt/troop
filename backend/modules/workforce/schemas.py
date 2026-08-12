@@ -355,7 +355,7 @@ class AgentMatchResult(BaseModel):
     covered_capabilities: list[str] = Field(default_factory=list)
     matched_skills: list[str] = Field(default_factory=list)
     missing_capabilities: list[str] = Field(default_factory=list)
-    
+
     model_config = ConfigDict(populate_by_name=True)
 
 

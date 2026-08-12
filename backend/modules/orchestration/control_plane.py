@@ -223,8 +223,11 @@ class HierarchyControlPlaneService:
                 )
         return result
 
-    async def get_runtime_profile(self, user: User, agent_id: str) -> AgentRuntimeProfile:
+    async def get_runtime_profile(
+        self, user: User, agent_id: str, *, run: Any | None = None
+    ) -> AgentRuntimeProfile:
         from backend.modules.orchestration.skill_runtime import load_assigned_skill_versions
+        from backend.modules.orchestration.skill_snapshot import get_frozen_skill_payloads
 
         agent = await self.service.get_agent(user, agent_id)
         provider = None
@@ -232,7 +235,13 @@ class HierarchyControlPlaneService:
             provider = await self.repo.get_provider(user.id, agent.provider_config_id)
         capabilities = await self.service.list_model_capabilities()
         skills = await self.repo.list_skill_packs()
-        assigned = await load_assigned_skill_versions(self.service.db, agent.id)
+        assigned = None
+        if run is not None:
+            frozen = get_frozen_skill_payloads(run)
+            if frozen:
+                assigned = frozen
+        if not assigned:
+            assigned = await load_assigned_skill_versions(self.service.db, agent.id)
         return build_agent_runtime_profile(
             agent,
             provider=provider,

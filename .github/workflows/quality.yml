@@ -99,6 +99,7 @@ jobs:
           backend/tests/test_workforce_acceptance.py
           backend/tests/test_workforce_ecosystem_p3.py
           backend/tests/test_incomplete_p0_fixes.py
+          backend/tests/test_workflow_runtime.py
           backend/tests/test_task_orchestration_contract.py
           backend/tests/test_phase6_modularization.py
           -q
@@ -106,6 +107,11 @@ jobs:
         run: >
           python -m pytest backend/tests -m "not integration" -q
           --ignore=backend/tests/test_deerflow_adapters.py
+      - name: Workforce PostgreSQL E2E
+        env:
+          TROOP_RUN_PG_E2E: "1"
+        run: >
+          python -m pytest backend/tests/test_workforce_pg_e2e.py -m integration -q
 
 
   frontend:

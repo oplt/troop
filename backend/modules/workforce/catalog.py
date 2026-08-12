@@ -48,8 +48,19 @@ MARKETPLACE_SKILLS: list[dict[str, Any]] = [
         "category": "engineering",
         "department": "Engineering",
         "description": "Investigate issues, patch code, test, and open PRs.",
-        "capabilities": ["code_investigation", "code_modification", "test_execution", "pr_creation"],
-        "required_tools": ["repo_search", "fs_read", "fs_write", "code_execute", "github_create_pr"],
+        "capabilities": [
+            "code_investigation",
+            "code_modification",
+            "test_execution",
+            "pr_creation",
+        ],
+        "required_tools": [
+            "repo_search",
+            "fs_read",
+            "fs_write",
+            "code_execute",
+            "github_create_pr",
+        ],
         "risk_level": "high",
         "purpose": "Resolve engineering defects with reviewed pull requests.",
         "when_to_use": "When a GitHub issue needs investigation and a fix.",
@@ -188,7 +199,9 @@ MARKETPLACE_DEPARTMENTS: list[dict[str, Any]] = [
         "slug": "engineering",
         "name": "Engineering",
         "description": "Software delivery, code review, and GitHub integrations.",
-        "default_tool_policy": {"preferred_tools": ["repo_search", "fs_read", "code_execute", "github_create_pr"]},
+        "default_tool_policy": {
+            "preferred_tools": ["repo_search", "fs_read", "code_execute", "github_create_pr"]
+        },
         "default_model_policy": {"temperature": 0.2},
         "default_approval_policy": {"high_risk_tools": "approval_required"},
     },
@@ -265,6 +278,7 @@ CONNECTOR_CATALOG: list[dict[str, Any]] = [
         },
     },
 ]
+
 
 def _skill(
     slug: str,

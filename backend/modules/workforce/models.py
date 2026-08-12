@@ -53,9 +53,7 @@ class Skill(Base):
     """Versioned skill identity. Replaces SkillPack as the canonical skill entity."""
 
     __tablename__ = "skills"
-    __table_args__ = (
-        UniqueConstraint("owner_id", "slug", name="uq_skills_owner_slug"),
-    )
+    __table_args__ = (UniqueConstraint("owner_id", "slug", name="uq_skills_owner_slug"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -95,9 +93,7 @@ class SkillVersion(Base):
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    skill_id: Mapped[str] = mapped_column(
-        ForeignKey("skills.id", ondelete="CASCADE"), index=True
-    )
+    skill_id: Mapped[str] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"), index=True)
     version_number: Mapped[int] = mapped_column(Integer)
     purpose: Mapped[str] = mapped_column(Text, default="")
     when_to_use: Mapped[str] = mapped_column(Text, default="")
@@ -177,9 +173,7 @@ class SkillDraft(Base):
 class AgentSkillAssignment(Base):
     __tablename__ = "agent_skill_assignments"
     __table_args__ = (
-        UniqueConstraint(
-            "agent_id", "skill_id", name="uq_agent_skill_assignments_agent_skill"
-        ),
+        UniqueConstraint("agent_id", "skill_id", name="uq_agent_skill_assignments_agent_skill"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))

@@ -8,12 +8,22 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.modules.team.models import AgentProfile
-from backend.modules.workforce.models import AgentSkillAssignment, Skill, SkillVersion
+from backend.modules.team.models import AgentProfile, ProjectAgentMembership
+from backend.modules.workforce.models import (
+    AgentSkillAssignment,
+    Skill,
+    SkillVersion,
+    ToolDefinition,
+)
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.schemas import AgentAssemblyProposal, AgentMatchResult
+from backend.modules.workforce.services.action_policy import (
+    DECISION_PROHIBITED,
+    ActionPolicyService,
+)
 
 _SLUG_RE = re.compile(r"[^a-z0-9-]+")
+_HIGH_RISK = {"high", "critical"}
 
 
 def _slugify(value: str) -> str:
@@ -51,11 +61,7 @@ class AgentMatcherService:
         version_ids = list(
             {
                 *(a.skill_version_id for a in assignments if a.skill_version_id),
-                *(
-                    s.current_version_id
-                    for s in skills_by_id.values()
-                    if s.current_version_id
-                ),
+                *(s.current_version_id for s in skills_by_id.values() if s.current_version_id),
             }
         )
         versions_by_id: dict[str, SkillVersion] = {}
@@ -90,10 +96,73 @@ class AgentMatcherService:
                 bucket["caps"].update(
                     c.lower().strip() for c in (version.capabilities_json or []) if c
                 )
-                bucket["tools"].update(
-                    t for t in (version.required_tools_json or []) if t
-                )
+                bucket["tools"].update(t for t in (version.required_tools_json or []) if t)
         return coverage
+
+    async def _project_member_ids(self, project_id: str | None) -> set[str]:
+        if not project_id:
+            return set()
+        result = await self.db.execute(
+            select(ProjectAgentMembership.agent_id).where(
+                ProjectAgentMembership.project_id == project_id
+            )
+        )
+        return {row[0] for row in result.all() if row[0]}
+
+    async def _resolve_unresolved_tool_permissions(
+        self,
+        owner_id: str,
+        agent_id: str,
+        *,
+        project_id: str,
+        company_id: str | None,
+        department_id: str | None,
+        requested_tools: list[str],
+    ) -> list[dict[str, Any]]:
+        grants = await self.repo.list_tool_grants_for_subject("agent", agent_id, effect="allow")
+        grant_tool_ids = [g.tool_definition_id for g in grants if g.tool_definition_id]
+        grant_tools = await self.repo.list_tool_definitions_by_ids(grant_tool_ids)
+        granted_slugs = {t.slug for t in grant_tools if t.slug}
+
+        tool_defs: dict[str, ToolDefinition] = {}
+        for tool_slug in requested_tools:
+            tool_def = await self.repo.get_tool_definition(tool_slug)
+            if tool_def:
+                tool_defs[tool_slug] = tool_def
+
+        policy = ActionPolicyService(self.db)
+        context = {
+            "owner_id": owner_id,
+            "project_id": project_id,
+            "agent_id": agent_id,
+            "company_id": company_id,
+            "department_id": department_id,
+            "allowed_tools": requested_tools,
+        }
+
+        unresolved: list[dict[str, Any]] = []
+        for tool_slug in requested_tools:
+            tool_def = tool_defs.get(tool_slug)
+            risk_level = (tool_def.risk_level if tool_def else "medium") or "medium"
+            resolution = await policy.resolve(owner_id, tool_slug, context, tool_slug=tool_slug)
+            if resolution.get("decision") == DECISION_PROHIBITED:
+                unresolved.append(
+                    {
+                        "tool": tool_slug,
+                        "reason": "prohibited_by_action_policy",
+                        "risk_level": risk_level,
+                    }
+                )
+                continue
+            if tool_slug not in granted_slugs:
+                unresolved.append(
+                    {
+                        "tool": tool_slug,
+                        "reason": "missing_tool_grant",
+                        "risk_level": risk_level,
+                    }
+                )
+        return unresolved
 
     async def match_agents(
         self,
@@ -102,10 +171,12 @@ class AgentMatcherService:
         required_skills: list[str],
         *,
         required_tools: list[str] | None = None,
+        project_id: str | None = None,
     ) -> list[AgentMatchResult]:
         res = await self.db.execute(select(AgentProfile).where(AgentProfile.owner_id == owner_id))
         agents = [a for a in res.scalars().all() if a.is_active]
         coverage_map = await self._load_agent_coverage(owner_id, agents)
+        project_members = await self._project_member_ids(project_id)
 
         matches: list[AgentMatchResult] = []
         req_cap_set = {c.lower().strip() for c in required_capabilities if c}
@@ -141,11 +212,12 @@ class AgentMatcherService:
             tool_coverage = (
                 len(req_tool_set & agent_tools) / len(req_tool_set) if req_tool_set else 0.0
             )
-            coverage_score = (
-                cap_coverage * 0.55 + skill_coverage * 0.25 + tool_coverage * 0.20
-            )
+            coverage_score = cap_coverage * 0.5 + skill_coverage * 0.22 + tool_coverage * 0.18
             if not req_skill_set and not req_tool_set:
                 coverage_score = cap_coverage
+
+            project_bonus = 0.1 if project_id and agent.id in project_members else 0.0
+            coverage_score = min(1.0, coverage_score + project_bonus)
 
             missing_capabilities = sorted(req_cap_set - agent_cap_set)
             if coverage_score < 0.1:
@@ -158,6 +230,8 @@ class AgentMatcherService:
                 parts.append(f"skill coverage {skill_coverage:.0%}")
             if req_tool_set:
                 parts.append(f"tool coverage {tool_coverage:.0%}")
+            if project_id and agent.id in project_members:
+                parts.append("project member")
             if matched_skills:
                 parts.append(f"{len(matched_skills)} assigned skills")
             parts.append("historical success: not enough historical data")
@@ -187,12 +261,14 @@ class AgentMatcherService:
         required_tools: list[str] | None = None,
         skill_ids: list[str] | None = None,
         task_title: str | None = None,
+        project_id: str | None = None,
     ) -> AgentAssemblyProposal | None:
         matches = await self.match_agents(
             owner_id,
             required_capabilities,
             required_skills,
             required_tools=required_tools,
+            project_id=project_id,
         )
         req_cap_set = {c.lower().strip() for c in required_capabilities if c}
         tools = list(required_tools or [])
@@ -253,6 +329,8 @@ class AgentMatcherService:
         slug: str | None = None,
         activate: bool = False,
         skill_ids: list[str] | None = None,
+        company_id: str | None = None,
+        department_id: str | None = None,
     ) -> AgentProfile:
         """Create AgentProfile + AgentSkillAssignment rows from a proposal."""
         from backend.modules.team.service import TeamService
@@ -279,7 +357,7 @@ class AgentMatcherService:
                 "allowed_tools": tools,
                 "skills": [],
                 "project_id": project_id,
-                "is_active": bool(activate),
+                "is_active": False,
                 "model_policy": {},
                 "memory_policy": {"scope": "project"},
                 "metadata": {
@@ -331,9 +409,39 @@ class AgentMatcherService:
                 }
                 agent.provider_config_id = getattr(agent, "provider_config_id", None) or provider.id
 
+        unresolved = await self._resolve_unresolved_tool_permissions(
+            user.id,
+            agent.id,
+            project_id=project_id,
+            company_id=company_id,
+            department_id=department_id,
+            requested_tools=tools,
+        )
+        high_risk_unresolved = [
+            item for item in unresolved if (item.get("risk_level") or "").lower() in _HIGH_RISK
+        ]
+
+        should_activate = False
+        activation_reason = "inactive_by_default"
+        if activate:
+            if not unresolved:
+                should_activate = True
+                activation_reason = "all_tools_resolved"
+            elif not high_risk_unresolved:
+                should_activate = True
+                activation_reason = "activated_with_low_risk_unresolved_tools"
+            else:
+                should_activate = False
+                activation_reason = "blocked_unresolved_high_risk_tools"
+
+        agent.is_active = should_activate
+
         meta = dict(agent.metadata_json or {})
         meta["uncovered_skill_ids"] = uncovered
         meta["assigned_skill_count"] = assigned
+        meta["unresolved_tool_permissions"] = unresolved
+        meta["activation_requested"] = bool(activate)
+        meta["activation_reason"] = activation_reason
         agent.metadata_json = meta
 
         await self.db.commit()

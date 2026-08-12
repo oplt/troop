@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.providers import execute_prompt
-from backend.modules.workforce.models import SkillDraft
 from backend.modules.workforce.repository import WorkforceRepository
-from backend.modules.workforce.schemas import DuplicateMatch, SkillGenerationBatchResult, SkillGenerationOutput
+from backend.modules.workforce.schemas import (
+    DuplicateMatch,
+    SkillGenerationBatchResult,
+)
 from backend.modules.workforce.services.duplicate_detector import DuplicateDetectorService
 
 
@@ -61,7 +63,10 @@ def _heuristic_generate(
                 "capabilities_json": [key],
                 "required_tools_json": tools,
                 "knowledge_requirements_json": [],
-                "input_schema_json": {"type": "object", "properties": {"query": {"type": "string"}}},
+                "input_schema_json": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                },
                 "output_schema_json": {
                     "type": "object",
                     "properties": {
@@ -198,9 +203,6 @@ Return only valid JSON matching the schema. Limit to 5 skills."""
             request_options={"structured_output": True},
         )
 
-        if result.output_json:
-            data = result.output_json
-        else:
-            data = json.loads(result.output_text)
+        data = result.output_json or json.loads(result.output_text)
 
         return data.get("drafts", [])

@@ -2,9 +2,9 @@
 
 from backend.modules.orchestration.constants import TASK_TRANSITIONS
 from backend.modules.workforce.constants import LEGACY_STATUS_ALIASES
+from backend.modules.workforce.services.duplicate_detector import DuplicateDetectorService
 from backend.modules.workforce.services.skill_matcher import SkillMatcherService
 from backend.modules.workforce.services.task_analyzer import _heuristic_analyze
-from backend.modules.workforce.services.duplicate_detector import DuplicateDetectorService
 
 
 class _FakeTask:
@@ -57,7 +57,29 @@ def test_heuristic_analyze_coding_task() -> None:
     result = _heuristic_analyze(task)
     caps = " ".join(result.required_capabilities)
     assert "repository" in caps or "github" in caps or "code" in caps
-    assert any(t.startswith("github") or t in {"fs_read", "fs_write", "code_execute", "repo_search"} for t in result.required_tools)
+    assert any(
+        t.startswith("github") or t in {"fs_read", "fs_write", "code_execute", "repo_search"}
+        for t in result.required_tools
+    )
+
+
+def test_apply_tool_catalog_filter_unifies_llm_paths() -> None:
+    from backend.modules.workforce.schemas import TaskAnalysisOutput
+    from backend.modules.workforce.services.task_analyzer import _apply_tool_catalog_filter
+
+    output = TaskAnalysisOutput(
+        objective="Do research",
+        task_category="research",
+        required_tools=["web_search", "unknown_tool"],
+    )
+    filtered = _apply_tool_catalog_filter(output, ["web_search", "knowledge_search"])
+    assert filtered.required_tools == ["web_search"]
+
+    empty_allowed = _apply_tool_catalog_filter(
+        TaskAnalysisOutput(objective="x", task_category="general", required_tools=["anything"]),
+        [],
+    )
+    assert empty_allowed.required_tools == ["anything"]
 
 
 def test_jaccard_skill_match_scoring() -> None:

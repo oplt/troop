@@ -16,8 +16,8 @@ from backend.modules.identity_access.router import router as auth_router
 from backend.modules.notifications.router import router as notifications_router
 from backend.modules.orchestration.router import router as orchestration_router
 from backend.modules.platform.router import router as platform_router
-from backend.modules.rag.router import router as rag_router
 from backend.modules.profile.router import router as profile_router
+from backend.modules.rag.router import router as rag_router
 from backend.modules.settings.router import router as settings_router
 from backend.modules.users.router import router as users_router
 from backend.modules.workforce.routers import router as workforce_router

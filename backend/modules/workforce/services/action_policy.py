@@ -133,14 +133,15 @@ class ActionPolicyService:
         matched: list[ActionPolicy] = []
         for policy in all_policies:
             key = (policy.scope_type, policy.scope_id)
-            if key in wanted:
-                matched.append(policy)
-            elif policy.scope_type == "global" and ("global", None) in wanted:
-                matched.append(policy)
-            elif (
-                policy.scope_type == "organization"
-                and policy.scope_id is None
-                and any(s == "organization" for s, _ in scope_filters)
+            if (
+                key in wanted
+                or policy.scope_type == "global"
+                and ("global", None) in wanted
+                or (
+                    policy.scope_type == "organization"
+                    and policy.scope_id is None
+                    and any(s == "organization" for s, _ in scope_filters)
+                )
             ):
                 matched.append(policy)
         return matched

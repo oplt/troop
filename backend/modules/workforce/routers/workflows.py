@@ -145,8 +145,16 @@ async def publish_workflow(
     if definition.current_version_id:
         version = await db.get(WorkflowVersion, definition.current_version_id)
 
-    nodes = payload.nodes if payload.nodes is not None else list((version.nodes_json if version else []) or [])
-    edges = payload.edges if payload.edges is not None else list((version.edges_json if version else []) or [])
+    nodes = (
+        payload.nodes
+        if payload.nodes is not None
+        else list((version.nodes_json if version else []) or [])
+    )
+    edges = (
+        payload.edges
+        if payload.edges is not None
+        else list((version.edges_json if version else []) or [])
+    )
     entry = (
         payload.entry_node_id
         if payload.entry_node_id is not None
@@ -157,8 +165,10 @@ async def publish_workflow(
     if errors:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"errors": errors})
 
-    next_number = (version.version_number + 1) if version and version.is_published else (
-        version.version_number if version else 1
+    next_number = (
+        (version.version_number + 1)
+        if version and version.is_published
+        else (version.version_number if version else 1)
     )
     if version and not version.is_published:
         version.nodes_json = nodes

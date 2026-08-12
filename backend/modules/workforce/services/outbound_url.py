@@ -40,32 +40,48 @@ def _allow_private() -> bool:
     }
 
 
-def validate_outbound_url(url: str, *, allow_http: bool = False) -> str:
+def validate_outbound_url(url: str, *, allow_http: bool | None = None) -> str:
     """Validate connector base_url before server-side HTTP.
 
-    Blocks private/link-local/metadata targets unless TROOP_ALLOW_PRIVATE_CONNECTOR_URLS=1
-    (for local development).
+    Production default: HTTPS only.
+    HTTP is allowed only when TROOP_ALLOW_PRIVATE_CONNECTOR_URLS=1 (local/dev).
+    Passing allow_http=True alone is insufficient — private/dev mode must also be on.
     """
     raw = (url or "").strip()
     if not raw:
         raise UnsafeURLError("URL is required")
     parsed = urlparse(raw)
     scheme = (parsed.scheme or "").lower()
-    if scheme not in ({"https", "http"} if allow_http else {"https", "http"}):
-        raise UnsafeURLError("URL scheme must be http or https")
-    if scheme == "http" and not allow_http and not _allow_private():
-        # Allow http only when private connectors are explicitly enabled (local MCP).
-        if not _allow_private():
-            raise UnsafeURLError("Only https URLs are allowed (set TROOP_ALLOW_PRIVATE_CONNECTOR_URLS=1 for local http)")
+    private_ok = _allow_private()
+    # HTTPS default; HTTP only when private connectors are explicitly enabled.
+    # allow_http=False always forbids HTTP; allow_http=True still requires private_ok.
+    http_ok = False if allow_http is False else private_ok
+    allowed_schemes = {"https", "http"} if http_ok else {"https"}
+    if scheme not in allowed_schemes:
+        if scheme == "http":
+            raise UnsafeURLError(
+                "Only https URLs are allowed "
+                "(set TROOP_ALLOW_PRIVATE_CONNECTOR_URLS=1 for local http)"
+            )
+        raise UnsafeURLError(f"URL scheme must be one of: {', '.join(sorted(allowed_schemes))}")
+
     host = (parsed.hostname or "").strip().lower()
     if not host:
         raise UnsafeURLError("URL host is required")
-    if host in _BLOCKED_HOSTS and not _allow_private():
+    if host in _BLOCKED_HOSTS and not private_ok:
         raise UnsafeURLError(f"Host '{host}' is not allowed")
-    if host.endswith(".internal") and not _allow_private():
+    if host.endswith(".internal") and not private_ok:
         raise UnsafeURLError("Internal hosts are not allowed")
 
-    # Resolve DNS and check every address
+    # Literal IP host check before DNS
+    try:
+        literal_ip = ipaddress.ip_address(host)
+        if any(literal_ip in net for net in _BLOCKED_NETWORKS) and not private_ok:
+            raise UnsafeURLError(f"Address {literal_ip} is not allowed")
+    except ValueError:
+        literal_ip = None
+
+    # Resolve DNS and check every address (guards common rebinding targets at validation time)
     try:
         infos = socket.getaddrinfo(host, parsed.port or (443 if scheme == "https" else 80))
     except socket.gaierror as exc:
@@ -78,6 +94,6 @@ def validate_outbound_url(url: str, *, allow_http: bool = False) -> str:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
             continue
-        if any(ip in net for net in _BLOCKED_NETWORKS) and not _allow_private():
+        if any(ip in net for net in _BLOCKED_NETWORKS) and not private_ok:
             raise UnsafeURLError(f"Resolved address {ip} is not allowed")
     return raw

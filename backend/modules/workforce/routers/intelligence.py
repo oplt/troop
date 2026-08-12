@@ -29,6 +29,7 @@ router = APIRouter()
 
 # ─── Task Intelligence ──────────────────────────────────────────
 
+
 @router.post("/tasks/{task_id}/analyze", response_model=TaskAnalysisResponse)
 async def analyze_task(
     task_id: str,
@@ -40,9 +41,7 @@ async def analyze_task(
     """Analyze a task and extract requirements using configured providers when available."""
     from backend.modules.workforce.services.provider_resolution import resolve_owner_provider
 
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
@@ -60,7 +59,9 @@ async def analyze_task(
             db, user.id, project_id=project.id, purpose="task_analysis"
         )
     # Default: use LLM when a provider is configured unless caller forces heuristics.
-    effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
+    effective_use_llm = (
+        use_llm if use_llm is not None else provider is not None
+    ) and not deterministic
 
     service = TaskAnalyzerService(db)
     analysis = await service.analyze_task(
@@ -81,26 +82,25 @@ async def get_task_analysis(
 ) -> TaskAnalysisResponse:
     """Get the latest analysis for a task."""
     # Verify task ownership via project
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
-    
+
     project_res = await db.execute(
         select(OrchestratorProject).where(OrchestratorProject.id == task.project_id)
     )
     project = project_res.scalar_one_or_none()
     if not project or project.owner_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
-    
+
     from backend.modules.workforce.repository import WorkforceRepository
+
     repo = WorkforceRepository(db)
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no analysis found")
-    
+
     return TaskAnalysisResponse.model_validate(analysis)
 
 
@@ -111,9 +111,7 @@ async def find_skill_matches(
     db: AsyncSession = Depends(get_db),
 ) -> GapDetectionResult:
     """Find matching skills and persist coverage on TaskRequirement rows."""
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
@@ -143,6 +141,8 @@ async def find_skill_matches(
         task_id=task.id,
         project_id=task.project_id,
         company_id=project.company_id,
+        required_knowledge=analysis.knowledge_requirements_json or [],
+        task_risk_level=analysis.risk_level,
     )
 
     requirements = await repo.list_task_requirements(analysis.id)
@@ -232,26 +232,27 @@ async def generate_missing_skills(
 ) -> list[SkillDraftResponse]:
     """Generate skill drafts for missing requirements."""
     # Verify task ownership via project
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
-    
+
     project_res = await db.execute(
         select(OrchestratorProject).where(OrchestratorProject.id == task.project_id)
     )
     project = project_res.scalar_one_or_none()
     if not project or project.owner_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
-    
-    from backend.modules.workforce.repository import WorkforceRepository
+
     from backend.modules.workforce.dto import skill_draft_response
+    from backend.modules.workforce.repository import WorkforceRepository
+
     repo = WorkforceRepository(db)
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first"
+        )
     requirements = await repo.list_task_requirements(analysis.id)
     missing_reqs = [
         {
@@ -285,7 +286,9 @@ async def generate_missing_skills(
         provider = await resolve_owner_provider(
             db, user.id, project_id=project.id, purpose="skill_generation"
         )
-    effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
+    effective_use_llm = (
+        use_llm if use_llm is not None else provider is not None
+    ) and not deterministic
     generator_service = SkillGeneratorService(db)
     result = await generator_service.generate_skills(
         owner_id=user.id,
@@ -295,14 +298,14 @@ async def generate_missing_skills(
         model_name=(provider.default_model if provider else None),
         provider=provider,
     )
-    
+
     # Fetch the created drafts
     drafts = []
     for draft_info in result.drafts:
         draft = await repo.get_skill_draft(draft_info["id"], user.id)
         if draft:
             drafts.append(skill_draft_response(draft))
-    
+
     return drafts
 
 
@@ -314,25 +317,26 @@ async def find_agent_matches(
 ) -> list[AgentMatchResult]:
     """Find agents that match task requirements."""
     # Verify task ownership via project
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
-    
+
     project_res = await db.execute(
         select(OrchestratorProject).where(OrchestratorProject.id == task.project_id)
     )
     project = project_res.scalar_one_or_none()
     if not project or project.owner_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
-    
+
     from backend.modules.workforce.repository import WorkforceRepository
+
     repo = WorkforceRepository(db)
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first"
+        )
 
     requirements = await repo.list_task_requirements(analysis.id)
     matched_skill_slugs: list[str] = []
@@ -348,8 +352,9 @@ async def find_agent_matches(
         required_capabilities=analysis.required_capabilities_json or [],
         required_skills=matched_skill_slugs,
         required_tools=analysis.required_tools_json or [],
+        project_id=task.project_id,
     )
-    
+
     return [
         AgentMatchResult(
             agent_id=m.agent_id,
@@ -371,9 +376,7 @@ async def assemble_agent(
     db: AsyncSession = Depends(get_db),
 ) -> AgentAssemblyProposal:
     """Propose or create a composed agent for a task."""
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
@@ -390,7 +393,9 @@ async def assemble_agent(
     repo = WorkforceRepository(db)
     analysis = await repo.get_latest_task_analysis(task_id)
     if not analysis:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="no analysis found - run analyze first"
+        )
 
     requirements = await repo.list_task_requirements(analysis.id)
     skill_ids = [
@@ -407,6 +412,7 @@ async def assemble_agent(
         required_tools=analysis.required_tools_json or [],
         skill_ids=list(dict.fromkeys(skill_ids)),
         task_title=task.title,
+        project_id=project.id,
     )
 
     if not proposal:
@@ -426,6 +432,8 @@ async def assemble_agent(
             slug=payload.slug,
             activate=payload.activate,
             skill_ids=proposal.skill_ids,
+            company_id=project.company_id,
+            department_id=project.department_id,
         )
         if payload.assign_to_task:
             task.assigned_agent_id = agent.id
@@ -445,9 +453,7 @@ async def recommend_workforce(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Compose analysis, skill gaps, agent matches, and workflow recommendations."""
-    res = await db.execute(
-        select(OrchestratorTask).where(OrchestratorTask.id == task_id)
-    )
+    res = await db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
     task = res.scalar_one_or_none()
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
@@ -474,6 +480,7 @@ async def recommend_workforce(
 
 # ─── Project Intelligence ───────────────────────────────────────
 
+
 @router.post("/projects/{project_id}/analyze", response_model=ProjectAnalysisResponse)
 async def analyze_project(
     project_id: str,
@@ -490,7 +497,7 @@ async def analyze_project(
     project = project_res.scalar_one_or_none()
     if not project or project.owner_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="access denied")
-    
+
     service = ProjectAnalyzerService(db)
     from backend.modules.workforce.services.provider_resolution import resolve_owner_provider
 
@@ -499,7 +506,9 @@ async def analyze_project(
         provider = await resolve_owner_provider(
             db, user.id, project_id=project.id, purpose="project_analysis"
         )
-    effective_use_llm = (use_llm if use_llm is not None else provider is not None) and not deterministic
+    effective_use_llm = (
+        use_llm if use_llm is not None else provider is not None
+    ) and not deterministic
     analysis = await service.analyze_project(
         project_id=project_id,
         owner_id=user.id,

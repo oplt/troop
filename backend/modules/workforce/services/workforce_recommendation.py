@@ -46,6 +46,8 @@ class WorkforceRecommendationService:
             project_id=getattr(task, "project_id", None),
             task_id=task_id,
             company_id=getattr(project, "company_id", None),
+            required_knowledge=list(analysis.knowledge_requirements_json or []),
+            task_risk_level=analysis.risk_level,
         )
 
         # Persist gap coverage if requirements exist
@@ -124,6 +126,7 @@ class WorkforceRecommendationService:
             required_capabilities=caps,
             required_skills=[m.skill_slug for m in matches[:5]],
             required_tools=tools,
+            project_id=getattr(task, "project_id", None),
         )
         proposal = await self.agent_matcher.propose_assembly(
             owner_id,
@@ -132,6 +135,7 @@ class WorkforceRecommendationService:
             required_tools=tools,
             skill_ids=list(dict.fromkeys(covered_skill_ids)),
             task_title=getattr(task, "title", None),
+            project_id=getattr(task, "project_id", None),
         )
 
         warnings: list[str] = []
@@ -149,7 +153,11 @@ class WorkforceRecommendationService:
 
         review_reqs = list(analysis.review_requirements_json or [])
         approval_reqs = list(analysis.approval_requirements_json or [])
-        if not review_reqs and (analysis.risk_level or "").lower() in {"medium", "high", "critical"}:
+        if not review_reqs and (analysis.risk_level or "").lower() in {
+            "medium",
+            "high",
+            "critical",
+        }:
             review_reqs = ["human_review"]
         if not approval_reqs and (analysis.risk_level or "").lower() in {"high", "critical"}:
             approval_reqs = ["human_approval"]

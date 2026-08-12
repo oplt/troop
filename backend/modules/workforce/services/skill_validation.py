@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -33,12 +32,16 @@ def _is_json_schema(value: Any) -> bool:
         return True
     try:
         from jsonschema import Draft202012Validator
-
+        from jsonschema.exceptions import SchemaError
+    except ImportError as exc:  # pragma: no cover - runtime dependency required
+        raise RuntimeError(
+            "jsonschema is required for skill validation; install the backend package dependencies"
+        ) from exc
+    try:
         Draft202012Validator.check_schema(value)
         return True
-    except Exception:
-        # Fallback: require at least one schema keyword
-        return any(k in value for k in ("type", "properties", "$schema", "items", "anyOf", "oneOf"))
+    except SchemaError:
+        return False
 
 
 class SkillValidationService:

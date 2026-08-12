@@ -116,7 +116,9 @@ def _runtime_model_profile(
         max_tokens=provider.max_tokens if provider else None,
         supports_tools=bool(model_capability.supports_tools) if model_capability else False,
         supports_structured_output=bool(
-            (model_capability.metadata_json or {}).get("supports_structured_output", model_capability.supports_tools)
+            (model_capability.metadata_json or {}).get(
+                "supports_structured_output", model_capability.supports_tools
+            )
         )
         if model_capability
         else False,
@@ -203,9 +205,7 @@ def build_agent_runtime_profile(
         resolved_skills = [skill_lookup[item] for item in agent.skills_json if item in skill_lookup]
         skill_slugs = list(agent.skills_json or [])
         instruction_extras = [
-            item.rules_markdown.strip()
-            for item in resolved_skills
-            if item.rules_markdown.strip()
+            item.rules_markdown.strip() for item in resolved_skills if item.rules_markdown.strip()
         ]
         for item in resolved_skills:
             for tool in item.allowed_tools_json or []:
@@ -233,9 +233,15 @@ def build_agent_runtime_profile(
         for tool_slug in allowed_tools
     ]
 
-    primary_model_slug = str(model_policy.get("model") or provider.default_model if provider else model_policy.get("model") or "")
+    primary_model_slug = str(
+        model_policy.get("model") or provider.default_model
+        if provider
+        else model_policy.get("model") or ""
+    )
     fallback_model_slug = str(
-        model_policy.get("fallback_model") or provider.fallback_model if provider else model_policy.get("fallback_model") or ""
+        model_policy.get("fallback_model") or provider.fallback_model
+        if provider
+        else model_policy.get("fallback_model") or ""
     )
     primary_profile = _runtime_model_profile(
         provider,

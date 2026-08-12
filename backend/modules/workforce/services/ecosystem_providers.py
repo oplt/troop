@@ -29,7 +29,7 @@ def _auth_headers(config: dict[str, Any]) -> dict[str, str]:
 def _client_config(installation: ConnectorInstallation) -> dict[str, Any]:
     config = resolve_installation_config(installation)
     base_url = str(config.get("base_url") or config.get("url") or "").strip()
-    validate_outbound_url(base_url, allow_http=True)
+    validate_outbound_url(base_url)
     return config
 
 
@@ -112,7 +112,7 @@ class MCPToolProvider:
                 "policy": context.get("_policy_resolution"),
             }
         owner_id = context.get("owner_id")
-        installation_id = (context.get("connector_installation_id") or params.get("_installation_id"))
+        installation_id = context.get("connector_installation_id") or params.get("_installation_id")
         installations = await self._installations(str(owner_id) if owner_id else None)
         selected = None
         if installation_id:

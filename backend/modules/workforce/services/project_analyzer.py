@@ -142,8 +142,8 @@ Output JSON schema:
         user_prompt = f"""Analyze this project:
 
 Name: {project.name}
-Goals: {project.goals_markdown or 'N/A'}
-Description: {project.description or 'N/A'}
+Goals: {project.goals_markdown or "N/A"}
+Description: {project.description or "N/A"}
 
 Return only valid JSON matching the schema."""
 

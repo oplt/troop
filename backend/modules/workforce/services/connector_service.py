@@ -129,9 +129,9 @@ class ConnectorService:
                 detail="config_json.base_url is required",
             )
         try:
-            validate_outbound_url(base_url, allow_http=True)
+            validate_outbound_url(base_url)
             if config.get("card_url"):
-                validate_outbound_url(str(config["card_url"]), allow_http=True)
+                validate_outbound_url(str(config["card_url"]))
         except UnsafeURLError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
@@ -162,7 +162,9 @@ class ConnectorService:
         )
         item = result.scalar_one_or_none()
         if item is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="connector installation not found")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail="connector installation not found"
+            )
         return item
 
     async def update_installation(
@@ -185,7 +187,7 @@ class ConnectorService:
             base_url = str(config_json.get("base_url") or config_json.get("url") or "").strip()
             if base_url:
                 try:
-                    validate_outbound_url(base_url, allow_http=True)
+                    validate_outbound_url(base_url)
                 except UnsafeURLError as exc:
                     raise HTTPException(
                         status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -204,7 +206,7 @@ class ConnectorService:
         config = resolve_installation_config(installation)
         base_url = str(config.get("base_url") or config.get("url") or "").strip()
         try:
-            validate_outbound_url(base_url, allow_http=True)
+            validate_outbound_url(base_url)
         except UnsafeURLError as exc:
             return {"ok": False, "error": str(exc)}
         headers: dict[str, str] = {}

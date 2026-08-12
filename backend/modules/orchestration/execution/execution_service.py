@@ -127,13 +127,23 @@ class OrchestrationExecutionServiceMixin:
                 {"id": "blocker_resolution", "title": "Blocker resolution", "actor": "supervisor"},
                 {"id": "review", "title": "Review", "actor": "reviewer"},
                 {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
-                {"id": "github_sync", "title": "GitHub sync", "actor": "system"},
+                {
+                    "id": "github_sync",
+                    "title": "External action sync",
+                    "actor": "system",
+                    "specialization": "github",
+                },
             ]
         if run.run_mode == "review":
             return [
                 {"id": "review", "title": "Review", "actor": "reviewer"},
                 {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
-                {"id": "github_sync", "title": "GitHub sync", "actor": "system"},
+                {
+                    "id": "github_sync",
+                    "title": "External action sync",
+                    "actor": "system",
+                    "specialization": "github",
+                },
             ]
         return [
             {"id": "build_prompt", "title": "Build prompt", "actor": "system"},
@@ -364,13 +374,13 @@ class OrchestrationExecutionServiceMixin:
                 "Manager summary",
                 str(run.output_payload_json.get("summary") or final_output)[:5000],
             ),
-            ("implementation", "Implementation bundle", final_output[:12000]),
+            ("implementation", "Result bundle", final_output[:12000]),
             (
                 "evidence",
                 "Evidence bundle",
                 json.dumps(evidence_payload, indent=2, default=str)[:12000],
             ),
-            ("review", "Reviewer verdict", review_text[:12000]),
+            ("review", "Review verdict", review_text[:12000]),
         ]:
             await self._write_artifact(
                 run,
@@ -1126,6 +1136,17 @@ class OrchestrationExecutionServiceMixin:
                 "orchestrator_agent_id": orchestrator_agent_id,
             },
         )
+        # Freeze SkillVersion IDs for the lifetime of this run (immutable snapshot).
+        try:
+            from backend.modules.orchestration.skill_snapshot import freeze_skill_version_snapshot
+
+            await freeze_skill_version_snapshot(
+                self.db,
+                run,
+                agent_id=worker_agent_id or orchestrator_agent_id,
+            )
+        except Exception:
+            pass
         startup_warnings: list[str] = []
         resolution_agent = await self._load_agent_for_run(worker_agent_id or orchestrator_agent_id)
         resolved_provider = await self._resolve_provider_for_run(run, resolution_agent)
@@ -1862,6 +1883,12 @@ class OrchestrationExecutionServiceMixin:
                     success=True,
                     latency_ms=latency_ms,
                     notes="auto-recorded on run completion",
+                    used_skill_version_ids=(
+                        (run.checkpoint_json or {})
+                        .get("skill_version_snapshot", {})
+                        .get("skill_version_ids")
+                    ),
+                    run=run,
                 )
             except Exception:
                 pass
@@ -1990,6 +2017,12 @@ class OrchestrationExecutionServiceMixin:
                     run_id=run.id,
                     success=False,
                     notes=f"auto-recorded on run blocked: {exc}",
+                    used_skill_version_ids=(
+                        (run.checkpoint_json or {})
+                        .get("skill_version_snapshot", {})
+                        .get("skill_version_ids")
+                    ),
+                    run=run,
                 )
             except Exception:
                 pass
@@ -2041,6 +2074,12 @@ class OrchestrationExecutionServiceMixin:
                     run_id=run.id,
                     success=False,
                     notes=f"auto-recorded on run failure: {exc}",
+                    used_skill_version_ids=(
+                        (run.checkpoint_json or {})
+                        .get("skill_version_snapshot", {})
+                        .get("skill_version_ids")
+                    ),
+                    run=run,
                 )
             except Exception:
                 pass

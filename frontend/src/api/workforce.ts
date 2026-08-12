@@ -64,16 +64,53 @@ export type SkillVersion = {
     id: string;
     skill_id: string;
     version_number: number;
-    snapshot_json: Record<string, unknown>;
-    created_by_user_id: string | null;
+    purpose: string;
+    when_to_use: string;
+    instructions_markdown: string;
+    input_schema_json: Record<string, unknown>;
+    output_schema_json: Record<string, unknown>;
+    capabilities_json: string[];
+    required_tools_json: string[];
+    knowledge_requirements_json: string[];
+    constraints_markdown: string;
+    risk_level: string;
+    approval_policy_json: Record<string, unknown>;
+    examples_json: string[];
+    evaluation_criteria_json: string[];
+    source_type: string;
+    is_published: boolean;
+    generated_by_model: string | null;
     created_at: string;
+    /** Flattened aliases for UI */
+    instructions?: string;
+    capabilities?: string[];
+    tools?: string[];
+    knowledge?: string[];
+    constraints?: string[];
+    inputs?: Record<string, unknown>;
+    outputs?: Record<string, unknown>;
+    examples?: string[];
+    evaluation_criteria?: string[];
+    /** @deprecated Legacy snapshot field — prefer structured version fields */
+    snapshot_json?: Record<string, unknown>;
 };
 
 export type SkillUsage = {
     skill_id: string;
-    agent_count: number;
-    task_count: number;
+    skill_version_id: string | null;
+    run_count: number;
+    success_count: number;
+    human_accept_count: number;
+    success_rate: number;
+    avg_latency_ms: number | null;
+    avg_cost_usd: number | null;
+    retry_rate: number;
     last_used_at: string | null;
+    promotion_recommendation: string | null;
+    /** @deprecated Derived from run_count for legacy UI */
+    task_count?: number;
+    /** @deprecated Not tracked server-side — omit or use run_count proxy */
+    agent_count?: number;
 };
 
 export type SkillDraft = {
@@ -351,6 +388,95 @@ export function normalizeSkill(raw: Record<string, unknown>): Skill {
     };
 }
 
+export function normalizeSkillVersion(raw: Record<string, unknown>): SkillVersion {
+    const capabilities = asStringList(raw.capabilities ?? raw.capabilities_json);
+    const tools = asStringList(raw.tools ?? raw.required_tools_json);
+    const knowledge = asStringList(raw.knowledge ?? raw.knowledge_requirements_json);
+    const instructions = String(raw.instructions ?? raw.instructions_markdown ?? "");
+    const constraintsMarkdown = String(raw.constraints_markdown ?? "");
+    const constraints = asStringList(raw.constraints ?? constraintsMarkdown);
+    const inputs = asRecord(raw.inputs ?? raw.input_schema_json);
+    const outputs = asRecord(raw.outputs ?? raw.output_schema_json);
+    const examples = asStringList(raw.examples ?? raw.examples_json);
+    const evaluationCriteria = asStringList(
+        raw.evaluation_criteria ?? raw.evaluation_criteria_json
+    );
+    return {
+        id: String(raw.id),
+        skill_id: String(raw.skill_id || ""),
+        version_number: Number(raw.version_number ?? 0),
+        purpose: String(raw.purpose ?? ""),
+        when_to_use: String(raw.when_to_use ?? ""),
+        instructions_markdown: instructions,
+        input_schema_json: inputs,
+        output_schema_json: outputs,
+        capabilities_json: capabilities,
+        required_tools_json: tools,
+        knowledge_requirements_json: knowledge,
+        constraints_markdown: constraintsMarkdown,
+        risk_level: String(raw.risk_level ?? "low"),
+        approval_policy_json: asRecord(raw.approval_policy_json),
+        examples_json: examples,
+        evaluation_criteria_json: evaluationCriteria,
+        source_type: String(raw.source_type ?? "manual"),
+        is_published: Boolean(raw.is_published ?? false),
+        generated_by_model: (raw.generated_by_model as string | null) ?? null,
+        created_at: String(raw.created_at || ""),
+        instructions,
+        capabilities,
+        tools,
+        knowledge,
+        constraints,
+        inputs,
+        outputs,
+        examples,
+        evaluation_criteria: evaluationCriteria,
+        snapshot_json: asRecord(raw.snapshot_json),
+    };
+}
+
+export function normalizeSkillUsage(raw: Record<string, unknown>): SkillUsage {
+    const runCount = Number(raw.run_count ?? raw.task_count ?? 0);
+    const successCount = Number(raw.success_count ?? 0);
+    const humanAcceptCount = Number(raw.human_accept_count ?? 0);
+    const successRateRaw = raw.success_rate;
+    const successRate =
+        successRateRaw === null || successRateRaw === undefined || successRateRaw === ""
+            ? runCount > 0
+                ? successCount / runCount
+                : 0
+            : Number(successRateRaw);
+    const avgLatencyRaw = raw.avg_latency_ms;
+    const avgCostRaw = raw.avg_cost_usd;
+    const retryRateRaw = raw.retry_rate;
+    return {
+        skill_id: String(raw.skill_id || ""),
+        skill_version_id: (raw.skill_version_id as string | null) ?? null,
+        run_count: runCount,
+        success_count: successCount,
+        human_accept_count: humanAcceptCount,
+        success_rate: Number.isFinite(successRate) ? successRate : 0,
+        avg_latency_ms:
+            avgLatencyRaw === null || avgLatencyRaw === undefined || avgLatencyRaw === ""
+                ? null
+                : Number(avgLatencyRaw),
+        avg_cost_usd:
+            avgCostRaw === null || avgCostRaw === undefined || avgCostRaw === ""
+                ? null
+                : Number(avgCostRaw),
+        retry_rate:
+            retryRateRaw === null || retryRateRaw === undefined || retryRateRaw === ""
+                ? 0
+                : Number(retryRateRaw),
+        last_used_at: raw.last_used_at ? String(raw.last_used_at) : null,
+        promotion_recommendation: raw.promotion_recommendation
+            ? String(raw.promotion_recommendation)
+            : null,
+        task_count: runCount,
+        agent_count: raw.agent_count !== undefined ? Number(raw.agent_count) : undefined,
+    };
+}
+
 export function normalizeSkillDraft(raw: Record<string, unknown>): SkillDraft {
     const errors = asStringList(raw.validation_errors ?? raw.validation_errors_json);
     const warnings = asStringList(raw.validation_warnings ?? raw.warnings_json);
@@ -437,11 +563,15 @@ export async function getSkill(skillId: string): Promise<Skill> {
 }
 
 export async function listSkillVersions(skillId: string): Promise<SkillVersion[]> {
-    return apiFetch(`/workforce/skills/${skillId}/versions`);
+    const raw = await apiFetch<Array<Record<string, unknown>>>(
+        `/workforce/skills/${skillId}/versions`
+    );
+    return (raw || []).map(normalizeSkillVersion);
 }
 
 export async function getSkillUsage(skillId: string): Promise<SkillUsage> {
-    return apiFetch(`/workforce/skills/${skillId}/usage`);
+    const raw = await apiFetch<Record<string, unknown>>(`/workforce/skills/${skillId}/usage`);
+    return normalizeSkillUsage(raw);
 }
 
 export async function promoteSkill(skillId: string, targetScope: SkillScope): Promise<Skill> {

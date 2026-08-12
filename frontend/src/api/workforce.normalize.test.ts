@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSkill, normalizeSkillDraft } from "../api/workforce";
+import {
+    normalizeSkill,
+    normalizeSkillDraft,
+    normalizeSkillUsage,
+    normalizeSkillVersion,
+} from "../api/workforce";
 
 describe("workforce DTO normalizers", () => {
     it("flattens skill current_version fields for SkillsPage", () => {
@@ -50,5 +55,67 @@ describe("workforce DTO normalizers", () => {
         expect(draft.instructions).toContain("do the thing");
         expect(draft.validation_warnings).toEqual(["warn"]);
         expect(draft.is_valid).toBe(true);
+    });
+
+    it("normalizes skill version backend *_json fields", () => {
+        const version = normalizeSkillVersion({
+            id: "v1",
+            skill_id: "s1",
+            version_number: 3,
+            purpose: "Research the web",
+            when_to_use: "When gathering sources",
+            instructions_markdown: "Search carefully",
+            input_schema_json: { query: { type: "string" } },
+            output_schema_json: { results: { type: "array" } },
+            capabilities_json: ["web_research"],
+            required_tools_json: ["web_search"],
+            knowledge_requirements_json: ["business_context"],
+            constraints_markdown: "Cite sources",
+            risk_level: "medium",
+            approval_policy_json: { mode: "semi" },
+            examples_json: ["Example A"],
+            evaluation_criteria_json: ["citation_quality"],
+            source_type: "manual",
+            is_published: true,
+            generated_by_model: "gpt-4",
+            created_at: "2026-01-01",
+        });
+        expect(version.capabilities).toEqual(["web_research"]);
+        expect(version.tools).toEqual(["web_search"]);
+        expect(version.knowledge).toEqual(["business_context"]);
+        expect(version.instructions).toContain("Search");
+        expect(version.inputs?.query).toBeDefined();
+        expect(version.is_published).toBe(true);
+        expect(version.version_number).toBe(3);
+    });
+
+    it("normalizes skill usage run stats and legacy aliases", () => {
+        const usage = normalizeSkillUsage({
+            skill_id: "s1",
+            skill_version_id: "v1",
+            run_count: 10,
+            success_count: 8,
+            human_accept_count: 7,
+            success_rate: 0.8,
+            avg_latency_ms: 1200,
+            avg_cost_usd: 0.05,
+            retry_rate: 0.1,
+            last_used_at: "2026-01-02T00:00:00Z",
+            promotion_recommendation: "Ready for organization",
+        });
+        expect(usage.run_count).toBe(10);
+        expect(usage.task_count).toBe(10);
+        expect(usage.success_rate).toBe(0.8);
+        expect(usage.promotion_recommendation).toContain("organization");
+    });
+
+    it("derives success_rate from run stats when omitted", () => {
+        const usage = normalizeSkillUsage({
+            skill_id: "s1",
+            run_count: 4,
+            success_count: 3,
+        });
+        expect(usage.success_rate).toBeCloseTo(0.75);
+        expect(usage.avg_latency_ms).toBeNull();
     });
 });

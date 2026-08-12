@@ -11,10 +11,7 @@ from backend.core.config import settings
 
 def _document_row_fingerprint(row: Any) -> str:
     updated = getattr(row, "updated_at", None) or getattr(row, "created_at", None)
-    if isinstance(updated, datetime):
-        updated_token = updated.isoformat()
-    else:
-        updated_token = str(updated or "")
+    updated_token = updated.isoformat() if isinstance(updated, datetime) else str(updated or "")
     chunk_count = getattr(row, "chunk_count", "")
     ingestion_status = getattr(row, "ingestion_status", "")
     return f"{row.id}:{updated_token}:{chunk_count}:{ingestion_status}"

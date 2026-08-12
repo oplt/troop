@@ -71,6 +71,8 @@ class OrchestrationToolbox:
             task=self.task,
             run=self.run,
             tool_name=tool_name,
+            arguments=arguments if isinstance(arguments, dict) else {},
+            consume_approval=False,
         )
 
         try:
@@ -85,11 +87,23 @@ class OrchestrationToolbox:
                     f"Tool `{tool_name}` is prohibited by action policy "
                     f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
                 )
-            if decision == "approval_required" and not context.get("approval_granted"):
-                raise ToolExecutionError(
-                    f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
-                    f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
+            if decision == "approval_required":
+                # Consume a one-time grant bound to tool + args hash.
+                granted = await build_tool_execution_context(
+                    self.db,
+                    project=self.project,
+                    task=self.task,
+                    run=self.run,
+                    tool_name=tool_name,
+                    arguments=arguments if isinstance(arguments, dict) else {},
+                    consume_approval=True,
                 )
+                if not granted.get("approval_granted"):
+                    raise ToolExecutionError(
+                        f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
+                        f"({(auth.get('resolution') or {}).get('matched_scope') or 'policy'})"
+                    )
+                context["approval_granted"] = True
         except ToolExecutionError:
             raise
         except Exception as exc:

@@ -55,15 +55,9 @@ def parse_skill_markdown(content: str, *, file_name: str | None = None) -> dict[
     constraints = section("constraints", "guardrails")
 
     capabilities = [
-        part.strip(" -*\t")
-        for part in re.split(r"[\n,]", caps_raw)
-        if part.strip(" -*\t")
+        part.strip(" -*\t") for part in re.split(r"[\n,]", caps_raw) if part.strip(" -*\t")
     ]
-    tools = [
-        part.strip(" -*\t`")
-        for part in re.split(r"[\n,]", tools_raw)
-        if part.strip(" -*\t`")
-    ]
+    tools = [part.strip(" -*\t`") for part in re.split(r"[\n,]", tools_raw) if part.strip(" -*\t`")]
 
     slug = _slugify(name or "imported-skill")
     return {

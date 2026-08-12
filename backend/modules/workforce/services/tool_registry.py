@@ -18,20 +18,15 @@ from backend.modules.workforce.services.action_policy import (
 class ToolProvider(Protocol):
     """Protocol for tool providers."""
 
-    async def discover_tools(self) -> list[dict]:
-        ...
+    async def discover_tools(self) -> list[dict]: ...
 
-    async def get_schema(self, tool_slug: str) -> dict:
-        ...
+    async def get_schema(self, tool_slug: str) -> dict: ...
 
-    async def validate_permissions(self, tool_slug: str, context: dict) -> bool:
-        ...
+    async def validate_permissions(self, tool_slug: str, context: dict) -> bool: ...
 
-    async def estimate_risk(self, tool_slug: str) -> str:
-        ...
+    async def estimate_risk(self, tool_slug: str) -> str: ...
 
-    async def execute(self, tool_slug: str, params: dict, context: dict) -> dict:
-        ...
+    async def execute(self, tool_slug: str, params: dict, context: dict) -> dict: ...
 
 
 class NativeToolProvider:
@@ -120,7 +115,7 @@ class GitHubToolProvider:
 
 
 class MCPToolProvider:
-    """Backward-compatible export — live implementation in ecosystem_providers. """
+    """Backward-compatible export — live implementation in ecosystem_providers."""
 
     def __init__(self, db=None) -> None:
         from backend.modules.workforce.services.ecosystem_providers import (
@@ -149,6 +144,8 @@ class ToolRegistryService:
     def __init__(self, db: AsyncSession) -> None:
         from backend.modules.workforce.services.ecosystem_providers import (
             A2AToolProvider,
+        )
+        from backend.modules.workforce.services.ecosystem_providers import (
             MCPToolProvider as LiveMCP,
         )
 

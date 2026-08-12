@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Legacy Project / ProjectTask service layer.
+
+DEPRECATED: OrchestratorProject / OrchestratorTask under orchestration is canonical.
+This module remains for migration compatibility until legacy tables are dropped.
+"""
+
 import io
 import re
 import tarfile
@@ -72,6 +78,13 @@ DEFAULT_PORTFOLIO_EXECUTION_POLICY: dict[str, Any] = {
 }
 
 
+def _warn_legacy_projects_usage(method: str) -> None:
+    logger.warning(
+        "Legacy ProjectsService.%s called; migrate to OrchestratorProject APIs",
+        method,
+    )
+
+
 class ProjectsService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -80,20 +93,24 @@ class ProjectsService:
         self.notifications_repo = NotificationsRepository(db)
 
     async def create_project(self, owner_id: str, name: str, description: str | None) -> Project:
+        _warn_legacy_projects_usage("create_project")
         project = await self.repo.create(owner_id, name, description)
         await self.db.commit()
         await self.db.refresh(project)
         return project
 
     async def list_projects(self, user_id: str) -> list[Project]:
+        _warn_legacy_projects_usage("list_projects")
         return await self.repo.list_accessible_by_user(user_id)
 
     async def get_project(self, user_id: str, project_id: str) -> Project:
+        _warn_legacy_projects_usage("get_project")
         return await self._get_project_or_404(user_id, project_id)
 
     async def list_tasks(
         self, user_id: str, project_id: str, *, limit: int | None = None
     ) -> list[tuple[ProjectTask, User | None]]:
+        _warn_legacy_projects_usage("list_tasks")
         project = await self._get_project_or_404(user_id, project_id)
         return await self.repo.list_tasks_with_assignees(project.id, limit=limit)
 
@@ -104,6 +121,7 @@ class ProjectsService:
         project_id: str,
         payload: ProjectTaskCreate,
     ) -> tuple[ProjectTask, User | None]:
+        _warn_legacy_projects_usage("create_task")
         project = await self._get_project_or_404(user_id, project_id)
         assignee = await self._get_assignee_or_404(payload.assignee_id)
         position = await self.repo.get_next_task_position(project.id, payload.status)
@@ -135,6 +153,7 @@ class ProjectsService:
         task_id: str,
         payload: ProjectTaskUpdate,
     ) -> tuple[ProjectTask, User | None]:
+        _warn_legacy_projects_usage("update_task")
         project = await self._get_project_or_404(user_id, project_id)
         task = await self.repo.get_task_by_id(project.id, task_id)
         if not task:
@@ -177,6 +196,7 @@ class ProjectsService:
         return task_row
 
     async def delete_task(self, user_id: str, project_id: str, task_id: str) -> None:
+        _warn_legacy_projects_usage("delete_task")
         project = await self._get_project_or_404(user_id, project_id)
         task = await self.repo.get_task_by_id(project.id, task_id)
         if not task:
@@ -193,6 +213,7 @@ class ProjectsService:
         project_id: str,
         payload: ProjectTaskReorderRequest,
     ) -> list[tuple[ProjectTask, User | None]]:
+        _warn_legacy_projects_usage("reorder_tasks")
         project = await self._get_project_or_404(user_id, project_id)
         task_rows = await self.repo.list_tasks_with_assignees(project.id, limit=0)
         tasks_by_id = {task.id: task for task, _ in task_rows}
@@ -265,7 +286,7 @@ class ProjectsService:
             title=f"Task assigned: {task.title}",
             body=(
                 f"{self._actor_label(actor)} assigned you the task "
-                f"\"{task.title}\" in project \"{project.name}\"."
+                f'"{task.title}" in project "{project.name}".'
             ),
         )
 
@@ -290,8 +311,8 @@ class ProjectsService:
             type="task_due_date_updated",
             title=f"Due date updated: {task.title}",
             body=(
-                f"{self._actor_label(actor)} set the due date for \"{task.title}\" "
-                f"to {task.due_date.isoformat()} in project \"{project.name}\"."
+                f'{self._actor_label(actor)} set the due date for "{task.title}" '
+                f'to {task.due_date.isoformat()} in project "{project.name}".'
             ),
         )
 
@@ -314,8 +335,8 @@ class ProjectsService:
             type="task_status_changed",
             title=f"Task moved to {target_label}: {task.title}",
             body=(
-                f"{self._actor_label(actor)} moved \"{task.title}\" to {target_label} "
-                f"in project \"{project.name}\"."
+                f'{self._actor_label(actor)} moved "{task.title}" to {target_label} '
+                f'in project "{project.name}".'
             ),
         )
 
@@ -476,7 +497,7 @@ class OrchestrationProjectsServiceMixin:
         )
         await self.db.commit()
         await self.db.refresh(project)
-        execution_settings = ((project.settings_json or {}).get("execution") or {})
+        execution_settings = (project.settings_json or {}).get("execution") or {}
         team_profile_id = str(execution_settings.get("team_profile_id") or "").strip()
         if team_profile_id:
             try:
@@ -511,7 +532,11 @@ class OrchestrationProjectsServiceMixin:
         team_profile = await get_team_profile(user.id, team_profile_id)
         if team_profile is None:
             raise HTTPException(status_code=404, detail="Selected team profile not found.")
-        template_slugs = [str(slug).strip() for slug in (team_profile.agent_template_slugs_json or []) if str(slug).strip()]
+        template_slugs = [
+            str(slug).strip()
+            for slug in (team_profile.agent_template_slugs_json or [])
+            if str(slug).strip()
+        ]
         if not template_slugs:
             raise HTTPException(
                 status_code=409,
@@ -573,7 +598,11 @@ class OrchestrationProjectsServiceMixin:
                     "description": template.description or "",
                     "role": template.role or "specialist",
                     "capabilities": list(template.capabilities_json or []),
-                    "allowed_tools": [tool for tool in (template.allowed_tools_json or []) if tool in allowed_runtime_tools],
+                    "allowed_tools": [
+                        tool
+                        for tool in (template.allowed_tools_json or [])
+                        if tool in allowed_runtime_tools
+                    ],
                     "tags": list(template.tags_json or []),
                     "model_policy": {"permissions": "read-only", "escalation_path": None},
                     "memory_policy": {"scope": "project-only"},
@@ -617,14 +646,18 @@ class OrchestrationProjectsServiceMixin:
         for field, value in updates.items():
             if field == "settings":
                 defaults = await self.get_portfolio_execution_policy(user)
-                merged = self._merge_nested_project_settings(project.settings_json or {}, value or {})
+                merged = self._merge_nested_project_settings(
+                    project.settings_json or {}, value or {}
+                )
                 merged = self._apply_portfolio_defaults_to_project_settings(
                     merged,
                     defaults,
                     explicit_settings=value or {},
                 )
                 normalized = self._normalize_project_settings(merged)
-                incoming_execution = (value or {}).get("execution") if isinstance(value, dict) else None
+                incoming_execution = (
+                    (value or {}).get("execution") if isinstance(value, dict) else None
+                )
                 if isinstance(incoming_execution, dict):
                     _, member_ids, roles = await self._project_hierarchy_members(user, project.id)
                     policy = policy_from_execution(normalized.get("execution"))
@@ -646,9 +679,7 @@ class OrchestrationProjectsServiceMixin:
                 resource_type="orchestrator_project",
                 resource_id=project.id,
                 metadata={
-                    "changed_sections": sorted(
-                        str(key) for key in (updates.get("settings") or {})
-                    ),
+                    "changed_sections": sorted(str(key) for key in (updates.get("settings") or {})),
                     "hitl": "hitl" in (updates.get("settings") or {}),
                 },
             )
@@ -660,7 +691,9 @@ class OrchestrationProjectsServiceMixin:
 
     async def get_hierarchy_policy(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
-        execution = self._normalize_project_settings(project.settings_json or {}).get("execution", {})
+        execution = self._normalize_project_settings(project.settings_json or {}).get(
+            "execution", {}
+        )
         policy = policy_from_execution(execution)
         _, member_ids, roles = await self._project_hierarchy_members(user, project.id)
         return {
@@ -797,7 +830,9 @@ class OrchestrationProjectsServiceMixin:
         membership = await self.repo.get_project_membership_by_id(project.id, membership_id)
         if not membership:
             raise HTTPException(status_code=404, detail="Project agent membership not found")
-        await self._assert_reviewer_membership_invariant(user, project.id, membership_id, removing=True)
+        await self._assert_reviewer_membership_invariant(
+            user, project.id, membership_id, removing=True
+        )
         await self.db.delete(membership)
         await self.db.commit()
 
@@ -821,7 +856,9 @@ class OrchestrationProjectsServiceMixin:
         settings = dict(project.settings_json or {})
         return normalize_workspace(settings.get("local_repo"))
 
-    async def validate_local_repo_workspace(self, user: User, payload: dict[str, Any]) -> dict[str, Any]:
+    async def validate_local_repo_workspace(
+        self, user: User, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         _ = user
         workspace = normalize_workspace(payload)
         try:
@@ -1003,7 +1040,9 @@ class OrchestrationProjectsServiceMixin:
             for row in rows
         ]
 
-    async def project_repository_index_status(self, user: User, project_id: str) -> list[dict[str, Any]]:
+    async def project_repository_index_status(
+        self, user: User, project_id: str
+    ) -> list[dict[str, Any]]:
         project = await self.get_project(user, project_id)
         repositories = await self.repo.list_project_repositories(project.id)
         jobs = await self.repo.list_memory_ingest_jobs_for_project(user.id, project.id, limit=240)
@@ -1094,7 +1133,9 @@ class OrchestrationProjectsServiceMixin:
                         "started_at": latest_job.started_at,
                         "finished_at": latest_job.finished_at,
                         "mode": str((latest_job.payload_json or {}).get("mode") or "full"),
-                        "path_prefixes": list((latest_job.payload_json or {}).get("path_prefixes") or []),
+                        "path_prefixes": list(
+                            (latest_job.payload_json or {}).get("path_prefixes") or []
+                        ),
                     }
                     if latest_job
                     else None,
@@ -1120,7 +1161,9 @@ class OrchestrationProjectsServiceMixin:
         if repository_link is None:
             raise HTTPException(status_code=404, detail="Project repository link not found")
         if not repository_link.github_repository_id:
-            raise HTTPException(status_code=422, detail="Project repository is not linked to GitHub")
+            raise HTTPException(
+                status_code=422, detail="Project repository is not linked to GitHub"
+            )
         path_prefixes = [
             str(item).strip()
             for item in list(payload.get("path_prefixes") or [])
@@ -1186,8 +1229,12 @@ class OrchestrationProjectsServiceMixin:
         if repository_link is None:
             raise HTTPException(status_code=404, detail="Project repository link not found")
         if not repository_link.github_repository_id:
-            raise HTTPException(status_code=422, detail="Project repository is not linked to GitHub")
-        github_repository = await self.repo.get_github_repository(user.id, repository_link.github_repository_id)
+            raise HTTPException(
+                status_code=422, detail="Project repository is not linked to GitHub"
+            )
+        github_repository = await self.repo.get_github_repository(
+            user.id, repository_link.github_repository_id
+        )
         if github_repository is None:
             raise HTTPException(status_code=404, detail="GitHub repository not found")
         connection = await self.repo.get_github_connection(user.id, github_repository.connection_id)
@@ -1199,7 +1246,9 @@ class OrchestrationProjectsServiceMixin:
             raise RuntimeError("_run_repository_index_job requires a host _github_request helper")
         index_document = getattr(self, "_index_project_document", None)
         if not callable(index_document):
-            raise RuntimeError("_run_repository_index_job requires a host _index_project_document helper")
+            raise RuntimeError(
+                "_run_repository_index_job requires a host _index_project_document helper"
+            )
 
         branch = repository_link.default_branch or github_repository.default_branch or "main"
         path_prefixes = [
@@ -1413,7 +1462,9 @@ class OrchestrationProjectsServiceMixin:
             all_sync_events.extend(sync_events)
             all_ingest_jobs.extend(ingest_jobs)
             project_approvals = [
-                item for item in approvals if item.project_id == project.id and item.status == "pending"
+                item
+                for item in approvals
+                if item.project_id == project.id and item.status == "pending"
             ]
 
             blocked_tasks = [task for task in tasks if task.status == "blocked"]
@@ -1494,7 +1545,9 @@ class OrchestrationProjectsServiceMixin:
                 }
                 if latest_run
                 else None,
-                "execution_policy": self._project_execution_policy_summary(project, policy_defaults),
+                "execution_policy": self._project_execution_policy_summary(
+                    project, policy_defaults
+                ),
             }
             totals["active_runs"] += queue_depth["active_runs"] + queue_depth["queued_runs"]
             totals["blocked_tasks"] += len(blocked_tasks)
@@ -1504,14 +1557,18 @@ class OrchestrationProjectsServiceMixin:
             rows.append(row)
 
         queued_runs = [run for run in all_runs if run.status == "queued"]
-        blocked_or_running_runs = [run for run in all_runs if run.status in {"in_progress", "blocked"}]
+        blocked_or_running_runs = [
+            run for run in all_runs if run.status in {"in_progress", "blocked"}
+        ]
         stuck_threshold = datetime.now(UTC) - timedelta(minutes=45)
         stuck_runs = [
             run
             for run in blocked_or_running_runs
             if (run.started_at or run.created_at) <= stuck_threshold
         ]
-        pending_webhooks = [event for event in all_sync_events if event.status in {"queued", "pending"}]
+        pending_webhooks = [
+            event for event in all_sync_events if event.status in {"queued", "pending"}
+        ]
         replay_candidates = [
             event
             for event in all_sync_events
@@ -1574,7 +1631,11 @@ class OrchestrationProjectsServiceMixin:
                     ((run.started_at or run.created_at) for run in stuck_runs),
                     default=None,
                 ),
-                "status": "critical" if len(stuck_runs) >= 5 else "watch" if stuck_runs else "healthy",
+                "status": "critical"
+                if len(stuck_runs) >= 5
+                else "watch"
+                if stuck_runs
+                else "healthy",
             },
             "services": [
                 {
@@ -1614,7 +1675,11 @@ class OrchestrationProjectsServiceMixin:
                 {
                     "key": "repo_indexing",
                     "label": "Repo indexing",
-                    "status": "critical" if index_failed else "watch" if index_running else "healthy",
+                    "status": "critical"
+                    if index_failed
+                    else "watch"
+                    if index_running
+                    else "healthy",
                     "summary": f"{len(index_running)} indexing job(s) running, {len(index_failed)} failed.",
                     "metrics": {
                         "running_jobs": len(index_running),
@@ -1682,7 +1747,9 @@ class OrchestrationProjectsServiceMixin:
         return {
             "agents": len(agents),
             "runs": {
-                "active": sum(1 for run in runs if run.status in {"queued", "in_progress", "blocked"}),
+                "active": sum(
+                    1 for run in runs if run.status in {"queued", "in_progress", "blocked"}
+                ),
                 "failed": sum(1 for run in runs if run.status == "failed"),
             },
             "latest_run_id": runs[0].id if runs else None,
@@ -1693,7 +1760,11 @@ class OrchestrationProjectsServiceMixin:
         since = datetime.now(UTC) - timedelta(days=safe_days)
         rows = await self.repo.aggregate_run_events_by_type_for_owner(user.id, since)
         by_type = {event_type: count for event_type, count in rows}
-        runs = [run for run in await self.repo.list_runs(user.id, None, limit=0) if run.created_at >= since]
+        runs = [
+            run
+            for run in await self.repo.list_runs(user.id, None, limit=0)
+            if run.created_at >= since
+        ]
         event_projection = await self.repo.list_observability_events_for_owner(user.id, since)
         tool_counts: Counter[str] = Counter()
         events_by_run: dict[str, list[tuple[str, dict[str, Any]]]] = {}
@@ -1701,7 +1772,9 @@ class OrchestrationProjectsServiceMixin:
             events_by_run.setdefault(run_id, []).append((event_type, payload))
             if event_type == "tool_call_failed":
                 tool_counts[str(payload.get("tool") or "unknown")] += 1
-        tool_failures_by_tool = [{"tool": tool, "count": count} for tool, count in tool_counts.most_common(25)]
+        tool_failures_by_tool = [
+            {"tool": tool, "count": count} for tool, count in tool_counts.most_common(25)
+        ]
 
         projects = await self.repo.list_projects(user.id)
         project_names = {project.id: project.name for project in projects}
@@ -1709,15 +1782,25 @@ class OrchestrationProjectsServiceMixin:
         task_names: dict[str, str] = {}
         if task_ids:
             task_result = await self.db.execute(
-                select(OrchestratorTask.id, OrchestratorTask.title).where(OrchestratorTask.id.in_(task_ids))
+                select(OrchestratorTask.id, OrchestratorTask.title).where(
+                    OrchestratorTask.id.in_(task_ids)
+                )
             )
             task_names = {str(task_id): str(title) for task_id, title in task_result.all()}
-        agent_result = await self.db.execute(select(AgentProfile.id, AgentProfile.name).where(AgentProfile.owner_id == user.id))
+        agent_result = await self.db.execute(
+            select(AgentProfile.id, AgentProfile.name).where(AgentProfile.owner_id == user.id)
+        )
         agent_names = {str(agent_id): str(name) for agent_id, name in agent_result.all()}
         providers = await self.repo.list_owned_providers(user.id, enabled_only=False)
         provider_names = {provider.id: provider.name for provider in providers}
 
-        validation_types = {"output_validation_failed", "validation_failed", "schema_validation_failed", "hallucination_detected", "hallucination_failure"}
+        validation_types = {
+            "output_validation_failed",
+            "validation_failed",
+            "schema_validation_failed",
+            "hallucination_detected",
+            "hallucination_failure",
+        }
         validation_failures_by_run: Counter[str] = Counter()
         hallucination_failures = 0
         tool_failures_by_run: Counter[str] = Counter()
@@ -1726,7 +1809,9 @@ class OrchestrationProjectsServiceMixin:
                 normalized = event_type.lower()
                 if event_type == "tool_call_failed":
                     tool_failures_by_run[run_id] += 1
-                if event_type in validation_types or ("validation" in normalized and "pass" not in normalized):
+                if event_type in validation_types or (
+                    "validation" in normalized and "pass" not in normalized
+                ):
                     validation_failures_by_run[run_id] += 1
                 if "halluc" in normalized:
                     hallucination_failures += 1
@@ -1767,19 +1852,29 @@ class OrchestrationProjectsServiceMixin:
                 row["accepted"] += int(run.status == "completed")
 
         for run in runs:
-            project_row = by_project.setdefault(run.project_id, new_rollup(run.project_id, project_names.get(run.project_id, "Project")))
+            project_row = by_project.setdefault(
+                run.project_id,
+                new_rollup(run.project_id, project_names.get(run.project_id, "Project")),
+            )
             add_run(project_row, run, run.id)
             agent_id = run.worker_agent_id or run.orchestrator_agent_id
             if agent_id:
-                agent_row = by_agent.setdefault(agent_id, new_rollup(agent_id, agent_names.get(agent_id, agent_id[:8])))
+                agent_row = by_agent.setdefault(
+                    agent_id, new_rollup(agent_id, agent_names.get(agent_id, agent_id[:8]))
+                )
                 add_run(agent_row, run, run.id)
             if run.task_id:
-                task_row = by_task.setdefault(run.task_id, new_rollup(run.task_id, task_names.get(run.task_id, "Task")))
+                task_row = by_task.setdefault(
+                    run.task_id, new_rollup(run.task_id, task_names.get(run.task_id, "Task"))
+                )
                 add_run(task_row, run, run.id)
             if run.provider_config_id:
                 provider_row = by_provider.setdefault(
                     run.provider_config_id,
-                    new_rollup(run.provider_config_id, provider_names.get(run.provider_config_id, "Provider")),
+                    new_rollup(
+                        run.provider_config_id,
+                        provider_names.get(run.provider_config_id, "Provider"),
+                    ),
                 )
                 add_run(provider_row, run, run.id)
 
@@ -1794,22 +1889,32 @@ class OrchestrationProjectsServiceMixin:
                         "runs": row["runs"],
                         "tokens": row["tokens"],
                         "cost_usd": round(row["cost_usd"], 6),
-                        "avg_latency_ms": round(row["latency_sum"] / max(row["latency_count"], 1), 2),
+                        "avg_latency_ms": round(
+                            row["latency_sum"] / max(row["latency_count"], 1), 2
+                        ),
                         "retries": row["retries"],
                         "tool_failures": row["tool_failures"],
                         "validation_failures": row["validation_failures"],
-                        "acceptance_rate": round(row["accepted"] / total, 3) if row["acceptance_total"] else None,
+                        "acceptance_rate": round(row["accepted"] / total, 3)
+                        if row["acceptance_total"]
+                        else None,
                     }
                 )
             return sorted(result, key=lambda item: item["cost_usd"], reverse=True)
 
         latencies = sorted(int(run.latency_ms) for run in runs if run.latency_ms is not None)
-        p95_index = max(0, min(len(latencies) - 1, int(len(latencies) * 0.95) - 1)) if latencies else 0
+        p95_index = (
+            max(0, min(len(latencies) - 1, int(len(latencies) * 0.95) - 1)) if latencies else 0
+        )
         review_runs = [run for run in runs if run.run_mode == "review"]
         accepted_after_review = sum(1 for run in review_runs if run.status == "completed")
 
         sync_events = await self.repo.list_sync_events_for_owner_since(user.id, since)
-        brainstorms = [item for item in await self.repo.list_brainstorms(user.id) if item.updated_at >= since or item.created_at >= since]
+        brainstorms = [
+            item
+            for item in await self.repo.list_brainstorms(user.id)
+            if item.updated_at >= since or item.created_at >= since
+        ]
         repetitions: list[float] = []
         discussion_rounds = 0
         discussion_loop_detected = 0
@@ -1820,14 +1925,19 @@ class OrchestrationProjectsServiceMixin:
                 discussion_rounds += 1
                 if entry.get("repetition_score") is not None:
                     repetitions.append(float(entry["repetition_score"]))
-                if entry.get("consensus_kind") == "loop_detected" or entry.get("consensus_status") == "loop_detected":
+                if (
+                    entry.get("consensus_kind") == "loop_detected"
+                    or entry.get("consensus_status") == "loop_detected"
+                ):
                     discussion_loop_detected += 1
 
         evaluation_records = await self.repo.count_eval_records_for_owner_since(user.id, since)
         return {
             "since": since,
             "days": safe_days,
-            "by_event_type": [{"event_type": event_type, "count": count} for event_type, count in rows],
+            "by_event_type": [
+                {"event_type": event_type, "count": count} for event_type, count in rows
+            ],
             "tool_failures_by_tool": tool_failures_by_tool,
             "reopen_events": int(by_type.get("reopened", 0)),
             "brainstorm_round_summary_events": int(by_type.get("brainstorm_round_summary", 0)),
@@ -1837,21 +1947,31 @@ class OrchestrationProjectsServiceMixin:
             "completed_runs": sum(1 for run in runs if run.status == "completed"),
             "failed_runs": sum(1 for run in runs if run.status == "failed"),
             "total_tokens": sum(int(run.token_total or 0) for run in runs),
-            "total_cost_usd": round(sum(int(run.estimated_cost_micros or 0) for run in runs) / 1_000_000, 6),
+            "total_cost_usd": round(
+                sum(int(run.estimated_cost_micros or 0) for run in runs) / 1_000_000, 6
+            ),
             "avg_latency_ms": round(sum(latencies) / max(len(latencies), 1), 2),
             "p95_latency_ms": float(latencies[p95_index]) if latencies else 0.0,
             "retry_count": sum(int(run.retry_count or 0) for run in runs),
-            "retry_rate": round(sum(1 for run in runs if int(run.retry_count or 0) > 0) / max(len(runs), 1), 3),
+            "retry_rate": round(
+                sum(1 for run in runs if int(run.retry_count or 0) > 0) / max(len(runs), 1), 3
+            ),
             "validation_failures": sum(validation_failures_by_run.values()),
             "hallucination_failures": hallucination_failures,
             "github_sync_events": len(sync_events),
-            "github_sync_failures": sum(1 for item in sync_events if item.status in {"failed", "error"}),
+            "github_sync_failures": sum(
+                1 for item in sync_events if item.status in {"failed", "error"}
+            ),
             "discussion_rounds": discussion_rounds,
-            "discussion_loop_score": round(sum(repetitions) / len(repetitions), 3) if repetitions else None,
+            "discussion_loop_score": round(sum(repetitions) / len(repetitions), 3)
+            if repetitions
+            else None,
             "discussion_loop_detected": discussion_loop_detected,
             "acceptance_checks": len(review_runs),
             "accepted_after_review": accepted_after_review,
-            "acceptance_rate_after_review": round(accepted_after_review / len(review_runs), 3) if review_runs else None,
+            "acceptance_rate_after_review": round(accepted_after_review / len(review_runs), 3)
+            if review_runs
+            else None,
             "evaluation_records": evaluation_records,
             "by_project": finalize_rollups(by_project),
             "by_agent": finalize_rollups(by_agent),
@@ -1879,7 +1999,10 @@ class OrchestrationProjectsServiceMixin:
                 ],
                 "milestones": [
                     {"title": "Discovery & scope", "description": "Clarify scope and dependencies"},
-                    {"title": "Implementation", "description": "Build and validate core functionality"},
+                    {
+                        "title": "Implementation",
+                        "description": "Build and validate core functionality",
+                    },
                     {"title": "Release readiness", "description": "Review, approvals, and rollout"},
                 ],
                 "tasks": [
@@ -1906,7 +2029,9 @@ class OrchestrationProjectsServiceMixin:
             },
         }
 
-    async def apply_bootstrap_project(self, user: User, payload: dict[str, Any]) -> OrchestratorProject:
+    async def apply_bootstrap_project(
+        self, user: User, payload: dict[str, Any]
+    ) -> OrchestratorProject:
         create_task = getattr(self, "create_task", None)
         if not callable(create_task):
             raise RuntimeError("apply_bootstrap_project requires a host create_task method")
@@ -1993,7 +2118,9 @@ class OrchestrationProjectsServiceMixin:
         sla.setdefault("warn_hours_before_due", 24)
         sla.setdefault("escalate_hours_after_due", 0)
         execution["sla"] = sla
-        execution["approval_gates"] = normalize_approval_gates(execution.get("approval_gates", DEFAULT_APPROVAL_GATES))
+        execution["approval_gates"] = normalize_approval_gates(
+            execution.get("approval_gates", DEFAULT_APPROVAL_GATES)
+        )
         execution.setdefault("expensive_model_cost_per_1k_usd", 0.01)
         normalize_policy_routing = getattr(self, "_normalize_policy_routing", None)
         if callable(normalize_policy_routing):
@@ -2033,7 +2160,9 @@ class OrchestrationProjectsServiceMixin:
         raw["memory"] = {**mem_defaults, **mem_in}
         return raw
 
-    def _normalize_portfolio_execution_policy(self, settings: dict[str, Any] | None) -> dict[str, Any]:
+    def _normalize_portfolio_execution_policy(
+        self, settings: dict[str, Any] | None
+    ) -> dict[str, Any]:
         raw = dict(DEFAULT_PORTFOLIO_EXECUTION_POLICY)
         if settings:
             raw.update({key: value for key, value in settings.items() if value is not None})
@@ -2050,8 +2179,7 @@ class OrchestrationProjectsServiceMixin:
         try:
             raw["cost_cap_usd"] = round(
                 float(
-                    raw.get("cost_cap_usd")
-                    or DEFAULT_PORTFOLIO_EXECUTION_POLICY["cost_cap_usd"]
+                    raw.get("cost_cap_usd") or DEFAULT_PORTFOLIO_EXECUTION_POLICY["cost_cap_usd"]
                 ),
                 2,
             )

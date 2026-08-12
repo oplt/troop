@@ -115,8 +115,6 @@ class OrchestratorTask(Base):
     # )
     github_issue_link_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
-
-
     parent_task_id: Mapped[str | None] = mapped_column(
         ForeignKey("orchestrator_tasks.id", ondelete="CASCADE"),
         nullable=True,

@@ -171,12 +171,12 @@ def build_agent_runtime_profile(
     skill_lookup = _skill_map(skills)
 
     # Canonical path: AgentSkillAssignment → SkillVersion instructions.
-    # Fallback: legacy skills_json → SkillPack.rules_markdown.
+    # When assignments were resolved upstream, never fall back to SkillPack/skills_json.
     instruction_extras: list[str] = []
     skill_slugs: list[str] = []
     skill_tool_slugs: set[str] = set()
 
-    if assigned_skill_versions:
+    if assigned_skill_versions is not None:
         for item in assigned_skill_versions:
             slug = str(item.get("slug") or "")
             if slug:

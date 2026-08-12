@@ -345,3 +345,47 @@ async def test_skill_node_resolves_version_into_vars() -> None:
 
 def test_arguments_hash_stable_for_tool_params() -> None:
     assert arguments_hash({"path": "/tmp/x"}) == arguments_hash({"path": "/tmp/x"})
+
+
+def test_evaluate_parallel_join_fail_fast() -> None:
+    runtime = WorkflowRuntimeService(AsyncMock())
+
+    assert runtime._evaluate_parallel_join("fail_fast", ["succeeded", "succeeded"]) == "succeeded"
+    assert runtime._evaluate_parallel_join("fail_fast", ["succeeded", "failed"]) == "failed"
+    assert runtime._evaluate_parallel_join("fail_fast", ["succeeded", "pending"]) == "paused"
+    assert runtime._evaluate_parallel_join("fail_fast", ["paused", "pending"]) == "paused"
+    assert runtime._evaluate_parallel_join("fail_fast", ["failed", "pending"]) == "failed"
+
+
+def test_evaluate_parallel_join_n_of_m() -> None:
+    runtime = WorkflowRuntimeService(AsyncMock())
+
+    assert (
+        runtime._evaluate_parallel_join("n_of_m", ["succeeded", "pending", "pending"], n=2)
+        == "paused"
+    )
+    assert (
+        runtime._evaluate_parallel_join("n_of_m", ["succeeded", "succeeded", "pending"], n=2)
+        == "succeeded"
+    )
+    assert (
+        runtime._evaluate_parallel_join("n_of_m", ["succeeded", "failed", "failed"], n=2)
+        == "failed"
+    )
+    assert runtime._evaluate_parallel_join("2_of_3", ["succeeded", "failed", "pending"]) == "paused"
+    assert (
+        runtime._evaluate_parallel_join("2_of_3", ["succeeded", "succeeded", "failed"])
+        == "succeeded"
+    )
+
+
+def test_parse_parallel_join_config_from_policy_string() -> None:
+    from backend.modules.workforce.services.workflow_runtime import _parse_parallel_join_config
+
+    policy, n = _parse_parallel_join_config({"join_policy": "2_of_3"})
+    assert policy == "n_of_m"
+    assert n == 2
+
+    policy, n = _parse_parallel_join_config({"join_policy": "n_of_m", "min_success": 2})
+    assert policy == "n_of_m"
+    assert n == 2

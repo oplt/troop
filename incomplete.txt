@@ -1,42 +1,28 @@
 # Regenerated after implementation pass — remaining gaps only.
 # Source of truth for status: tasks.txt
-# Do not treat older audits in chat history as current requirements.
 
 ## Still open / partial
 
 ### CI confirmation
-- [~] Push and confirm Quality Action is green on `pgvector/pgvector:pg16` (CREATE EXTENSION added in initial + vector migrations).
+- [~] Confirm Quality Action green on `pgvector/pgvector:pg16` after push (local ruff/tests green).
 
-### Workflow engine depth
-- [~] Subworkflow parent auto-resume (`on_workflow_run_completed`)
-- [~] Parallel policies: `fail_fast`, `N-of-M`
-- [~] Full ToolExecutionService unification (OrchestrationToolbox still has direct native methods)
+### Consolidation (schema drops — deferred until CI + telemetry)
+- [ ] Drop legacy `projects` / `project_tasks` tables after caller migration (router unmounted; service warns)
+- [ ] Drop `skill_packs` table after telemetry shows zero production reads (`legacy_skillpack_read_telemetry`)
 
-### Matching / routing
-- [~] Semantic skill embeddings; schema IO compatibility; knowledge-source availability
-- [~] Agent cost/latency/model-capability scoring depth
-- [~] Single shared model router (workforce still has purpose-aware ModelCapability helper)
-
-### Consolidation
-- [ ] Drop legacy `projects` / `project_tasks` after caller migration
-- [ ] Eliminate SkillPack reads / `agent.skills_json` / tables after telemetry
-- [~] Generic ExternalAction/Artifact runtime (remove github_* as first-class stage ids)
-
-### E2E
-- [~] Extend PG E2E through tool execute → approval consume-once → eval of frozen SkillVersion
-
-### Beta
-- [~] MCP/A2A production hardening (lifecycle, circuit breaker, grants, test servers)
+### Matching / MCP depth (optional next)
+- [~] True embedding-based semantic skill match (token Jaccard shipped as lightweight stand-in)
+- [~] MCP/A2A: session lifecycle, secret rotation, real test servers (retry + circuit breaker shipped)
 
 ## Done in this pass (do not rework)
-- pgvector CI image + CREATE EXTENSION
-- auth.permitted enforced in Toolbox + ToolRegistry.execute_tool
-- high-risk approvals require arguments_hash
-- workflow tool approval strict 4-way bind + auto ApprovalRequest
-- mandatory SkillVersion snapshot (fail closed / audited degrade)
-- TaskRunStarter for workflow agent nodes (freeze + enqueue)
-- ToolExecutionService for workflow tools
-- condition/router/trigger/parallel/delay Celery + event resume hooks
-- effective permission resolver used by matcher + ToolRegistry
-- analysis_mode/fallback + richer fingerprints
-- PG E2E skill snapshot immutability via production run API
+- Subworkflow parent auto-resume (`on_workflow_run_completed`)
+- Parallel join policies: `fail_fast`, `n_of_m` / `N-of-M`
+- ToolExecutionService ↔ OrchestrationToolbox unification (`dispatch` / no recursion)
+- Shared `model_router` used by workforce provider_resolution + run provider fallback
+- Skill matcher: schema IO + knowledge availability + token semantic score
+- Agent matcher: ModelCapability cost/latency/tools soft signals
+- SkillPack hot-path: no skills_json writes on create/update; assignments instead; telemetry on migrate/reconcile
+- External action stage id `external_action_sync` with `github_sync` alias
+- Legacy ProjectsService runtime warnings + LEGACY.md
+- PG E2E: approval consume-once + frozen SkillVersion eval/usage
+- MCP/A2A: managed HTTP + retry/backoff + circuit breaker

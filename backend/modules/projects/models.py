@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from backend.db.base import Base
 
 
+# Legacy portfolio tables — canonical entities live in orchestration_models.py.
 class Project(Base):
     __tablename__ = "projects"
 

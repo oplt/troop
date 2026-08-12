@@ -118,7 +118,7 @@ class ToolExecutionService:
             run=run,
         )
         try:
-            result = await toolbox.execute({"tool": tool_slug, "arguments": params})
+            result = await toolbox.dispatch(tool_slug, params)
             return {"status": "succeeded", "output": result}
         except ToolExecutionError as exc:
             message = str(exc)

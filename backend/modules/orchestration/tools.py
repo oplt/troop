@@ -122,6 +122,48 @@ class OrchestrationToolbox:
                     f"Tool `{tool_name}` authorization failed closed: {exc}"
                 ) from exc
 
+        from backend.modules.workforce.services.tool_execution_service import ToolExecutionService
+
+        service = ToolExecutionService(self.db)
+        owner_id = str(context.get("owner_id") or "")
+        if not owner_id:
+            raise ToolExecutionError("Tool execution requires a project owner")
+        result = await service.execute(
+            owner_id,
+            tool_name,
+            arguments if isinstance(arguments, dict) else {},
+            context,
+        )
+        status = str(result.get("status") or "")
+        if status == "approval_required":
+            raise ToolExecutionError(
+                f"APPROVAL_REQUIRED: Tool `{tool_name}` requires approval "
+                f"({result.get('reason') or 'policy'})"
+            )
+        if status in {"denied", "failed", "error"}:
+            raise ToolExecutionError(
+                f"Tool `{tool_name}` {status}: {result.get('error') or result.get('reason')}"
+            )
+        output = result.get("output")
+        if isinstance(output, dict):
+            return output
+        if output is not None:
+            return {"result": output}
+        if status in {"succeeded", "completed"}:
+            return {
+                k: v
+                for k, v in result.items()
+                if k not in {"status", "tool_slug", "evidence"}
+            }
+        return result
+
+    async def dispatch(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Pure tool dispatch — no authorization (caller must authorize first)."""
+        tool_name = str(tool_name or "").strip()
+        arguments = arguments if isinstance(arguments, dict) else {}
+        if not tool_name:
+            raise ToolExecutionError("Tool call is missing a tool name")
+
         if tool_name == "github_comment":
             return await self._github_comment(arguments)
         if tool_name == "github_label_issue":
@@ -145,10 +187,21 @@ class OrchestrationToolbox:
         if tool_name == "knowledge_search":
             return await self._knowledge_search(arguments)
 
-        # Ecosystem providers: MCP / A2A live execution
         if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
+            from backend.modules.orchestration.tool_execution_context import (
+                build_tool_execution_context,
+            )
             from backend.modules.workforce.services.tool_registry import ToolRegistryService
 
+            context = await build_tool_execution_context(
+                self.db,
+                project=self.project,
+                task=self.task,
+                run=self.run,
+                tool_name=tool_name,
+                arguments=arguments,
+                consume_approval=False,
+            )
             owner_id = context.get("owner_id")
             if not owner_id:
                 raise ToolExecutionError("MCP/A2A tools require a project owner")
@@ -156,7 +209,7 @@ class OrchestrationToolbox:
             result = await registry.execute_tool(
                 str(owner_id),
                 tool_name,
-                arguments if isinstance(arguments, dict) else {},
+                arguments,
                 context,
             )
             if result.get("status") == "approval_required":

@@ -50,9 +50,13 @@ class OrchestrationTasksServiceMixin:
     async def create_task(self, user: User, project_id: str, payload: dict[str, Any]):
         project = await self.get_project(user, project_id)
         if payload.get("assigned_agent_id"):
-            await self._ensure_project_agent_member(user, project.id, payload["assigned_agent_id"], "Owner")
+            await self._ensure_project_agent_member(
+                user, project.id, payload["assigned_agent_id"], "Owner"
+            )
         if payload.get("reviewer_agent_id"):
-            await self._ensure_project_agent_member(user, project.id, payload["reviewer_agent_id"], "Reviewer")
+            await self._ensure_project_agent_member(
+                user, project.id, payload["reviewer_agent_id"], "Reviewer"
+            )
         metadata = self._normalized_task_metadata(
             payload.get("metadata"),
             required_tools=payload.get("required_tools"),
@@ -105,55 +109,55 @@ class OrchestrationTasksServiceMixin:
             and updates.get("assigned_agent_id") != task.assigned_agent_id
             and self.action_requires_approval(project, "change_task_ownership")
         ):
-                approval = await self.repo.create_approval(
-                    project_id=project.id,
-                    task_id=task.id,
-                    run_id=None,
-                    issue_link_id=task.github_issue_link_id,
-                    requested_by_user_id=user.id,
-                    approval_type="task_assignment_change",
-                    status="pending",
-                    payload_json={
-                        "task_id": task.id,
-                        "from_assigned_agent_id": task.assigned_agent_id,
-                        "to_assigned_agent_id": updates.get("assigned_agent_id"),
-                    },
-                )
-                await self.db.commit()
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "message": "Changing task ownership requires approval.",
-                        "approval_id": approval.id,
-                    },
-                )
+            approval = await self.repo.create_approval(
+                project_id=project.id,
+                task_id=task.id,
+                run_id=None,
+                issue_link_id=task.github_issue_link_id,
+                requested_by_user_id=user.id,
+                approval_type="task_assignment_change",
+                status="pending",
+                payload_json={
+                    "task_id": task.id,
+                    "from_assigned_agent_id": task.assigned_agent_id,
+                    "to_assigned_agent_id": updates.get("assigned_agent_id"),
+                },
+            )
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Changing task ownership requires approval.",
+                    "approval_id": approval.id,
+                },
+            )
         if (
             "status" in updates
             and updates.get("status") in {"completed", "approved"}
             and self.action_requires_approval(project, "mark_complete")
         ):
-                approval = await self.repo.create_approval(
-                    project_id=project.id,
-                    task_id=task.id,
-                    run_id=None,
-                    issue_link_id=task.github_issue_link_id,
-                    requested_by_user_id=user.id,
-                    approval_type="task_mark_complete",
-                    status="pending",
-                    payload_json={
-                        "task_id": task.id,
-                        "from_status": task.status,
-                        "to_status": updates.get("status"),
-                    },
-                )
-                await self.db.commit()
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "message": "Marking tasks complete requires approval.",
-                        "approval_id": approval.id,
-                    },
-                )
+            approval = await self.repo.create_approval(
+                project_id=project.id,
+                task_id=task.id,
+                run_id=None,
+                issue_link_id=task.github_issue_link_id,
+                requested_by_user_id=user.id,
+                approval_type="task_mark_complete",
+                status="pending",
+                payload_json={
+                    "task_id": task.id,
+                    "from_status": task.status,
+                    "to_status": updates.get("status"),
+                },
+            )
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Marking tasks complete requires approval.",
+                    "approval_id": approval.id,
+                },
+            )
         prev_snapshot = {
             "status": task.status,
             "assigned_agent_id": getattr(task, "assigned_agent_id", None),
@@ -162,9 +166,13 @@ class OrchestrationTasksServiceMixin:
         }
         prev_status = task.status
         if "assigned_agent_id" in updates and updates["assigned_agent_id"]:
-            await self._ensure_project_agent_member(user, project.id, updates["assigned_agent_id"], "Owner")
+            await self._ensure_project_agent_member(
+                user, project.id, updates["assigned_agent_id"], "Owner"
+            )
         if "reviewer_agent_id" in updates and updates["reviewer_agent_id"]:
-            await self._ensure_project_agent_member(user, project.id, updates["reviewer_agent_id"], "Reviewer")
+            await self._ensure_project_agent_member(
+                user, project.id, updates["reviewer_agent_id"], "Reviewer"
+            )
 
         if "assigned_agent_id" in updates:
             next_meta = dict(task.metadata_json or {})
@@ -227,7 +235,9 @@ class OrchestrationTasksServiceMixin:
                             },
                         )
                 if value in {"synced_to_github", "archived"}:
-                    evidence = await self._check_task_evidence_bundle_payload(task, target_status=value)
+                    evidence = await self._check_task_evidence_bundle_payload(
+                        task, target_status=value
+                    )
                     if not evidence["passed"]:
                         raise HTTPException(
                             status_code=409,
@@ -245,14 +255,20 @@ class OrchestrationTasksServiceMixin:
                     orm_attributes.flag_modified(task, "metadata_json")
                 await self._transition_task_status(task, value, reason="manual update")
             elif field == "priority":
-                setattr(task, field, _normalize_task_priority(str(value) if value is not None else None))
+                setattr(
+                    task, field, _normalize_task_priority(str(value) if value is not None else None)
+                )
             else:
                 setattr(task, field, value)
         await self.db.commit()
         await self.db.refresh(task)
         await self._queue_task_github_sync_from_internal_changes(user, task, prev_snapshot)
         await self._sync_knowledge_graph_for_task(project, task)
-        if prev_status != task.status and task.status in {"completed", "archived", "synced_to_github"}:
+        if prev_status != task.status and task.status in {
+            "completed",
+            "archived",
+            "synced_to_github",
+        }:
             await self._maybe_promote_task_close_working_memory(user, project, task)
             await self.db.refresh(task)
             await self._run_task_close_memory_lifecycle(user, project, task)
@@ -290,7 +306,9 @@ class OrchestrationTasksServiceMixin:
         risk_level = str(payload.get("risk_level") or "medium")
         if risk_level not in {"low", "medium", "high"}:
             risk_level = "medium"
-        required_tests = [str(item).strip() for item in payload.get("required_tests") or [] if str(item).strip()]
+        required_tests = [
+            str(item).strip() for item in payload.get("required_tests") or [] if str(item).strip()
+        ]
         session = {
             "status": "queued",
             "agent_id": payload.get("agent_id") or task.assigned_agent_id,
@@ -360,27 +378,53 @@ class OrchestrationTasksServiceMixin:
         metadata["local_repo_session"] = session
         task.metadata_json = metadata
         if status == "review-ready":
-            await self._transition_task_status(task, "needs_review", reason="agent session review ready")
+            await self._transition_task_status(
+                task, "needs_review", reason="agent session review ready"
+            )
         elif status == "blocked":
-            await self._transition_task_status(task, "blocked", reason=session.get("blocker") or "agent session blocked")
+            await self._transition_task_status(
+                task, "blocked", reason=session.get("blocker") or "agent session blocked"
+            )
         elif status == "failed":
-            await self._transition_task_status(task, "failed", reason=session.get("summary") or "agent session failed")
+            await self._transition_task_status(
+                task, "failed", reason=session.get("summary") or "agent session failed"
+            )
         elif status == "done":
             await self._transition_task_status(task, "completed", reason="agent session done")
         await self.db.commit()
         await self.db.refresh(task)
         return session
 
-    async def score_agent_work_session(self, user: User, project_id: str, task_id: str) -> dict[str, Any]:
+    async def score_agent_work_session(
+        self, user: User, project_id: str, task_id: str
+    ) -> dict[str, Any]:
         task = await self.get_task(user, project_id, task_id)
         metadata = dict(task.metadata_json or {})
         session = dict(metadata.get("local_repo_session") or {})
         required_tests = list(session.get("required_tests") or [])
         artifacts = list(session.get("artifacts") or [])
-        test_artifacts = [item for item in artifacts if isinstance(item, dict) and item.get("kind") == "test_output"]
+        test_artifacts = [
+            item
+            for item in artifacts
+            if isinstance(item, dict) and item.get("kind") == "test_output"
+        ]
         diff_size = int(session.get("diff_bytes") or 0)
-        security_risk = 25 if session.get("risk_level") == "high" else 10 if session.get("risk_level") == "medium" else 5
-        coverage = 100 if required_tests and test_artifacts else 60 if test_artifacts else 25 if required_tests else 50
+        security_risk = (
+            25
+            if session.get("risk_level") == "high"
+            else 10
+            if session.get("risk_level") == "medium"
+            else 5
+        )
+        coverage = (
+            100
+            if required_tests and test_artifacts
+            else 60
+            if test_artifacts
+            else 25
+            if required_tests
+            else 50
+        )
         blast_radius = max(0, 100 - min(80, diff_size // 2500))
         correctness = 80 if session.get("status") in {"review-ready", "done"} else 45
         confidence = round((correctness + coverage + blast_radius + (100 - security_risk)) / 4)
@@ -408,7 +452,9 @@ class OrchestrationTasksServiceMixin:
     ) -> None:
         normalized = [str(item) for item in dependency_ids if str(item).strip()]
         if len(set(normalized)) != len(normalized):
-            raise HTTPException(status_code=409, detail="Duplicate task dependencies are not allowed.")
+            raise HTTPException(
+                status_code=409, detail="Duplicate task dependencies are not allowed."
+            )
         if task_id in normalized:
             raise HTTPException(status_code=409, detail="A task cannot depend on itself.")
 
@@ -524,11 +570,17 @@ class OrchestrationTasksServiceMixin:
         if task.assigned_agent_id:
             owner = await self.get_agent(user, task.assigned_agent_id)
             if task.assigned_agent_id not in member_ids:
-                blockers.append({"kind": "owner", "message": "The assigned owner is not a project member."})
+                blockers.append(
+                    {"kind": "owner", "message": "The assigned owner is not a project member."}
+                )
             elif not owner.is_active:
                 blockers.append({"kind": "owner", "message": "The assigned owner is inactive."})
             missing_tools = sorted(
-                set(self._normalized_required_tools((task.metadata_json or {}).get("required_tools")))
+                set(
+                    self._normalized_required_tools(
+                        (task.metadata_json or {}).get("required_tools")
+                    )
+                )
                 - set(owner.allowed_tools_json or [])
             )
             if missing_tools:
@@ -540,22 +592,43 @@ class OrchestrationTasksServiceMixin:
                     }
                 )
         elif task.status in {"planned", "in_progress"}:
-            warnings.append({"kind": "owner", "message": "Task has no pinned owner; runtime routing will select one."})
+            warnings.append(
+                {
+                    "kind": "owner",
+                    "message": "Task has no pinned owner; runtime routing will select one.",
+                }
+            )
 
         if task.status == "needs_review" and not task.reviewer_agent_id:
-            blockers.append({"kind": "reviewer", "message": "Task needs review but has no reviewer assigned."})
+            blockers.append(
+                {"kind": "reviewer", "message": "Task needs review but has no reviewer assigned."}
+            )
         elif task.reviewer_agent_id:
             reviewer = await self.get_agent(user, task.reviewer_agent_id)
             if task.reviewer_agent_id not in member_ids or not reviewer.is_active:
-                blockers.append({"kind": "reviewer", "message": "The assigned reviewer is unavailable."})
+                blockers.append(
+                    {"kind": "reviewer", "message": "The assigned reviewer is unavailable."}
+                )
 
         deadline = self._task_effective_sla_deadline(task)
         if deadline is not None:
             now = datetime.now(UTC)
             if now > deadline and task.status not in terminal:
-                blockers.append({"kind": "sla", "deadline": deadline.isoformat(), "message": "Task SLA is overdue."})
+                blockers.append(
+                    {
+                        "kind": "sla",
+                        "deadline": deadline.isoformat(),
+                        "message": "Task SLA is overdue.",
+                    }
+                )
             elif deadline - now <= timedelta(hours=24) and task.status not in terminal:
-                warnings.append({"kind": "sla", "deadline": deadline.isoformat(), "message": "Task SLA is due within 24 hours."})
+                warnings.append(
+                    {
+                        "kind": "sla",
+                        "deadline": deadline.isoformat(),
+                        "message": "Task SLA is due within 24 hours.",
+                    }
+                )
 
         latest_run = await self.repo.get_latest_run_for_task(project.id, task.id)
         if latest_run is not None and latest_run.status in {"failed", "blocked"}:
@@ -572,12 +645,19 @@ class OrchestrationTasksServiceMixin:
             blockers.append(
                 {
                     "kind": "task_status",
-                    "message": str(metadata.get("handoff_blocked_reason") or "Task is marked blocked."),
+                    "message": str(
+                        metadata.get("handoff_blocked_reason") or "Task is marked blocked."
+                    ),
                     "suggested_handoff_agent_id": metadata.get("suggested_handoff_agent_id"),
                 }
             )
 
-        return {"task_id": task.id, "can_start": not blockers, "blockers": blockers, "warnings": warnings}
+        return {
+            "task_id": task.id,
+            "can_start": not blockers,
+            "blockers": blockers,
+            "warnings": warnings,
+        }
 
     async def start_parallel_dag_ready_runs(
         self,
@@ -602,7 +682,10 @@ class OrchestrationTasksServiceMixin:
                     user,
                     project_id,
                     row["id"],
-                    {"run_mode": run_mode, "input_payload": {**base_input, "dag_parallel_wave": True}},
+                    {
+                        "run_mode": run_mode,
+                        "input_payload": {**base_input, "dag_parallel_wave": True},
+                    },
                 )
                 started.append(run.id)
             except HTTPException as exc:
@@ -611,7 +694,9 @@ class OrchestrationTasksServiceMixin:
                 messages.append(f"{row['title']}: {detail}")
         return {"started_run_ids": started, "skipped_task_ids": skipped, "messages": messages}
 
-    async def merge_resolution_preview(self, user: User, project_id: str, parent_task_id: str) -> dict[str, Any]:
+    async def merge_resolution_preview(
+        self, user: User, project_id: str, parent_task_id: str
+    ) -> dict[str, Any]:
         parent = await self.get_task(user, project_id, parent_task_id)
         children = await self.repo.list_subtasks(parent_task_id)
         branches: list[dict[str, Any]] = []
@@ -714,7 +799,12 @@ class OrchestrationTasksServiceMixin:
                     continue
                 if meta.get("sla_escalated_at"):
                     continue
-                if await self.repo.count_pending_approvals_for_task(project.id, task.id, "sla_escalation") > 0:
+                if (
+                    await self.repo.count_pending_approvals_for_task(
+                        project.id, task.id, "sla_escalation"
+                    )
+                    > 0
+                ):
                     continue
                 latest_run = await self.repo.get_latest_run_for_task(project.id, task.id)
                 await self.repo.create_approval(
@@ -817,12 +907,16 @@ class OrchestrationTasksServiceMixin:
 
     async def add_task_comment(self, user: User, project_id: str, task_id: str, body: str):
         await self.get_task(user, project_id, task_id)
-        comment = await self.repo.create_task_comment(task_id=task_id, author_user_id=user.id, body=body)
+        comment = await self.repo.create_task_comment(
+            task_id=task_id, author_user_id=user.id, body=body
+        )
         await self.db.commit()
         await self.db.refresh(comment)
         return comment
 
-    async def list_task_timeline(self, user: User, project_id: str, task_id: str) -> list[dict[str, Any]]:
+    async def list_task_timeline(
+        self, user: User, project_id: str, task_id: str
+    ) -> list[dict[str, Any]]:
         await self.get_task(user, project_id, task_id)
         comments = await self.repo.list_task_comments(task_id)
         sync_events = await self.repo.list_sync_events_for_task(task_id)
@@ -837,7 +931,10 @@ class OrchestrationTasksServiceMixin:
                     "title": "Task comment",
                     "body": c.body,
                     "detail": None,
-                    "payload": {"author_user_id": c.author_user_id, "author_agent_id": c.author_agent_id},
+                    "payload": {
+                        "author_user_id": c.author_user_id,
+                        "author_agent_id": c.author_agent_id,
+                    },
                 }
             )
         for approval in approvals:
@@ -893,7 +990,8 @@ class OrchestrationTasksServiceMixin:
             next_state = self._task_state_to_github_issue_state(task)
             prev_state = (
                 "closed"
-                if prev_snapshot.get("status") in {"approved", "completed", "synced_to_github", "archived"}
+                if prev_snapshot.get("status")
+                in {"approved", "completed", "synced_to_github", "archived"}
                 else "open"
             )
             if next_state != prev_state:
@@ -972,7 +1070,9 @@ class OrchestrationTasksServiceMixin:
         await self.db.refresh(artifact)
         return artifact
 
-    async def list_subtasks(self, user: User, project_id: str, task_id: str) -> list[OrchestratorTask]:
+    async def list_subtasks(
+        self, user: User, project_id: str, task_id: str
+    ) -> list[OrchestratorTask]:
         await self.get_task(user, project_id, task_id)
         return await self.repo.list_subtasks(task_id)
 
@@ -992,7 +1092,9 @@ class OrchestrationTasksServiceMixin:
                 status_code=409,
                 detail="Task already has subtasks. Update or archive the existing branch plan before decomposing again.",
             )
-        blueprint = self._generate_subtask_blueprint(parent, max_subtasks=max_subtasks, context=context)
+        blueprint = self._generate_subtask_blueprint(
+            parent, max_subtasks=max_subtasks, context=context
+        )
         subtasks = []
         for item in blueprint:
             position = await self.repo.get_next_task_position(project_id)
@@ -1044,7 +1146,9 @@ class OrchestrationTasksServiceMixin:
         return {
             "required_artifact_kinds": [
                 str(item).strip()
-                for item in (required_artifact_kinds if isinstance(required_artifact_kinds, list) else [])
+                for item in (
+                    required_artifact_kinds if isinstance(required_artifact_kinds, list) else []
+                )
                 if str(item).strip()
             ],
             "require_github_comment": bool(config.get("require_github_comment", False)),
@@ -1062,7 +1166,9 @@ class OrchestrationTasksServiceMixin:
             {
                 "name": "has_output",
                 "passed": has_output,
-                "detail": "Task has output summary or payload" if has_output else "No task output yet",
+                "detail": "Task has output summary or payload"
+                if has_output
+                else "No task output yet",
             }
         )
 
@@ -1097,11 +1203,15 @@ class OrchestrationTasksServiceMixin:
                 }
             )
         else:
-            checks.append({"name": "dependencies_complete", "passed": True, "detail": "No dependencies"})
+            checks.append(
+                {"name": "dependencies_complete", "passed": True, "detail": "No dependencies"}
+            )
 
         criteria_items = self._acceptance_criteria_items(task.acceptance_criteria or "")
         if criteria_items:
-            item_checks = [self._acceptance_item_check(item, output_text) for item in criteria_items]
+            item_checks = [
+                self._acceptance_item_check(item, output_text) for item in criteria_items
+            ]
             missing = [item["item"] for item in item_checks if not item["passed"]]
             checks.append(
                 {
@@ -1150,7 +1260,11 @@ class OrchestrationTasksServiceMixin:
             }
         )
         if config["required_artifact_kinds"]:
-            missing = [kind for kind in config["required_artifact_kinds"] if kind not in present_artifact_kinds]
+            missing = [
+                kind
+                for kind in config["required_artifact_kinds"]
+                if kind not in present_artifact_kinds
+            ]
             checks.append(
                 {
                     "name": "required_artifacts",
@@ -1164,7 +1278,9 @@ class OrchestrationTasksServiceMixin:
             )
 
         list_sync_events_for_task = getattr(self.repo, "list_sync_events_for_task", None)
-        sync_events = await list_sync_events_for_task(task.id) if callable(list_sync_events_for_task) else []
+        sync_events = (
+            await list_sync_events_for_task(task.id) if callable(list_sync_events_for_task) else []
+        )
         if config["require_github_comment"]:
             has_comment = any(
                 "comment" in str(getattr(event, "action", "") or "").lower()
@@ -1223,15 +1339,21 @@ class OrchestrationTasksServiceMixin:
             "checks": checks,
         }
 
-    def _routing_explainability_from_payload(self, payload: dict[str, Any] | None) -> dict[str, Any]:
-        raw = ((payload or {}).get("orchestration_meta") if isinstance(payload, dict) else None) or {}
+    def _routing_explainability_from_payload(
+        self, payload: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        raw = (
+            (payload or {}).get("orchestration_meta") if isinstance(payload, dict) else None
+        ) or {}
         if not isinstance(raw, dict):
             return {}
         return {
             "agent_selection_reason": str(
                 raw.get("agent_selection_reason") or raw.get("worker_agent_rationale") or ""
             ),
-            "model_selection_reason": str(raw.get("model_selection_reason") or raw.get("model_rationale") or ""),
+            "model_selection_reason": str(
+                raw.get("model_selection_reason") or raw.get("model_rationale") or ""
+            ),
             "routing_inputs": raw.get("routing_inputs")
             if isinstance(raw.get("routing_inputs"), dict)
             else {},
@@ -1242,7 +1364,9 @@ class OrchestrationTasksServiceMixin:
             "model_source": raw.get("model_source"),
         }
 
-    def _routing_explainability_from_task_metadata(self, task: OrchestratorTask | Any) -> dict[str, Any]:
+    def _routing_explainability_from_task_metadata(
+        self, task: OrchestratorTask | Any
+    ) -> dict[str, Any]:
         meta = dict(getattr(task, "metadata_json", None) or {})
         raw = meta.get("routing_explainability")
         return raw if isinstance(raw, dict) else {}
@@ -1302,7 +1426,9 @@ class OrchestrationTasksServiceMixin:
         return self._acceptance_item_check(item, output_text)["passed"]
 
     def _acceptance_item_check(self, item: str, output_text: str) -> dict[str, Any]:
-        required_tokens = [token for token in re.findall(r"[a-z0-9]+", item.lower()) if len(token) > 2]
+        required_tokens = [
+            token for token in re.findall(r"[a-z0-9]+", item.lower()) if len(token) > 2
+        ]
         if not required_tokens:
             return {"item": item, "passed": True, "evidence_excerpt": ""}
         output_tokens = set(re.findall(r"[a-z0-9]+", output_text.lower()))
@@ -1311,10 +1437,14 @@ class OrchestrationTasksServiceMixin:
         return {
             "item": item,
             "passed": passed,
-            "evidence_excerpt": self._acceptance_evidence_excerpt(item, output_text) if passed else "",
+            "evidence_excerpt": self._acceptance_evidence_excerpt(item, output_text)
+            if passed
+            else "",
         }
 
-    async def _acceptance_output_schema_check(self, task: OrchestratorTask, output_text: str) -> dict[str, Any]:
+    async def _acceptance_output_schema_check(
+        self, task: OrchestratorTask, output_text: str
+    ) -> dict[str, Any]:
         assigned_agent_id = str(getattr(task, "assigned_agent_id", None) or "").strip()
         if not assigned_agent_id:
             return {
@@ -1323,18 +1453,30 @@ class OrchestrationTasksServiceMixin:
                 "detail": "No assigned agent schema configured.",
             }
         get_agent = getattr(self.repo, "get_agent", None)
-        agent = await get_agent(task.created_by_user_id, assigned_agent_id) if callable(get_agent) else None
+        agent = (
+            await get_agent(task.created_by_user_id, assigned_agent_id)
+            if callable(get_agent)
+            else None
+        )
         schema = dict(getattr(agent, "output_schema_json", None) or {}) if agent else {}
         fmt = str(schema.get("format") or "").strip().lower()
         if not fmt:
-            return {"name": "output_schema", "passed": True, "detail": "No output schema configured."}
+            return {
+                "name": "output_schema",
+                "passed": True,
+                "detail": "No output schema configured.",
+            }
         payload = getattr(task, "result_payload_json", None) or {}
         valid = bool(output_text.strip())
         if fmt == "json":
-            structured = payload.get("structured_output_json") if isinstance(payload, dict) else None
+            structured = (
+                payload.get("structured_output_json") if isinstance(payload, dict) else None
+            )
             if not isinstance(structured, (dict, list)):
                 try:
-                    json.loads(str(payload.get("final_output") or payload.get("summary") or output_text))
+                    json.loads(
+                        str(payload.get("final_output") or payload.get("summary") or output_text)
+                    )
                 except (TypeError, ValueError, json.JSONDecodeError):
                     valid = False
         elif fmt == "checklist":
@@ -1353,7 +1495,9 @@ class OrchestrationTasksServiceMixin:
         return {
             "name": "output_schema",
             "passed": valid,
-            "detail": f"Output matches '{fmt}' schema." if valid else f"Output does not match '{fmt}' schema.",
+            "detail": f"Output matches '{fmt}' schema."
+            if valid
+            else f"Output does not match '{fmt}' schema.",
             "format": fmt,
         }
 
@@ -1473,7 +1617,9 @@ class OrchestrationTasksServiceMixin:
             for item in artifacts
             if str(getattr(item, "id", "")).strip()
         }
-        link_ids = {str(item.get("id") or "").strip() for item in links if str(item.get("id") or "").strip()}
+        link_ids = {
+            str(item.get("id") or "").strip() for item in links if str(item.get("id") or "").strip()
+        }
         checks = [
             {
                 "name": "accepted_artifacts",
@@ -1511,7 +1657,8 @@ class OrchestrationTasksServiceMixin:
             checks.append(
                 {
                     "name": "archive_summary",
-                    "passed": bool(sync_summary) or getattr(task, "status", "") == "synced_to_github",
+                    "passed": bool(sync_summary)
+                    or getattr(task, "status", "") == "synced_to_github",
                     "detail": "Archive summary or prior GitHub sync recorded."
                     if bool(sync_summary) or getattr(task, "status", "") == "synced_to_github"
                     else "Archive needs sync summary or prior synced_to_github state.",
@@ -1536,7 +1683,9 @@ class OrchestrationTasksServiceMixin:
         shared_context = f"Context: {context}\n\n" if context else ""
         criteria_text = " ".join(criteria).lower()
         wants_docs = any(token in criteria_text for token in ["document", "docs", "adr", "summary"])
-        wants_tests = any(token in criteria_text for token in ["test", "verify", "validation", "qa"])
+        wants_tests = any(
+            token in criteria_text for token in ["test", "verify", "validation", "qa"]
+        )
         plan: list[dict[str, Any]] = [
             {
                 "kind": "plan",

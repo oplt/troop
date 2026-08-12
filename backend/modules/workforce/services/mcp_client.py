@@ -4,8 +4,6 @@ Supports Streamable HTTP / JSON-RPC endpoints that implement:
   - tools/list
   - tools/call
   - initialize (optional handshake)
-
-No extra dependency beyond httpx.
 """
 
 from __future__ import annotations
@@ -14,6 +12,10 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
+
+from backend.core.http_clients import managed_http_client
+from backend.modules.workforce.services.http_resilience import request_with_retry
+from backend.modules.workforce.services.outbound_url import validate_outbound_url
 
 
 class MCPClientError(RuntimeError):
@@ -41,30 +43,45 @@ class MCPClient:
         self._request_id += 1
         return self._request_id
 
+    def _validated_url(self) -> str:
+        return validate_outbound_url(self.base_url)
+
     async def _rpc(self, method: str, params: dict[str, Any] | None = None) -> Any:
+        url = self._validated_url()
         payload = {
             "jsonrpc": "2.0",
             "id": self._next_id(),
             "method": method,
             "params": params or {},
         }
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.post(self.base_url, json=payload, headers=self.headers)
-            response.raise_for_status()
-            # Some MCP HTTP gateways return SSE; try JSON first.
-            try:
-                data = response.json()
-            except Exception as exc:  # noqa: BLE001
-                text = response.text
-                # Naive SSE data extraction: first "data: {...}" line
-                for line in text.splitlines():
-                    if line.startswith("data:"):
-                        import json
 
-                        data = json.loads(line[5:].strip())
-                        break
-                else:
-                    raise MCPClientError(f"MCP response was not JSON: {text[:200]}") from exc
+        async def _post() -> httpx.Response:
+            async with managed_http_client(
+                "mcp-client",
+                base_url=url,
+                timeout_seconds=self.timeout_seconds,
+            ) as client:
+                response = await client.post(url, json=payload, headers=self.headers)
+                response.raise_for_status()
+                return response
+
+        try:
+            response = await request_with_retry(_post, base_url=url)
+        except httpx.HTTPError as exc:
+            raise MCPClientError(str(exc)) from exc
+
+        try:
+            data = response.json()
+        except Exception as exc:  # noqa: BLE001
+            text = response.text
+            for line in text.splitlines():
+                if line.startswith("data:"):
+                    import json
+
+                    data = json.loads(line[5:].strip())
+                    break
+            else:
+                raise MCPClientError(f"MCP response was not JSON: {text[:200]}") from exc
         if isinstance(data, dict) and data.get("error"):
             raise MCPClientError(str(data["error"]))
         if isinstance(data, dict) and "result" in data:
@@ -116,7 +133,6 @@ class MCPClient:
 
     async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         await self.initialize()
-        # Strip mcp. prefix if present
         tool_name = name[4:] if name.startswith("mcp.") else name
         result = await self._rpc(
             "tools/call",

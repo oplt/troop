@@ -6,6 +6,8 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 
+from backend.core.logging import get_logger
+
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.markdown import parse_agent_markdown
 from backend.modules.projects.orchestration_models import OrchestratorTask
@@ -18,6 +20,8 @@ from backend.modules.team.models import (
     TeamTemplateCatalog,
 )
 
+
+logger = get_logger(__name__)
 
 LEGACY_TOOL_ALIASES = {
     "file_read_stub": "fs_read",
@@ -69,10 +73,20 @@ class TeamServiceMixin:
     async def create_agent(self, user: User, payload: dict[str, Any]) -> AgentProfile:
         await self._ensure_catalog_seeded()
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
+        requested_skills = list(payload.get("skills") or [])
+        if requested_skills:
+            payload = dict(payload)
+            payload["skills"] = []
+            logger.warning(
+                "Ignoring skills_json on agent create; use AgentSkillAssignment instead",
+                extra={"owner_id": user.id, "skill_count": len(requested_skills)},
+            )
         payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
         await self._validate_reporting_line(user, payload.get("project_id"), None, payload)
         payload["is_active"] = bool(payload.get("is_active", False))
         agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
+        if requested_skills:
+            await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
         await self.audit_repo.log(
             "orchestration.agent.created",
@@ -145,6 +159,14 @@ class TeamServiceMixin:
     async def update_agent(self, user: User, agent_id: str, updates: dict[str, Any]) -> AgentProfile:
         await self._ensure_catalog_seeded()
         agent = await self.get_agent(user, agent_id)
+        requested_skills = list(updates.get("skills") or [])
+        if requested_skills or "skills" in updates:
+            updates = dict(updates)
+            updates.pop("skills", None)
+            logger.warning(
+                "Ignoring skills_json on agent update; use AgentSkillAssignment instead",
+                extra={"agent_id": agent_id, "skill_count": len(requested_skills)},
+            )
         if "slug" in updates and updates["slug"] is not None:
             await self._ensure_unique_agent_slug(user.id, updates["slug"], agent.id)
         if "source_markdown" in updates and updates["source_markdown"]:
@@ -152,10 +174,13 @@ class TeamServiceMixin:
             if errors or normalized is None:
                 raise HTTPException(status_code=422, detail={"errors": errors})
             updates = {**normalized, **updates}
+            updates.pop("skills", None)
         updates = await self._validate_and_normalize_agent_payload(user, updates, existing_agent_id=agent.id)
         await self._validate_reporting_line(user, updates.get("project_id", agent.project_id), agent, updates)
         self._apply_agent_updates(agent, updates)
         agent.version += 1
+        if requested_skills:
+            await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
         await self.db.commit()
         await self.db.refresh(agent)
@@ -452,21 +477,14 @@ class TeamServiceMixin:
         return [self._skill_model_to_payload(item) for item in skills]
 
     async def create_skill_pack(self, payload: dict[str, Any]) -> dict[str, Any]:
-        raise HTTPException(
-            status_code=410,
-            detail=(
-                "SkillPack writes are retired. Create a SkillDraft via /skill-drafts "
-                "and publish a SkillVersion instead."
-            ),
-        )
+        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+
+        assert_no_skillpack_writes()
 
     async def update_skill_pack(self, slug: str, payload: dict[str, Any]) -> dict[str, Any]:
-        raise HTTPException(
-            status_code=410,
-            detail=(
-                "SkillPack writes are retired. Update skills via SkillDraft / SkillVersion APIs."
-            ),
-        )
+        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+
+        assert_no_skillpack_writes()
 
     async def delete_skill_pack(self, slug: str) -> None:
         await self._ensure_catalog_seeded()
@@ -697,6 +715,38 @@ class TeamServiceMixin:
             "version": payload.get("version", 1),
             "metadata_json": metadata,
         }
+
+    async def _assign_skills_from_legacy_payload(
+        self,
+        owner_id: str,
+        agent_id: str,
+        skills: list[str],
+    ) -> None:
+        """Create AgentSkillAssignment rows from legacy skill slugs/ids."""
+        from backend.modules.workforce.repository import WorkforceRepository
+
+        repo = WorkforceRepository(self.db)
+        for idx, raw in enumerate(skills):
+            token = str(raw or "").strip()
+            if not token:
+                continue
+            skill = await repo.get_skill(token, owner_id)
+            if skill is None:
+                skill = await repo.find_skill_by_slug(owner_id, token)
+            if skill is None or skill.status not in {"active", "testing"}:
+                logger.info(
+                    "Skipped legacy skill assignment; skill not found or inactive",
+                    extra={"agent_id": agent_id, "skill_ref": token},
+                )
+                continue
+            await repo.create_agent_skill_assignment(
+                agent_id=agent_id,
+                skill_id=skill.id,
+                skill_version_id=skill.current_version_id,
+                version_policy="latest_active",
+                priority=idx,
+                enabled=True,
+            )
 
     def _agent_model_to_payload(self, agent: AgentProfile) -> dict[str, Any]:
         model_policy = dict(agent.model_policy_json or {})

@@ -45,11 +45,17 @@ async def migrate_skill_packs(
     )
 
     results = await SkillPackDeprecationService(db).migrate_all_for_owner(user.id, publish=publish)
+    from backend.modules.workforce.services.skillpack_retirement import (
+        legacy_skillpack_read_telemetry,
+    )
+
+    telemetry = await legacy_skillpack_read_telemetry(db)
     return {
         "migrated": sum(1 for r in results if r.get("status") == "migrated"),
         "drafts": sum(1 for r in results if r.get("status") == "draft_created"),
         "skipped": sum(1 for r in results if r.get("status") == "skipped"),
         "results": results,
+        "legacy_skillpack_telemetry": telemetry,
     }
 
 
@@ -65,7 +71,13 @@ async def reconcile_uncertain_ownership(
 
     # Auth gate: any authenticated owner may run; effect is global bridge-linked skills.
     _ = user
-    return await disable_skills_needing_reconciliation(db)
+    from backend.modules.workforce.services.skillpack_retirement import (
+        legacy_skillpack_read_telemetry,
+    )
+
+    result = await disable_skills_needing_reconciliation(db)
+    result["legacy_skillpack_telemetry"] = await legacy_skillpack_read_telemetry(db)
+    return result
 
 
 @router.get("/{skill_id}", response_model=SkillResponse)

@@ -23,6 +23,57 @@ def _jaccard_similarity(set1: set[str], set2: set[str]) -> float:
     return intersection / union if union > 0 else 0.0
 
 
+def _tokenize(text: str) -> set[str]:
+    return {part.lower() for part in text.replace("/", " ").replace("-", " ").split() if part}
+
+
+def _token_jaccard(text_a: str, text_b: str) -> float:
+    return _jaccard_similarity(_tokenize(text_a), _tokenize(text_b))
+
+
+def _schema_type_hint(value: object) -> str:
+    if isinstance(value, dict):
+        explicit = value.get("type")
+        if isinstance(explicit, str) and explicit.strip():
+            return explicit.strip().lower()
+        if "properties" in value:
+            return "object"
+        if "items" in value:
+            return "array"
+    return "unknown"
+
+
+def _schema_compat_score(
+    required_schema: dict | None,
+    skill_schema: dict | None,
+) -> float:
+    """Overlap of property keys and coarse type hints between schemas."""
+    if not required_schema:
+        return 0.5
+    req_props = required_schema.get("properties")
+    if not isinstance(req_props, dict) or not req_props:
+        return 0.5
+    skill_props = (skill_schema or {}).get("properties")
+    if not isinstance(skill_props, dict) or not skill_props:
+        return 0.0
+
+    req_keys = {str(k).lower() for k in req_props}
+    skill_keys = {str(k).lower() for k in skill_props}
+    key_overlap = _jaccard_similarity(req_keys, skill_keys)
+    if not req_keys:
+        return 0.5
+
+    type_matches = 0
+    for key, req_def in req_props.items():
+        skill_def = skill_props.get(key)
+        if not isinstance(skill_def, dict):
+            continue
+        if _schema_type_hint(req_def) == _schema_type_hint(skill_def):
+            type_matches += 1
+    type_score = type_matches / len(req_props)
+    return key_overlap * 0.65 + type_score * 0.35
+
+
 def _risk_compat_score(task_risk: str | None, skill_risk: str) -> float:
     skill_rank = _RISK_RANK.get((skill_risk or "low").lower(), 1)
     if not task_risk:
@@ -79,6 +130,10 @@ class SkillMatcherService:
         company_id: str | None = None,
         required_knowledge: list[str] | None = None,
         task_risk_level: str | None = None,
+        required_input_schema: dict | None = None,
+        required_output_schema: dict | None = None,
+        available_knowledge_keys: list[str] | None = None,
+        query_text: str | None = None,
     ) -> list[SkillMatchResult]:
         skills = await self.repo.list_skills(owner_id, status=None)
         candidates = [
@@ -112,6 +167,8 @@ class SkillMatcherService:
         req_cap_set = {c.lower().strip() for c in required_capabilities if c}
         req_tool_set = {t.lower().strip() for t in required_tools if t}
         req_knowledge_set = {k.lower().strip() for k in (required_knowledge or []) if k}
+        available_knowledge_set = {k.lower().strip() for k in (available_knowledge_keys or []) if k}
+        query = (query_text or "").strip()
         matches: list[SkillMatchResult] = []
 
         for skill in candidates:
@@ -134,6 +191,34 @@ class SkillMatcherService:
                 if req_knowledge_set
                 else 0.5
             )
+            knowledge_availability = (
+                _jaccard_similarity(available_knowledge_set, skill_knowledge_set)
+                if available_knowledge_set and skill_knowledge_set
+                else 0.5
+                if not skill_knowledge_set
+                else 0.0
+            )
+            input_schema_score = _schema_compat_score(
+                required_input_schema,
+                dict(version.input_schema_json or {}),
+            )
+            output_schema_score = _schema_compat_score(
+                required_output_schema,
+                dict(version.output_schema_json or {}),
+            )
+            schema_score = (
+                (input_schema_score + output_schema_score) / 2.0
+                if required_input_schema or required_output_schema
+                else 0.5
+            )
+            skill_text = " ".join(
+                [
+                    str(version.purpose or ""),
+                    str(version.when_to_use or ""),
+                    " ".join(str(c) for c in (version.capabilities_json or [])),
+                ]
+            ).strip()
+            semantic_score = _token_jaccard(query, skill_text) if query and skill_text else 0.5
             risk_score = _risk_compat_score(task_risk_level, version.risk_level or "low")
             history_score = _usage_success_score(usage_by_skill.get(skill.id))
 
@@ -156,13 +241,16 @@ class SkillMatcherService:
                 continue
 
             score = (
-                capability_overlap * 0.42
-                + tool_overlap * 0.15
-                + knowledge_overlap * 0.1
-                + scope_relevance * 0.12
-                + status_bonus * 0.08
-                + history_score * 0.08
-                + risk_score * 0.05
+                capability_overlap * 0.34
+                + tool_overlap * 0.13
+                + knowledge_overlap * 0.07
+                + knowledge_availability * 0.06
+                + schema_score * 0.08
+                + semantic_score * 0.10
+                + scope_relevance * 0.10
+                + status_bonus * 0.05
+                + history_score * 0.05
+                + risk_score * 0.02
             )
             if score < 0.12:
                 continue
@@ -176,6 +264,14 @@ class SkillMatcherService:
                 explanation_parts.append(f"tools {int(tool_overlap * 100)}%")
             if req_knowledge_set:
                 explanation_parts.append(f"knowledge {int(knowledge_overlap * 100)}%")
+            if available_knowledge_set and skill_knowledge_set:
+                explanation_parts.append(
+                    f"knowledge_available {int(knowledge_availability * 100)}%"
+                )
+            if required_input_schema or required_output_schema:
+                explanation_parts.append(f"schema {int(schema_score * 100)}%")
+            if query:
+                explanation_parts.append(f"semantic {int(semantic_score * 100)}%")
             explanation_parts.append(f"risk={version.risk_level or 'low'}")
             if usage_by_skill.get(skill.id):
                 explanation_parts.append(f"success_rate {int(history_score * 100)}%")

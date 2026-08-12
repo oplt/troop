@@ -53,7 +53,9 @@ class OrchestrationProjectsRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def get_project_repository(self, project_id: str, repository_link_id: str) -> ProjectRepositoryLink | None:
+    async def get_project_repository(
+        self, project_id: str, repository_link_id: str
+    ) -> ProjectRepositoryLink | None:
         result = await self.db.execute(
             select(ProjectRepositoryLink).where(
                 ProjectRepositoryLink.project_id == project_id,
@@ -80,7 +82,9 @@ class OrchestrationProjectsRepositoryMixin:
         return result.scalar_one_or_none()
 
     async def get_task_by_id(self, task_id: str) -> OrchestratorTask | None:
-        result = await self.db.execute(select(OrchestratorTask).where(OrchestratorTask.id == task_id))
+        result = await self.db.execute(
+            select(OrchestratorTask).where(OrchestratorTask.id == task_id)
+        )
         return result.scalar_one_or_none()
 
     async def create_task(self, **kwargs) -> OrchestratorTask:
@@ -90,7 +94,9 @@ class OrchestrationProjectsRepositoryMixin:
         return item
 
     async def replace_task_dependencies(self, task_id: str, dependency_ids: Sequence[str]) -> None:
-        existing = await self.db.execute(select(TaskDependency).where(TaskDependency.task_id == task_id))
+        existing = await self.db.execute(
+            select(TaskDependency).where(TaskDependency.task_id == task_id)
+        )
         for item in existing.scalars().all():
             await self.db.delete(item)
         for dependency_id in dependency_ids:
@@ -98,12 +104,18 @@ class OrchestrationProjectsRepositoryMixin:
         await self.db.flush()
 
     async def list_task_dependencies(self, project_id: str) -> list[TaskDependency]:
-        task_ids_query = select(OrchestratorTask.id).where(OrchestratorTask.project_id == project_id)
-        result = await self.db.execute(select(TaskDependency).where(TaskDependency.task_id.in_(task_ids_query)))
+        task_ids_query = select(OrchestratorTask.id).where(
+            OrchestratorTask.project_id == project_id
+        )
+        result = await self.db.execute(
+            select(TaskDependency).where(TaskDependency.task_id.in_(task_ids_query))
+        )
         return list(result.scalars().all())
 
     async def list_task_dependencies_for_task(self, task_id: str) -> list[TaskDependency]:
-        result = await self.db.execute(select(TaskDependency).where(TaskDependency.task_id == task_id))
+        result = await self.db.execute(
+            select(TaskDependency).where(TaskDependency.task_id == task_id)
+        )
         return list(result.scalars().all())
 
     async def list_task_comments(self, task_id: str) -> list[TaskComment]:
@@ -136,7 +148,9 @@ class OrchestrationProjectsRepositoryMixin:
 
     async def get_next_task_position(self, project_id: str) -> int:
         value = await self.db.scalar(
-            select(func.max(OrchestratorTask.position)).where(OrchestratorTask.project_id == project_id)
+            select(func.max(OrchestratorTask.position)).where(
+                OrchestratorTask.project_id == project_id
+            )
         )
         return int(value or -1) + 1
 
@@ -168,8 +182,12 @@ class OrchestrationProjectsRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def update_project_milestone(self, milestone_id: str, updates: dict) -> ProjectMilestone | None:
-        result = await self.db.execute(select(ProjectMilestone).where(ProjectMilestone.id == milestone_id))
+    async def update_project_milestone(
+        self, milestone_id: str, updates: dict
+    ) -> ProjectMilestone | None:
+        result = await self.db.execute(
+            select(ProjectMilestone).where(ProjectMilestone.id == milestone_id)
+        )
         item = result.scalar_one_or_none()
         if not item:
             return None
@@ -188,9 +206,9 @@ class OrchestrationProjectsRepositoryMixin:
 
     async def summarize_portfolio_for_owner(self, owner_id: str) -> list[dict[str, object]]:
         pr = await self.db.execute(
-            select(OrchestratorProject.id, OrchestratorProject.name, OrchestratorProject.slug).where(
-                OrchestratorProject.owner_id == owner_id
-            )
+            select(
+                OrchestratorProject.id, OrchestratorProject.name, OrchestratorProject.slug
+            ).where(OrchestratorProject.owner_id == owner_id)
         )
         rows = pr.all()
         if not rows:
@@ -200,7 +218,10 @@ class OrchestrationProjectsRepositoryMixin:
         if project_ids:
             ar = await self.db.execute(
                 select(TaskRun.project_id, func.count())
-                .where(TaskRun.project_id.in_(project_ids), TaskRun.status.in_(["queued", "in_progress", "blocked"]))
+                .where(
+                    TaskRun.project_id.in_(project_ids),
+                    TaskRun.status.in_(["queued", "in_progress", "blocked"]),
+                )
                 .group_by(TaskRun.project_id)
             )
             active_runs = {str(pid): int(c or 0) for pid, c in ar.all()}

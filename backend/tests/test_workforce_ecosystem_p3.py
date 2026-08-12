@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -38,7 +39,12 @@ def test_marketplace_list_all_shapes():
 
 
 @pytest.mark.asyncio
-async def test_mcp_client_list_and_call_tools():
+async def test_mcp_client_list_and_call_tools(monkeypatch):
+    monkeypatch.setenv("TROOP_ALLOW_PRIVATE_CONNECTOR_URLS", "1")
+    monkeypatch.setattr(
+        "backend.modules.workforce.services.mcp_client.validate_outbound_url",
+        lambda url, allow_http=False: url,
+    )
     client = MCPClient(base_url="http://mcp.test/rpc")
 
     list_payload = {
@@ -75,12 +81,6 @@ async def test_mcp_client_list_and_call_tools():
         def __init__(self, *args, **kwargs):
             self._calls = 0
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return False
-
         async def post(self, url, json=None, headers=None):
             method = (json or {}).get("method")
             if method == "initialize":
@@ -91,7 +91,17 @@ async def test_mcp_client_list_and_call_tools():
                 return FakeResponse(call_payload)
             return FakeResponse({"jsonrpc": "2.0", "id": 9, "result": {}})
 
-    with patch("backend.modules.workforce.services.mcp_client.httpx.AsyncClient", FakeAsyncClient):
+        async def get(self, url, headers=None):
+            raise AssertionError("unexpected GET")
+
+    @asynccontextmanager
+    async def fake_managed_http_client(*args, **kwargs):
+        yield FakeAsyncClient()
+
+    with patch(
+        "backend.modules.workforce.services.mcp_client.managed_http_client",
+        fake_managed_http_client,
+    ):
         tools = await client.list_tools()
         assert tools[0]["slug"] == "mcp.search_docs"
         result = await client.call_tool("mcp.search_docs", {"q": "workforce"})
@@ -99,7 +109,12 @@ async def test_mcp_client_list_and_call_tools():
 
 
 @pytest.mark.asyncio
-async def test_a2a_client_send_task():
+async def test_a2a_client_send_task(monkeypatch):
+    monkeypatch.setenv("TROOP_ALLOW_PRIVATE_CONNECTOR_URLS", "1")
+    monkeypatch.setattr(
+        "backend.modules.workforce.services.a2a_client.validate_outbound_url",
+        lambda url, allow_http=False: url,
+    )
     class FakeResponse:
         def __init__(self, data):
             self._data = data
@@ -114,12 +129,6 @@ async def test_a2a_client_send_task():
         def __init__(self, *args, **kwargs):
             pass
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return False
-
         async def get(self, url, headers=None):
             return FakeResponse(
                 {
@@ -132,8 +141,15 @@ async def test_a2a_client_send_task():
         async def post(self, url, json=None, headers=None):
             return FakeResponse({"status": "completed", "output": "done"})
 
+    @asynccontextmanager
+    async def fake_managed_http_client(*args, **kwargs):
+        yield FakeAsyncClient()
+
     client = A2AClient(base_url="http://a2a.test")
-    with patch("backend.modules.workforce.services.a2a_client.httpx.AsyncClient", FakeAsyncClient):
+    with patch(
+        "backend.modules.workforce.services.a2a_client.managed_http_client",
+        fake_managed_http_client,
+    ):
         card = await client.describe()
         assert card["name"] == "external-researcher"
         result = await client.send_task(message="Qualify 10 leads")

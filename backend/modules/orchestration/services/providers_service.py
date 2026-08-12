@@ -561,12 +561,28 @@ class OrchestrationProvidersServiceMixin:
                     return await _local_provider_for_project()
                 return provider
 
-        # Default provider: prefer the orchestration project the run belongs to, then the agent's
-        # home project_id (if any), then user-global (project_id NULL). Agents are often linked to
-        # a project only via membership with agent.project_id left unset; listing only by
-        # agent.project_id skipped workspace defaults and produced stub LLM output.
+        # Default provider: prefer shared ModelCapability router, then scoped defaults.
         owner_id = project.owner_id if project is not None else (agent.owner_id if agent else None)
         if owner_id:
+            try:
+                from backend.modules.orchestration.model_router import resolve_provider_and_model
+
+                routed, _model = await resolve_provider_and_model(
+                    self.db,
+                    owner_id,
+                    project_id=project.id if project is not None else None,
+                    purpose="default",
+                    require_tools=False,
+                    require_structured=False,
+                )
+                if routed is not None:
+                    if offline_local_only_mode and routed.provider_type not in {"ollama", "local"}:
+                        picked = await _local_provider_for_project()
+                        return picked or routed
+                    return routed
+            except Exception:
+                pass
+
             scope_ids: list[str | None] = []
             if project is not None:
                 scope_ids.append(project.id)

@@ -12,6 +12,10 @@ from uuid import uuid4
 
 import httpx
 
+from backend.core.http_clients import managed_http_client
+from backend.modules.workforce.services.http_resilience import request_with_retry
+from backend.modules.workforce.services.outbound_url import validate_outbound_url
+
 
 class A2AClientError(RuntimeError):
     pass
@@ -36,11 +40,28 @@ class A2AClient:
         self.timeout_seconds = timeout_seconds
         self._card: dict[str, Any] | None = None
 
+    def _validated_url(self, url: str) -> str:
+        return validate_outbound_url(url)
+
     async def fetch_agent_card(self) -> dict[str, Any]:
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.get(self.card_url, headers=self.headers)
-            response.raise_for_status()
-            card = response.json()
+        card_url = self._validated_url(self.card_url)
+
+        async def _get() -> httpx.Response:
+            async with managed_http_client(
+                "a2a-client",
+                base_url=card_url,
+                timeout_seconds=self.timeout_seconds,
+            ) as client:
+                response = await client.get(card_url, headers=self.headers)
+                response.raise_for_status()
+                return response
+
+        try:
+            response = await request_with_retry(_get, base_url=card_url)
+        except httpx.HTTPError as exc:
+            raise A2AClientError(str(exc)) from exc
+
+        card = response.json()
         if not isinstance(card, dict):
             raise A2AClientError("Agent card must be a JSON object")
         self._card = card
@@ -69,7 +90,7 @@ class A2AClient:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         card = await self.get_agent_card()
-        endpoint = self._message_endpoint(card)
+        endpoint = self._validated_url(self._message_endpoint(card))
         payload = {
             "id": str(uuid4()),
             "message": {
@@ -82,10 +103,23 @@ class A2AClient:
                 **(metadata or {}),
             },
         }
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.post(endpoint, json=payload, headers=self.headers)
-            response.raise_for_status()
-            data = response.json()
+
+        async def _post() -> httpx.Response:
+            async with managed_http_client(
+                "a2a-client",
+                base_url=endpoint,
+                timeout_seconds=self.timeout_seconds,
+            ) as client:
+                response = await client.post(endpoint, json=payload, headers=self.headers)
+                response.raise_for_status()
+                return response
+
+        try:
+            response = await request_with_retry(_post, base_url=endpoint)
+        except httpx.HTTPError as exc:
+            raise A2AClientError(str(exc)) from exc
+
+        data = response.json()
         return data if isinstance(data, dict) else {"result": data}
 
     async def describe(self) -> dict[str, Any]:

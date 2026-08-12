@@ -25,6 +25,18 @@ async def on_task_run_completed(db: AsyncSession, task_run_id: str) -> None:
         await _resume_workflow(db, run)
 
 
+async def on_workflow_run_completed(db: AsyncSession, workflow_run_id: str) -> None:
+    """Resume parent workflows waiting on a child WorkflowRun."""
+    result = await db.execute(select(WorkflowRun).where(WorkflowRun.status.in_(_RESUMABLE)))
+    runs = list(result.scalars().all())
+    for run in runs:
+        vars_ = dict((run.context_json or {}).get("vars") or {})
+        sub_runs = dict(vars_.get("_subworkflow_runs") or {})
+        if workflow_run_id not in {str(v) for v in sub_runs.values()}:
+            continue
+        await _resume_workflow(db, run)
+
+
 async def on_approval_decided(db: AsyncSession, approval_request_id: str) -> None:
     """Resume workflows waiting on a decided ApprovalRequest."""
     from backend.modules.orchestration.models import ApprovalRequest

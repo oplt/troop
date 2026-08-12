@@ -102,3 +102,60 @@ def test_duplicate_detector_slug_collision() -> None:
     # Ensure class exists
     assert DuplicateDetectorService is not None
     assert SkillMatcherService is not None
+
+
+def test_schema_compat_score_overlaps_keys_and_types() -> None:
+    from backend.modules.workforce.services.skill_matcher import _schema_compat_score
+
+    required = {
+        "properties": {
+            "company_name": {"type": "string"},
+            "revenue": {"type": "number"},
+        }
+    }
+    skill = {
+        "properties": {
+            "company_name": {"type": "string"},
+            "revenue": {"type": "integer"},
+            "notes": {"type": "string"},
+        }
+    }
+    score = _schema_compat_score(required, skill)
+    assert score > 0.5
+
+
+def test_token_jaccard_semantic_similarity() -> None:
+    from backend.modules.workforce.services.skill_matcher import _token_jaccard
+
+    a = "greenhouse lead qualification research agriculture"
+    b = "Qualify greenhouse operators for agriculture sales research"
+    assert _token_jaccard(a, b) > 0.3
+
+
+def test_workflow_step_legacy_alias_normalization() -> None:
+    from backend.modules.orchestration.execution.execution_service import (
+        EXTERNAL_ACTION_STEP_ID,
+        _normalize_workflow_step_id,
+    )
+
+    assert EXTERNAL_ACTION_STEP_ID == "external_action_sync"
+    assert _normalize_workflow_step_id("github_sync") == "external_action_sync"
+    assert _normalize_workflow_step_id("review") == "review"
+
+
+def test_model_router_purpose_defaults() -> None:
+    from backend.modules.orchestration.model_router import _PURPOSE_DEFAULTS
+
+    assert _PURPOSE_DEFAULTS["task_analysis"]["prefer_cheap"] is True
+    assert _PURPOSE_DEFAULTS["default"]["require_tools"] is False
+
+
+def test_agent_model_capability_score_unknown_model() -> None:
+    from types import SimpleNamespace
+
+    from backend.modules.workforce.services.agent_matcher import _model_capability_score
+
+    agent = SimpleNamespace(model_policy_json={"model": "unknown-model"})
+    score, detail = _model_capability_score(agent, {}, needs_tools=False)
+    assert score < 0.6
+    assert "unknown" in detail

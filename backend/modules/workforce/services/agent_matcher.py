@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.orchestration.models import TaskRun
+from backend.modules.orchestration.repository import OrchestrationRepository
 from backend.modules.team.models import AgentProfile, ProjectAgentMembership
 from backend.modules.workforce.models import (
     AgentSkillAssignment,
@@ -54,6 +55,51 @@ def _risk_compat_score(
         else:
             worst = max(worst, max(0.0, 1.0 - (tool_rank - task_rank) * 0.25))
     return worst or 0.6
+
+
+def _resolve_model_slug(agent: AgentProfile) -> str:
+    policy = dict(agent.model_policy_json or {})
+    return str(policy.get("model") or "").strip().lower()
+
+
+def _model_capability_score(
+    agent: AgentProfile,
+    capabilities_by_slug: dict[str, Any],
+    *,
+    needs_tools: bool,
+) -> tuple[float, str]:
+    """Soft score from ModelCapability: tools support, cost, context, latency."""
+    model_slug = _resolve_model_slug(agent)
+    if not model_slug:
+        return 0.5, "no model policy"
+    cap = capabilities_by_slug.get(model_slug)
+    if cap is None:
+        for slug, item in capabilities_by_slug.items():
+            if model_slug in slug or slug in model_slug:
+                cap = item
+                break
+    if cap is None:
+        return 0.45, "model capability unknown"
+
+    meta = dict(getattr(cap, "metadata_json", None) or {})
+    cost = float(getattr(cap, "cost_per_1k_input", 0.0) or 0.0) + float(
+        getattr(cap, "cost_per_1k_output", 0.0) or 0.0
+    )
+    ctx = int(getattr(cap, "max_context_tokens", 0) or 0)
+    latency_ms = int(meta.get("latency_ms") or meta.get("p50_latency_ms") or 0)
+    supports_tools = bool(getattr(cap, "supports_tools", False))
+
+    cost_score = max(0.0, 1.0 - min(cost * 2.0, 1.0))
+    ctx_score = min(1.0, ctx / 128_000) if ctx else 0.4
+    latency_score = max(0.0, 1.0 - min(latency_ms / 5000.0, 1.0)) if latency_ms else 0.6
+    tools_score = 1.0 if supports_tools else (0.35 if needs_tools else 0.75)
+
+    score = cost_score * 0.25 + ctx_score * 0.25 + latency_score * 0.20 + tools_score * 0.30
+    detail = (
+        f"model={model_slug}; cost~{cost:.4f}/1k; ctx={ctx}; "
+        f"latency~{latency_ms or 'n/a'}ms; tools={supports_tools}"
+    )
+    return score, detail
 
 
 class AgentMatcherService:
@@ -222,10 +268,19 @@ class AgentMatcherService:
         }
         success_by_skill = await self._skill_success_scores(all_skill_ids, versions_by_skill_global)
 
-        matches: list[AgentMatchResult] = []
         req_cap_set = {c.lower().strip() for c in required_capabilities if c}
         req_skill_set = {s.lower().strip() for s in required_skills if s}
         req_tool_set = {t.lower().strip() for t in (required_tools or []) if t}
+
+        orch_repo = OrchestrationRepository(self.db)
+        try:
+            model_caps = await orch_repo.list_model_capabilities_for_owner(owner_id)
+        except Exception:
+            model_caps = []
+        capabilities_by_slug = {str(c.model_slug).lower(): c for c in model_caps if c.model_slug}
+        needs_tools = bool(req_tool_set)
+
+        matches: list[AgentMatchResult] = []
 
         for agent in agents:
             cov = coverage_map.get(agent.id) or {
@@ -289,10 +344,21 @@ class AgentMatcherService:
             risk_bonus = (
                 _risk_compat_score(task_risk_level, effective_tools, permissions["by_tool"]) * 0.04
             )
+            model_score, model_detail = _model_capability_score(
+                agent,
+                capabilities_by_slug,
+                needs_tools=needs_tools,
+            )
+            model_bonus = model_score * 0.08
 
             coverage_score = min(
                 1.0,
-                coverage_score + project_bonus + load_bonus + history_bonus + risk_bonus,
+                coverage_score
+                + project_bonus
+                + load_bonus
+                + history_bonus
+                + risk_bonus
+                + model_bonus,
             )
 
             missing_capabilities = sorted(req_cap_set - agent_cap_set)
@@ -318,6 +384,7 @@ class AgentMatcherService:
                 parts.append(f"skill success {int(history_score * 100)}%")
             else:
                 parts.append("historical success: not enough historical data")
+            parts.append(f"model fit {int(model_score * 100)}% ({model_detail})")
 
             matches.append(
                 AgentMatchResult(

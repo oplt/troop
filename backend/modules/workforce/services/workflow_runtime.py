@@ -22,6 +22,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.logging import get_logger
 from backend.modules.workforce.models import (
     Skill,
     SkillVersion,
@@ -48,7 +49,32 @@ SUPPORTED_NODE_TYPES = frozenset(
 )
 
 _TASK_RUN_TERMINAL = frozenset({"completed", "failed", "cancelled"})
+_RUN_TERMINAL = frozenset({"completed", "failed", "cancelled"})
 _SIMPLE_PARALLEL_TYPES = frozenset({"tool", "skill", "condition", "trigger"})
+
+logger = get_logger(__name__)
+
+
+def _normalize_join_policy(policy: str) -> str:
+    return str(policy or "all_success").lower().replace("-", "_")
+
+
+def _parse_parallel_join_config(config: dict[str, Any]) -> tuple[str, int | None]:
+    raw_policy = str(config.get("join_policy") or config.get("policy") or "all_success")
+    policy = _normalize_join_policy(raw_policy)
+    n: int | None = None
+    for key in ("n", "min_success"):
+        if config.get(key) is not None:
+            n = int(config[key])
+            break
+    if n is None and "_of_" in policy:
+        head, _tail = policy.split("_of_", 1)
+        if head.isdigit():
+            n = int(head)
+            policy = "n_of_m"
+    if policy == "n_of_m" or raw_policy.lower().replace("-", "_") == "n_of_m":
+        policy = "n_of_m"
+    return policy, n
 
 
 def _utcnow() -> datetime:
@@ -125,9 +151,20 @@ class WorkflowRuntimeService:
             input_json=input_json,
         )
         await self._advance(run, version)
+        await self._notify_workflow_run_completed_if_terminal(run)
         await self.db.commit()
         await self.db.refresh(run)
         return run
+
+    async def _notify_workflow_run_completed_if_terminal(self, run: WorkflowRun) -> None:
+        if run.status not in _RUN_TERMINAL:
+            return
+        try:
+            from backend.modules.workforce.services.workflow_hooks import on_workflow_run_completed
+
+            await on_workflow_run_completed(self.db, run.id)
+        except Exception:
+            logger.exception("workflow_run_completed_hook_failed run_id=%s", run.id)
 
     async def _create_run_record(
         self,
@@ -248,6 +285,7 @@ class WorkflowRuntimeService:
         run.context_json = ctx
         run.status = "running"
         await self._advance(run, version)
+        await self._notify_workflow_run_completed_if_terminal(run)
         await self.db.commit()
         await self.db.refresh(run)
         return run
@@ -641,17 +679,49 @@ class WorkflowRuntimeService:
             "paused",
         )
 
-    def _evaluate_parallel_join(self, policy: str, statuses: list[str]) -> str:
+    def _evaluate_parallel_join(
+        self, policy: str, statuses: list[str], *, n: int | None = None
+    ) -> str:
+        policy = _normalize_join_policy(policy)
         succeeded = sum(1 for s in statuses if s == "succeeded")
         failed = sum(1 for s in statuses if s == "failed")
         total = len(statuses)
+        pending = total - succeeded - failed
+
         if policy == "any_success":
-            return "succeeded" if succeeded > 0 else "failed"
+            if succeeded > 0:
+                return "succeeded"
+            return "failed" if pending == 0 else "paused"
+
         if policy == "best_effort":
             if succeeded > 0:
                 return "succeeded"
-            return "failed" if failed == total and total > 0 else "paused"
-        if failed > 0 or succeeded < total:
+            return "failed" if pending == 0 and failed == total else "paused"
+
+        if policy == "fail_fast":
+            if failed > 0:
+                return "failed"
+            if pending > 0:
+                return "paused"
+            return "succeeded"
+
+        if policy == "n_of_m" or (
+            policy and "_of_" in policy and policy.split("_of_", 1)[0].isdigit()
+        ):
+            required = n
+            if required is None and "_of_" in policy:
+                required = int(policy.split("_of_", 1)[0])
+            if required is None:
+                required = total
+            if succeeded >= required:
+                return "succeeded"
+            if succeeded + pending < required:
+                return "failed"
+            return "paused"
+
+        if pending > 0:
+            return "paused"
+        if failed > 0:
             return "failed"
         return "succeeded"
 
@@ -721,7 +791,7 @@ class WorkflowRuntimeService:
         vars_: dict[str, Any],
     ) -> tuple[str, dict[str, Any], str | None]:
         config = dict(node.get("config") or {})
-        join_policy = str(config.get("join_policy") or config.get("policy") or "all_success")
+        join_policy, join_n = _parse_parallel_join_config(config)
         children = list(config.get("children") or [])
 
         all_branches = dict(vars_.get("parallel_branches") or {})
@@ -729,16 +799,55 @@ class WorkflowRuntimeService:
         if not branch_state:
             branch_state = {
                 "join_policy": join_policy,
+                "n": join_n,
                 "branches": {cid: {"status": "pending", "output": {}} for cid in children},
             }
+        else:
+            branch_state.setdefault("join_policy", join_policy)
+            if join_n is not None:
+                branch_state["n"] = join_n
+            join_policy = str(branch_state.get("join_policy") or join_policy)
+            stored_n = branch_state.get("n")
+            if stored_n is not None:
+                join_n = int(stored_n)
 
         branches = dict(branch_state.get("branches") or {})
-        any_paused = False
+
+        def _finalize_parallel() -> tuple[str, dict[str, Any], str | None]:
+            branch_state["branches"] = branches
+            all_branches[node_id] = branch_state
+            vars_["parallel_branches"] = all_branches
+            output = {
+                "parallel_branches": branch_state,
+                "join_policy": join_policy,
+                "n": join_n,
+            }
+            statuses = [str(b.get("status") or "") for b in branches.values()]
+            joined = self._evaluate_parallel_join(join_policy, statuses, n=join_n)
+            output["join_result"] = joined
+            if joined == "succeeded":
+                return "succeeded", output, None
+            if joined == "failed":
+                return "failed", output, "failed"
+            return "paused", output, "paused"
+
+        if join_policy == "fail_fast" and any(
+            str(b.get("status") or "") == "failed" for b in branches.values()
+        ):
+            return _finalize_parallel()
 
         for child_id in children:
             child_entry = dict(branches.get(child_id) or {"status": "pending", "output": {}})
             status = str(child_entry.get("status") or "pending")
             if status in {"succeeded", "failed"}:
+                if join_policy == "n_of_m":
+                    early = self._evaluate_parallel_join(
+                        join_policy,
+                        [str(b.get("status") or "") for b in branches.values()],
+                        n=join_n,
+                    )
+                    if early in {"succeeded", "failed"}:
+                        return _finalize_parallel()
                 continue
 
             child_node = nodes.get(child_id)
@@ -746,6 +855,8 @@ class WorkflowRuntimeService:
                 child_entry["status"] = "failed"
                 child_entry["output"] = {"error": "child node not found"}
                 branches[child_id] = child_entry
+                if join_policy == "fail_fast":
+                    return _finalize_parallel()
                 continue
 
             child_type = str(child_node.get("type") or "")
@@ -755,7 +866,6 @@ class WorkflowRuntimeService:
                     "reason": f"child type `{child_type}` requires async branch execution"
                 }
                 branches[child_id] = child_entry
-                any_paused = True
                 continue
 
             step_status, output, pause = await self._execute_simple_node(
@@ -766,7 +876,6 @@ class WorkflowRuntimeService:
             )
             if pause:
                 child_entry["status"] = "paused"
-                any_paused = True
             elif step_status == "failed":
                 child_entry["status"] = "failed"
             else:
@@ -774,22 +883,19 @@ class WorkflowRuntimeService:
             child_entry["output"] = output
             branches[child_id] = child_entry
 
-        branch_state["branches"] = branches
-        all_branches[node_id] = branch_state
-        vars_["parallel_branches"] = all_branches
+            if join_policy == "fail_fast" and child_entry["status"] == "failed":
+                return _finalize_parallel()
 
-        output = {"parallel_branches": branch_state, "join_policy": join_policy}
-        if any_paused:
-            return "paused", output, "paused"
+            if join_policy == "n_of_m":
+                early = self._evaluate_parallel_join(
+                    join_policy,
+                    [str(b.get("status") or "") for b in branches.values()],
+                    n=join_n,
+                )
+                if early in {"succeeded", "failed"}:
+                    return _finalize_parallel()
 
-        statuses = [str(b.get("status") or "") for b in branches.values()]
-        joined = self._evaluate_parallel_join(join_policy, statuses)
-        output["join_result"] = joined
-        if joined == "succeeded":
-            return "succeeded", output, None
-        if joined == "failed":
-            return "failed", output, "failed"
-        return "paused", output, "paused"
+        return _finalize_parallel()
 
     def _execute_router_node(
         self,
@@ -1094,6 +1200,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
             elif ntype == "router":
                 step.status, step.output_json, pause_status = self._execute_router_node(
@@ -1116,6 +1223,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
             elif ntype == "tool":
                 step.status, step.output_json, pause_status = await self._execute_tool_node(
@@ -1140,6 +1248,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
             elif ntype == "skill":
                 config = dict(node.get("config") or {})
@@ -1152,6 +1261,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
                 skill_payload = {
                     "skill_id": version_row.skill_id,
@@ -1191,6 +1301,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
             elif ntype == "subworkflow":
                 step.status, step.output_json, pause_status = await self._execute_subworkflow_node(
@@ -1215,6 +1326,7 @@ class WorkflowRuntimeService:
                     run.result_json = step.output_json
                     ctx.update({"completed": completed, "vars": vars_})
                     run.context_json = ctx
+                    await self._notify_workflow_run_completed_if_terminal(run)
                     return
             else:
                 step.status = "succeeded"
@@ -1238,6 +1350,8 @@ class WorkflowRuntimeService:
         if run.status == "running" and cursor is None:
             run.status = "completed"
             run.result_json = {"completed_nodes": completed, "vars": vars_}
+
+        await self._notify_workflow_run_completed_if_terminal(run)
 
     def _next_node(
         self, current: str, edges: list[dict[str, Any]], vars_: dict[str, Any]

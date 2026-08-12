@@ -96,6 +96,12 @@ class HierarchyControlPlaneService:
 
         member_agent_ids = {item.agent_id for item in memberships}
         scoped_agents = [item for item in agents if item.id in member_agent_ids]
+        from backend.modules.orchestration.skill_runtime import load_assigned_skill_versions
+
+        assigned_by_agent: dict[str, list[dict[str, Any]]] = {}
+        for agent in scoped_agents:
+            assigned_by_agent[agent.id] = await load_assigned_skill_versions(self.db, agent.id)
+
         agents_by_id = {item.id: item for item in scoped_agents}
         memberships_by_agent = {item.agent_id: item for item in memberships}
         providers_by_id = {item.id: item for item in providers}
@@ -141,6 +147,7 @@ class HierarchyControlPlaneService:
                 provider=providers_by_id.get(agent.provider_config_id or ""),
                 model_capabilities=model_capabilities,
                 skills=skills,
+                assigned_skill_versions=assigned_by_agent.get(agent.id, []),
             )
             members.append(
                 {
@@ -247,7 +254,7 @@ class HierarchyControlPlaneService:
             provider=provider,
             model_capabilities=capabilities,
             skills=skills,
-            assigned_skill_versions=assigned or None,
+            assigned_skill_versions=assigned if assigned is not None else [],
         )
 
     async def create_team_member(self, user: User, payload: dict[str, Any]) -> AgentProfile:

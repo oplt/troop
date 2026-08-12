@@ -1,68 +1,36 @@
 # Troop — AI Workforce Platform task tracker
 # Status legend: [x] done+tested  [~] partial  [ ] not done  [!] blocked
-# Only mark [x] after persistence + API + runtime (if relevant) + tests verified.
 # incomplete.txt audits are ephemeral; this file is the implementation source of truth.
 
 ## P0 — Correctness / broken behavior
 
-[~] Quality workflow restored; CI postgres image switched to pgvector/pgvector:pg16 + CREATE EXTENSION vector in migrations — confirm Action green after push
-[x] Fix FE skill scope contract (task|project|organization|template|global)
-[x] Fix invalid FE imports; MarketplacePage PageHeader; Skill/SkillDraft DTO normalizers
-[x] Project create top-level company_id + department_id; department PATCH ownership resolve
-[x] ToolExecutionContext server-owned (never trust model allowed_tools / approval_granted)
-[x] Tool policy fail-closed; OrchestrationToolbox + ToolRegistry.execute_tool enforce auth.permitted
-[x] One-time tool approvals require arguments_hash for high-risk/governed tools; consume once
-[x] Workflow tool approvals require workflow_run_id + workflow_node_id + action_key + arguments_hash
-[x] Workflow approval/tool pause auto-creates durable ApprovalRequest
-[x] Workflow human_input completes separately from approval
-[x] Connector secrets encrypted; SSRF HTTPS default (TROOP_ALLOW_PRIVATE_CONNECTOR_URLS for local http)
-[x] jsonschema runtime dependency; ImportError vs SchemaError distinguished
-[x] TaskRun SkillVersion snapshot mandatory via freeze_or_degrade_snapshot (fail closed / audited degrade)
-[x] Canonical TaskRunStarter used by workflow agent nodes (freeze + Celery enqueue)
-[x] Evaluation criteria unmeasured unless judged; eval errors emit RunEvents
-[x] Freeze e8a1c2d3f4b5; ownership bridge f9c8d7e6a5b4; SkillPack writes 410 + reconcile disable
+[~] Quality workflow on pgvector/pgvector:pg16 + CREATE EXTENSION — confirm Action green after push
+[x] ToolExecutionContext server-owned; auth.permitted enforced in Toolbox + ToolRegistry
+[x] One-time tool approvals require arguments_hash for high-risk tools; consume once
+[x] Workflow tool approvals 4-way bind; auto-create ApprovalRequest; human_input separate
+[x] Mandatory SkillVersion snapshot (fail closed / audited degrade) + TaskRunStarter
+[x] Connector SSRF HTTPS default; jsonschema runtime dep; SkillPack writes 410
 
-## P1 — Core architecture integration
+## P1 — Core architecture
 
-[x] Departments CRUD + cycle detection + policy clear via is not None
-[x] Skills / SkillVersions / SkillDrafts + FE normalizeSkillVersion / normalizeSkillUsage
-[x] Task analysis fingerprint includes policy/grant decision hashes; analysis_mode/fallback persisted
-[~] Provider resolution uses ModelCapability; still a second router vs full orchestration router
-[x] Skill/agent matching: effective ToolGrants (not skill-requested tools as grants); version-specific usage
-[~] Agent matcher operational signals (load/history/risk/project) added; cost/latency/knowledge still shallow
-[x] Assemble-agent validates effective permissions before activation
-[x] ActionPolicy + ToolRegistry gates; ToolExecutionService shared by workflow (+ toolbox dispatch)
-[~] WorkflowRuntime: tool/skill/agent/condition/router/trigger/parallel/delay/subworkflow wired; fail_fast/N-of-M + subworkflow parent auto-resume still MVP
-[x] Event-driven resume hooks: task_run completed + approval decided; Celery delay resume task
-[x] Deterministic condition evaluator (no Python eval)
-[x] Legacy Project/ProjectTask router unmounted; SkillPack writes blocked
-[~] Legacy projects/project_tasks + SkillPack tables still present (drop pending)
-[~] Manager-worker github_sync id retained as ExternalAction specialization
-[~] PostgreSQL runtime E2E asserts frozen SkillVersion immutability via production run API; tool approval consume→eval loop still expanding
+[x] Departments + Skills/Versions/Drafts + FE normalizers
+[x] Task analysis fingerprints + analysis_mode/fallback
+[x] Shared model_router (workforce + run provider fallback)
+[x] Effective ToolGrant matching; schema/knowledge/semantic (token) skill scores; agent model cost/latency
+[x] ToolExecutionService unified with OrchestrationToolbox.dispatch
+[x] WorkflowRuntime: condition/router/trigger/parallel(fail_fast,n_of_m)/delay/subworkflow parent resume
+[x] Event hooks: task_run completed, approval decided, workflow_run completed
+[x] SkillPack hot-path retired (assignments only); telemetry for remaining reads
+[~] Legacy projects/project_tasks + skill_packs tables still present (drop pending CI/telemetry)
+[x] external_action_sync stage (github_sync alias retained)
+[x] PG E2E: snapshot immutability + approval consume-once + frozen-version eval
 
-## P2 — Product improvements
+## P2 / P3
 
-[x] SkillBuilder / Skills / Marketplace / Workflows / My Tasks UI
-[x] Markdown skill import; SkillPack migrate tooling; auth hardening for foreign IDs
-[x] Sales greenhouse + engineering status acceptance scenarios
-[~] Generic Artifact/Evidence/ExternalAction presentation improved; github_* still in core structures
+[x] Skills/Marketplace/Workflows/My Tasks UI; markdown import; acceptance scenarios
+[~] MCP/A2A beta: retry + circuit breaker + managed HTTP; session/lifecycle/test servers TBD
 
-## P3 — Ecosystem (beta)
+## Verification notes (latest)
 
-[~] MCP/A2A live connectors — remain beta (session/circuit/health/grants hardening TBD)
-[x] Skill / workflow / department marketplaces + large template catalog
-
-## Known technical debt
-
-- Confirm GitHub Actions alembic+tests green on pgvector image after push.
-- Subworkflow parent auto-resume and parallel fail_fast/N-of-M not done.
-- Drop legacy projects/project_tasks + SkillPack tables after telemetry.
-- Unify remaining OrchestrationToolbox paths fully behind ToolExecutionService.
-- One central model router for workforce + orchestration.
-
-## Verification notes (latest audit pass)
-
-- P0 from incomplete.txt: pgvector CI, auth.permitted, strict args hash, workflow approval auto-create + binding, mandatory snapshot, TaskRunStarter, ToolExecutionService
-- P1: conditions/router/trigger/parallel/delay Celery, event hooks, effective permissions matching, analysis_mode, realer PG E2E
-- Local: ruff CI paths green; workforce-focused pytest 59 passed; FE previously green
-- Honest `[~]` where CI Action not yet re-confirmed and deeper loops remain
+- Ruff CI paths green; workforce-focused pytest **71 passed**
+- Remaining: confirm GH Action; drop legacy tables after telemetry; embedding semantic match; MCP full lifecycle

@@ -55,6 +55,13 @@ from backend.modules.team.models import AgentProfile
 
 logger = get_logger(__name__)
 
+EXTERNAL_ACTION_STEP_ID = "external_action_sync"
+LEGACY_STEP_ALIASES = {"github_sync": "external_action_sync"}
+
+
+def _normalize_workflow_step_id(step_id: str) -> str:
+    return LEGACY_STEP_ALIASES.get(step_id, step_id)
+
 
 class OrchestrationExecutionServiceMixin:
     async def list_task_runs(self, user: User, project_id: str | None = None):
@@ -128,7 +135,7 @@ class OrchestrationExecutionServiceMixin:
                 {"id": "review", "title": "Review", "actor": "reviewer"},
                 {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
                 {
-                    "id": "github_sync",
+                    "id": EXTERNAL_ACTION_STEP_ID,
                     "title": "External action sync",
                     "actor": "system",
                     "specialization": "github",
@@ -139,7 +146,7 @@ class OrchestrationExecutionServiceMixin:
                 {"id": "review", "title": "Review", "actor": "reviewer"},
                 {"id": "artifact_publish", "title": "Artifact publish", "actor": "system"},
                 {
-                    "id": "github_sync",
+                    "id": EXTERNAL_ACTION_STEP_ID,
                     "title": "External action sync",
                     "actor": "system",
                     "specialization": "github",
@@ -169,6 +176,9 @@ class OrchestrationExecutionServiceMixin:
         return await self.repo.list_child_runs(parent_run_id)
 
     def _stage_state_payload(self, run: TaskRun) -> dict[str, Any]:
+        external_action = self._workflow_checkpoint_artifact(
+            run, "manager_worker.github_action_state", {}
+        )
         return {
             "manager_plan": self._workflow_checkpoint_artifact(run, "manager_worker.plan", {}),
             "routed_sub_tasks": self._workflow_checkpoint_artifact(
@@ -178,9 +188,8 @@ class OrchestrationExecutionServiceMixin:
                 run, "manager_worker.branch_results", []
             ),
             "review": self._workflow_checkpoint_artifact(run, "manager_worker.review_state", {}),
-            "github_sync": self._workflow_checkpoint_artifact(
-                run, "manager_worker.github_action_state", {}
-            ),
+            EXTERNAL_ACTION_STEP_ID: external_action,
+            "github_sync": external_action,
         }
 
     async def _create_child_run(
@@ -410,6 +419,7 @@ class OrchestrationExecutionServiceMixin:
         metadata: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> None:
+        step_id = _normalize_workflow_step_id(step_id)
         run.checkpoint_json = mark_step(
             run.checkpoint_json,
             step_id=step_id,
@@ -561,7 +571,12 @@ class OrchestrationExecutionServiceMixin:
                 if item.get("status") == "blocked"
             ],
             "review_state": stage_state.get("review") or {},
-            "github_action_state": stage_state.get("github_sync") or {},
+            "external_action_state": stage_state.get(EXTERNAL_ACTION_STEP_ID)
+            or stage_state.get("github_sync")
+            or {},
+            "github_action_state": stage_state.get(EXTERNAL_ACTION_STEP_ID)
+            or stage_state.get("github_sync")
+            or {},
         }
 
     async def get_run_execution_snapshot(self, user: User, run_id: str) -> dict[str, Any]:
@@ -629,7 +644,12 @@ class OrchestrationExecutionServiceMixin:
                 if item.get("status") == "blocked"
             ],
             "review_state": stage_state.get("review") or {},
-            "github_action_state": stage_state.get("github_sync") or {},
+            "external_action_state": stage_state.get(EXTERNAL_ACTION_STEP_ID)
+            or stage_state.get("github_sync")
+            or {},
+            "github_action_state": stage_state.get(EXTERNAL_ACTION_STEP_ID)
+            or stage_state.get("github_sync")
+            or {},
             "resumable": self._run_is_resumable(run),
         }
 
@@ -2621,7 +2641,7 @@ class OrchestrationExecutionServiceMixin:
         )
         await self._mark_run_step(
             run,
-            step_id="github_sync",
+            step_id=EXTERNAL_ACTION_STEP_ID,
             status="in_progress",
             message="Syncing approved result to GitHub policy layer.",
         )
@@ -2630,7 +2650,7 @@ class OrchestrationExecutionServiceMixin:
             run.output_payload_json["github_action_state"] = github_state
         await self._mark_run_step(
             run,
-            step_id="github_sync",
+            step_id=EXTERNAL_ACTION_STEP_ID,
             status="completed",
             message="GitHub sync stage completed.",
         )
@@ -2746,7 +2766,7 @@ class OrchestrationExecutionServiceMixin:
             )
             await self._mark_run_step(
                 run,
-                step_id="github_sync",
+                step_id=EXTERNAL_ACTION_STEP_ID,
                 status="in_progress",
                 message="Applying GitHub review automation.",
             )
@@ -2758,7 +2778,7 @@ class OrchestrationExecutionServiceMixin:
             }
             await self._mark_run_step(
                 run,
-                step_id="github_sync",
+                step_id=EXTERNAL_ACTION_STEP_ID,
                 status="completed",
                 message="GitHub review automation completed.",
             )

@@ -97,10 +97,17 @@ class SkillMatcherService:
         skill_ids = [s.id for s in candidates]
         usage_stats = await self.repo.list_skill_usage_stats(skill_ids)
         usage_by_skill: dict[str, SkillUsageStat] = {}
-        for stat in usage_stats:
-            existing = usage_by_skill.get(stat.skill_id)
-            if existing is None or stat.run_count > existing.run_count:
-                usage_by_skill[stat.skill_id] = stat
+        for skill in candidates:
+            version_id = skill.current_version_id
+            if not version_id:
+                continue
+            matching = [
+                stat
+                for stat in usage_stats
+                if stat.skill_id == skill.id and stat.skill_version_id == version_id
+            ]
+            if matching:
+                usage_by_skill[skill.id] = max(matching, key=lambda s: s.run_count)
 
         req_cap_set = {c.lower().strip() for c in required_capabilities if c}
         req_tool_set = {t.lower().strip() for t in required_tools if t}

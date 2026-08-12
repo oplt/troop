@@ -140,6 +140,46 @@ class OrchestrationWorkerRuntime:
 
         await self._run_singleton("episodic_index_embedding_batch", operation)
 
+    async def resume_workflow_after_delay(
+        self,
+        run_id: str,
+        node_id: str,
+        owner_id: str,
+        *,
+        expected_resume_at: str | None = None,
+    ) -> None:
+        from backend.db.session import SessionLocal
+        from backend.modules.workforce.models import WorkflowRun
+        from backend.modules.workforce.services.workflow_runtime import WorkflowRuntimeService
+
+        async with SessionLocal() as db:
+            run = await db.get(WorkflowRun, run_id)
+            if run is None or run.status != "paused":
+                logger.info(
+                    "workflow_delay_resume_skipped run_id=%s status=%s",
+                    run_id,
+                    getattr(run, "status", None),
+                )
+                return
+            if run.current_node_id != node_id:
+                logger.info(
+                    "workflow_delay_resume_skipped run_id=%s cursor=%s expected=%s",
+                    run_id,
+                    run.current_node_id,
+                    node_id,
+                )
+                return
+            delay_state = dict((run.context_json or {}).get("vars", {}).get("_delay_resume") or {})
+            if delay_state.get("node_id") != node_id:
+                return
+            if expected_resume_at and delay_state.get("resume_at") != expected_resume_at:
+                return
+            service = WorkflowRuntimeService(db)
+            try:
+                await service.resume_run(str(owner_id), run_id)
+            except ValueError as exc:
+                logger.info("workflow_delay_resume_not_ready run_id=%s reason=%s", run_id, exc)
+
 
 @celery_app.task(
     name="backend.workers.orchestration.run_code_execution",
@@ -296,6 +336,70 @@ def memory_compaction_backfill() -> None:
 )
 def episodic_index_embedding_batch() -> None:
     asyncio.run(OrchestrationWorkerRuntime().episodic_index_embedding_batch())
+
+
+@celery_app.task(
+    name="backend.workers.orchestration.resume_workflow_after_delay",
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=2,
+)
+def resume_workflow_after_delay(
+    run_id: str,
+    node_id: str,
+    owner_id: str,
+    expected_resume_at: str | None = None,
+) -> None:
+    asyncio.run(
+        OrchestrationWorkerRuntime().resume_workflow_after_delay(
+            run_id,
+            node_id,
+            owner_id,
+            expected_resume_at=expected_resume_at,
+        )
+    )
+
+
+def queue_workflow_delay_resume(
+    *,
+    run_id: str,
+    node_id: str,
+    owner_id: str,
+    resume_at_iso: str,
+) -> None:
+    from datetime import UTC, datetime
+
+    resume_at = datetime.fromisoformat(resume_at_iso)
+    countdown = max(0, int((resume_at - datetime.now(UTC)).total_seconds()))
+    if settings.CELERY_TASK_ALWAYS_EAGER:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(
+                OrchestrationWorkerRuntime().resume_workflow_after_delay(
+                    run_id,
+                    node_id,
+                    owner_id,
+                    expected_resume_at=resume_at_iso,
+                )
+            )
+        else:
+            loop.create_task(
+                OrchestrationWorkerRuntime().resume_workflow_after_delay(
+                    run_id,
+                    node_id,
+                    owner_id,
+                    expected_resume_at=resume_at_iso,
+                )
+            )
+        return
+    resume_workflow_after_delay.apply_async(
+        args=[run_id, node_id, owner_id, resume_at_iso],
+        countdown=countdown,
+        queue=settings.CELERY_TASK_DEFAULT_QUEUE,
+        headers={**task_context_headers(), "workflow_run_id": run_id},
+    )
 
 
 def queue_orchestration_run(run_id: str) -> None:

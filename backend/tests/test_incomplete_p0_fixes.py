@@ -118,3 +118,127 @@ def test_department_policy_clear_and_cycle_helpers():
     src = inspect.getsource(DepartmentService.update)
     assert "is not None" in src
     assert "_assert_no_parent_cycle" in inspect.getsource(DepartmentService)
+
+
+@pytest.mark.asyncio
+async def test_consume_or_check_tool_approval_requires_arguments_hash_for_high_risk():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from backend.modules.orchestration.models import ApprovalRequest
+    from backend.modules.orchestration.tool_execution_context import consume_or_check_tool_approval
+
+    row = ApprovalRequest(
+        id="apr-1",
+        status="approved",
+        project_id="proj-1",
+        run_id="run-1",
+        task_id="task-1",
+        approval_type="tool:fs_write",
+        payload_json={"action_key": "tool:fs_write"},
+    )
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [row]
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result)
+
+    ok = await consume_or_check_tool_approval(
+        db,
+        owner_id="owner-1",
+        tool_name="fs_write",
+        arguments_hash="abc123",
+        run_id="run-1",
+        task_id="task-1",
+        project_id="proj-1",
+        agent_id="agent-1",
+        consume=False,
+        require_arguments_hash=True,
+    )
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_consume_or_check_tool_approval_accepts_matching_hash():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from backend.modules.orchestration.models import ApprovalRequest
+    from backend.modules.orchestration.tool_execution_context import consume_or_check_tool_approval
+
+    args_hash = "deadbeef"
+    row = ApprovalRequest(
+        id="apr-2",
+        status="approved",
+        project_id="proj-1",
+        run_id="run-1",
+        task_id="task-1",
+        approval_type="tool:fs_write",
+        payload_json={"action_key": "tool:fs_write", "arguments_hash": args_hash},
+    )
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [row]
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result)
+
+    ok = await consume_or_check_tool_approval(
+        db,
+        owner_id="owner-1",
+        tool_name="fs_write",
+        arguments_hash=args_hash,
+        run_id="run-1",
+        task_id="task-1",
+        project_id="proj-1",
+        agent_id="agent-1",
+        consume=False,
+        require_arguments_hash=True,
+    )
+    assert ok is True
+
+
+@pytest.mark.asyncio
+async def test_authorize_tool_denies_when_not_permitted():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from backend.modules.workforce.services.tool_registry import ToolRegistryService
+
+    db = AsyncMock()
+    service = ToolRegistryService(db)
+    provider = MagicMock()
+    provider.validate_permissions = AsyncMock(return_value=False)
+    service.providers["native"] = provider
+
+    with patch.object(
+        service.policy, "resolve", AsyncMock(return_value={"decision": "autonomous"})
+    ):
+        auth = await service.authorize_tool(
+            "owner-1",
+            "fs_write",
+            {"allowed_tools": ["fs_read"], "owner_id": "owner-1"},
+        )
+
+    assert auth["permitted"] is False
+    assert auth["decision"] == "autonomous"
+
+
+def test_action_policy_fingerprint_changes_when_decision_changes():
+    from types import SimpleNamespace
+
+    from backend.modules.workforce.services.task_analyzer import _fingerprint_action_policies
+
+    p1 = SimpleNamespace(
+        id="1",
+        action_key="fs_write",
+        decision="autonomous",
+        scope_type="project",
+        scope_id="p1",
+        risk_level="high",
+        updated_at="2026-01-01",
+    )
+    p2 = SimpleNamespace(
+        id="1",
+        action_key="fs_write",
+        decision="prohibited",
+        scope_type="project",
+        scope_id="p1",
+        risk_level="high",
+        updated_at="2026-01-02",
+    )
+    assert _fingerprint_action_policies([p1]) != _fingerprint_action_policies([p2])

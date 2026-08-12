@@ -58,6 +58,7 @@ _VECTOR_INDEXES: tuple[tuple[str, str], ...] = (
 
 
 def upgrade() -> None:
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.add_column(
         "ai_document_chunks",
         sa.Column(

@@ -59,6 +59,44 @@ def _hash_json(value: Any) -> str:
     return hashlib.sha256(encoded.encode()).hexdigest()[:12]
 
 
+def _fingerprint_action_policies(policies: list[Any]) -> str:
+    parts = []
+    for policy in sorted(
+        policies,
+        key=lambda p: (getattr(p, "action_key", "") or "", getattr(p, "id", "") or ""),
+    ):
+        parts.append(
+            {
+                "action_key": getattr(policy, "action_key", None),
+                "decision": getattr(policy, "decision", None),
+                "scope_type": getattr(policy, "scope_type", None),
+                "scope_id": getattr(policy, "scope_id", None),
+                "risk_level": getattr(policy, "risk_level", None),
+                "updated_at": getattr(policy, "updated_at", None),
+            }
+        )
+    return _hash_json(parts)
+
+
+def _fingerprint_tool_grants(grants: list[Any], slug_by_id: dict[str, str]) -> str:
+    parts = []
+    for grant in sorted(
+        grants,
+        key=lambda g: (getattr(g, "subject_type", "") or "", getattr(g, "id", "") or ""),
+    ):
+        tool_id = getattr(grant, "tool_definition_id", None)
+        parts.append(
+            {
+                "subject_type": getattr(grant, "subject_type", None),
+                "subject_id": getattr(grant, "subject_id", None),
+                "tool_definition_id": tool_id,
+                "tool_slug": slug_by_id.get(tool_id or ""),
+                "effect": getattr(grant, "effect", None),
+            }
+        )
+    return _hash_json(parts)
+
+
 def _department_policy_hash(department: Any | None) -> str:
     if department is None:
         return ""
@@ -101,16 +139,23 @@ def _build_catalog_fingerprint(
     versions_by_id: dict[str, Any],
     department: Any | None,
     connector_ids: list[str],
-    action_policy_keys: list[str],
-    tool_grant_slugs: list[str],
+    action_policy_fingerprint: str,
+    tool_grant_fingerprint: str,
 ) -> str:
     tool_part = "|".join(sorted(getattr(t, "slug", str(t)) for t in tools))
     skill_part = _skill_version_fingerprint(skills, versions_by_id)
     dept_part = _department_policy_hash(department)
     connector_part = "|".join(sorted(connector_ids))
-    policy_part = "|".join(sorted(action_policy_keys))
-    grant_part = "|".join(sorted(tool_grant_slugs))
-    blob = "|".join([tool_part, skill_part, dept_part, connector_part, policy_part, grant_part])
+    blob = "|".join(
+        [
+            tool_part,
+            skill_part,
+            dept_part,
+            connector_part,
+            action_policy_fingerprint,
+            tool_grant_fingerprint,
+        ]
+    )
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
@@ -349,21 +394,29 @@ class TaskAnalyzerService:
         defs_by_id = {d.id: d for d in connector_defs}
 
         action_policies = await self.repo.list_action_policies(owner_id)
-        action_policy_keys = sorted({p.action_key for p in action_policies if p.action_key})
+        action_policy_fp = _fingerprint_action_policies(action_policies)
 
         grant_sources: list[Any] = []
         if project:
             grant_sources.extend(
-                await self.repo.list_tool_grants_for_subject("project", project.id, effect="allow")
+                await self.repo.list_tool_grants_for_subject("project", project.id, effect=None)
             )
         if department:
             grant_sources.extend(
                 await self.repo.list_tool_grants_for_subject(
-                    "department", department.id, effect="allow"
+                    "department", department.id, effect=None
+                )
+            )
+        if getattr(project, "company_id", None):
+            grant_sources.extend(
+                await self.repo.list_tool_grants_for_subject(
+                    "organization", project.company_id, effect=None
                 )
             )
         grant_tool_ids = list({g.tool_definition_id for g in grant_sources if g.tool_definition_id})
         grant_tools = await self.repo.list_tool_definitions_by_ids(grant_tool_ids)
+        slug_by_id = {t.id: t.slug for t in grant_tools if t.slug}
+        tool_grant_fp = _fingerprint_tool_grants(grant_sources, slug_by_id)
         tool_grant_slugs = sorted({t.slug for t in grant_tools if t.slug})
 
         catalog_fp = _build_catalog_fingerprint(
@@ -372,8 +425,8 @@ class TaskAnalyzerService:
             versions_by_id=versions_by_id,
             department=department,
             connector_ids=[c.id for c in connectors],
-            action_policy_keys=action_policy_keys,
-            tool_grant_slugs=tool_grant_slugs,
+            action_policy_fingerprint=action_policy_fp,
+            tool_grant_fingerprint=tool_grant_fp,
         )
         dependency_fp = _hash_json(
             {
@@ -387,8 +440,8 @@ class TaskAnalyzerService:
                     }
                     for c in connectors
                 ],
-                "action_policies": action_policy_keys,
-                "tool_grants": tool_grant_slugs,
+                "action_policies": action_policy_fp,
+                "tool_grants": tool_grant_fp,
                 "department": _department_policy_hash(department),
                 "skill_versions": _skill_version_fingerprint(skills, versions_by_id),
             }
@@ -468,18 +521,40 @@ class TaskAnalyzerService:
             "skill_capabilities": skill_capabilities,
         }
 
+        analysis_mode = "deterministic"
+        fallback_reason: str | None = None
+        provider_error_type: str | None = None
+        provider_id = getattr(provider, "id", None) if provider else None
+        provider_model = model_name or (provider.default_model if provider else None)
+
         if use_llm and provider:
             try:
                 analysis_output = await self._llm_analyze(
                     task, model_name, provider, context=context
                 )
                 model_used = model_name or provider.default_model
-            except Exception:
+                analysis_mode = "llm"
+            except Exception as exc:
                 analysis_output = _heuristic_analyze(task)
                 model_used = None
+                analysis_mode = "fallback"
+                fallback_reason = str(exc)
+                provider_error_type = type(exc).__name__
         else:
             analysis_output = _heuristic_analyze(task)
             model_used = None
+            analysis_mode = "deterministic"
+
+        raw_output = analysis_output.model_dump()
+        raw_output.update(
+            {
+                "analysis_mode": analysis_mode,
+                "provider_id": provider_id,
+                "model": provider_model if analysis_mode == "llm" else model_used,
+                "fallback_reason": fallback_reason,
+                "provider_error_type": provider_error_type,
+            }
+        )
 
         analysis = await self.repo.create_task_analysis(
             task_id=task_id,
@@ -498,7 +573,7 @@ class TaskAnalyzerService:
             acceptance_criteria_json=analysis_output.acceptance_criteria,
             review_requirements_json=analysis_output.review_requirements,
             approval_requirements_json=analysis_output.approval_requirements,
-            raw_output_json=analysis_output.model_dump(),
+            raw_output_json=raw_output,
             created_by=owner_id,
         )
 

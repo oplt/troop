@@ -81,6 +81,11 @@ class OrchestrationToolbox:
             if not owner_id:
                 raise ToolExecutionError("Tool execution requires a project owner")
             auth = await registry.authorize_tool(str(owner_id), tool_name, context)
+            if not auth.get("permitted"):
+                raise ToolExecutionError(
+                    f"Tool `{tool_name}` is not permitted for this agent/context "
+                    f"({(auth.get('resolution') or {}).get('matched_scope') or 'allowlist/grants'})"
+                )
             decision = auth.get("decision")
             if decision == "prohibited":
                 raise ToolExecutionError(
@@ -97,6 +102,7 @@ class OrchestrationToolbox:
                     tool_name=tool_name,
                     arguments=arguments if isinstance(arguments, dict) else {},
                     consume_approval=True,
+                    require_arguments_hash=True,
                 )
                 if not granted.get("approval_granted"):
                     raise ToolExecutionError(

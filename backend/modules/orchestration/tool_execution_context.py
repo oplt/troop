@@ -17,6 +17,7 @@ from backend.modules.projects.orchestration_models import OrchestratorProject, O
 from backend.modules.team.models import AgentProfile
 
 # Low-risk tools that may optionally fail-open when TOOL_POLICY_FAIL_OPEN=1
+# and may accept approvals without arguments_hash (still consume once).
 _LOW_RISK_TOOLS = {
     "web_search",
     "web_fetch",
@@ -28,6 +29,14 @@ _LOW_RISK_TOOLS = {
 
 def policy_fail_open_enabled() -> bool:
     return os.getenv("TOOL_POLICY_FAIL_OPEN", "").lower() in {"1", "true", "yes"}
+
+
+def is_low_risk_tool(tool_name: str) -> bool:
+    if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
+        return False
+    if tool_name.startswith("github_"):
+        return False
+    return tool_name in _LOW_RISK_TOOLS
 
 
 def arguments_hash(arguments: dict[str, Any] | None) -> str:
@@ -59,6 +68,7 @@ async def build_tool_execution_context(
     tool_name: str,
     arguments: dict[str, Any] | None = None,
     consume_approval: bool = False,
+    require_arguments_hash: bool | None = None,
 ) -> dict[str, Any]:
     """Construct authorization context from durable server state only.
 
@@ -73,16 +83,14 @@ async def build_tool_execution_context(
             declared_tools = [str(t) for t in (agent.allowed_tools_json or []) if t]
 
     skill_required = required_tools_from_run(run)
-    # Intersection preference: declared ∩ skill-required when both present;
-    # otherwise declared; skill-required never grants by itself.
-    if declared_tools and skill_required:
-        allowed_tools = [t for t in declared_tools if t in set(skill_required) or t in declared_tools]
-        # Keep declared list as the hard ceiling; skill tools are advisory for UX.
-        allowed_tools = list(declared_tools)
-    else:
-        allowed_tools = list(declared_tools)
+    # Declared tools are the hard ceiling; skill-required never grants by itself.
+    allowed_tools = list(declared_tools)
 
     args_hash = arguments_hash(arguments)
+    # High-risk / governed tools always require an exact arguments_hash on the grant.
+    if require_arguments_hash is None:
+        require_arguments_hash = not is_low_risk_tool(tool_name)
+
     approval_granted = await consume_or_check_tool_approval(
         db,
         owner_id=str(project.owner_id),
@@ -93,6 +101,7 @@ async def build_tool_execution_context(
         project_id=project.id,
         agent_id=agent_id,
         consume=consume_approval,
+        require_arguments_hash=require_arguments_hash,
     )
 
     return {
@@ -122,8 +131,13 @@ async def consume_or_check_tool_approval(
     project_id: str | None,
     agent_id: str | None,
     consume: bool,
+    require_arguments_hash: bool = True,
 ) -> bool:
-    """Match one unconsumed ApprovalRequest grant for exact tool (+ optional args hash)."""
+    """Match one unconsumed ApprovalRequest grant for exact tool + arguments_hash.
+
+    For governed/high-risk tools, ``arguments_hash`` on the grant is mandatory.
+    Missing hash → not valid for a new high-risk call.
+    """
     clauses = [ApprovalRequest.status == "approved"]
     if project_id:
         clauses.append(ApprovalRequest.project_id == project_id)
@@ -141,21 +155,17 @@ async def consume_or_check_tool_approval(
         payload = dict(row.payload_json or {})
         if payload.get("_consumed_at") or payload.get("consumed_at"):
             continue
-        # Owner binding: requested_by or approved_by or payload.owner_id must match project owner
-        # when present; otherwise require project_id match (already filtered).
+
         payload_owner = str(
-            payload.get("owner_id")
-            or row.requested_by_user_id
-            or row.approved_by_user_id
-            or ""
+            payload.get("owner_id") or row.requested_by_user_id or row.approved_by_user_id or ""
         )
-        if payload_owner and payload_owner != owner_id and str(row.requested_by_user_id or "") not in {
-            "",
-            owner_id,
-        }:
-            # Allow project-scoped approvals without owner field when project matches.
-            if not row.project_id:
-                continue
+        if (
+            payload_owner
+            and payload_owner != owner_id
+            and str(row.requested_by_user_id or "") not in {"", owner_id}
+            and not row.project_id
+        ):
+            continue
 
         action = str(
             payload.get("action_key")
@@ -177,8 +187,11 @@ async def consume_or_check_tool_approval(
         if agent_id and payload.get("agent_id") and str(payload.get("agent_id")) != agent_id:
             continue
 
-        grant_hash = str(payload.get("arguments_hash") or "")
-        if grant_hash and grant_hash != arguments_hash:
+        grant_hash = str(payload.get("arguments_hash") or "").strip()
+        if require_arguments_hash:
+            if not grant_hash or grant_hash != arguments_hash:
+                continue
+        elif grant_hash and grant_hash != arguments_hash:
             continue
 
         if consume:
@@ -196,8 +209,4 @@ async def consume_or_check_tool_approval(
 def may_fail_open(tool_name: str) -> bool:
     if not policy_fail_open_enabled():
         return False
-    if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
-        return False
-    if tool_name.startswith("github_"):
-        return False
-    return tool_name in _LOW_RISK_TOOLS
+    return is_low_risk_tool(tool_name)

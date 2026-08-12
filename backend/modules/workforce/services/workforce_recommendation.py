@@ -127,6 +127,9 @@ class WorkforceRecommendationService:
             required_skills=[m.skill_slug for m in matches[:5]],
             required_tools=tools,
             project_id=getattr(task, "project_id", None),
+            company_id=getattr(project, "company_id", None),
+            department_id=getattr(project, "department_id", None),
+            task_risk_level=getattr(analysis, "risk_level", None),
         )
         proposal = await self.agent_matcher.propose_assembly(
             owner_id,
@@ -136,6 +139,8 @@ class WorkforceRecommendationService:
             skill_ids=list(dict.fromkeys(covered_skill_ids)),
             task_title=getattr(task, "title", None),
             project_id=getattr(task, "project_id", None),
+            company_id=getattr(project, "company_id", None),
+            department_id=getattr(project, "department_id", None),
         )
 
         warnings: list[str] = []

@@ -4,12 +4,12 @@ Uses WorkflowVersion.nodes_json / edges_json / entry_node_id and persists
 WorkflowRun + WorkflowStepRun. Node execution connects to existing durable
 systems:
 
-- tool → ToolRegistryService.execute_tool
+- tool → ToolExecutionService (authorize + native dispatch)
 - skill → SkillVersion resolution into run vars
-- agent → TaskRun creation via orchestration repository (when project/task set)
-- approval / human_input → ApprovalRequest consumption and human payload gates
-- parallel → fan-out child ids recorded in pending_parallel
-- delay → durable resume_at pause in run context
+- agent → TaskRun via TaskRunStarter (freeze + Celery enqueue)
+- approval / human_input → auto-created ApprovalRequest + consumption gates
+- parallel → branch status in parallel_branches with join policies
+- delay → durable resume_at + Celery resume hook
 - subworkflow → nested WorkflowRun with parent pause until child completes
 """
 
@@ -48,6 +48,7 @@ SUPPORTED_NODE_TYPES = frozenset(
 )
 
 _TASK_RUN_TERMINAL = frozenset({"completed", "failed", "cancelled"})
+_SIMPLE_PARALLEL_TYPES = frozenset({"tool", "skill", "condition", "trigger"})
 
 
 def _utcnow() -> datetime:
@@ -251,6 +252,44 @@ class WorkflowRuntimeService:
         await self.db.refresh(run)
         return run
 
+    async def _create_workflow_approval_request(
+        self,
+        *,
+        run: WorkflowRun,
+        node_id: str,
+        approval_type: str,
+        action_key: str,
+        args_hash: str | None = None,
+        reason: str | None = None,
+        extra_payload: dict[str, Any] | None = None,
+    ) -> str:
+        from backend.modules.orchestration.models import ApprovalRequest
+
+        payload: dict[str, Any] = {
+            "workflow_run_id": run.id,
+            "workflow_node_id": node_id,
+            "action_key": action_key,
+            "owner_id": run.created_by,
+        }
+        if args_hash:
+            payload["arguments_hash"] = args_hash
+        if extra_payload:
+            payload.update(extra_payload)
+
+        approval = ApprovalRequest(
+            id=str(uuid4()),
+            project_id=run.project_id,
+            task_id=run.task_id,
+            approval_type=approval_type,
+            status="pending",
+            requested_by_user_id=run.created_by,
+            reason=reason,
+            payload_json=payload,
+        )
+        self.db.add(approval)
+        await self.db.flush()
+        return approval.id
+
     async def _consume_approval_for_node(
         self,
         approval_request_id: str,
@@ -264,6 +303,7 @@ class WorkflowRuntimeService:
         from sqlalchemy.orm.attributes import flag_modified
 
         from backend.modules.orchestration.models import ApprovalRequest
+        from backend.modules.orchestration.tool_execution_context import arguments_hash
 
         approval = await self.db.get(ApprovalRequest, approval_request_id)
         if approval is None or approval.status != "approved":
@@ -273,10 +313,32 @@ class WorkflowRuntimeService:
         payload = dict(approval.payload_json or {})
         if payload.get("_consumed_at") or payload.get("consumed_at"):
             raise ValueError("approval_request already consumed")
-        if payload.get("workflow_run_id") and payload.get("workflow_run_id") != run.id:
-            raise ValueError("approval does not match workflow run")
-        if payload.get("workflow_node_id") and payload.get("workflow_node_id") != node_id:
-            raise ValueError("approval does not match current workflow node")
+
+        if str(payload.get("workflow_run_id") or "") != run.id:
+            raise ValueError("approval workflow_run_id does not match workflow run")
+        if str(payload.get("workflow_node_id") or "") != str(node_id or ""):
+            raise ValueError("approval workflow_node_id does not match current node")
+
+        if pending_tool:
+            pending = dict(vars_.get("pending_tool") or {})
+            tool_slug = str(pending.get("tool_slug") or "")
+            params = dict(pending.get("params") or {})
+            expected_hash = arguments_hash(params)
+            action = str(
+                payload.get("action_key") or payload.get("action") or approval.approval_type or ""
+            )
+            exact_tools = {
+                tool_slug,
+                f"tool:{tool_slug}",
+                f"execute:{tool_slug}",
+                f"tool_execution:{tool_slug}",
+            }
+            if action not in exact_tools and approval.approval_type not in exact_tools:
+                raise ValueError("approval action_key does not match pending tool")
+            grant_hash = str(payload.get("arguments_hash") or "")
+            if not grant_hash or grant_hash != expected_hash:
+                raise ValueError("approval arguments_hash does not match pending tool params")
+
         payload["_consumed_at"] = _utcnow().isoformat()
         payload["consumed_at"] = payload["_consumed_at"]
         payload["consumed_workflow_node_id"] = node_id
@@ -327,19 +389,45 @@ class WorkflowRuntimeService:
         vars_: dict[str, Any],
     ) -> tuple[str, dict[str, Any], str | None]:
         """Returns (step_status, output_json, run_status_if_pause)."""
-        from backend.modules.workforce.services.tool_registry import ToolRegistryService
+        from backend.modules.orchestration.tool_execution_context import arguments_hash
+        from backend.modules.workforce.services.tool_execution_service import ToolExecutionService
 
         config = dict(node.get("config") or {})
         pending = vars_.get("pending_tool")
         if isinstance(pending, dict) and pending.get("node_id") == node_id:
             if not pending.get("approval_consumed"):
-                return "paused", {"pending_tool": pending}, "waiting_approval"
+                approval_id = pending.get("approval_request_id") or vars_.get(
+                    "pending_approval_request_id"
+                )
+                if not approval_id:
+                    args_hash = arguments_hash(dict(pending.get("params") or {}))
+                    approval_id = await self._create_workflow_approval_request(
+                        run=run,
+                        node_id=node_id,
+                        approval_type=f"tool:{pending.get('tool_slug')}",
+                        action_key=f"tool:{pending.get('tool_slug')}",
+                        args_hash=args_hash,
+                        reason=f"Workflow tool `{pending.get('tool_slug')}` requires approval",
+                        extra_payload={"tool_slug": pending.get("tool_slug")},
+                    )
+                vars_["pending_approval_request_id"] = approval_id
+                pending["approval_request_id"] = approval_id
+                vars_["pending_tool"] = pending
+                return (
+                    "paused",
+                    {
+                        "pending_tool": pending,
+                        "approval_request_id": approval_id,
+                    },
+                    "waiting_approval",
+                )
             tool_slug = str(pending.get("tool_slug") or "")
             params = dict(pending.get("params") or {})
             context = dict(pending.get("context") or {})
             context["approval_granted"] = True
             context["approval_request_id"] = pending.get("approval_request_id")
             vars_.pop("pending_tool", None)
+            vars_.pop("pending_approval_request_id", None)
         else:
             tool_slug = str(config.get("tool") or config.get("tool_slug") or "")
             params = dict(config.get("params") or vars_)
@@ -358,14 +446,24 @@ class WorkflowRuntimeService:
                 "failed",
             )
 
-        registry = ToolRegistryService(self.db)
-        result = await registry.execute_tool(
+        executor = ToolExecutionService(self.db)
+        result = await executor.execute(
             str(run.created_by or ""),
             tool_slug,
             params,
             context,
         )
         if result.get("status") == "approval_required":
+            args_hash = arguments_hash(params)
+            approval_id = await self._create_workflow_approval_request(
+                run=run,
+                node_id=node_id,
+                approval_type=f"tool:{tool_slug}",
+                action_key=f"tool:{tool_slug}",
+                args_hash=args_hash,
+                reason=f"Workflow tool `{tool_slug}` requires approval",
+                extra_payload={"tool_slug": tool_slug},
+            )
             vars_["pending_tool"] = {
                 "node_id": node_id,
                 "tool_slug": tool_slug,
@@ -379,9 +477,19 @@ class WorkflowRuntimeService:
                     "decision": result.get("decision"),
                     "resolution": (result.get("resolution") or {}),
                 },
+                "approval_request_id": approval_id,
             }
-            return "paused", {"approval_required": True, "tool_slug": tool_slug}, "waiting_approval"
-        if result.get("status") == "denied":
+            vars_["pending_approval_request_id"] = approval_id
+            return (
+                "paused",
+                {
+                    "approval_required": True,
+                    "tool_slug": tool_slug,
+                    "approval_request_id": approval_id,
+                },
+                "waiting_approval",
+            )
+        if result.get("status") in {"denied", "failed"}:
             return "failed", {"denied": True, "tool_slug": tool_slug, "result": result}, "failed"
         vars_[f"tool_result_{node_id}"] = result
         return "succeeded", {"tool_slug": tool_slug, "result": result}, None
@@ -422,9 +530,16 @@ class WorkflowRuntimeService:
                 )
 
         if agent_id and run.project_id and run.task_id:
-            from backend.modules.orchestration.repository import OrchestrationRepository
+            from backend.modules.identity_access.models import User
+            from backend.modules.orchestration.task_run_starter import TaskRunStarter
 
-            repo = OrchestrationRepository(self.db)
+            user = await self.db.get(User, str(run.created_by or ""))
+            if user is None:
+                return (
+                    "failed",
+                    {"error": "workflow run owner user not found for agent TaskRun"},
+                    "failed",
+                )
             input_payload = dict(config.get("input") or config.get("input_payload") or {})
             input_payload.update(
                 {
@@ -432,15 +547,15 @@ class WorkflowRuntimeService:
                     "workflow_node_id": node_id,
                 }
             )
-            task_run = await repo.create_run(
-                project_id=run.project_id,
-                task_id=run.task_id,
+            starter = TaskRunStarter(self.db)
+            task_run, _warnings = await starter.start(
+                user,
+                project_id=str(run.project_id),
+                task_id=str(run.task_id),
                 worker_agent_id=str(agent_id),
                 orchestrator_agent_id=config.get("orchestrator_agent_id"),
-                triggered_by_user_id=run.created_by,
                 run_mode=str(config.get("run_mode") or "single_agent"),
-                status="queued",
-                input_payload_json=input_payload,
+                input_payload=input_payload,
             )
             agent_runs[node_id] = task_run.id
             vars_["_agent_runs"] = agent_runs
@@ -525,6 +640,233 @@ class WorkflowRuntimeService:
             {"child_run_id": child_run.id, "child_status": child_run.status},
             "paused",
         )
+
+    def _evaluate_parallel_join(self, policy: str, statuses: list[str]) -> str:
+        succeeded = sum(1 for s in statuses if s == "succeeded")
+        failed = sum(1 for s in statuses if s == "failed")
+        total = len(statuses)
+        if policy == "any_success":
+            return "succeeded" if succeeded > 0 else "failed"
+        if policy == "best_effort":
+            if succeeded > 0:
+                return "succeeded"
+            return "failed" if failed == total and total > 0 else "paused"
+        if failed > 0 or succeeded < total:
+            return "failed"
+        return "succeeded"
+
+    async def _execute_simple_node(
+        self,
+        *,
+        run: WorkflowRun,
+        node: dict[str, Any],
+        node_id: str,
+        vars_: dict[str, Any],
+    ) -> tuple[str, dict[str, Any], str | None]:
+        ntype = str(node.get("type") or "")
+        if ntype == "tool":
+            return await self._execute_tool_node(run=run, node=node, node_id=node_id, vars_=vars_)
+        if ntype == "skill":
+            config = dict(node.get("config") or {})
+            version_row = await self._resolve_skill_version(config)
+            if version_row is None:
+                return "failed", {"error": "skill version not found"}, "failed"
+            skill_payload = {
+                "skill_id": version_row.skill_id,
+                "skill_version_id": version_row.id,
+                "version_number": version_row.version_number,
+                "instructions_markdown": version_row.instructions_markdown,
+                "required_tools": list(version_row.required_tools_json or []),
+                "capabilities": list(version_row.capabilities_json or []),
+            }
+            vars_["skill_payload"] = skill_payload
+            return (
+                "succeeded",
+                {"skill_version_id": version_row.id, "skill_id": version_row.skill_id},
+                None,
+            )
+        if ntype == "condition":
+            from backend.modules.workforce.services.workflow_conditions import (
+                condition_from_config,
+                evaluate_condition,
+            )
+
+            config = dict(node.get("config") or {})
+            cond = condition_from_config(config)
+            result = evaluate_condition(cond, vars_) if cond else False
+            vars_["_last_condition"] = result
+            return "succeeded", {"branch": result, "condition": cond}, None
+        if ntype == "trigger":
+            config = dict(node.get("config") or {})
+            trigger_type = str(config.get("trigger_type") or config.get("type") or "manual")
+            metadata = {
+                "trigger_type": trigger_type,
+                "source": config.get("source"),
+                "schedule": config.get("schedule"),
+                "webhook_key": config.get("webhook_key"),
+                "event": config.get("event"),
+                "metadata": dict(config.get("metadata") or {}),
+            }
+            vars_[f"trigger_{node_id}"] = metadata
+            return "succeeded", metadata, None
+        return "failed", {"error": f"unsupported simple node type `{ntype}`"}, "failed"
+
+    async def _execute_parallel_node(
+        self,
+        *,
+        run: WorkflowRun,
+        node: dict[str, Any],
+        node_id: str,
+        nodes: dict[str, dict[str, Any]],
+        vars_: dict[str, Any],
+    ) -> tuple[str, dict[str, Any], str | None]:
+        config = dict(node.get("config") or {})
+        join_policy = str(config.get("join_policy") or config.get("policy") or "all_success")
+        children = list(config.get("children") or [])
+
+        all_branches = dict(vars_.get("parallel_branches") or {})
+        branch_state = dict(all_branches.get(node_id) or {})
+        if not branch_state:
+            branch_state = {
+                "join_policy": join_policy,
+                "branches": {cid: {"status": "pending", "output": {}} for cid in children},
+            }
+
+        branches = dict(branch_state.get("branches") or {})
+        any_paused = False
+
+        for child_id in children:
+            child_entry = dict(branches.get(child_id) or {"status": "pending", "output": {}})
+            status = str(child_entry.get("status") or "pending")
+            if status in {"succeeded", "failed"}:
+                continue
+
+            child_node = nodes.get(child_id)
+            if child_node is None:
+                child_entry["status"] = "failed"
+                child_entry["output"] = {"error": "child node not found"}
+                branches[child_id] = child_entry
+                continue
+
+            child_type = str(child_node.get("type") or "")
+            if child_type not in _SIMPLE_PARALLEL_TYPES:
+                child_entry["status"] = "paused"
+                child_entry["output"] = {
+                    "reason": f"child type `{child_type}` requires async branch execution"
+                }
+                branches[child_id] = child_entry
+                any_paused = True
+                continue
+
+            step_status, output, pause = await self._execute_simple_node(
+                run=run,
+                node=child_node,
+                node_id=child_id,
+                vars_=vars_,
+            )
+            if pause:
+                child_entry["status"] = "paused"
+                any_paused = True
+            elif step_status == "failed":
+                child_entry["status"] = "failed"
+            else:
+                child_entry["status"] = "succeeded"
+            child_entry["output"] = output
+            branches[child_id] = child_entry
+
+        branch_state["branches"] = branches
+        all_branches[node_id] = branch_state
+        vars_["parallel_branches"] = all_branches
+
+        output = {"parallel_branches": branch_state, "join_policy": join_policy}
+        if any_paused:
+            return "paused", output, "paused"
+
+        statuses = [str(b.get("status") or "") for b in branches.values()]
+        joined = self._evaluate_parallel_join(join_policy, statuses)
+        output["join_result"] = joined
+        if joined == "succeeded":
+            return "succeeded", output, None
+        if joined == "failed":
+            return "failed", output, "failed"
+        return "paused", output, "paused"
+
+    def _execute_router_node(
+        self,
+        *,
+        node: dict[str, Any],
+        node_id: str,
+        edges: list[dict[str, Any]],
+        vars_: dict[str, Any],
+    ) -> tuple[str, dict[str, Any], str | None]:
+        from backend.modules.workforce.services.workflow_conditions import evaluate_condition
+
+        config = dict(node.get("config") or {})
+        rules = list(config.get("rules") or [])
+        outgoing = [e for e in edges if e.get("from") == node_id]
+        selected: str | None = None
+        matched_rule: dict[str, Any] | None = None
+
+        for rule in rules:
+            if not isinstance(rule, dict):
+                continue
+            condition = rule.get("condition") if isinstance(rule.get("condition"), dict) else rule
+            if (
+                isinstance(condition, dict)
+                and condition.get("operator")
+                and evaluate_condition(condition, vars_)
+            ):
+                selected = str(rule.get("to") or rule.get("target") or "")
+                matched_rule = rule
+                break
+
+        if not selected:
+            for edge in outgoing:
+                when = edge.get("when")
+                if when is None:
+                    continue
+                if isinstance(when, dict) and when.get("operator"):
+                    if evaluate_condition(when, vars_):
+                        selected = str(edge.get("to") or "")
+                        break
+                elif bool(when):
+                    selected = str(edge.get("to") or "")
+                    break
+
+        if not selected and outgoing:
+            selected = str(outgoing[0].get("to") or "")
+
+        if selected:
+            vars_["_router_target"] = selected
+
+        return (
+            "succeeded",
+            {
+                "selected": selected,
+                "rules_evaluated": len(rules),
+                "matched_rule": matched_rule,
+            },
+            None,
+        )
+
+    def _schedule_delay_resume(
+        self,
+        *,
+        run: WorkflowRun,
+        node_id: str,
+        resume_at: datetime,
+    ) -> None:
+        try:
+            from backend.workers.orchestration import queue_workflow_delay_resume
+
+            queue_workflow_delay_resume(
+                run_id=run.id,
+                node_id=node_id,
+                owner_id=str(run.created_by or ""),
+                resume_at_iso=resume_at.isoformat(),
+            )
+        except Exception:
+            pass
 
     def _pause_run(
         self,
@@ -612,8 +954,26 @@ class WorkflowRuntimeService:
                     vars_.pop("approval_granted", None)
                     vars_.pop("approval_request_id", None)
                     vars_.pop("approval_node_id", None)
+                    vars_.pop("pending_approval_request_id", None)
                 else:
+                    approval_id = vars_.get("pending_approval_request_id")
+                    if not approval_id:
+                        approval_id = await self._create_workflow_approval_request(
+                            run=run,
+                            node_id=cursor,
+                            approval_type="workflow_approval",
+                            action_key="workflow_approval",
+                            reason=str(
+                                (node.get("config") or {}).get("reason")
+                                or "Workflow approval required"
+                            ),
+                        )
+                        vars_["pending_approval_request_id"] = approval_id
                     step.status = "paused"
+                    step.output_json = {
+                        "waiting": True,
+                        "approval_request_id": approval_id,
+                    }
                     step.finished_at = _utcnow()
                     self._pause_run(
                         run=run,
@@ -649,9 +1009,16 @@ class WorkflowRuntimeService:
                     )
                     return
             elif ntype == "condition":
-                expr = bool((node.get("config") or {}).get("when", True))
+                from backend.modules.workforce.services.workflow_conditions import (
+                    condition_from_config,
+                    evaluate_condition,
+                )
+
+                config = dict(node.get("config") or {})
+                cond = condition_from_config(config)
+                expr = evaluate_condition(cond, vars_) if cond else False
                 step.status = "succeeded"
-                step.output_json = {"branch": bool(expr)}
+                step.output_json = {"branch": bool(expr), "condition": cond}
                 step.finished_at = _utcnow()
                 vars_["_last_condition"] = bool(expr)
             elif ntype == "delay":
@@ -690,6 +1057,7 @@ class WorkflowRuntimeService:
                         step.status = "paused"
                         step.output_json = {"resume_at": resume_at.isoformat(), "seconds": seconds}
                         step.finished_at = _utcnow()
+                        self._schedule_delay_resume(run=run, node_id=cursor, resume_at=resume_at)
                         self._pause_run(
                             run=run,
                             cursor=cursor,
@@ -703,18 +1071,52 @@ class WorkflowRuntimeService:
                     step.output_json = {"delayed": False, "seconds": 0}
                     step.finished_at = _utcnow()
             elif ntype == "parallel":
-                children = list((node.get("config") or {}).get("children") or [])
-                vars_["pending_parallel"] = {
-                    "node_id": cursor,
-                    "children": children,
-                }
-                step.status = "succeeded"
-                step.output_json = {
-                    "children": children,
-                    "pending_parallel": children,
-                    "mode": "fan_out_recorded",
-                }
+                step.status, step.output_json, pause_status = await self._execute_parallel_node(
+                    run=run,
+                    node=node,
+                    node_id=cursor,
+                    nodes=nodes,
+                    vars_=vars_,
+                )
                 step.finished_at = _utcnow()
+                if pause_status:
+                    self._pause_run(
+                        run=run,
+                        cursor=cursor,
+                        ctx=ctx,
+                        completed=completed,
+                        vars_=vars_,
+                        run_status=pause_status,
+                    )
+                    return
+                if step.status == "failed":
+                    run.status = "failed"
+                    run.result_json = step.output_json
+                    ctx.update({"completed": completed, "vars": vars_})
+                    run.context_json = ctx
+                    return
+            elif ntype == "router":
+                step.status, step.output_json, pause_status = self._execute_router_node(
+                    node=node,
+                    node_id=cursor,
+                    edges=edges,
+                    vars_=vars_,
+                )
+                step.finished_at = _utcnow()
+            elif ntype == "trigger":
+                step.status, step.output_json, pause_status = await self._execute_simple_node(
+                    run=run,
+                    node=node,
+                    node_id=cursor,
+                    vars_=vars_,
+                )
+                step.finished_at = _utcnow()
+                if step.status == "failed":
+                    run.status = "failed"
+                    run.result_json = step.output_json
+                    ctx.update({"completed": completed, "vars": vars_})
+                    run.context_json = ctx
+                    return
             elif ntype == "tool":
                 step.status, step.output_json, pause_status = await self._execute_tool_node(
                     run=run,
@@ -840,6 +1242,10 @@ class WorkflowRuntimeService:
     def _next_node(
         self, current: str, edges: list[dict[str, Any]], vars_: dict[str, Any]
     ) -> str | None:
+        router_target = vars_.pop("_router_target", None)
+        if router_target:
+            return str(router_target)
+
         candidates = [e for e in edges if e.get("from") == current]
         if not candidates:
             return None

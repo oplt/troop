@@ -239,6 +239,15 @@ class OrchestrationApprovalsServiceMixin:
             )
 
             submit_orchestration_run(resume_run_id)
+        try:
+            from backend.modules.workforce.services.workflow_hooks import on_approval_decided
+
+            await on_approval_decided(self.db, approval.id)
+        except Exception:
+            logger.exception(
+                "workflow_approval_decided_hook_failed approval_id=%s",
+                approval.id,
+            )
         await self.db.refresh(approval)
         return approval
 

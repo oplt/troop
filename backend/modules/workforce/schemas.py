@@ -283,6 +283,7 @@ class TaskAnalysisResponse(BaseModel):
     acceptance_criteria_json: list[Any] = Field(default_factory=list)
     review_requirements_json: list[Any] = Field(default_factory=list)
     approval_requirements_json: list[Any] = Field(default_factory=list)
+    raw_output_json: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     requirements: list[TaskRequirementResponse] = Field(default_factory=list)
 
@@ -355,6 +356,8 @@ class AgentMatchResult(BaseModel):
     covered_capabilities: list[str] = Field(default_factory=list)
     matched_skills: list[str] = Field(default_factory=list)
     missing_capabilities: list[str] = Field(default_factory=list)
+    effective_tools: list[str] = Field(default_factory=list)
+    requested_but_unavailable_tools: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
 

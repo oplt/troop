@@ -3,6 +3,9 @@
 from backend.modules.workforce.services.agent_matcher import AgentMatcherService
 from backend.modules.workforce.services.department_service import DepartmentService
 from backend.modules.workforce.services.duplicate_detector import DuplicateDetectorService
+from backend.modules.workforce.services.effective_permissions import (
+    resolve_effective_tool_permissions,
+)
 from backend.modules.workforce.services.evaluation_service import EvaluationService
 from backend.modules.workforce.services.project_analyzer import ProjectAnalyzerService
 from backend.modules.workforce.services.skill_generator import SkillGeneratorService
@@ -16,6 +19,7 @@ __all__ = [
     "SkillService",
     "SkillMatcherService",
     "DuplicateDetectorService",
+    "resolve_effective_tool_permissions",
     "TaskAnalyzerService",
     "SkillGeneratorService",
     "AgentMatcherService",

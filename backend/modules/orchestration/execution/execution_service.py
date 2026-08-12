@@ -1137,16 +1137,15 @@ class OrchestrationExecutionServiceMixin:
             },
         )
         # Freeze SkillVersion IDs for the lifetime of this run (immutable snapshot).
-        try:
-            from backend.modules.orchestration.skill_snapshot import freeze_skill_version_snapshot
+        # Fail closed for workforce runs — never silently proceed without a snapshot.
+        from backend.modules.orchestration.task_run_starter import freeze_or_degrade_snapshot
 
-            await freeze_skill_version_snapshot(
-                self.db,
-                run,
-                agent_id=worker_agent_id or orchestrator_agent_id,
-            )
-        except Exception:
-            pass
+        await freeze_or_degrade_snapshot(
+            self.db,
+            run,
+            agent_id=worker_agent_id or orchestrator_agent_id,
+            allow_degraded=bool((payload or {}).get("allow_degraded_snapshot")),
+        )
         startup_warnings: list[str] = []
         resolution_agent = await self._load_agent_for_run(worker_agent_id or orchestrator_agent_id)
         resolved_provider = await self._resolve_provider_for_run(run, resolution_agent)
@@ -1960,6 +1959,12 @@ class OrchestrationExecutionServiceMixin:
                     },
                 )
             await self.db.commit()
+            try:
+                from backend.modules.workforce.services.workflow_hooks import on_task_run_completed
+
+                await on_task_run_completed(self.db, run.id)
+            except Exception:
+                logger.exception("workflow_task_run_completed_hook_failed run_id=%s", run.id)
             if task and task.status in {"completed", "archived", "synced_to_github"}:
                 await self.db.refresh(task)
                 hook_user = None

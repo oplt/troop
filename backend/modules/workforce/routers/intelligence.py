@@ -353,6 +353,9 @@ async def find_agent_matches(
         required_skills=matched_skill_slugs,
         required_tools=analysis.required_tools_json or [],
         project_id=task.project_id,
+        company_id=project.company_id,
+        department_id=project.department_id,
+        task_risk_level=analysis.risk_level,
     )
 
     return [
@@ -360,9 +363,13 @@ async def find_agent_matches(
             agent_id=m.agent_id,
             agent_name=m.agent_name,
             score=m.coverage_score,
+            coverage_score=m.coverage_score,
             explanation=m.explanation,
-            covered_capabilities=m.matched_skills,
+            covered_capabilities=m.covered_capabilities,
+            matched_skills=m.matched_skills,
             missing_capabilities=m.missing_capabilities,
+            effective_tools=m.effective_tools,
+            requested_but_unavailable_tools=m.requested_but_unavailable_tools,
         )
         for m in matches
     ]
@@ -413,6 +420,8 @@ async def assemble_agent(
         skill_ids=list(dict.fromkeys(skill_ids)),
         task_title=task.title,
         project_id=project.id,
+        company_id=project.company_id,
+        department_id=project.department_id,
     )
 
     if not proposal:

@@ -52,6 +52,9 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.episodic_index_embedding_batch": {
             "queue": s.CELERY_QUEUE_MODEL_GATEWAY
         },
+        "backend.workers.orchestration.resume_workflow_after_delay": {
+            "queue": s.CELERY_TASK_DEFAULT_QUEUE
+        },
     }
 
 

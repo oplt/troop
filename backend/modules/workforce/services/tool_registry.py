@@ -208,12 +208,56 @@ class ToolRegistryService:
         context: dict[str, Any],
     ) -> dict[str, Any]:
         provider = self.provider_for(tool_slug)
-        permitted = await provider.validate_permissions(
-            tool_slug, {**context, "owner_id": owner_id}
-        )
         resolution = context.get("_policy_resolution") or await self.policy.resolve(
             owner_id, tool_slug, context, tool_slug=tool_slug
         )
+        permitted = await provider.validate_permissions(
+            tool_slug, {**context, "owner_id": owner_id}
+        )
+
+        # Hierarchical grants (org→dept→project→agent→skill) refine permission.
+        effective = None
+        if self.db is not None and (
+            context.get("agent_id") or context.get("project_id") or context.get("company_id")
+        ):
+            try:
+                from backend.modules.workforce.services.effective_permissions import (
+                    resolve_effective_tool_permissions,
+                )
+
+                effective = await resolve_effective_tool_permissions(
+                    self.db,
+                    owner_id=owner_id,
+                    agent_id=context.get("agent_id"),
+                    project_id=context.get("project_id"),
+                    company_id=context.get("company_id"),
+                    department_id=context.get("department_id"),
+                    skill_ids=context.get("skill_ids"),
+                    tool_slugs=[tool_slug],
+                )
+                by_tool = (effective.get("by_tool") or {}).get(tool_slug) or {}
+                effect = str(by_tool.get("effect") or "")
+                if (
+                    tool_slug in set(effective.get("effective_deny") or [])
+                    or effect
+                    in {
+                        "deny",
+                        "prohibited",
+                    }
+                    or tool_slug in set(effective.get("requested_unavailable") or [])
+                ):
+                    permitted = False
+                elif (
+                    tool_slug in set(effective.get("effective_allow") or [])
+                    and resolution.get("decision") != DECISION_PROHIBITED
+                ):
+                    permitted = True
+            except Exception:
+                effective = None
+
+        if resolution.get("decision") == DECISION_PROHIBITED:
+            permitted = False
+
         if tool_slug.startswith("mcp."):
             provider_name = "mcp"
         elif tool_slug.startswith("a2a."):
@@ -227,6 +271,7 @@ class ToolRegistryService:
             "decision": resolution.get("decision"),
             "resolution": resolution,
             "provider": provider_name,
+            "effective": effective,
         }
 
     async def execute_tool(
@@ -237,8 +282,10 @@ class ToolRegistryService:
         context: dict[str, Any],
     ) -> dict[str, Any]:
         auth = await self.authorize_tool(owner_id, tool_slug, context)
+        if not auth.get("permitted"):
+            return {"status": "denied", "reason": "not_permitted", **auth}
         if auth.get("decision") == DECISION_PROHIBITED:
-            return {"status": "denied", **auth}
+            return {"status": "denied", "reason": "prohibited", **auth}
         if auth.get("decision") == "approval_required" and not context.get("approval_granted"):
             return {"status": "approval_required", **auth}
         provider = self.provider_for(tool_slug)

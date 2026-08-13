@@ -42,6 +42,7 @@ import {
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
     SmartToy as AgentsIcon,
+    Cable as IntegrationsIcon,
 } from "@mui/icons-material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
@@ -289,6 +290,7 @@ export function AppLayout() {
             { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
             { label: "Skills", icon: <PsychologyIcon />, path: "/skills", group: "workspace" },
             { label: "Marketplace", icon: <StorefrontIcon />, path: "/marketplace", group: "workspace" },
+            { label: "Integrations", icon: <IntegrationsIcon />, path: "/integrations", group: "workspace" },
             { label: "Teams", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
             { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workforce-workflows", group: "workspace" },
             { label: "Workflow templates", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },

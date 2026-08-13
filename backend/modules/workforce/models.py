@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -352,6 +353,302 @@ class ConnectorInstallation(Base):
     )
 
 
+class ConnectorOperation(Base):
+    """Provider-neutral trigger/search/read/action operation metadata."""
+
+    __tablename__ = "connector_operations"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_definition_id", "slug", name="uq_connector_operations_definition_slug"
+        ),
+        Index("ix_connector_operations_type_active", "operation_type", "is_active"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    connector_definition_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_definitions.id", ondelete="CASCADE"), index=True
+    )
+    slug: Mapped[str] = mapped_column(String(255), index=True)
+    operation_type: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    input_schema_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    output_schema_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    risk_level: Mapped[str] = mapped_column(String(32), default="low")
+    requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    required_scopes_json: Mapped[list] = mapped_column(JSON, default=list)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConnectorOAuthState(Base):
+    """Short-lived single-use OAuth state and PKCE verifier."""
+
+    __tablename__ = "connector_oauth_states"
+    __table_args__ = (
+        UniqueConstraint("state_hash", name="uq_connector_oauth_states_state_hash"),
+        Index("ix_connector_oauth_states_owner_provider", "owner_id", "provider"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    state_hash: Mapped[str] = mapped_column(String(64))
+    encrypted_code_verifier: Mapped[str] = mapped_column(Text)
+    requested_scopes_json: Mapped[list] = mapped_column(JSON, default=list)
+    redirect_after: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TriggerSubscription(Base):
+    __tablename__ = "trigger_subscriptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_version_id",
+            "node_id",
+            "connector_installation_id",
+            name="uq_trigger_subscriptions_version_node_installation",
+        ),
+        Index("ix_trigger_subscriptions_status_expiry", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_definitions.id", ondelete="CASCADE"), index=True
+    )
+    workflow_version_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_versions.id", ondelete="CASCADE"), index=True
+    )
+    node_id: Mapped[str] = mapped_column(String(255))
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    external_subscription_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    external_cursor: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ExternalEvent(Base):
+    """Durable inbox row. Payload is normalized and intentionally minimal."""
+
+    __tablename__ = "external_events"
+    __table_args__ = (
+        UniqueConstraint("provider", "dedupe_key", name="uq_external_events_provider_dedupe"),
+        Index("ix_external_events_status_received", "status", "received_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    external_event_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(128), index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    workflow_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ApprovalDelivery(Base):
+    __tablename__ = "approval_deliveries"
+    __table_args__ = (
+        UniqueConstraint(
+            "approval_request_id",
+            "channel",
+            "connector_installation_id",
+            "destination_id",
+            name="uq_approval_deliveries_target",
+        ),
+        Index("ix_approval_deliveries_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    approval_request_id: Mapped[str] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="CASCADE"), index=True
+    )
+    channel: Mapped[str] = mapped_column(String(64), index=True)
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    destination_id: Mapped[str] = mapped_column(String(255))
+    external_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class TelegramIdentityBinding(Base):
+    __tablename__ = "telegram_identity_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_installation_id",
+            "telegram_user_id",
+            name="uq_telegram_bindings_installation_user",
+        ),
+        UniqueConstraint("link_token_hash", name="uq_telegram_bindings_link_token_hash"),
+        Index("ix_telegram_bindings_owner_status", "owner_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    telegram_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    telegram_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    link_token_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ApprovalInteraction(Base):
+    __tablename__ = "approval_interactions"
+    __table_args__ = (
+        UniqueConstraint(
+            "approval_request_id",
+            "telegram_user_id",
+            "mode",
+            name="uq_approval_interactions_approval_user_mode",
+        ),
+        Index("ix_approval_interactions_status_expiry", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    approval_request_id: Mapped[str] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="CASCADE"), index=True
+    )
+    approval_delivery_id: Mapped[str | None] = mapped_column(
+        ForeignKey("approval_deliveries.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    telegram_user_id: Mapped[str] = mapped_column(String(64), index=True)
+    mode: Mapped[str] = mapped_column(String(32))
+    expected_input: Mapped[str] = mapped_column(String(64), default="text")
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DraftExecutionMetadata(Base):
+    __tablename__ = "draft_execution_metadata"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_installation_id",
+            "provider_draft_id",
+            name="uq_draft_execution_installation_provider_draft",
+        ),
+        Index("ix_draft_execution_status_updated", "status", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    workflow_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    workflow_node_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_draft_id: Mapped[str] = mapped_column(String(512))
+    message_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    thread_fingerprint: Mapped[str] = mapped_column(String(64))
+    content_hash: Mapped[str] = mapped_column(String(64), index=True)
+    draft_version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(32), default="current", index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ExternalActionExecution(Base):
+    """Exactly-once local action claim and provider reconciliation record."""
+
+    __tablename__ = "external_action_executions"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_external_action_executions_key"),
+        Index("ix_external_action_executions_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    workflow_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    approval_request_id: Mapped[str | None] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    action_key: Mapped[str] = mapped_column(String(255), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(64))
+    arguments_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="claimed", index=True)
+    external_result_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    result_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class ToolGrant(Base):
     __tablename__ = "tool_grants"
 
@@ -552,6 +849,15 @@ __all__ = [
     "ToolDefinition",
     "ConnectorDefinition",
     "ConnectorInstallation",
+    "ConnectorOperation",
+    "ConnectorOAuthState",
+    "TriggerSubscription",
+    "ExternalEvent",
+    "ApprovalDelivery",
+    "TelegramIdentityBinding",
+    "ApprovalInteraction",
+    "DraftExecutionMetadata",
+    "ExternalActionExecution",
     "ToolGrant",
     "ActionPolicy",
     "WorkflowDefinition",

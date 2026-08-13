@@ -10,7 +10,11 @@ celery_app = Celery(
     "app_backend",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["backend.workers.tasks", "backend.workers.orchestration"],
+    include=[
+        "backend.workers.tasks",
+        "backend.workers.orchestration",
+        "backend.workers.integrations",
+    ],
 )
 register_task_context_signals()
 register_worker_observability_signals()
@@ -55,6 +59,10 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.resume_workflow_after_delay": {
             "queue": s.CELERY_TASK_DEFAULT_QUEUE
         },
+        "backend.workers.integrations.process_external_event": {
+            "queue": s.CELERY_QUEUE_INTEGRATIONS
+        },
+        "backend.workers.integrations.renew_gmail_watches": {"queue": s.CELERY_QUEUE_INTEGRATIONS},
     }
 
 
@@ -117,6 +125,10 @@ celery_app.conf.update(
         "memory-compaction-backfill": {
             "task": "backend.workers.orchestration.memory_compaction_backfill",
             "schedule": crontab(minute=20, hour=5, day_of_week=0),
+        },
+        "gmail-watch-renewal": {
+            "task": "backend.workers.integrations.renew_gmail_watches",
+            "schedule": crontab(minute=f"*/{max(5, settings.GMAIL_WATCH_RENEW_INTERVAL_MINUTES)}"),
         },
     },
 )

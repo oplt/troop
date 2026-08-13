@@ -1023,9 +1023,15 @@ export async function startMergeResolutionRun(
     });
 }
 
-export async function listRuns(projectId?: string, limit = 500): Promise<TaskRun[]> {
+export async function listRuns(
+    projectId?: string,
+    limit = 50,
+    cursor?: { created_at: string; id: string },
+): Promise<TaskRun[]> {
     const params = new URLSearchParams({ limit: String(limit) });
     if (projectId) params.set("project_id", projectId);
+    if (cursor?.created_at) params.set("cursor_created_at", cursor.created_at);
+    if (cursor?.id) params.set("cursor_id", cursor.id);
     return apiFetch(`/orchestration/runs?${params.toString()}`);
 }
 

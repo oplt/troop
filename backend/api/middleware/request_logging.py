@@ -9,6 +9,19 @@ from backend.core.request_context import get_request_context
 
 logger = get_logger("backend.request")
 
+_QUIET_SUCCESS_PATHS = frozenset(
+    {
+        "/metrics",
+        "/api/v1/metrics",
+        "/health",
+        "/ready",
+        "/live",
+        "/api/v1/health",
+        "/api/v1/ready",
+        "/api/v1/live",
+    }
+)
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -16,6 +29,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
+            # Canonical traceback is emitted by the unhandled exception handler.
             duration_ms = (perf_counter() - started_at) * 1000
             context = get_request_context()
             request_id = context.request_id or getattr(request.state, "request_id", "n/a")
@@ -23,7 +37,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 request.state, "correlation_id", "n/a"
             )
             user_id = context.user_id or getattr(request.state, "user_id", "n/a")
-            logger.exception(
+            logger.error(
                 "request_failed method=%s path=%s duration_ms=%.2f "
                 "request_id=%s correlation_id=%s user_id=%s",
                 request.method,
@@ -36,6 +50,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             raise
 
         duration_ms = (perf_counter() - started_at) * 1000
+        if request.url.path in _QUIET_SUCCESS_PATHS and response.status_code < 400:
+            return response
         context = get_request_context()
         request_id = context.request_id or getattr(request.state, "request_id", "n/a")
         correlation_id = context.correlation_id or getattr(request.state, "correlation_id", "n/a")

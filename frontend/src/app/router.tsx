@@ -42,6 +42,7 @@ const SkillBuilderPage = lazy(() => import("../features/skillBuilder/SkillBuilde
 const MyTasksPage = lazy(() => import("../pages/MyTasksPage"));
 const WorkforceWorkflowsPage = lazy(() => import("../pages/WorkforceWorkflowsPage"));
 const MarketplacePage = lazy(() => import("../pages/MarketplacePage"));
+const IntegrationsPage = lazy(() => import("../pages/IntegrationsPage"));
 
 function PageLoader() {
     return (
@@ -126,6 +127,7 @@ export function AppRouter() {
                     <Route path="/my-tasks" element={<SuspensePage><MyTasksPage /></SuspensePage>} />
                     <Route path="/workforce-workflows" element={<SuspensePage><WorkforceWorkflowsPage /></SuspensePage>} />
                     <Route path="/marketplace" element={<SuspensePage><MarketplacePage /></SuspensePage>} />
+                    <Route path="/integrations" element={<SuspensePage><IntegrationsPage /></SuspensePage>} />
                     <Route path="/github" element={<RedirectToAdminSettingsTab tab="integrations" />} />
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />

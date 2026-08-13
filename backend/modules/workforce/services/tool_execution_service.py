@@ -47,7 +47,10 @@ class ToolExecutionService:
         params: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        auth = await self.registry.authorize_tool(owner_id, tool_slug, context)
+        auth_context = dict(context)
+        if params.get("connector_installation_id"):
+            auth_context["connector_installation_id"] = params["connector_installation_id"]
+        auth = await self.registry.authorize_tool(owner_id, tool_slug, auth_context)
         if not auth.get("permitted"):
             return self._normalize(
                 tool_slug,
@@ -76,7 +79,9 @@ class ToolExecutionService:
             )
             return self._normalize(tool_slug, output)
 
-        provider_result = await self.registry.execute_tool(owner_id, tool_slug, params, context)
+        provider_result = await self.registry.execute_tool(
+            owner_id, tool_slug, params, auth_context
+        )
         return self._normalize(tool_slug, provider_result)
 
     async def _execute_via_toolbox(
@@ -110,7 +115,11 @@ class ToolExecutionService:
             task_run_id=(
                 str(context["task_run_id"])
                 if context.get("task_run_id")
-                else (str(context["run_id"]) if context.get("run_id") and not context.get("workflow_run_id") else None)
+                else (
+                    str(context["run_id"])
+                    if context.get("run_id") and not context.get("workflow_run_id")
+                    else None
+                )
             ),
             workflow_run_id=(
                 str(context["workflow_run_id"]) if context.get("workflow_run_id") else None

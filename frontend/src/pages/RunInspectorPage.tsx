@@ -62,6 +62,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { queryKeys } from "../config/queryKeys";
 import { useSseStream } from "../hooks/useSseStream";
+import { safeRunValue } from "../features/workflows/builderState";
 
 function RunStatusChip({ status }: { status: string }) {
     const map: Record<string, { color: "success" | "error" | "warning" | "info" | "default"; icon: React.ReactElement | null }> = {
@@ -549,6 +550,11 @@ function RunTraceView({ trace }: { trace: RunTraceStep[] }) {
                             )}
                             {step.last_error && <Alert severity="warning">{step.last_error}</Alert>}
                         </Stack>
+                    )}
+                    {Object.keys(step.metadata ?? {}).length > 0 && (
+                        <Box component="pre" sx={{ mt: 1, mb: 0, p: 1, bgcolor: "action.hover", borderRadius: 1, overflow: "auto", whiteSpace: "pre-wrap", fontSize: "0.72rem" }}>
+                            {JSON.stringify(safeRunValue(step.metadata), null, 2)}
+                        </Box>
                     )}
                 </Paper>
             ))}

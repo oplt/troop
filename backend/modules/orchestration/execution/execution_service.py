@@ -64,8 +64,22 @@ def _normalize_workflow_step_id(step_id: str) -> str:
 
 
 class OrchestrationExecutionServiceMixin:
-    async def list_task_runs(self, user: User, project_id: str | None = None):
-        return await self.repo.list_runs(user.id, project_id)
+    async def list_task_runs(
+        self,
+        user: User,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ):
+        return await self.repo.list_runs(
+            user.id,
+            project_id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
 
     async def get_run(self, user: User, run_id: str):
         run = await self.repo.get_run(user.id, run_id)

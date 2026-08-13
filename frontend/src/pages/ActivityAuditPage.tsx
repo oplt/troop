@@ -5,6 +5,11 @@ import {
     Button,
     Chip,
     CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
     MenuItem,
     Paper,
     Stack,
@@ -21,6 +26,8 @@ import {
     TaskAlt as TaskIcon,
     PlayArrow as RunIcon,
     Info as InfoIcon,
+    EditOutlined as EditIcon,
+    RateReviewOutlined as RequestChangesIcon,
 } from "@mui/icons-material";
 import type { Approval, HITLAuditLog } from "../api/orchestration";
 import {
@@ -37,10 +44,16 @@ import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
+import { editEmailApprovalPayload, requestApprovalChanges } from "../api/integrations";
+import { normalizeEmailApproval } from "../features/approvals/emailApproval";
 
 /** Map approval_type to a human-readable action description */
 function describeAction(approval: { approval_type: string; payload: Record<string, unknown> }): string {
     const { approval_type: type, payload } = approval;
+    const operation = String(payload.operation ?? payload.action ?? payload.tool_key ?? "");
+    if (type.includes("email") || type.includes("gmail") || operation.includes("gmail")) {
+        return operation.includes("send") ? "Approve and send email draft" : "Review email action";
+    }
     switch (type) {
         case "github_comment":
             return "Post a comment to GitHub";
@@ -95,8 +108,67 @@ function parseDateBoundary(value: string, endOfDay: boolean): number | null {
     return Number.isNaN(t.getTime()) ? null : t.getTime();
 }
 
+function EmailApprovalDetails({ approval }: { approval: Approval }) {
+    const email = normalizeEmailApproval(approval.payload, approval.approval_type);
+    const formatAddress = (item: { name?: string; email: string } | null) =>
+        item ? (item.name ? `${item.name} <${item.email}>` : item.email) : "Not provided";
+    return (
+        <Stack spacing={2}>
+            {email.stale && <Alert severity="error">This draft is stale or invalidated and must not be sent without a new approval.</Alert>}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Typography variant="subtitle2">Incoming email</Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="caption" color="text.secondary">From</Typography>
+                    <Typography variant="body2">{formatAddress(email.incoming.from)}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>Subject</Typography>
+                    <Typography variant="body2">{email.incoming.subject || "No subject"}</Typography>
+                    <Typography variant="body2" sx={{ mt: 1, whiteSpace: "pre-wrap", maxHeight: 220, overflow: "auto" }}>
+                        {email.incoming.body || "Body not included in approval payload."}
+                    </Typography>
+                </Paper>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Typography variant="subtitle2">Proposed reply</Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="caption" color="text.secondary">To</Typography>
+                    <Typography variant="body2">{email.draft.to.join(", ") || "Not provided"}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>CC / BCC</Typography>
+                    <Typography variant="body2">{email.draft.cc.join(", ") || "—"} / {email.draft.bcc.join(", ") || "—"}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>Subject</Typography>
+                    <Typography variant="body2">{email.draft.subject || "No subject"}</Typography>
+                    <Typography variant="body2" sx={{ mt: 1, whiteSpace: "pre-wrap", maxHeight: 220, overflow: "auto" }}>
+                        {email.draft.body_text || "Draft body not included."}
+                    </Typography>
+                </Paper>
+            </Box>
+            <Stack direction="row" gap={1} flexWrap="wrap" useFlexGap>
+                <Chip label={`Risk: ${humanizeKey(email.risk)}`} color={email.risk === "high" ? "error" : email.risk === "medium" ? "warning" : "default"} size="small" />
+                {email.agent && <Chip label={`Agent: ${email.agent}`} size="small" variant="outlined" />}
+                {email.workflow && <Chip label={`Workflow: ${email.workflow}`} size="small" variant="outlined" />}
+                {(email.project || email.task) && <Chip label={[email.project, email.task].filter(Boolean).join(" · ")} size="small" variant="outlined" />}
+            </Stack>
+            {email.warnings.length > 0 && <Alert severity="warning">{email.warnings.join(" · ")}</Alert>}
+            {email.context.length > 0 && (
+                <Box>
+                    <Typography variant="subtitle2">Context and sources</Typography>
+                    <Stack component="ul" sx={{ my: 0.5, pl: 2.5 }}>
+                        {email.context.map((item, index) => (
+                            <Typography component="li" variant="body2" key={`${item.title}-${index}`}>
+                                {item.title}{item.source ? ` · ${item.source}` : ""}
+                            </Typography>
+                        ))}
+                    </Stack>
+                </Box>
+            )}
+        </Stack>
+    );
+}
+
 function ApprovalCard({ approval }: { approval: Approval }) {
     const [reason, setReason] = useState("");
+    const [editOpen, setEditOpen] = useState(false);
+    const email = normalizeEmailApproval(approval.payload, approval.approval_type);
+    const [emailDraft, setEmailDraft] = useState(email.draft);
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const navigate = useNavigate();
@@ -121,6 +193,23 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                 severity: "error",
             });
         },
+    });
+    const editMutation = useMutation({
+        mutationFn: () => editEmailApprovalPayload(approval.id, emailDraft),
+        onSuccess: async () => {
+            setEditOpen(false);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            showToast({ message: "Draft updated. Review and approve the new exact version.", severity: "success" });
+        },
+        onError: (error) => showToast({ message: error instanceof Error ? error.message : "Draft update failed.", severity: "error" }),
+    });
+    const requestChangesMutation = useMutation({
+        mutationFn: () => requestApprovalChanges(approval.id, reason),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            showToast({ message: "Changes requested on the canonical approval.", severity: "success" });
+        },
+        onError: (error) => showToast({ message: error instanceof Error ? error.message : "Request failed.", severity: "error" }),
     });
 
     const isPending = approval.status === "pending";
@@ -194,7 +283,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                     </Typography>
                 </Stack>
 
-                {Object.keys(approval.payload).length > 0 && (
+                {email.isEmail ? (
+                    <EmailApprovalDetails approval={approval} />
+                ) : Object.keys(approval.payload).length > 0 && (
                     <Box
                         sx={{
                             p: 1.25,
@@ -229,16 +320,27 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                             disabled={mutation.isPending}
                             helperText="A rejection requires a reason."
                         />
-                        <Stack direction="row" spacing={1}>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                             <Button
                                 size="small"
                                 variant="contained"
                                 startIcon={mutation.isPending ? <CircularProgress size={16} /> : <ApproveIcon />}
-                                disabled={mutation.isPending}
                                 onClick={() => mutation.mutate({ status: "approved", reason: reason || undefined })}
+                                disabled={mutation.isPending || email.stale}
                             >
-                                Approve
+                                {email.isEmail ? "Approve & Send" : "Approve"}
                             </Button>
+                            {email.isEmail && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<EditIcon />}
+                                    disabled={mutation.isPending}
+                                    onClick={() => setEditOpen(true)}
+                                >
+                                    Edit
+                                </Button>
+                            )}
                             <Button
                                 size="small"
                                 variant="outlined"
@@ -249,10 +351,42 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                             >
                                 Reject
                             </Button>
+                            {email.isEmail && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<RequestChangesIcon />}
+                                    disabled={requestChangesMutation.isPending || !reason.trim()}
+                                    onClick={() => requestChangesMutation.mutate()}
+                                >
+                                    Request changes
+                                </Button>
+                            )}
                         </Stack>
                     </>
                 )}
             </Stack>
+            <Dialog open={editOpen} onClose={() => !editMutation.isPending && setEditOpen(false)} fullWidth maxWidth="md">
+                <DialogTitle>Edit proposed email</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ pt: 1 }}>
+                        <Alert severity="warning">Editing invalidates the previous content hash. The updated draft must be approved again before sending.</Alert>
+                        <TextField label="To" value={emailDraft.to.join(", ")} onChange={(event) => setEmailDraft((current) => ({ ...current, to: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} fullWidth />
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                            <TextField label="CC" value={emailDraft.cc.join(", ")} onChange={(event) => setEmailDraft((current) => ({ ...current, cc: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} fullWidth />
+                            <TextField label="BCC" value={emailDraft.bcc.join(", ")} onChange={(event) => setEmailDraft((current) => ({ ...current, bcc: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} fullWidth />
+                        </Stack>
+                        <TextField label="Subject" value={emailDraft.subject} onChange={(event) => setEmailDraft((current) => ({ ...current, subject: event.target.value }))} fullWidth />
+                        <TextField label="Reply" value={emailDraft.body_text} onChange={(event) => setEmailDraft((current) => ({ ...current, body_text: event.target.value }))} multiline minRows={8} fullWidth />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditOpen(false)} disabled={editMutation.isPending}>Cancel</Button>
+                    <Button variant="contained" onClick={() => editMutation.mutate()} disabled={editMutation.isPending || !emailDraft.to.length || !emailDraft.body_text.trim()}>
+                        Save revised draft
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Paper>
     );
 }

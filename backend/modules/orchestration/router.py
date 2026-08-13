@@ -2823,11 +2823,20 @@ async def list_runs(
         ge=1,
         le=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
     ),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     execution: ExecutionService = Depends(get_execution_service),
 ):
     return [
-        _run(item) for item in await execution.list_task_runs(current_user, project_id, limit=limit)
+        _run(item)
+        for item in await execution.list_task_runs(
+            current_user,
+            project_id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
     ]
 
 

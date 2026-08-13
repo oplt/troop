@@ -1,15 +1,31 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.api.deps.orchestration import get_approvals_service
+from backend.core.schemas import RequestModel
+from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.schemas import ApprovalDecision, ApprovalResponse
 from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 
 router = APIRouter()
+
+
+class EmailApprovalEditRequest(RequestModel):
+    subject: str = Field(max_length=998)
+    body_text: str = Field(min_length=1, max_length=100_000)
+    to: list[str] = Field(default_factory=list, max_length=100)
+    cc: list[str] = Field(default_factory=list, max_length=100)
+    bcc: list[str] = Field(default_factory=list, max_length=100)
+
+
+class ApprovalChangesRequest(RequestModel):
+    reason: str = Field(min_length=1, max_length=2_000)
 
 
 def _approval_response(item) -> ApprovalResponse:
@@ -50,6 +66,45 @@ async def decide_approval(
         approval_id,
         payload.status,
         payload.reason,
+    )
+    return _approval_response(approval)
+
+
+@router.patch("/approvals/{approval_id}/payload", response_model=ApprovalResponse)
+async def edit_email_approval(
+    approval_id: str,
+    payload: EmailApprovalEditRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.modules.workforce.integrations.approval_edit import (
+        replace_email_approval_draft,
+    )
+
+    try:
+        approval = await replace_email_approval_draft(
+            db,
+            owner_id=current_user.id,
+            approval_id=approval_id,
+            changes=payload.model_dump(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return _approval_response(approval)
+
+
+@router.post("/approvals/{approval_id}/request-changes", response_model=ApprovalResponse)
+async def request_approval_changes(
+    approval_id: str,
+    payload: ApprovalChangesRequest,
+    current_user: User = Depends(get_current_user),
+    service: ApprovalsService = Depends(get_approvals_service),
+):
+    approval = await service.decide_approval(
+        current_user,
+        approval_id,
+        "rejected",
+        f"Changes requested: {payload.reason.strip()}",
     )
     return _approval_response(approval)
 

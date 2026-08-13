@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
@@ -100,7 +101,7 @@ class MarketplaceService:
     ) -> dict[str, Any]:
         item = self._find_skill(slug)
         existing = await self.repo.find_skill_by_slug(owner_id, slug)
-        if existing:
+        if existing and slug != "email-reply-telegram-approval":
             return {
                 "status": "already_installed",
                 "kind": "skill",
@@ -153,6 +154,10 @@ class MarketplaceService:
         *,
         company_id: str | None = None,
         publish: bool = True,
+        connector_installation_ids: dict[str, str] | None = None,
+        agent_id: str | None = None,
+        project_id: str | None = None,
+        task_id: str | None = None,
     ) -> dict[str, Any]:
         item = self._find_workflow(slug)
         result = await self.db.execute(
@@ -170,55 +175,146 @@ class MarketplaceService:
                 "workflow_id": existing.id,
             }
 
-        nodes = list(item.get("nodes") or [])
+        nodes = deepcopy(list(item.get("nodes") or []))
         edges = list(item.get("edges") or [])
         entry = item.get("entry_node_id")
+        configuration_required: list[str] = []
+        if slug == "email-reply-telegram-approval":
+            bindings = dict(connector_installation_ids or {})
+            gmail_id = str(bindings.get("gmail") or "")
+            telegram_id = str(bindings.get("telegram") or "")
+            skill_result = await self.install_skill(
+                owner_id,
+                "email-response-drafter",
+                company_id=company_id,
+                publish=True,
+            )
+            skill_id = str(skill_result.get("skill_id") or "")
+            if not gmail_id:
+                configuration_required.append("connector_installation_ids.gmail")
+            if not telegram_id:
+                configuration_required.append("connector_installation_ids.telegram")
+            if not agent_id:
+                configuration_required.append("agent_id")
+            else:
+                from backend.modules.team.models import AgentProfile
+
+                agent_result = await self.db.execute(
+                    select(AgentProfile).where(
+                        AgentProfile.id == agent_id,
+                        AgentProfile.owner_id == owner_id,
+                    )
+                )
+                if agent_result.scalar_one_or_none() is None:
+                    raise HTTPException(
+                        status.HTTP_404_NOT_FOUND,
+                        detail="agent not found for workflow owner",
+                    )
+            if not project_id:
+                configuration_required.append("project_id")
+            if not task_id:
+                configuration_required.append("task_id")
+            for node in nodes:
+                config = dict(node.get("config") or {})
+                if node.get("id") == "gmail_trigger":
+                    config["connector_installation_id"] = gmail_id
+                    config["project_id"] = project_id
+                    config["task_id"] = task_id
+                elif node.get("id") == "draft_skill":
+                    config.pop("skill_slug", None)
+                    config["skill_id"] = skill_id
+                elif node.get("id") == "draft_agent":
+                    config["agent_id"] = agent_id
+                elif node.get("id") == "send_draft":
+                    config["approval_connector_installation_id"] = telegram_id
+                node["config"] = config
+            if configuration_required:
+                publish = False
         runtime = WorkflowRuntimeService(self.db)
         errors = runtime.validate_graph(nodes=nodes, edges=edges, entry_node_id=entry)
         if nodes and errors:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"errors": errors})
 
-        definition = WorkflowDefinition(
-            id=str(uuid4()),
-            owner_id=owner_id,
-            company_id=company_id,
-            slug=slug,
-            name=item["name"],
-            description=item.get("description") or "",
-            category=item.get("category") or "general",
-            status="draft",
-            is_template=True,
-        )
-        self.db.add(definition)
-        await self.db.flush()
-
-        version = WorkflowVersion(
-            id=str(uuid4()),
-            workflow_id=definition.id,
-            version_number=1,
-            nodes_json=nodes,
-            edges_json=edges,
-            entry_node_id=entry,
-            metadata_json={"marketplace_slug": slug},
-            is_published=False,
-            created_by=owner_id,
-        )
-        self.db.add(version)
-        await self.db.flush()
-        definition.current_version_id = version.id
+        if existing is None:
+            definition = WorkflowDefinition(
+                id=str(uuid4()),
+                owner_id=owner_id,
+                company_id=company_id,
+                slug=slug,
+                name=item["name"],
+                description=item.get("description") or "",
+                category=item.get("category") or "general",
+                status="draft",
+                is_template=False,
+            )
+            self.db.add(definition)
+            await self.db.flush()
+            version = WorkflowVersion(
+                id=str(uuid4()),
+                workflow_id=definition.id,
+                version_number=1,
+                nodes_json=nodes,
+                edges_json=edges,
+                entry_node_id=entry,
+                metadata_json={"marketplace_slug": slug},
+                is_published=False,
+                created_by=owner_id,
+            )
+            self.db.add(version)
+            await self.db.flush()
+            definition.current_version_id = version.id
+        else:
+            definition = existing
+            current = (
+                await self.db.get(WorkflowVersion, definition.current_version_id)
+                if definition.current_version_id
+                else None
+            )
+            if current is not None and not current.is_published:
+                version = current
+                version.nodes_json = nodes
+                version.edges_json = edges
+                version.entry_node_id = entry
+            else:
+                version = WorkflowVersion(
+                    id=str(uuid4()),
+                    workflow_id=definition.id,
+                    version_number=(current.version_number + 1 if current else 1),
+                    nodes_json=nodes,
+                    edges_json=edges,
+                    entry_node_id=entry,
+                    metadata_json={"marketplace_slug": slug},
+                    is_published=False,
+                    created_by=owner_id,
+                )
+                self.db.add(version)
+                await self.db.flush()
+                definition.current_version_id = version.id
+            definition.company_id = company_id or definition.company_id
+            definition.status = "draft"
 
         if publish:
             version.is_published = True
-            definition.status = "published"
+            definition.status = "active"
+            from backend.modules.workforce.integrations.events import (
+                TriggerSubscriptionService,
+            )
+
+            await TriggerSubscriptionService(self.db).register_published_gmail_triggers(
+                owner_id=owner_id,
+                definition=definition,
+                version=version,
+            )
 
         await self.db.commit()
         await self.db.refresh(definition)
         return {
-            "status": "installed",
+            "status": "configured" if existing else "installed",
             "kind": "workflow",
             "slug": slug,
             "workflow_id": definition.id,
             "published": bool(publish),
+            "configuration_required": configuration_required,
         }
 
     async def install_department(

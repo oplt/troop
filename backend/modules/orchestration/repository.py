@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select, text
+from sqlalchemy import and_, delete, func, or_, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
@@ -557,6 +557,8 @@ class OrchestrationRepository(
         project_id: str | None = None,
         *,
         limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[TaskRun]:
         stmt = (
             select(TaskRun)
@@ -565,7 +567,13 @@ class OrchestrationRepository(
         )
         if project_id:
             stmt = stmt.where(TaskRun.project_id == project_id)
-        stmt = stmt.order_by(TaskRun.created_at.desc())
+        if cursor_created_at is not None and cursor_id:
+            stmt = stmt.where(
+                tuple_(TaskRun.created_at, TaskRun.id) < tuple_(cursor_created_at, cursor_id)
+            )
+        elif cursor_created_at is not None:
+            stmt = stmt.where(TaskRun.created_at < cursor_created_at)
+        stmt = stmt.order_by(TaskRun.created_at.desc(), TaskRun.id.desc())
         cap = resolve_query_limit(
             limit,
             default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,

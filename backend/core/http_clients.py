@@ -76,19 +76,28 @@ async def managed_http_client(
 
 
 def register_worker_http_shutdown() -> None:
-    """Close pooled clients when a Celery child process is shutting down."""
+    """Close pooled clients and dispose DB engine when a Celery child process exits."""
     from celery.signals import worker_shutdown
 
-    def close_clients(**_: object) -> None:
+    def _run_async(coro) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            asyncio.run(external_http_clients.aclose())
+            asyncio.run(coro)
         else:
-            loop.create_task(external_http_clients.aclose())
+            loop.create_task(coro)
+
+    async def _shutdown() -> None:
+        await external_http_clients.aclose()
+        from backend.db.session import engine
+
+        await engine.dispose()
+
+    def close_resources(**_: object) -> None:
+        _run_async(_shutdown())
 
     worker_shutdown.connect(
-        close_clients,
+        close_resources,
         weak=False,
         dispatch_uid="troop.http_clients.worker_shutdown",
     )

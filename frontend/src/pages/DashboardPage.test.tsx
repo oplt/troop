@@ -9,14 +9,12 @@ import DashboardPage from "./DashboardPage";
 import {
     getExecutionInsights,
     getOrchestrationOverview,
-    listOrchestrationProjects,
 } from "../api/orchestration";
 import { getNotifications } from "../api/notifications";
 
 vi.mock("../api/orchestration", () => ({
     getExecutionInsights: vi.fn(),
     getOrchestrationOverview: vi.fn(),
-    listOrchestrationProjects: vi.fn(),
 }));
 
 vi.mock("../api/notifications", () => ({
@@ -47,7 +45,6 @@ function renderDashboard() {
 describe("DashboardPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(listOrchestrationProjects).mockResolvedValue([]);
         vi.mocked(getNotifications).mockResolvedValue([]);
         vi.mocked(getOrchestrationOverview).mockResolvedValue({
             active_runs: [],

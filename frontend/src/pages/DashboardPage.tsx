@@ -28,7 +28,6 @@ import { useNavigate } from "react-router-dom";
 import {
     getExecutionInsights,
     getOrchestrationOverview,
-    listOrchestrationProjects,
 } from "../api/orchestration";
 import { getNotifications, markAllRead, markRead } from "../api/notifications";
 import { DashboardCalendar } from "../components/dashboard/DashboardCalendar";
@@ -45,22 +44,6 @@ export default function DashboardPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const {
-        data: projects,
-        isLoading: projectsLoading,
-        isError: projectsLoadFailed,
-        error: projectsError,
-        refetch: refetchProjects,
-        isFetching: projectsFetching,
-    } = useQuery({
-        queryKey: queryKeys.orchestration.projects,
-        queryFn: listOrchestrationProjects,
-    });
-    const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
-        queryKey: queryKeys.notifications.root,
-        queryFn: getNotifications,
-        ...queryPolicies.operational,
-    });
-    const {
         data: orchestrationOverview,
         isLoading: orchestrationLoading,
         isError: orchestrationLoadFailed,
@@ -71,6 +54,17 @@ export default function DashboardPage() {
         queryKey: queryKeys.orchestration.overview,
         queryFn: getOrchestrationOverview,
         ...queryPolicies.realtime,
+    });
+    const projects = orchestrationOverview?.projects;
+    const projectsLoading = orchestrationLoading;
+    const projectsLoadFailed = orchestrationLoadFailed;
+    const projectsError = orchestrationError;
+    const refetchProjects = refetchOrchestration;
+    const projectsFetching = orchestrationFetching;
+    const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
+        queryKey: queryKeys.notifications.root,
+        queryFn: getNotifications,
+        ...queryPolicies.operational,
     });
 
     const [signalDays, setSignalDays] = useState(7);

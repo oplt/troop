@@ -142,6 +142,9 @@ class MCPToolProvider:
 
 class ToolRegistryService:
     def __init__(self, db: AsyncSession) -> None:
+        from backend.modules.workforce.integrations.tool_provider import (
+            NativeConnectorToolProvider,
+        )
         from backend.modules.workforce.services.ecosystem_providers import (
             A2AToolProvider,
         )
@@ -157,9 +160,12 @@ class ToolRegistryService:
             "github": GitHubToolProvider(db),
             "mcp": LiveMCP(db),
             "a2a": A2AToolProvider(db),
+            "connector": NativeConnectorToolProvider(db),
         }
 
     def provider_for(self, tool_slug: str) -> ToolProvider:
+        if tool_slug.startswith(("gmail.", "telegram.")):
+            return self.providers["connector"]
         if tool_slug.startswith("github_"):
             return self.providers["github"]
         if tool_slug.startswith("mcp."):
@@ -284,6 +290,8 @@ class ToolRegistryService:
             provider_name = "a2a"
         elif tool_slug.startswith("github_"):
             provider_name = "github"
+        elif tool_slug.startswith(("gmail.", "telegram.")):
+            provider_name = "connector"
         else:
             provider_name = "native"
         return {

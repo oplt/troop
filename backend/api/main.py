@@ -32,6 +32,10 @@ setup_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_telemetry(app)
+    if settings.SCHEMA_COMPAT_CHECK_ON_STARTUP:
+        from backend.db.schema_compat import assert_database_matches_alembic_head
+
+        await assert_database_matches_alembic_head(engine)
     await object_storage.ensure_bucket()
     async with SessionLocal() as db:
         platform_service = PlatformService(db)

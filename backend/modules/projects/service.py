@@ -357,9 +357,11 @@ class OrchestrationProjectsServiceMixin:
         ensure_catalog_seeded = getattr(self, "_ensure_catalog_seeded", None)
         if callable(ensure_catalog_seeded):
             await ensure_catalog_seeded()
+        projects = await self.repo.list_projects(user.id)
         return {
-            "projects": await self.repo.list_projects(user.id),
-            "agents": await self.repo.list_agents(user.id),
+            # Dashboard only needs a short project strip; full lists stay on /projects.
+            "projects": projects[:20],
+            "agents": (await self.repo.list_agents(user.id))[:20],
             "active_runs": await self.repo.list_runs(user.id, limit=10),
             "pending_approvals": (await self.repo.list_approvals(user.id, "pending"))[:10],
             "github_events": (await self.repo.list_sync_events(user.id))[:10],

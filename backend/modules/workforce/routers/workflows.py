@@ -13,7 +13,12 @@ from backend.api.deps.auth import get_authenticated_user
 from backend.core.schemas import RequestModel
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
-from backend.modules.workforce.models import WorkflowDefinition, WorkflowVersion
+from backend.modules.workforce.models import (
+    WorkflowDefinition,
+    WorkflowRun,
+    WorkflowStepRun,
+    WorkflowVersion,
+)
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.schemas import WorkflowDefinitionResponse
 from backend.modules.workforce.services.workflow_runtime import WorkflowRuntimeService
@@ -60,6 +65,26 @@ class WorkflowRunResponse(BaseModel):
     current_node_id: str | None = None
     context_json: dict = Field(default_factory=dict)
     result_json: dict = Field(default_factory=dict)
+
+
+async def _owned_workflow_run(
+    db: AsyncSession,
+    *,
+    owner_id: str,
+    run_id: str,
+) -> WorkflowRun:
+    result = await db.execute(
+        select(WorkflowRun)
+        .join(WorkflowDefinition, WorkflowDefinition.id == WorkflowRun.workflow_id)
+        .where(
+            WorkflowRun.id == run_id,
+            WorkflowDefinition.owner_id == owner_id,
+        )
+    )
+    run = result.scalar_one_or_none()
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="workflow run not found")
+    return run
 
 
 @router.get("", response_model=list[WorkflowDefinitionResponse])
@@ -192,6 +217,17 @@ async def publish_workflow(
         definition.current_version_id = published.id
 
     definition.status = "active"
+    try:
+        from backend.modules.workforce.integrations.events import TriggerSubscriptionService
+
+        await TriggerSubscriptionService(db).register_published_gmail_triggers(
+            owner_id=user.id,
+            definition=definition,
+            version=published,
+        )
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(definition)
     return WorkflowDefinitionResponse.model_validate(definition)
@@ -257,3 +293,56 @@ async def resume_workflow_run(
         context_json=run.context_json or {},
         result_json=run.result_json or {},
     )
+
+
+@router.get("/runs/{run_id}")
+async def get_workflow_run(
+    run_id: str,
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    run = await _owned_workflow_run(db, owner_id=user.id, run_id=run_id)
+    return {
+        "id": run.id,
+        "workflow_id": run.workflow_id,
+        "workflow_version_id": run.workflow_version_id,
+        "project_id": run.project_id,
+        "task_id": run.task_id,
+        "status": run.status,
+        "current_node_id": run.current_node_id,
+        "context_json": run.context_json or {},
+        "result_json": run.result_json or {},
+        "created_at": run.created_at,
+        "updated_at": run.updated_at,
+    }
+
+
+@router.get("/runs/{run_id}/steps")
+async def list_workflow_run_steps(
+    run_id: str,
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    await _owned_workflow_run(db, owner_id=user.id, run_id=run_id)
+    result = await db.execute(
+        select(WorkflowStepRun)
+        .where(WorkflowStepRun.workflow_run_id == run_id)
+        .order_by(WorkflowStepRun.created_at.asc())
+    )
+    return [
+        {
+            "id": step.id,
+            "workflow_run_id": step.workflow_run_id,
+            "node_id": step.node_id,
+            "node_type": step.node_type,
+            "status": step.status,
+            "input_json": step.input_json or {},
+            "output_json": step.output_json or {},
+            "error": step.error,
+            "retry_count": 0,
+            "started_at": step.started_at,
+            "finished_at": step.finished_at,
+            "created_at": step.created_at,
+        }
+        for step in result.scalars().all()
+    ]

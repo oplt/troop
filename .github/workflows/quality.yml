@@ -86,9 +86,24 @@ jobs:
       - name: Alembic upgrade to head
         working-directory: backend
         run: alembic upgrade head
-      - name: Alembic current smoke
+      - name: Alembic single-head + current smoke
         working-directory: backend
-        run: alembic current
+        run: |
+          set -euo pipefail
+          heads="$(alembic heads)"
+          echo "$heads"
+          count="$(printf '%s\n' "$heads" | grep -c '(head)' || true)"
+          if [ "$count" -ne 1 ]; then
+            echo "Expected exactly one Alembic head, found $count" >&2
+            exit 1
+          fi
+          alembic current
+      - name: Migration integrity + model import contract
+        run: >
+          python -m pytest
+          backend/tests/test_migration_integrity.py
+          backend/tests/test_workforce_migration_contract.py
+          -q
       - name: Workforce + contract unit tests
         run: >
           python -m pytest

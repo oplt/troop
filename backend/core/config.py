@@ -37,10 +37,13 @@ class Settings(BaseSettings):
     PLATFORM_DEFAULT_MODULE_PACK: str = "full_platform"
 
     DATABASE_URL: str
-    DATABASE_POOL_SIZE: int = 5
-    DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
     DATABASE_POOL_RECYCLE_SECONDS: int = 1800
-    DATABASE_POOL_TIMEOUT_SECONDS: int = 30
+    DATABASE_POOL_TIMEOUT_SECONDS: int = 10
+    # Fail startup when alembic_version is behind repository head. Disable only for
+    # tightly controlled migration jobs that boot the app before applying upgrades.
+    SCHEMA_COMPAT_CHECK_ON_STARTUP: bool = True
     REDIS_URL: str
     REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS: float = 2.0
     REDIS_SOCKET_TIMEOUT_SECONDS: float = 5.0
@@ -54,6 +57,7 @@ class Settings(BaseSettings):
     CELERY_QUEUE_MODEL_GATEWAY: str = "model_gateway"
     CELERY_QUEUE_OBSERVABILITY: str = "observability"
     CELERY_QUEUE_CPU: str = "cpu"
+    CELERY_QUEUE_INTEGRATIONS: str = "integrations"
     CELERY_RESULT_EXPIRES_SECONDS: int = 3600
     CELERY_TASK_ACKS_LATE: bool = True
     CELERY_TASK_REJECT_ON_WORKER_LOST: bool = True
@@ -73,8 +77,8 @@ class Settings(BaseSettings):
     AI_RETRIEVE_CHUNK_SCAN_MAX: int = 500
     ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT: int = 500
     ORCHESTRATION_LIST_TASKS_MAX_LIMIT: int = 5000
-    ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT: int = 500
-    ORCHESTRATION_LIST_RUNS_MAX_LIMIT: int = 5000
+    ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT: int = 50
+    ORCHESTRATION_LIST_RUNS_MAX_LIMIT: int = 100
     ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT: int = 200
     ORCHESTRATION_LIST_DOCUMENTS_MAX_LIMIT: int = 2000
     PROJECT_LIST_TASKS_DEFAULT_LIMIT: int = 500
@@ -83,7 +87,7 @@ class Settings(BaseSettings):
     ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE: int = 120
     ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES: int = 20
     AGENT_TOKEN_BUDGET_WINDOW_DAYS: int = 30
-    # When false, model-level failover inside a single provider call is disabled (service-level candidate loop may still apply).
+    # When false, model-level failover inside one provider call is disabled.
     ORCHESTRATION_PROVIDER_FAILOVER: bool = True
     # When true, execute_run routes run modes through a LangGraph StateGraph (see langgraph_runner).
     ORCHESTRATION_USE_LANGGRAPH: bool = False
@@ -183,6 +187,26 @@ class Settings(BaseSettings):
     GITHUB_APP_CLIENT_ID: str = ""
     GITHUB_APP_CLIENT_SECRET: str = ""
     GITHUB_APP_NAME: str = "Troop GitHub App"
+
+    # Native Gmail / Telegram connectors.
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_OAUTH_REDIRECT_URI: str = ""
+    GOOGLE_PUBSUB_PROJECT_ID: str = ""
+    GOOGLE_PUBSUB_TOPIC: str = ""
+    GOOGLE_PUBSUB_AUDIENCE: str = ""
+    GOOGLE_PUBSUB_SERVICE_ACCOUNT_EMAIL: str = ""
+    # Development/test fallback. Production Pub/Sub push must use OIDC settings above.
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: str = ""
+    CONNECTOR_OAUTH_STATE_TTL_MINUTES: int = 10
+    GMAIL_WATCH_RENEW_INTERVAL_MINUTES: int = 60
+    GMAIL_WATCH_RENEW_BEFORE_HOURS: int = 24
+    TELEGRAM_BOT_USERNAME: str = ""
+    TELEGRAM_WEBHOOK_BASE_URL: str = ""
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+    TELEGRAM_LINK_TTL_MINUTES: int = 10
+    TELEGRAM_EDIT_TTL_MINUTES: int = 15
+    EXTERNAL_WEBHOOK_MAX_BYTES: int = 1_000_000
 
     # AI memory layer (mem0-inspired facade over semantic memory)
     MEMORY_LAYER_ENABLED: bool = True

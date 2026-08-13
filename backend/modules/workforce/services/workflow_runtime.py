@@ -161,6 +161,7 @@ class WorkflowRuntimeService:
         await self._advance(run, version)
         await self._notify_workflow_run_completed_if_terminal(run)
         await self.db.commit()
+        await self._deliver_pending_external_approval(run, version)
         await self.db.refresh(run)
         return run
 
@@ -471,8 +472,47 @@ class WorkflowRuntimeService:
         await self._advance(run, version)
         await self._notify_workflow_run_completed_if_terminal(run)
         await self.db.commit()
+        await self._deliver_pending_external_approval(run, version)
         await self.db.refresh(run)
         return run
+
+    async def _deliver_pending_external_approval(
+        self, run: WorkflowRun, version: WorkflowVersion
+    ) -> None:
+        """Deliver a committed canonical approval through the configured adapter."""
+        if run.status != "waiting_approval" or not run.current_node_id:
+            return
+        node = next(
+            (
+                item
+                for item in version.nodes_json or []
+                if isinstance(item, dict) and item.get("id") == run.current_node_id
+            ),
+            None,
+        )
+        config = dict((node or {}).get("config") or {})
+        if str(config.get("approval_delivery_channel") or "") != "telegram":
+            return
+        installation_id = str(config.get("approval_connector_installation_id") or "")
+        variables = dict((run.context_json or {}).get("vars") or {})
+        approval_id = str(variables.get("pending_approval_request_id") or "")
+        if not installation_id or not approval_id:
+            return
+        try:
+            from backend.modules.workforce.integrations.approval_delivery import (
+                ApprovalDeliveryService,
+            )
+
+            await ApprovalDeliveryService(self.db).deliver_telegram(
+                approval_request_id=approval_id,
+                connector_installation_id=installation_id,
+            )
+        except Exception:
+            logger.exception(
+                "workflow_approval_delivery_failed run_id=%s approval_id=%s",
+                run.id,
+                approval_id,
+            )
 
     async def _create_workflow_approval_request(
         self,
@@ -630,7 +670,12 @@ class WorkflowRuntimeService:
                         action_key=f"tool:{pending.get('tool_slug')}",
                         args_hash=args_hash,
                         reason=f"Workflow tool `{pending.get('tool_slug')}` requires approval",
-                        extra_payload={"tool_slug": pending.get("tool_slug")},
+                        extra_payload={
+                            "tool_slug": pending.get("tool_slug"),
+                            "draft_arguments": dict(pending.get("params") or {}),
+                            "risk_level": "high",
+                            "email": vars_.get("email"),
+                        },
                     )
                 vars_["pending_approval_request_id"] = approval_id
                 pending["approval_request_id"] = approval_id
@@ -652,13 +697,19 @@ class WorkflowRuntimeService:
             vars_.pop("pending_approval_request_id", None)
         else:
             tool_slug = str(config.get("tool") or config.get("tool_slug") or "")
-            params = dict(config.get("params") or vars_)
+            configured_params = config.get("params")
+            params = (
+                self._resolve_workflow_mapping(configured_params, vars_)
+                if isinstance(configured_params, dict) and configured_params
+                else dict(vars_)
+            )
             context = {
                 "owner_id": run.created_by,
                 "project_id": run.project_id,
                 "task_id": run.task_id,
                 "workflow_run_id": run.id,
                 "workflow_node_id": node_id,
+                "connector_installation_id": params.get("connector_installation_id"),
             }
 
         if not tool_slug:
@@ -684,7 +735,12 @@ class WorkflowRuntimeService:
                 action_key=f"tool:{tool_slug}",
                 args_hash=args_hash,
                 reason=f"Workflow tool `{tool_slug}` requires approval",
-                extra_payload={"tool_slug": tool_slug},
+                extra_payload={
+                    "tool_slug": tool_slug,
+                    "draft_arguments": params,
+                    "risk_level": "high" if tool_slug == "gmail.send_draft" else "medium",
+                    "email": vars_.get("email"),
+                },
             )
             vars_["pending_tool"] = {
                 "node_id": node_id,
@@ -740,9 +796,11 @@ class WorkflowRuntimeService:
                 agent_runs.pop(node_id, None)
                 vars_["_agent_runs"] = agent_runs
             elif task_run.status in _TASK_RUN_TERMINAL:
+                agent_payload = dict(task_run.output_payload_json or {})
                 output = {
                     "task_run_id": task_run.id,
                     "task_run_status": task_run.status,
+                    "agent_output": agent_payload,
                 }
                 await self._upsert_child_execution(
                     workflow_run_id=run.id,
@@ -755,6 +813,12 @@ class WorkflowRuntimeService:
                 )
                 if task_run.status != "completed":
                     return "failed", output, "failed"
+                vars_[f"agent_output_{node_id}"] = agent_payload
+                structured = agent_payload.get("structured_output")
+                if isinstance(structured, dict):
+                    vars_.update(structured)
+                elif agent_payload:
+                    vars_.update(agent_payload)
                 return "succeeded", output, None
             else:
                 await self._upsert_child_execution(
@@ -791,6 +855,7 @@ class WorkflowRuntimeService:
                 {
                     "workflow_run_id": run.id,
                     "workflow_node_id": child_track_node,
+                    "workflow_context": vars_,
                 }
             )
             if branch_key:
@@ -805,6 +870,41 @@ class WorkflowRuntimeService:
                 run_mode=str(config.get("run_mode") or "single_agent"),
                 input_payload=input_payload,
             )
+            selected_skill = dict(vars_.get("skill_payload") or {})
+            selected_version_id = str(selected_skill.get("skill_version_id") or "")
+            if selected_version_id:
+                from sqlalchemy.orm.attributes import flag_modified
+
+                checkpoint = dict(task_run.checkpoint_json or {})
+                snapshot = dict(checkpoint.get("skill_version_snapshot") or {})
+                version_ids = [
+                    str(value) for value in snapshot.get("skill_version_ids") or [] if value
+                ]
+                skills = list(snapshot.get("skills") or [])
+                if selected_version_id not in version_ids:
+                    version_ids.append(selected_version_id)
+                    skills.append(selected_skill)
+                snapshot["skill_version_ids"] = version_ids
+                snapshot["skills"] = skills
+                snapshot["required_tools"] = list(
+                    dict.fromkeys(
+                        [
+                            *(snapshot.get("required_tools") or []),
+                            *(selected_skill.get("required_tools") or []),
+                        ]
+                    )
+                )
+                snapshot["capabilities"] = list(
+                    dict.fromkeys(
+                        [
+                            *(snapshot.get("capabilities") or []),
+                            *(selected_skill.get("capabilities") or []),
+                        ]
+                    )
+                )
+                checkpoint["skill_version_snapshot"] = snapshot
+                task_run.checkpoint_json = checkpoint
+                flag_modified(task_run, "checkpoint_json")
             agent_runs[node_id] = task_run.id
             vars_["_agent_runs"] = agent_runs
             await self._upsert_child_execution(
@@ -833,6 +933,26 @@ class WorkflowRuntimeService:
         elif not run.project_id or not run.task_id:
             handoff["reason"] = "workflow run missing project_id or task_id"
         return "succeeded", handoff, None
+
+    def _resolve_workflow_mapping(self, value: Any, vars_: dict[str, Any]) -> Any:
+        """Resolve explicit server-side node mappings without evaluating code."""
+        if isinstance(value, str) and value.startswith("$."):
+            current: Any = vars_
+            for part in value[2:].split("."):
+                if not isinstance(current, dict) or part not in current:
+                    return None
+                current = current[part]
+            return copy.deepcopy(current)
+        if isinstance(value, dict):
+            if "$path" in value:
+                resolved = self._resolve_workflow_mapping(f"$.{value['$path']}", vars_)
+                return [resolved] if value.get("wrap_list") and resolved is not None else resolved
+            return {
+                str(key): self._resolve_workflow_mapping(item, vars_) for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [self._resolve_workflow_mapping(item, vars_) for item in value]
+        return copy.deepcopy(value)
 
     async def _execute_subworkflow_node(
         self,
@@ -1118,9 +1238,7 @@ class WorkflowRuntimeService:
                 "task_run_status": task_run.status,
             }
             if task_run.status in _TASK_RUN_TERMINAL:
-                child_entry["status"] = (
-                    "succeeded" if task_run.status == "completed" else "failed"
-                )
+                child_entry["status"] = "succeeded" if task_run.status == "completed" else "failed"
                 child_entry["output"] = output
                 await self._upsert_child_execution(
                     workflow_run_id=run.id,

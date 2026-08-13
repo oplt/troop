@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
@@ -19,6 +20,10 @@ class MarketplaceInstallRequest(RequestModel):
     slug: str
     company_id: str | None = None
     publish: bool = True
+    connector_installation_ids: dict[str, str] = Field(default_factory=dict)
+    agent_id: str | None = None
+    project_id: str | None = None
+    task_id: str | None = None
 
 
 @router.get("")
@@ -90,11 +95,19 @@ async def install_marketplace_workflow(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     await assert_company_owned(db, user.id, payload.company_id)
+    from backend.modules.workforce.authz import assert_project_owned, assert_task_owned
+
+    await assert_project_owned(db, user.id, payload.project_id)
+    await assert_task_owned(db, user.id, payload.task_id)
     return await MarketplaceService(db).install_workflow(
         user.id,
         payload.slug,
         company_id=payload.company_id,
         publish=payload.publish,
+        connector_installation_ids=payload.connector_installation_ids,
+        agent_id=payload.agent_id,
+        project_id=payload.project_id,
+        task_id=payload.task_id,
     )
 
 

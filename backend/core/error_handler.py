@@ -57,11 +57,18 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
+        duration_hint = getattr(request.state, "started_at", None)
+        db_code = getattr(getattr(exc, "orig", None), "pgcode", None)
         logger.exception(
-            "unhandled_exception path=%s correlation_id=%s",
+            "unhandled_exception method=%s path=%s correlation_id=%s "
+            "exception_type=%s database_error_code=%s",
+            request.method,
             request.url.path,
             getattr(request.state, "correlation_id", None),
+            type(exc).__name__,
+            db_code,
         )
+        del duration_hint
         return JSONResponse(
             status_code=500,
             content=error_payload(

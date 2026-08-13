@@ -271,17 +271,16 @@ export default function AuthHomePage() {
             sideContent={
                 <AuthMarketingPanel
                     appName={appName}
-                    eyebrow="Launch-ready workspace"
-                    title={`A premium way to manage your ${coreDomainPlural.toLowerCase()}.`}
-                    description="The product is now framed around clarity, confidence, and modern SaaS polish, with cleaner navigation, stronger hierarchy, and better flow from first sign-in."
+                    eyebrow="Ops workspace"
+                    valueProp="Plan work, run agents, and approve outcomes in one calm queue."
                     highlights={[
-                        { value: "Fast", label: "Cleaner onboarding and reduced friction" },
-                        { value: "Focused", label: "A calmer surface for daily operations" },
-                        { value: "Secure", label: "Built around stronger trust signals" },
+                        { value: "Do next", label: "Approvals and tasks first" },
+                        { value: "Run", label: "Agents with clear status" },
+                        { value: "Trust", label: "Cost and audit when needed" },
                     ]}
                     points={[
-                        "Sign in to continue your existing workflow with a sharper interface.",
-                        "Create an account to access the full platform experience and dashboard.",
+                        "Sign in to clear your queue and advance projects.",
+                        "New here? Create an account, verify email, then start a project.",
                     ]}
                 />
             }
@@ -291,13 +290,13 @@ export default function AuthHomePage() {
                     <Typography variant="overline" color="primary.main">
                         {appName}
                     </Typography>
-                    <Typography variant="h4" sx={{ mt: 0.5 }}>
+                    <Typography variant="h4" component="h2" sx={{ mt: 0.5 }}>
                         {mode === "signIn" ? "Welcome back" : "Create your account"}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                         {mode === "signIn"
-                            ? `Sign in to manage your ${coreDomainPlural.toLowerCase()} and account activity.`
-                            : `Create an account to start managing your ${coreDomainPlural.toLowerCase()} with the new workspace experience.`}
+                            ? `Sign in to manage ${coreDomainPlural.toLowerCase()}, approvals, and runs.`
+                            : `Create an account to start orchestrating ${coreDomainPlural.toLowerCase()}.`}
                     </Typography>
                 </Box>
 
@@ -339,14 +338,16 @@ export default function AuthHomePage() {
                 ) : (
                     <SignUpForm
                         onSuccess={(email) => {
-                            setSuccessMsg(`Account created for ${email}. You can sign in now.`);
+                            setSuccessMsg(
+                                `Account created for ${email}. Check your inbox to verify email, then sign in.`,
+                            );
                             setMode("signIn");
                         }}
                     />
                 )}
 
                 <Typography variant="body2" color="text.secondary">
-                    By continuing, you are entering a cleaner product experience with improved navigation, readability, and trust cues.
+                    By continuing you agree to use {appName} for work orchestration — agents, approvals, and project runs.
                 </Typography>
             </Stack>
         </AuthShell>

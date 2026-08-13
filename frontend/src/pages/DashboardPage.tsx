@@ -1,27 +1,21 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Alert,
     Box,
     Button,
     Chip,
-    Divider,
     MenuItem,
-    Paper,
     Skeleton,
     Stack,
     TextField,
     Typography,
 } from "@mui/material";
 import {
-    DoneAll as DoneAllIcon,
+    Assignment as TasksIcon,
     FolderOpen as ProjectsIcon,
-    MailOutline as MailOutlineIcon,
-    Notifications as NotificationsIcon,
     NotificationsActive as NotificationsActiveIcon,
-    PlayCircleOutline as RunsIcon,
     PendingActions as ApprovalsIcon,
-    SmartToy as AgentsIcon,
+    PlayCircleOutline as RunsIcon,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
@@ -32,13 +26,27 @@ import {
 import { getNotifications, markAllRead, markRead } from "../api/notifications";
 import { DashboardCalendar } from "../components/dashboard/DashboardCalendar";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
-import { StatCard } from "../components/ui/StatCard";
+import { SectionCard } from "../components/ui/SectionCard";
 import { EmptyState } from "../components/ui/EmptyState";
+import { OnboardingChecklist } from "../components/ui/OnboardingChecklist";
+import { SectionError } from "../components/ui/SectionError";
+import { StatusChip } from "../components/ui/StatusChip";
 import { queryKeys } from "../config/queryKeys";
 import { queryPolicies } from "../config/queryPolicies";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
-import { extractApiErrorMessage } from "../utils/apiErrors";
+import { listCompanies } from "../api/companies";
+import { getGmailStatus, getTelegramStatus } from "../api/integrations";
+
+type NextAction = {
+    id: string;
+    title: string;
+    detail: string;
+    cta: string;
+    path: string;
+    priority: number;
+};
 
 export default function DashboardPage() {
     const navigate = useNavigate();
@@ -56,12 +64,24 @@ export default function DashboardPage() {
         ...queryPolicies.realtime,
     });
     const projects = orchestrationOverview?.projects;
-    const projectsLoading = orchestrationLoading;
-    const projectsLoadFailed = orchestrationLoadFailed;
-    const projectsError = orchestrationError;
-    const refetchProjects = refetchOrchestration;
-    const projectsFetching = orchestrationFetching;
-    const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
+    const { data: companies = [] } = useQuery({
+        queryKey: queryKeys.companies.root,
+        queryFn: listCompanies,
+        ...queryPolicies.userScoped,
+    });
+    const { data: gmailStatus } = useQuery({
+        queryKey: ["integrations", "gmail-status"],
+        queryFn: getGmailStatus,
+        retry: false,
+        ...queryPolicies.userScoped,
+    });
+    const { data: telegramStatus } = useQuery({
+        queryKey: ["integrations", "telegram-status"],
+        queryFn: getTelegramStatus,
+        retry: false,
+        ...queryPolicies.userScoped,
+    });
+    const { data: notifications, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
         queryKey: queryKeys.notifications.root,
         queryFn: getNotifications,
         ...queryPolicies.operational,
@@ -81,12 +101,8 @@ export default function DashboardPage() {
         ...queryPolicies.userScoped,
     });
 
-    const dashboardLoadFailed = projectsLoadFailed || orchestrationLoadFailed || insightsLoadFailed;
-    const dashboardRetrying = projectsFetching || orchestrationFetching || insightsFetching;
-    const dashboardErrorMessage = extractApiErrorMessage(
-        projectsError ?? orchestrationError ?? insightsError,
-        "Couldn't load dashboard data. Check your connection and try again.",
-    );
+    const dashboardLoadFailed = orchestrationLoadFailed || insightsLoadFailed;
+    const dashboardRetrying = orchestrationFetching || insightsFetching;
 
     const markOneMutation = useMutation({
         mutationFn: markRead,
@@ -97,166 +113,283 @@ export default function DashboardPage() {
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root }),
     });
 
-    const canonicalProjectLabel = "Agent Projects";
-    const canonicalProjectLower = canonicalProjectLabel.toLowerCase();
+    const pendingApprovals = orchestrationOverview?.pending_approvals ?? [];
+    const activeRuns = orchestrationOverview?.active_runs ?? [];
     const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
-    const totalNotifications = notifications?.length ?? 0;
-    const visibleNotifications = useMemo(
-        () => notifications?.slice(0, 8) ?? [],
-        [notifications]
+    const attentionProjects = useMemo(
+        () =>
+            (projects ?? [])
+                .filter((project) => project.status === "active" || project.status === "running")
+                .slice(0, 4),
+        [projects],
     );
-    const visibleProjects = useMemo(
-        () => projects?.slice(0, 3) ?? [],
-        [projects]
+
+    const nextActions = useMemo<NextAction[]>(() => {
+        const items: NextAction[] = [];
+        if (pendingApprovals.length > 0) {
+            items.push({
+                id: "approvals",
+                title: `${pendingApprovals.length} approval${pendingApprovals.length === 1 ? "" : "s"} waiting`,
+                detail: "Clear the queue so agents and teammates can continue.",
+                cta: "Review approvals",
+                path: "/activity",
+                priority: 0,
+            });
+        }
+        if (activeRuns.length > 0) {
+            const run = activeRuns[0];
+            items.push({
+                id: "runs",
+                title: `${activeRuns.length} active run${activeRuns.length === 1 ? "" : "s"}`,
+                detail: `${humanizeKey(run.run_mode)} · ${humanizeKey(run.status)}`,
+                cta: "Open run",
+                path: `/runs/${run.id}`,
+                priority: 1,
+            });
+        }
+        if (attentionProjects.length > 0) {
+            const project = attentionProjects[0];
+            items.push({
+                id: "project",
+                title: `Continue ${project.name}`,
+                detail: project.description || "Open the board and move the next task.",
+                cta: "Open project",
+                path: `/projects/${project.id}?tab=board`,
+                priority: 2,
+            });
+        }
+        items.push({
+            id: "my-tasks",
+            title: "Check my tasks",
+            detail: "Personal work queue across projects.",
+            cta: "My tasks",
+            path: "/my-tasks",
+            priority: 3,
+        });
+        return items.sort((a, b) => a.priority - b.priority).slice(0, 3);
+    }, [pendingApprovals, activeRuns, attentionProjects]);
+
+    const primaryAction = nextActions[0];
+    const visibleNotifications = useMemo(() => notifications?.slice(0, 5) ?? [], [notifications]);
+    const hasIntegration =
+        Boolean(gmailStatus && ["connected", "active", "healthy"].includes(String(gmailStatus.status))) ||
+        Boolean(telegramStatus && ["connected", "active", "healthy", "linked"].includes(String(telegramStatus.status)));
+    const showOnboarding = !orchestrationLoading && (projects?.length ?? 0) === 0;
+    const onboardingSteps = useMemo(
+        () => [
+            {
+                id: "company",
+                label: "Add a company (org context for knowledge)",
+                done: companies.length > 0,
+                path: "/companies",
+                cta: "Open companies",
+            },
+            {
+                id: "project",
+                label: "Create your first project",
+                done: (projects?.length ?? 0) > 0,
+                path: "/projects?create=1",
+                cta: "Create project",
+            },
+            {
+                id: "integration",
+                label: "Connect an integration (optional)",
+                done: hasIntegration,
+                path: "/integrations",
+                cta: "Connect integration",
+            },
+        ],
+        [companies.length, projects?.length, hasIntegration],
     );
-    const eventRows = useMemo(() => executionInsights?.by_event_type ?? [], [executionInsights]);
-    const toolFailures = useMemo(
-        () => executionInsights?.tool_failures_by_tool ?? [],
-        [executionInsights]
-    );
+
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="browse">
             {dashboardLoadFailed && (
-                <Alert
-                    severity="error"
-                    sx={{ mb: 2 }}
-                    action={
-                        <Button
-                            color="inherit"
-                            size="small"
-                            disabled={dashboardRetrying}
-                            onClick={() => {
-                                void refetchProjects();
-                                void refetchOrchestration();
-                                void refetchInsights();
-                            }}
-                        >
-                            {dashboardRetrying ? "Retrying…" : "Retry"}
-                        </Button>
-                    }
-                >
-                    {dashboardErrorMessage}
-                </Alert>
+                <SectionError
+                    error={orchestrationError ?? insightsError}
+                    fallback="Couldn't load dashboard data. Check your connection and try again."
+                    retrying={dashboardRetrying}
+                    onRetry={() => {
+                        void refetchOrchestration();
+                        void refetchInsights();
+                    }}
+                />
             )}
-            <Paper
-                sx={(theme) => ({
-                    p: { xs: 2.5, md: 4 },
-                    borderRadius: 1,
-                    overflow: "hidden",
-                    position: "relative",
-                    border: `1px solid ${theme.palette.divider}`,
-                    backgroundColor: theme.palette.background.paper,
-                })}
-            >
-                <Stack
-                    direction={{ xs: "column", md: "row" }}
-                    spacing={{ xs: 2.5, md: 4 }}
-                    alignItems={{ xs: "flex-start", md: "center" }}
-                    justifyContent="space-between"
-                >
-                    <Box sx={{ maxWidth: 760 }}>
-                        <Typography variant="overline" color="text.secondary">
-                            Workspace
-                        </Typography>
-                        <Typography variant="h2" sx={{ mt: 0.5 }}>
-                            Keep current work moving.
-                        </Typography>
-                        <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 660 }}>
-                            See active work, approvals, and the next action in one place.
-                        </Typography>
-                    </Box>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", md: "auto" } }}>
-                        <Button variant="contained" onClick={() => navigate("/projects")}>
-                            Open projects
+
+            {showOnboarding ? <OnboardingChecklist steps={onboardingSteps} /> : null}
+
+            <PageHeader
+                eyebrow="Work"
+                title={primaryAction ? primaryAction.title : "You're caught up."}
+                description={
+                    primaryAction
+                        ? primaryAction.detail
+                        : "No pending approvals or hot runs. Browse projects when you're ready."
+                }
+                actions={
+                    <>
+                        <Button
+                            variant="contained"
+                            onClick={() => navigate(primaryAction?.path ?? "/projects")}
+                        >
+                            {primaryAction?.cta ?? "Open projects"}
                         </Button>
-                        <Button variant="outlined" onClick={() => navigate("/activity")}>
-                            Review activity
+                        <Button variant="outlined" onClick={() => navigate("/my-tasks")}>
+                            My tasks
                         </Button>
-                    </Stack>
-                </Stack>
-            </Paper>
+                    </>
+                }
+            />
 
             <Box
                 sx={{
                     display: "grid",
                     gap: 2,
-                    gridTemplateColumns: {
-                        xs: "repeat(2, minmax(0, 1fr))",
-                        sm: "repeat(3, minmax(0, 1fr))",
-                        lg: "repeat(5, minmax(0, 1fr))",
-                    },
+                    gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
                 }}
             >
-                <StatCard
-                    label={canonicalProjectLabel}
-                    value={projects?.length ?? 0}
-                    icon={<ProjectsIcon />}
-                    loading={projectsLoading}
-                    info="Where goals, tasks, repos, and approvals live."
-                />
-                <StatCard
-                    label="Active runs"
-                    value={orchestrationOverview?.active_runs.length ?? 0}
-                    icon={<RunsIcon />}
-                    loading={orchestrationLoading}
-                    color="secondary"
-                    info="Runs queued or in progress."
-                />
-                <StatCard
-                    label="Pending approvals"
-                    value={orchestrationOverview?.pending_approvals.length ?? 0}
-                    icon={<ApprovalsIcon />}
-                    loading={orchestrationLoading}
-                    color="warning"
-                    info="Actions waiting for your approval."
-                />
-                <StatCard
-                    label="Unread inbox"
-                    value={unreadCount}
-                    icon={<NotificationsIcon />}
-                    loading={notificationsLoading}
-                    color="warning"
-                    info="New updates and alerts waiting for review."
-                />
-                <StatCard
-                    label="Agents"
-                    value={orchestrationOverview?.agents.length ?? 0}
-                    icon={<AgentsIcon />}
-                    loading={orchestrationLoading}
-                    color="primary"
-                    info="Agents across all projects."
-                />
+                <SectionCard
+                    title="Do next"
+                    info="Highest-priority work across approvals, runs, and projects."
+                    density="framed"
+                >
+                    {orchestrationLoading ? (
+                        <Stack spacing={1}>
+                            <Skeleton height={56} />
+                            <Skeleton height={56} />
+                        </Stack>
+                    ) : (
+                        <Stack spacing={0} sx={{ borderTop: "1px solid", borderColor: "divider" }}>
+                            {nextActions.map((item) => (
+                                <Stack
+                                    key={item.id}
+                                    direction={{ xs: "column", sm: "row" }}
+                                    justifyContent="space-between"
+                                    alignItems={{ sm: "center" }}
+                                    spacing={1}
+                                    sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="subtitle2">{item.title}</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {item.detail}
+                                        </Typography>
+                                    </Box>
+                                    <Button size="small" variant="outlined" onClick={() => navigate(item.path)}>
+                                        {item.cta}
+                                    </Button>
+                                </Stack>
+                            ))}
+                        </Stack>
+                    )}
+                </SectionCard>
+
+                <SectionCard title="Approvals" density="framed">
+                    <Stack spacing={1.5}>
+                        <Typography variant="h4" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                            {orchestrationLoading ? "…" : pendingApprovals.length}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Waiting for your decision.
+                        </Typography>
+                        <Button
+                            variant={pendingApprovals.length > 0 ? "contained" : "outlined"}
+                            startIcon={<ApprovalsIcon />}
+                            onClick={() => navigate("/activity")}
+                        >
+                            {pendingApprovals.length > 0 ? "Review queue" : "Open approvals"}
+                        </Button>
+                    </Stack>
+                </SectionCard>
+
+                <SectionCard title="Projects" density="framed">
+                    <Stack spacing={1.5}>
+                        <Typography variant="h4" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                            {orchestrationLoading ? "…" : projects?.length ?? 0}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {activeRuns.length} active run{activeRuns.length === 1 ? "" : "s"}.
+                        </Typography>
+                        <Stack direction="row" spacing={1}>
+                            <Button variant="outlined" startIcon={<ProjectsIcon />} onClick={() => navigate("/projects")}>
+                                Browse
+                            </Button>
+                            <Button variant="text" startIcon={<TasksIcon />} onClick={() => navigate("/my-tasks")}>
+                                My tasks
+                            </Button>
+                        </Stack>
+                    </Stack>
+                </SectionCard>
             </Box>
 
             <Box
                 sx={{
                     display: "grid",
                     gap: 3,
-                    gridTemplateColumns: {
-                        xs: "1fr",
-                        md: "repeat(2, minmax(0, 1fr))",
-                        lg: "repeat(12, minmax(0, 1fr))",
-                    },
+                    gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.2fr) minmax(0, 0.8fr)" },
                     alignItems: "start",
                 }}
             >
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 8" } }}
-                    title="Calendar"
-                    info="Upcoming project dates and workspace schedule."
-                    defaultExpanded
+                <SectionCard
+                    title="Needs attention"
+                    density="plain"
+                    action={
+                        <Button size="small" variant="text" onClick={() => navigate("/projects")}>
+                            All projects
+                        </Button>
+                    }
                 >
-                    <DashboardCalendar
-                        allowedViews={["month"]}
-                        initialView="month"
-                    />
-                </CollapsibleSectionCard>
+                    {orchestrationLoading ? (
+                        <Skeleton height={120} />
+                    ) : attentionProjects.length > 0 ? (
+                        <Stack spacing={0} sx={{ borderTop: "1px solid", borderColor: "divider" }}>
+                            {attentionProjects.map((project) => (
+                                <Stack
+                                    key={project.id}
+                                    direction={{ xs: "column", sm: "row" }}
+                                    justifyContent="space-between"
+                                    alignItems={{ sm: "center" }}
+                                    spacing={1}
+                                    sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Typography variant="subtitle2" noWrap>
+                                                {project.name}
+                                            </Typography>
+                                            <StatusChip status={project.status} kind="project" />
+                                        </Stack>
+                                        <Typography variant="body2" color="text.secondary" noWrap>
+                                            {project.description || "No description"}
+                                        </Typography>
+                                    </Box>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => navigate(`/projects/${project.id}?tab=board`)}
+                                    >
+                                        Open board
+                                    </Button>
+                                </Stack>
+                            ))}
+                        </Stack>
+                    ) : (
+                        <EmptyState
+                            icon={<ProjectsIcon />}
+                            title="No projects yet"
+                            description="Create a project to start assigning work."
+                            action={
+                                <Button variant="contained" onClick={() => navigate("/projects?create=1")}>
+                                    Create project
+                                </Button>
+                            }
+                        />
+                    )}
+                </SectionCard>
 
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 4" }, gridRow: { lg: "span 2" } }}
-                    title="Recent notifications"
-                    info="Most recent notification history. Mark individual items or all as read."
-                    count={totalNotifications}
+                <SectionCard
+                    title="Inbox"
+                    density="plain"
                     action={
                         <Stack direction="row" spacing={1}>
                             <Button size="small" variant="text" onClick={() => navigate("/notifications")}>
@@ -266,337 +399,136 @@ export default function DashboardPage() {
                                 <Button
                                     size="small"
                                     variant="contained"
-                                    startIcon={<DoneAllIcon />}
                                     disabled={markAllMutation.isPending}
                                     onClick={() => markAllMutation.mutate()}
                                 >
-                                    {markAllMutation.isPending ? "Updating…" : "Mark all read"}
+                                    Mark all read
                                 </Button>
                             )}
                         </Stack>
                     }
                 >
-                    <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                        sx={{ mb: 2 }}
-                    >
-                        <Chip
-                            icon={<NotificationsActiveIcon />}
-                            label={`${unreadCount} unread`}
-                            color={unreadCount > 0 ? "primary" : "default"}
-                            variant="outlined"
-                        />
-                        <Chip icon={<MailOutlineIcon />} label={`${totalNotifications} total`} variant="outlined" />
-                    </Stack>
                     {notificationsError && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {notificationsError.message || "Couldn't load notifications. Refresh to retry."}
-                        </Alert>
+                        <SectionError
+                            error={notificationsError}
+                            fallback="Couldn't load notifications."
+                            onRetry={() => void refetchNotifications()}
+                        />
                     )}
                     {notificationsLoading ? (
-                        <Stack spacing={1.5}>
-                            {Array.from({ length: 5 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 1 }} />
-                            ))}
-                        </Stack>
+                        <Skeleton height={120} />
                     ) : visibleNotifications.length > 0 ? (
-                        <Stack spacing={1.5}>
-                            {visibleNotifications.map((notification) => {
-                                const isUpdatingThisItem =
-                                    markOneMutation.isPending &&
-                                    markOneMutation.variables === notification.id;
-                                return (
-                                    <Box
-                                        key={notification.id}
-                                        sx={(theme) => ({
-                                            p: 2.25,
-                                            borderRadius: 1,
-                                            border: `1px solid ${theme.palette.divider}`,
-                                            backgroundColor: notification.is_read
-                                                ? alpha(theme.palette.background.paper, 0.68)
-                                                : alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.06),
-                                        })}
-                                    >
-                                        <Stack spacing={1.25}>
-                                            <Stack
-                                                direction={{ xs: "column", sm: "row" }}
-                                                justifyContent="space-between"
-                                                spacing={1.5}
-                                            >
-                                                <Box>
-                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                                                        <Typography variant="subtitle2">{notification.title}</Typography>
-                                                        <Chip label={humanizeKey(notification.type)} size="small" variant="outlined" />
-                                                        {!notification.is_read && <Chip label="New" size="small" color="primary" />}
-                                                    </Stack>
-                                                </Box>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {formatDateTime(notification.created_at)}
-                                                </Typography>
-                                            </Stack>
-                                            {notification.body && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {notification.body}
-                                                </Typography>
-                                            )}
-                                            {!notification.is_read && (
-                                                <Box>
-                                                    <Button
-                                                        size="small"
-                                                        variant="outlined"
-                                                        disabled={isUpdatingThisItem}
-                                                        onClick={() => markOneMutation.mutate(notification.id)}
-                                                    >
-                                                        {isUpdatingThisItem ? "Saving..." : "Mark as read"}
-                                                    </Button>
-                                                </Box>
-                                            )}
-                                        </Stack>
-                                    </Box>
-                                );
-                            })}
-                        </Stack>
-                    ) : (
-                        <EmptyState
-                            icon={<NotificationsActiveIcon />}
-                            title="Inbox is clear"
-                            description="New updates and account events will land here."
-                        />
-                    )}
-                </CollapsibleSectionCard>
-
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 8" } }}
-                    title="Run activity"
-                    info="Run events across projects: tool failures, fallbacks, model responses."
-                    action={
-                        <TextField
-                            select
-                            label="Window"
-                            size="small"
-                            value={signalDays}
-                            onChange={(e) => setSignalDays(Number(e.target.value))}
-                            sx={{ minWidth: 160 }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <MenuItem value={7}>Last 7 days</MenuItem>
-                            <MenuItem value={14}>Last 14 days</MenuItem>
-                            <MenuItem value={30}>Last 30 days</MenuItem>
-                        </TextField>
-                    }
-                >
-                    <Stack spacing={2}>
-                        {insightsLoadFailed && (
-                            <Alert
-                                severity="error"
-                                action={
-                                    <Button
-                                        color="inherit"
-                                        size="small"
-                                        disabled={insightsFetching}
-                                        onClick={() => {
-                                            void refetchInsights();
-                                        }}
-                                    >
-                                        {insightsFetching ? "Retrying…" : "Retry"}
-                                    </Button>
-                                }
-                            >
-                                {extractApiErrorMessage(insightsError, "Couldn't load run activity.")}
-                            </Alert>
-                        )}
-                        {executionInsights?.since && (
-                            <Typography variant="body2" color="text.secondary">
-                                Since {formatDateTime(executionInsights.since)}
-                            </Typography>
-                        )}
-                        <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                Events by type
-                            </Typography>
-                            {insightsLoading ? (
-                                <Typography variant="body2" color="text.secondary">Loading run events…</Typography>
-                            ) : eventRows.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    No run events in this window.
-                                </Typography>
-                            ) : (
-                                <Stack spacing={1}>
-                                    {eventRows.map((row) => (
-                                        <Paper key={row.event_type} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
-                                                    {row.event_type}
-                                                </Typography>
-                                                <Typography variant="h6">{row.count}</Typography>
-                                            </Stack>
-                                        </Paper>
-                                    ))}
-                                </Stack>
-                            )}
-                        </Box>
-                        <Divider />
-                        <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                Run health
-                            </Typography>
-                            {insightsLoading || !executionInsights ? (
-                                <Typography variant="body2" color="text.secondary">Loading run health…</Typography>
-                            ) : (
-                                <Stack spacing={1.5}>
-                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                        <Chip label={`Tasks reopened: ${executionInsights.reopen_events}`} size="small" variant="outlined" />
-                                        <Chip label={`Tasks blocked: ${executionInsights.blocked_events}`} size="small" variant="outlined" />
-                                        <Chip label={`Tool failures: ${executionInsights.tool_call_failed_events}`} size="small" variant="outlined" />
-                                        <Chip label={`Brainstorm rounds: ${executionInsights.brainstorm_round_summary_events}`} size="small" variant="outlined" />
-                                    </Stack>
-                                    <Divider />
-                                    <Typography variant="subtitle2">Failures by tool</Typography>
-                                    {toolFailures.length === 0 ? (
-                                        <Typography variant="body2" color="text.secondary">
-                                            No tool failures in this window.
-                                        </Typography>
-                                    ) : (
-                                        <Stack spacing={1}>
-                                            {toolFailures.map((row) => (
-                                                <Paper key={row.tool} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
-                                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                        <Typography variant="subtitle2" sx={{ fontFamily: "IBM Plex Mono, monospace" }}>
-                                                            {row.tool}
-                                                        </Typography>
-                                                        <Typography variant="h6">{row.count}</Typography>
-                                                    </Stack>
-                                                </Paper>
-                                            ))}
-                                        </Stack>
-                                    )}
-                                </Stack>
-                            )}
-                        </Box>
-                    </Stack>
-                </CollapsibleSectionCard>
-
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 4" } }}
-                    title="Orchestration"
-                    info="Projects, runs, approvals, and GitHub activity from the execution workspace."
-                    action={
-                        <Button size="small" variant="text" onClick={() => navigate("/projects")}>
-                            Open
-                        </Button>
-                    }
-                >
-                    <Stack spacing={1.25}>
-                        {orchestrationLoadFailed && (
-                            <Alert
-                                severity="error"
-                                action={
-                                    <Button
-                                        color="inherit"
-                                        size="small"
-                                        disabled={orchestrationFetching}
-                                        onClick={() => {
-                                            void refetchOrchestration();
-                                        }}
-                                    >
-                                        {orchestrationFetching ? "Retrying…" : "Retry"}
-                                    </Button>
-                                }
-                            >
-                                {extractApiErrorMessage(orchestrationError, "Couldn't load orchestration status.")}
-                            </Alert>
-                        )}
-                        <Typography variant="body2" color="text.secondary">
-                            {orchestrationLoading
-                                ? "Loading status…"
-                                : `${orchestrationOverview?.agents.length ?? 0} agents · ${orchestrationOverview?.projects.length ?? 0} projects`}
-                        </Typography>
-                        {(orchestrationOverview?.active_runs ?? []).slice(0, 3).map((run) => (
-                            <Box
-                                key={run.id}
-                                sx={(theme) => ({
-                                    p: 1.5,
-                                    borderRadius: 1,
-                                    border: `1px solid ${theme.palette.divider}`,
-                                })}
-                            >
-                                <Typography variant="subtitle2" sx={{ textTransform: "capitalize" }}>
-                                    {run.run_mode.replaceAll("_", " ")} · {run.status.replaceAll("_", " ")}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {formatDateTime(run.created_at)}
-                                </Typography>
-                            </Box>
-                        ))}
-                    </Stack>
-                </CollapsibleSectionCard>
-
-                <CollapsibleSectionCard
-                    sx={{ gridColumn: { lg: "span 4" } }}
-                    title={`${canonicalProjectLabel} snapshot`}
-                    info={`Most recent ${canonicalProjectLower} in your workspace. Click Open ${canonicalProjectLabel} for the full list.`}
-                    count={projects?.length ?? 0}
-                >
-                    {projectsLoadFailed && (
-                        <Alert
-                            severity="error"
-                            sx={{ mb: 2 }}
-                            action={
-                                <Button
-                                    color="inherit"
-                                    size="small"
-                                    disabled={projectsFetching}
-                                    onClick={() => {
-                                        void refetchProjects();
+                        <Stack spacing={0} sx={{ borderTop: "1px solid", borderColor: "divider" }}>
+                            {visibleNotifications.map((notification) => (
+                                <Box
+                                    key={notification.id}
+                                    sx={{
+                                        py: 1.25,
+                                        borderBottom: "1px solid",
+                                        borderColor: "divider",
+                                        backgroundColor: notification.is_read
+                                            ? "transparent"
+                                            : (theme) =>
+                                                  alpha(
+                                                      theme.palette.primary.main,
+                                                      theme.palette.mode === "dark" ? 0.12 : 0.05,
+                                                  ),
+                                        px: 1,
                                     }}
                                 >
-                                    {projectsFetching ? "Retrying…" : "Retry"}
-                                </Button>
-                            }
-                        >
-                            {extractApiErrorMessage(projectsError, "Couldn't load projects.")}
-                        </Alert>
-                    )}
-                    {projectsLoading ? (
-                        <Stack spacing={1.25}>
-                            {Array.from({ length: 3 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={72} sx={{ borderRadius: 1 }} />
-                            ))}
-                        </Stack>
-                    ) : projects && projects.length > 0 ? (
-                        <Stack spacing={1.25}>
-                            {visibleProjects.map((project) => (
-                                <Box
-                                    key={project.id}
-                                    sx={(theme) => ({
-                                        p: 2,
-                                        borderRadius: 1,
-                                        border: `1px solid ${theme.palette.divider}`,
-                                    })}
-                                >
-                                    <Typography variant="subtitle2">{project.name}</Typography>
-                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                        {project.description || `No description yet.`}
+                                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                        <Typography variant="subtitle2">{notification.title}</Typography>
+                                        {!notification.is_read && (
+                                            <Chip size="small" color="primary" label="New" />
+                                        )}
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {formatDateTime(notification.created_at)}
                                     </Typography>
+                                    {!notification.is_read && (
+                                        <Button
+                                            size="small"
+                                            sx={{ mt: 0.5 }}
+                                            onClick={() => markOneMutation.mutate(notification.id)}
+                                        >
+                                            Mark read
+                                        </Button>
+                                    )}
                                 </Box>
                             ))}
                         </Stack>
                     ) : (
                         <EmptyState
-                            icon={<ProjectsIcon />}
-                            title={`No ${canonicalProjectLower} yet`}
-                            description="Create your first project to begin."
-                            action={
-                                <Button variant="contained" onClick={() => navigate("/projects")}>
-                                    Create
-                                </Button>
-                            }
+                            icon={<NotificationsActiveIcon />}
+                            title="Inbox clear"
+                            description="New updates land here."
                         />
                     )}
-                </CollapsibleSectionCard>
-
+                </SectionCard>
             </Box>
+
+            <CollapsibleSectionCard
+                title="Schedule & analytics"
+                info="Calendar and run-event detail — secondary to the work queue above."
+                defaultExpanded={false}
+                action={
+                    <Button size="small" variant="text" onClick={() => navigate("/analytics/execution")}>
+                        Execution insights
+                    </Button>
+                }
+            >
+                <Stack spacing={3}>
+                    <DashboardCalendar allowedViews={["month"]} initialView="month" />
+                    <Box>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                            <Typography variant="subtitle2">Run activity</Typography>
+                            <TextField
+                                select
+                                size="small"
+                                label="Window"
+                                value={signalDays}
+                                onChange={(e) => setSignalDays(Number(e.target.value))}
+                                sx={{ minWidth: 140 }}
+                            >
+                                <MenuItem value={7}>Last 7 days</MenuItem>
+                                <MenuItem value={14}>Last 14 days</MenuItem>
+                                <MenuItem value={30}>Last 30 days</MenuItem>
+                            </TextField>
+                        </Stack>
+                        {insightsLoadFailed && (
+                            <SectionError
+                                error={insightsError}
+                                fallback="Couldn't load run activity."
+                                onRetry={() => void refetchInsights()}
+                            />
+                        )}
+                        {insightsLoading ? (
+                            <Typography variant="body2" color="text.secondary">
+                                Loading…
+                            </Typography>
+                        ) : (
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Chip
+                                    icon={<RunsIcon />}
+                                    label={`Tool failures: ${executionInsights?.tool_call_failed_events ?? 0}`}
+                                    size="small"
+                                    variant="outlined"
+                                />
+                                <Chip
+                                    label={`Blocked: ${executionInsights?.blocked_events ?? 0}`}
+                                    size="small"
+                                    variant="outlined"
+                                />
+                                <Chip
+                                    label={`Reopened: ${executionInsights?.reopen_events ?? 0}`}
+                                    size="small"
+                                    variant="outlined"
+                                />
+                            </Stack>
+                        )}
+                    </Box>
+                </Stack>
+            </CollapsibleSectionCard>
         </PageShell>
     );
 }

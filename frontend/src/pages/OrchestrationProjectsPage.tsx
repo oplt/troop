@@ -36,7 +36,7 @@ import {
     Search as SearchIcon,
     WarningAmber as WarningAmberIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     applyBootstrappedProject,
     bootstrapProjectFromText,
@@ -53,8 +53,12 @@ import {
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
+import { ConfirmDestructiveDialog } from "../components/ui/ConfirmDestructiveDialog";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StatusChip } from "../components/ui/StatusChip";
 import { formatDate, formatDateTime, humanizeKey } from "../utils/formatters";
 
 type ProjectForm = {
@@ -167,6 +171,7 @@ export default function OrchestrationProjectsPage() {
     const [showRepoDetails, setShowRepoDetails] = useState(false);
     const [projectMenuAnchor, setProjectMenuAnchor] = useState<HTMLElement | null>(null);
     const [projectMenuProjectId, setProjectMenuProjectId] = useState<string | null>(null);
+    const [deleteProjectTarget, setDeleteProjectTarget] = useState<{ id: string; name: string } | null>(null);
     const [advancedRepoOpen, setAdvancedRepoOpen] = useState(false);
 
     const { data: projects = [] } = useQuery({
@@ -352,6 +357,27 @@ export default function OrchestrationProjectsPage() {
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [repoValidationSignature, setRepoValidationSignature] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const createFromQuery = searchParams.get("create") === "1";
+    const [trackedCreateFromQuery, setTrackedCreateFromQuery] = useState(createFromQuery);
+
+    if (createFromQuery !== trackedCreateFromQuery) {
+        setTrackedCreateFromQuery(createFromQuery);
+        if (createFromQuery) {
+            setCreateMode("manual");
+            setCreateStep(1);
+            setDrawerOpen(true);
+        }
+    }
+
+    useEffect(() => {
+        if (!createFromQuery) {
+            return;
+        }
+        const next = new URLSearchParams(searchParams);
+        next.delete("create");
+        setSearchParams(next, { replace: true });
+    }, [createFromQuery, searchParams, setSearchParams]);
 
     const currentRepoPayload = useMemo(
         () =>
@@ -420,39 +446,72 @@ export default function OrchestrationProjectsPage() {
     });
 
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="browse">
             <Stack spacing={3}>
-                <Paper
-                    elevation={0}
-                    sx={{
-                        p: { xs: 2, md: 3 },
-                        borderRadius: 4,
-                        border: 1,
-                        borderColor: "divider",
-                        bgcolor: "background.paper",
-                    }}
-                >
-                    <Stack spacing={2.5}>
-                        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 500 }}>
-                                    Agent Projects
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                    Find active work, resume runs, and spot projects that need attention.
-                                </Typography>
-                            </Box>
-                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
-                                <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => queryClient.invalidateQueries({ queryKey: ["orchestration"] })}>
-                                    Refresh
-                                </Button>
-                                <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => setDrawerOpen(true)}>
-                                    New project
-                                </Button>
-                            </Stack>
-                        </Stack>
+                <PageHeader
+                    title="Projects"
+                    description="Find active work, resume runs, and spot projects that need attention."
+                    actions={
+                        <>
+                            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => queryClient.invalidateQueries({ queryKey: ["orchestration"] })}>
+                                Refresh
+                            </Button>
+                            <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => setDrawerOpen(true)}>
+                                New project
+                            </Button>
+                        </>
+                    }
+                />
 
-                        <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" } }}>
+                <FilterToolbar>
+                    <TextField
+                        size="small"
+                        placeholder="Search projects"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                            ),
+                        }}
+                        sx={{ minWidth: { sm: 220 }, flex: 1 }}
+                    />
+                    <TextField
+                        select
+                        size="small"
+                        label="Status"
+                        value={statusFilter}
+                        onChange={(e) => {
+                            setStatusFilterTouched(true);
+                            setStatusFilter(e.target.value as StatusFilter);
+                        }}
+                        sx={{ minWidth: 150 }}
+                    >
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="running">Running</MenuItem>
+                        <MenuItem value="attention">Needs attention</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
+                        <MenuItem value="archived">Archived</MenuItem>
+                    </TextField>
+                    <TextField
+                        select
+                        size="small"
+                        label="Sort by"
+                        value={sortKey}
+                        onChange={(e) => setSortKey(e.target.value as SortKey)}
+                        sx={{ minWidth: 170 }}
+                    >
+                        <MenuItem value="last_active">Last activity</MenuItem>
+                        <MenuItem value="name">Name</MenuItem>
+                        <MenuItem value="created">Recently created</MenuItem>
+                    </TextField>
+                </FilterToolbar>
+
+                <SectionCard density="plain">
+                    <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, mb: 2 }}>
                             {[
                                 { label: "Active", value: dashboardStats.activeProjects, icon: <ProjectIcon fontSize="small" />, filter: "active" as const },
                                 { label: "Running", value: dashboardStats.runningRuns, icon: <PlayArrowIcon fontSize="small" />, filter: "running" as const },
@@ -490,65 +549,22 @@ export default function OrchestrationProjectsPage() {
                             ))}
                         </Box>
 
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ md: "center" }}>
-                            <TextField
-                                size="small"
-                                placeholder="Search projects"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                sx={{ flex: 1 }}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon fontSize="small" />
-                                        </InputAdornment>
-                                    ),
-                                }}
-                            />
-                            <TextField
-                                select
-                                size="small"
-                                label="View"
-                                value={effectiveStatusFilter}
-                                onChange={(e) => selectStatusFilter(e.target.value as StatusFilter)}
-                                sx={{ minWidth: 150 }}
-                            >
-                                <MenuItem value="all">All projects</MenuItem>
-                                <MenuItem value="attention">Needs attention</MenuItem>
-                                <MenuItem value="running">Running</MenuItem>
-                                <MenuItem value="active">Active</MenuItem>
-                                <MenuItem value="completed">Completed</MenuItem>
-                                <MenuItem value="archived">Archived</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                size="small"
-                                label="Sort by"
-                                value={sortKey}
-                                onChange={(e) => setSortKey(e.target.value as SortKey)}
-                                sx={{ minWidth: 170 }}
-                            >
-                                <MenuItem value="last_active">Last activity</MenuItem>
-                                <MenuItem value="name">Name</MenuItem>
-                                <MenuItem value="created">Recently created</MenuItem>
-                            </TextField>
-                        </Stack>
-                    </Stack>
-                </Paper>
-
-                <SectionCard>
                     {projects.length === 0 ? (
-                        <Stack spacing={2} alignItems="center" sx={{ py: 6, textAlign: "center" }}>
-                            <EmptyState icon={<ProjectIcon />} title="No projects yet" description="Start from a blank project or generate one from a short description." />
-                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                                <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => { setCreateMode("manual"); setDrawerOpen(true); }}>
-                                    New project
-                                </Button>
-                                <Button variant="outlined" onClick={() => { setCreateMode("generate"); setDrawerOpen(true); }}>
-                                    Generate from description
-                                </Button>
-                            </Stack>
-                        </Stack>
+                        <EmptyState
+                            icon={<ProjectIcon />}
+                            title="No projects yet"
+                            description="Start from a blank project or generate one from a short description."
+                            action={
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                    <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => { setCreateMode("manual"); setDrawerOpen(true); }}>
+                                        New project
+                                    </Button>
+                                    <Button variant="outlined" onClick={() => { setCreateMode("generate"); setDrawerOpen(true); }}>
+                                        Generate from description
+                                    </Button>
+                                </Stack>
+                            }
+                        />
                     ) : sortedProjects.length === 0 ? (
                         <EmptyState icon={<SearchIcon />} title="No matching projects" description="Clear search or adjust view." />
                     ) : (
@@ -575,7 +591,7 @@ export default function OrchestrationProjectsPage() {
                                 const lastRun = latestRunByProject.get(project.id);
                                 const lastRunMs = lastRunAtByProject.get(project.id);
                                 const localRepo = project.settings?.local_repo as { enabled?: boolean; repo_path?: string } | undefined;
-                                const statusColor = failedRuns > 0 ? "error" : activeRuns > 0 ? "warning" : project.status === "active" ? "success" : "default";
+                                const statusKey = failedRuns > 0 ? "needs_attention" : activeRuns > 0 ? "running" : project.status;
                                 const actionLabel = activeRuns > 0 ? "Resume" : "Open";
                                 return (
                                     <Paper
@@ -615,14 +631,24 @@ export default function OrchestrationProjectsPage() {
                                                     {project.description || "No description"}
                                                 </Typography>
                                                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75, display: { md: "none" } }}>
-                                                    <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} />
+                                                    <StatusChip
+                                                        status={statusKey}
+                                                        kind="project"
+                                                        label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
+                                                        variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
+                                                    />
                                                     <Chip size="small" variant="outlined" label={`${activeRuns} active`} />
                                                     <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
                                                 </Stack>
                                             </Box>
 
                                             <Box sx={{ display: { xs: "none", md: "block" } }}>
-                                                <Chip size="small" label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)} color={statusColor} variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"} />
+                                                <StatusChip
+                                                    status={statusKey}
+                                                    kind="project"
+                                                    label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
+                                                    variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
+                                                />
                                             </Box>
 
                                             <Typography variant="body2" color={activeRuns > 0 ? "warning.main" : "text.secondary"}>
@@ -689,8 +715,7 @@ export default function OrchestrationProjectsPage() {
                             key="delete"
                             sx={{ color: "error.main" }}
                             onClick={() => {
-                                if (!window.confirm(`Delete project "${project.name}" permanently?`)) return;
-                                deleteProjectMutation.mutate(project.id);
+                                setDeleteProjectTarget({ id: project.id, name: project.name });
                                 setProjectMenuAnchor(null);
                                 setProjectMenuProjectId(null);
                             }}
@@ -701,6 +726,24 @@ export default function OrchestrationProjectsPage() {
                     ];
                 })()}
             </Menu>
+            <ConfirmDestructiveDialog
+                open={Boolean(deleteProjectTarget)}
+                title="Delete project"
+                description={
+                    deleteProjectTarget
+                        ? `Delete “${deleteProjectTarget.name}” permanently? Tasks, runs, and board history for this project are removed.`
+                        : ""
+                }
+                confirmLabel="Delete project"
+                loading={deleteProjectMutation.isPending}
+                onClose={() => setDeleteProjectTarget(null)}
+                onConfirm={() => {
+                    if (!deleteProjectTarget) return;
+                    deleteProjectMutation.mutate(deleteProjectTarget.id, {
+                        onSettled: () => setDeleteProjectTarget(null),
+                    });
+                }}
+            />
             <Drawer
                 anchor="right"
                 open={drawerOpen}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
     Box,
     Button,
@@ -43,6 +43,8 @@ import {
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
 
@@ -146,31 +148,28 @@ export default function SkillsPage() {
     return (
         <PageShell maxWidth="lg">
             <Stack spacing={3} sx={{ py: 4 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Box>
-                        <Typography variant="h4" gutterBottom>
-                            Skills
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Manage reusable skills that agents can learn and apply
-                        </Typography>
-                    </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => navigate("/skills/builder")}
-                    >
-                        Create Skill
-                    </Button>
-                </Stack>
+                <PageHeader
+                    title="Skills"
+                    description="Reusable capabilities agents can learn. Browse Marketplace for packs, or open Agents to attach skills to contracts."
+                    actions={
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Button component={RouterLink} to="/marketplace" variant="outlined">
+                                Marketplace
+                            </Button>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/skills/builder")}>
+                                Create Skill
+                            </Button>
+                        </Stack>
+                    }
+                />
 
-                <Stack direction="row" spacing={2}>
+                <FilterToolbar>
                     <TextField
                         placeholder="Search skills..."
                         size="small"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        sx={{ flex: 1 }}
+                        sx={{ flex: 1, minWidth: 200 }}
                     />
                     <FormControl size="small" sx={{ minWidth: 150 }}>
                         <InputLabel>Scope</InputLabel>
@@ -185,7 +184,7 @@ export default function SkillsPage() {
                             <MenuItem value="organization">Organization</MenuItem>
                         </Select>
                     </FormControl>
-                </Stack>
+                </FilterToolbar>
 
                 {error && (
                     <SectionCard>

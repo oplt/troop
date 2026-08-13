@@ -383,6 +383,7 @@ function AdminPlatformContent({
                         label="Module pack"
                         select
                         value={configDraft.module_pack}
+                        helperText="Preset of which product areas appear in nav (work, agents, automate…). Changing pack resets module toggles below."
                         onChange={(event) => {
                             const nextPack = event.target.value;
                             const packDefaults = packOptions.find((pack) => pack.key === nextPack)?.modules ?? [];
@@ -431,8 +432,11 @@ function AdminPlatformContent({
                     </Box>
 
                     <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1.25 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                             Module access
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
+                            Off = hidden from nav for everyone on this pack. On = area visible; users still need their role permissions to act.
                         </Typography>
                         <Box
                             sx={{

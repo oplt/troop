@@ -1,6 +1,10 @@
 import { alpha, createTheme, type PaletteMode } from "@mui/material/styles";
 
-/** Tesla-inspired design tokens from DESIGN.md */
+/**
+ * Tesla-inspired design tokens from DESIGN.md.
+ * Universal Sans is proprietary — product UI ships Space Grotesk (Display)
+ * + DM Sans (Text) as the licensed geometric Display/Text split. See PRODUCT.md.
+ */
 const tokens = {
     electricBlue: "#3E6AE1",
     electricBlueHover: "#3459C8",
@@ -16,9 +20,9 @@ const tokens = {
     overlay: "rgba(128, 128, 128, 0.65)",
     transition: "0.33s cubic-bezier(0.5, 0, 0, 0.75)",
     fontDisplay:
-        "'Universal Sans Display', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
+        "'Space Grotesk', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
     fontText:
-        "'Universal Sans Text', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
+        "'DM Sans', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
 } as const;
 
 function buildTheme(mode: PaletteMode) {
@@ -57,7 +61,7 @@ function buildTheme(mode: PaletteMode) {
             },
             text: {
                 primary: isDark ? tokens.white : tokens.carbonDark,
-                secondary: isDark ? alpha(tokens.white, 0.66) : tokens.graphite,
+                secondary: isDark ? alpha(tokens.white, 0.72) : tokens.graphite,
                 disabled: tokens.silverFog,
             },
             divider: isDark ? alpha(tokens.white, 0.11) : tokens.cloudGray,
@@ -263,6 +267,19 @@ function buildTheme(mode: PaletteMode) {
                     },
                 },
             },
+            MuiCard: {
+                defaultProps: {
+                    elevation: 0,
+                },
+                styleOverrides: {
+                    root: {
+                        borderRadius: 4,
+                        border: `1px solid ${theme.palette.divider}`,
+                        backgroundColor: theme.palette.background.paper,
+                        boxShadow: "none",
+                    },
+                },
+            },
             MuiPaper: {
                 defaultProps: {
                     elevation: 0,
@@ -273,18 +290,8 @@ function buildTheme(mode: PaletteMode) {
                         borderRadius: 4,
                         boxShadow: "none",
                     },
-                },
-            },
-            MuiCard: {
-                defaultProps: {
-                    elevation: 0,
-                },
-                styleOverrides: {
-                    root: {
-                        borderRadius: 4,
-                        border: "none",
-                        backgroundColor: theme.palette.background.paper,
-                        boxShadow: "none",
+                    outlined: {
+                        borderColor: theme.palette.divider,
                     },
                 },
             },
@@ -313,21 +320,23 @@ function buildTheme(mode: PaletteMode) {
                             },
                         },
                         "&.MuiButton-containedSecondary": {
-                            backgroundColor: tokens.white,
-                            color: tokens.graphite,
-                            border: `1px solid ${tokens.cloudGray}`,
+                            backgroundColor: isDark ? alpha(tokens.white, 0.08) : tokens.white,
+                            color: isDark ? tokens.white : tokens.graphite,
+                            border: `1px solid ${isDark ? alpha(tokens.white, 0.18) : tokens.cloudGray}`,
                             "&:hover": {
-                                backgroundColor: tokens.lightAsh,
+                                backgroundColor: isDark ? alpha(tokens.white, 0.12) : tokens.lightAsh,
                             },
                         },
                     },
                     outlined: {
-                        borderColor: tokens.paleSilver,
-                        color: tokens.graphite,
-                        backgroundColor: tokens.white,
+                        borderColor: isDark ? alpha(tokens.white, 0.18) : tokens.paleSilver,
+                        color: isDark ? tokens.white : tokens.graphite,
+                        backgroundColor: "transparent",
                         "&:hover": {
-                            backgroundColor: tokens.lightAsh,
-                            borderColor: tokens.paleSilver,
+                            backgroundColor: isDark
+                                ? alpha(tokens.white, 0.06)
+                                : tokens.lightAsh,
+                            borderColor: isDark ? alpha(tokens.white, 0.28) : tokens.paleSilver,
                         },
                     },
                     text: {

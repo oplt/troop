@@ -15,7 +15,9 @@ import { queryKeys } from "../config/queryKeys";
 import { useSnackbar } from "../app/snackbarContext";
 import { extractApiErrorMessage } from "../utils/apiErrors";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
+import { Link as RouterLink } from "react-router-dom";
 
 export default function WorkflowTemplatesPage() {
     const queryClient = useQueryClient();
@@ -89,16 +91,20 @@ export default function WorkflowTemplatesPage() {
 
     return (
         <PageShell>
-            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
-                <Box>
-                    <Typography variant="overline" color="text.secondary">Orchestration</Typography>
-                    <Typography variant="h3">Workflow templates</Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>Apply repeatable operating modes to a project, then tailor the resulting execution settings.</Typography>
-                </Box>
-                <TextField select label="Target project" value={projectId} onChange={(event) => setProjectId(event.target.value)} sx={{ minWidth: { md: 280 } }}>
-                    {projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
-                </TextField>
-            </Stack>
+            <PageHeader
+                title="Workflow templates"
+                description="Blueprints you reuse on a project. For live event→agent graphs you run, open Workforce workflows."
+                actions={
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Button component={RouterLink} to="/workforce-workflows" variant="outlined">
+                            Workforce workflows
+                        </Button>
+                        <TextField select label="Target project" size="small" value={projectId} onChange={(event) => setProjectId(event.target.value)} sx={{ minWidth: { md: 220 } }}>
+                            {projects.map((project) => <MenuItem key={project.id} value={project.id}>{project.name}</MenuItem>)}
+                        </TextField>
+                    </Stack>
+                }
+            />
 
             {!projectId ? <Alert severity="info">Create or select a project to apply a workflow.</Alert> : null}
             <SectionCard title="Built-in workflows" description="Curated v2 defaults for feature delivery, incidents, security, and documentation.">

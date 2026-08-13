@@ -1,10 +1,27 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link as RouterLink, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import {
+    Box,
+    Button,
+    Chip,
+    Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
+    TextField,
+    Typography,
+} from "@mui/material";
+import { Memory as MemoryIcon } from "@mui/icons-material";
 import { listCompanySemanticMemory, type SemanticMemoryEntry } from "../api/orchestration";
+import { EmptyState } from "../components/ui/EmptyState";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
 import { formatDateTime } from "../utils/formatters";
 
 export default function CompanyMemoryPage() {
@@ -26,75 +43,114 @@ export default function CompanyMemoryPage() {
     if (!companyId) return null;
 
     return (
-        <PageShell maxWidth="lg">
+        <PageShell maxWidth="lg" variant="browse">
+            <PageHeader
+                title="Company memory"
+                description="Org-scoped searchable facts and decisions. Provenance stays on each row."
+                actions={
+                    <Button component={RouterLink} to="/companies" variant="outlined" size="small">
+                        Back to companies
+                    </Button>
+                }
+            />
 
-            <SectionCard title="Browse" sx={{ mb: 3 }}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+            <SectionCard title="Browse" density="plain">
+                <FilterToolbar>
                     <TextField
                         label="Search title/body"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                         size="small"
-                        fullWidth
+                        sx={{ flex: 1, minWidth: 200 }}
                     />
                     <TextField
                         label="Namespace prefix"
                         value={prefix}
                         onChange={(e) => setPrefix(e.target.value)}
                         size="small"
-                        fullWidth
+                        sx={{ minWidth: 180 }}
+                        helperText="Filter by namespace path"
                     />
-                </Stack>
+                </FilterToolbar>
                 {isLoading ? (
-                    <Typography color="text.secondary">Loading…</Typography>
-                ) : entries.length === 0 ? (
-                    <Typography color="text.secondary">No company-scoped entries.</Typography>
+                    <Typography color="text.secondary" sx={{ mt: 2 }}>
+                        Loading…
+                    </Typography>
                 ) : (
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Type</TableCell>
-                                <TableCell>Title</TableCell>
-                                <TableCell>Namespace</TableCell>
-                                <TableCell>Confidence</TableCell>
-                                <TableCell>Updated</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {entries.map((row: SemanticMemoryEntry) => {
-                                const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
-                                return (
-                                    <TableRow key={row.id}>
-                                        <TableCell>{row.entry_type}</TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight={600}>
-                                                {row.title}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                                                {(row.body || "").slice(0, 120)}
-                                                {(row.body || "").length > 120 ? "…" : ""}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
-                                                {row.namespace}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>{(conf * 100).toFixed(0)}%</TableCell>
-                                        <TableCell>{formatDateTime(row.updated_at)}</TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                    <Box sx={{ mt: 2 }}>
+                        <ResponsiveTable
+                            isEmpty={entries.length === 0}
+                            empty={
+                                <EmptyState
+                                    icon={<MemoryIcon />}
+                                    title="No company memory yet"
+                                    description="Company-scoped entries appear here after writes or installs."
+                                    action={
+                                        <Button component={RouterLink} to="/companies" variant="outlined" size="small">
+                                            Edit company brief
+                                        </Button>
+                                    }
+                                />
+                            }
+                            table={
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Type</TableCell>
+                                            <TableCell>Title</TableCell>
+                                            <TableCell>Namespace</TableCell>
+                                            <TableCell>Confidence</TableCell>
+                                            <TableCell>Updated</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {entries.map((row: SemanticMemoryEntry) => {
+                                            const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
+                                            return (
+                                                <TableRow key={row.id} hover>
+                                                    <TableCell>
+                                                        <Chip size="small" label={row.entry_type} variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>
+                                                            {row.title}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                                            {(row.body || "").slice(0, 120)}
+                                                            {(row.body || "").length > 120 ? "…" : ""}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
+                                                            {row.namespace}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>{conf.toFixed(2)}</TableCell>
+                                                    <TableCell>{formatDateTime(row.updated_at)}</TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            }
+                            cards={entries.map((row) => (
+                                <ResponsiveRowCard
+                                    key={row.id}
+                                    title={row.title}
+                                    meta={`${row.entry_type} · conf ${typeof row.confidence === "number" ? row.confidence.toFixed(2) : "—"} · ${formatDateTime(row.updated_at)}`}
+                                >
+                                    <Typography variant="caption" color="text.secondary">
+                                        {(row.body || "").slice(0, 160)}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ display: "block", wordBreak: "break-all" }}>
+                                        {row.namespace}
+                                    </Typography>
+                                </ResponsiveRowCard>
+                            ))}
+                        />
+                    </Box>
                 )}
             </SectionCard>
-
-            <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                    Project-scoped memory stays on each project&apos;s Memory page.
-                </Typography>
-            </Box>
         </PageShell>
     );
 }

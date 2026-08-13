@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
-import { Box, Chip, Paper, Typography } from "@mui/material";
+import { Box, Paper, Typography } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
-import { humanizeKey } from "../../../../utils/formatters";
+import { StatusChip } from "../../../../components/ui/StatusChip";
 
 export type MilestoneTimelineItem = {
     id: string;
@@ -9,12 +9,6 @@ export type MilestoneTimelineItem = {
     due_date: string | null;
     status: string;
 };
-
-function statusColor(status: string): "success" | "warning" | "default" {
-    if (status === "completed") return "success";
-    if (status === "in_progress" || status === "active") return "warning";
-    return "default";
-}
 
 export const MilestoneTimeline = memo(function MilestoneTimeline({ milestones }: { milestones: MilestoneTimelineItem[] }) {
     const theme = useTheme();
@@ -44,7 +38,9 @@ export const MilestoneTimeline = memo(function MilestoneTimeline({ milestones }:
                         return (
                             <Paper key={milestone.id} variant="outlined" sx={{ position: "relative", minWidth: 180, p: 1.5, borderRadius: 1, borderColor: completed ? theme.palette.success.main : theme.palette.divider, backgroundColor: alpha(accent, 0.06) }}>
                                 <Box sx={{ position: "absolute", top: -10, left: `clamp(14px, ${position}, calc(100% - 14px))`, width: 12, height: 12, borderRadius: "50%", backgroundColor: accent, border: `2px solid ${theme.palette.background.paper}`, transform: "translateX(-50%)" }} />
-                                <Chip label={humanizeKey(milestone.status)} size="small" color={statusColor(milestone.status)} sx={{ mb: 1 }} />
+                                <Box sx={{ mb: 1 }}>
+                                    <StatusChip status={milestone.status} kind="task" />
+                                </Box>
                                 <Typography variant="subtitle2">{milestone.title}</Typography>
                                 <Typography variant="caption" color="text.secondary">
                                     {due ? `Due ${due.toLocaleDateString()}` : "No due date"}

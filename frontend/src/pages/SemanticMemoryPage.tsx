@@ -421,6 +421,11 @@ export default function SemanticMemoryPage() {
                 description="Queue when “Require approval for manual semantic writes” is on (and bypass is off)."
                 sx={{ mb: 3 }}
             >
+                {semanticApprovals.length > 0 ? (
+                    <Alert severity="info" sx={{ mb: 1.5 }}>
+                        {semanticApprovals.length} write{semanticApprovals.length === 1 ? "" : "s"} waiting — approve to publish into project memory, or reject with a reason.
+                    </Alert>
+                ) : null}
                 {semanticApprovals.length === 0 ? (
                     <Typography color="text.secondary">No pending semantic approvals for this project.</Typography>
                 ) : (
@@ -709,7 +714,7 @@ export default function SemanticMemoryPage() {
 
             <SectionCard
                 title="Semantic memory"
-                description={project ? project.name : undefined}
+                description="Searchable facts and decisions for this project (layer 2 of the memory stack). Use when agents need durable context beyond a single run."
                 action={
                     <Button variant="contained" onClick={() => setOpen(true)}>
                         New entry
@@ -736,7 +741,16 @@ export default function SemanticMemoryPage() {
                 {isLoading ? (
                     <Typography color="text.secondary">Loading…</Typography>
                 ) : entries.length === 0 ? (
-                    <Typography color="text.secondary">No entries yet.</Typography>
+                    <EmptyState
+                        icon={<InfoOutlinedIcon />}
+                        title="No memory entries yet"
+                        description="Add a fact, decision, or note agents should reuse across runs."
+                        action={
+                            <Button variant="contained" onClick={() => setOpen(true)}>
+                                New entry
+                            </Button>
+                        }
+                    />
                 ) : (
                     <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
                     <Table size="small">

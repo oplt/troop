@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
     Alert,
     Box,
@@ -398,7 +398,12 @@ export default function BenchmarkPage() {
                         <EmptyState
                             icon={<BenchmarkIcon />}
                             title="No benchmarks yet"
-                            description="Create your first benchmark to compare agents or models on a task."
+                            description="Use New benchmark on the left, or open the project board and run a task first."
+                            action={
+                                <Button component={RouterLink} to={`/projects/${projectId}?tab=board`} variant="outlined" size="small">
+                                    Open project board
+                                </Button>
+                            }
                         />
                     )}
                     {evals.map((ev) => (

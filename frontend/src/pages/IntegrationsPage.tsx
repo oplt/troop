@@ -41,7 +41,9 @@ import {
 import { installConnector } from "../api/workforce";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
+import { Link as RouterLink } from "react-router-dom";
 
 const integrationsKey = ["integrations"] as const;
 
@@ -220,12 +222,15 @@ export default function IntegrationsPage() {
     return (
         <PageShell maxWidth="xl">
             <Stack spacing={3} sx={{ py: 3 }}>
-                <Box>
-                    <Typography variant="h4" gutterBottom>Integrations & connections</Typography>
-                    <Typography color="text.secondary">
-                        Authorize external accounts, verify health, and monitor event delivery. Credentials are never displayed.
-                    </Typography>
-                </Box>
+                <PageHeader
+                    title="Integrations"
+                    description="Connect Gmail, Telegram, and other accounts so workflows can read and act. Credentials stay hidden."
+                    actions={
+                        <Button component={RouterLink} to="/marketplace" variant="outlined" size="small">
+                            Marketplace connectors
+                        </Button>
+                    }
+                />
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
                     <IntegrationCard
                         title="Gmail"

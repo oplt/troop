@@ -27,7 +27,7 @@ export default function ResetPasswordPage() {
     const [done, setDone] = useState(false);
     const [serverError, setServerError] = useState("");
     const { data: platformMetadata } = usePlatformMetadata();
-    const appName = platformMetadata?.app_name ?? "Your App";
+    const appName = platformMetadata?.app_name ?? "Troop";
 
     const {
         register,
@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
 
     async function onSubmit(values: Values) {
         if (!token) {
-            setServerError("Invalid or missing reset token.");
+            setServerError("Missing reset token. Open the link from your email again.");
             return;
         }
         setServerError("");
@@ -45,7 +45,11 @@ export default function ResetPasswordPage() {
             await resetPassword({ token, new_password: values.password });
             setDone(true);
         } catch (error) {
-            setServerError(error instanceof Error ? error.message : "Reset failed.");
+            setServerError(
+                error instanceof Error
+                    ? error.message
+                    : "Couldn't reset password. Request a new reset email from sign-in.",
+            );
         }
     }
 
@@ -55,16 +59,10 @@ export default function ResetPasswordPage() {
                 <AuthMarketingPanel
                     appName={appName}
                     eyebrow="Account recovery"
-                    title="Reset access with confidence."
-                    description="The recovery flow now matches the rest of the product: calmer layout, clearer feedback, and less ambiguity about what happens next."
-                    highlights={[
-                        { value: "1", label: "Secure token-based reset" },
-                        { value: "2", label: "Clear validation feedback" },
-                        { value: "3", label: "Fast path back to sign-in" },
-                    ]}
+                    valueProp="Set a new password, then sign in and return to your queue."
                     points={[
-                        "Choose a new password that is strong and memorable.",
-                        "Once complete, you can return directly to sign in.",
+                        "Use the email link once — it expires for security.",
+                        "After reset, sign in with the new password.",
                     ]}
                 />
             }
@@ -74,19 +72,21 @@ export default function ResetPasswordPage() {
                     <Typography variant="overline" color="primary.main">
                         Reset password
                     </Typography>
-                    <Typography variant="h4" sx={{ mt: 0.5 }}>
-                        Choose a new password
+                    <Typography variant="h4" component="h2" sx={{ mt: 0.5 }}>
+                        {done ? "Password updated" : "Choose a new password"}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
-                        Use a secure password that you have not used elsewhere.
+                        {done
+                            ? "Next: sign in with your new password."
+                            : "At least 8 characters. Prefer a password you don't reuse elsewhere."}
                     </Typography>
                 </Box>
 
                 {done ? (
                     <Stack spacing={2}>
-                        <Alert severity="success">Password reset successfully.</Alert>
+                        <Alert severity="success">Reset complete. You can sign in now.</Alert>
                         <Button component={RouterLink} to="/" variant="contained">
-                            Return to sign in
+                            Sign in
                         </Button>
                     </Stack>
                 ) : (
@@ -95,7 +95,8 @@ export default function ResetPasswordPage() {
                             {serverError && <Alert severity="error">{serverError}</Alert>}
                             {!token && (
                                 <Alert severity="warning">
-                                    No reset token found. Please use the link from your email.
+                                    No reset token in this URL. Use “Forgot password” on sign-in to get a fresh
+                                    link.
                                 </Alert>
                             )}
                             <TextField
@@ -105,6 +106,7 @@ export default function ResetPasswordPage() {
                                 error={!!errors.password}
                                 helperText={errors.password?.message}
                                 fullWidth
+                                autoComplete="new-password"
                             />
                             <TextField
                                 label="Confirm new password"
@@ -113,9 +115,13 @@ export default function ResetPasswordPage() {
                                 error={!!errors.confirm_password}
                                 helperText={errors.confirm_password?.message}
                                 fullWidth
+                                autoComplete="new-password"
                             />
                             <Button type="submit" variant="contained" disabled={isSubmitting || !token}>
-                                {isSubmitting ? "Resetting..." : "Reset password"}
+                                {isSubmitting ? "Saving…" : "Save new password"}
+                            </Button>
+                            <Button component={RouterLink} to="/" variant="text">
+                                Back to sign in
                             </Button>
                         </Stack>
                     </Box>

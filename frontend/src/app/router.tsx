@@ -1,9 +1,9 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
-import { Box, Skeleton, Stack } from "@mui/material";
 import { ProtectedRoute } from "../components/guards/ProtectedRoute";
 import { RouteErrorBoundary } from "../components/guards/RouteErrorBoundary";
 import { AppLayout } from "../components/layout/AppLayout";
+import { PageSkeleton, type PageSkeletonVariant } from "../components/ui/PageSkeleton";
 import { useAuth } from "../hooks/useAuth";
 import AuthHomePage from "../pages/AuthHomePage";
 
@@ -44,26 +44,20 @@ const WorkforceWorkflowsPage = lazy(() => import("../pages/WorkforceWorkflowsPag
 const MarketplacePage = lazy(() => import("../pages/MarketplacePage"));
 const IntegrationsPage = lazy(() => import("../pages/IntegrationsPage"));
 
-function PageLoader() {
-    return (
-        <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
-            <Stack spacing={3}>
-                <Skeleton variant="rounded" height={156} sx={{ borderRadius: 1 }} />
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
-                    <Skeleton variant="rounded" height={148} sx={{ borderRadius: 1, flex: 1 }} />
-                </Stack>
-                <Skeleton variant="rounded" height={260} sx={{ borderRadius: 1 }} />
-            </Stack>
-        </Box>
-    );
+function PageLoader({ variant = "browse" }: { variant?: PageSkeletonVariant }) {
+    return <PageSkeleton variant={variant} />;
 }
 
-function SuspensePage({ children }: { children: React.ReactNode }) {
+function SuspensePage({
+    children,
+    variant = "browse",
+}: {
+    children: React.ReactNode;
+    variant?: PageSkeletonVariant;
+}) {
     return (
         <RouteErrorBoundary>
-            <Suspense fallback={<PageLoader />}>{children}</Suspense>
+            <Suspense fallback={<PageLoader variant={variant} />}>{children}</Suspense>
         </RouteErrorBoundary>
     );
 }
@@ -90,8 +84,8 @@ export function AppRouter() {
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<AuthHomePage />} />
-                <Route path="/reset-password" element={<SuspensePage><ResetPasswordPage /></SuspensePage>} />
-                <Route path="/verify-email" element={<SuspensePage><VerifyEmailPage /></SuspensePage>} />
+                <Route path="/reset-password" element={<SuspensePage variant="form"><ResetPasswordPage /></SuspensePage>} />
+                <Route path="/verify-email" element={<SuspensePage variant="form"><VerifyEmailPage /></SuspensePage>} />
 
                 <Route
                     element={
@@ -105,16 +99,16 @@ export function AppRouter() {
                     <Route path="/platform" element={<SuspensePage><PlatformPage /></SuspensePage>} />
                     <Route path="/ai" element={<SuspensePage><AiStudioPage /></SuspensePage>} />
                     <Route path="/agents" element={<SuspensePage><AgentProfilesPage /></SuspensePage>} />
-                    <Route path="/agent-runs/:runId" element={<SuspensePage><AgentRunDetailPage /></SuspensePage>} />
+                    <Route path="/agent-runs/:runId" element={<SuspensePage variant="inspector"><AgentRunDetailPage /></SuspensePage>} />
                     <Route path="/hierarchy" element={<Navigate to="/hierarchy-builder" replace />} />
-                    <Route path="/hierarchy-builder" element={<SuspensePage><HierarchyPage /></SuspensePage>} />
+                    <Route path="/hierarchy-builder" element={<SuspensePage variant="canvas"><HierarchyPage /></SuspensePage>} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
                     <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
                     <Route path="/projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
-                    <Route path="/projects/:projectId" element={<SuspensePage><OrchestrationProjectDetailPage /></SuspensePage>} />
+                    <Route path="/projects/:projectId" element={<SuspensePage variant="inspector"><OrchestrationProjectDetailPage /></SuspensePage>} />
                     <Route path="/projects/:projectId/benchmark" element={<SuspensePage><BenchmarkPage /></SuspensePage>} />
                     <Route path="/projects/:projectId/memory" element={<SuspensePage><SemanticMemoryPage /></SuspensePage>} />
                     <Route path="/agent-projects" element={<Navigate to="/projects" replace />} />
@@ -125,7 +119,7 @@ export function AppRouter() {
                     <Route path="/skills/builder/:draftId" element={<SuspensePage><SkillBuilderPage /></SuspensePage>} />
                     <Route path="/departments" element={<SuspensePage><DepartmentsPage /></SuspensePage>} />
                     <Route path="/my-tasks" element={<SuspensePage><MyTasksPage /></SuspensePage>} />
-                    <Route path="/workforce-workflows" element={<SuspensePage><WorkforceWorkflowsPage /></SuspensePage>} />
+                    <Route path="/workforce-workflows" element={<SuspensePage variant="canvas"><WorkforceWorkflowsPage /></SuspensePage>} />
                     <Route path="/marketplace" element={<SuspensePage><MarketplacePage /></SuspensePage>} />
                     <Route path="/integrations" element={<SuspensePage><IntegrationsPage /></SuspensePage>} />
                     <Route path="/github" element={<RedirectToAdminSettingsTab tab="integrations" />} />
@@ -143,7 +137,7 @@ export function AppRouter() {
                         path="/agent-projects/:projectId/memory"
                         element={<RedirectLegacyProjectPath suffix="/memory" />}
                     />
-                    <Route path="/runs/:runId" element={<SuspensePage><RunInspectorPage /></SuspensePage>} />
+                    <Route path="/runs/:runId" element={<SuspensePage variant="inspector"><RunInspectorPage /></SuspensePage>} />
                     <Route path="/profile" element={<SuspensePage><ProfilePage /></SuspensePage>} />
                     <Route path="/notifications" element={<SuspensePage><NotificationsPage /></SuspensePage>} />
                     <Route

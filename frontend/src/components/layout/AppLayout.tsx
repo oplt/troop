@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     AppBar,
@@ -8,6 +8,7 @@ import {
     Box,
     Button,
     Chip,
+    Collapse,
     Divider,
     Drawer,
     IconButton,
@@ -23,46 +24,65 @@ import {
     useMediaQuery,
 } from "@mui/material";
 import {
-    Analytics as ActivityIcon,
     ArrowBack as ArrowBackIcon,
+    Assignment as MyTasksIcon,
+    AutoAwesome as AiStudioIcon,
+    Business as DepartmentsIcon,
+    Cable as IntegrationsIcon,
     ChevronLeft as ChevronLeftIcon,
     ChevronRight as ChevronRightIcon,
+    CorporateFare as CompaniesIcon,
     Dashboard as DashboardIcon,
     DarkMode as DarkModeIcon,
-    Hub as AgentProjectsIcon,
+    ExpandLess as ExpandLessIcon,
+    ExpandMore as ExpandMoreIcon,
+    Forum as BrainstormsIcon,
+    Hub as ProjectsIcon,
+    Insights as ExecutionIcon,
+    LibraryBooks as WorkflowTemplatesIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
     Menu as MenuIcon,
+    NotificationsNone as NotificationsIcon,
     AccountCircle as ProfileIcon,
+    AccountTree as HierarchyIcon,
     AttachMoney as CostAnalyticsIcon,
-    Forum as BrainstormsIcon,
-    Tune as ModelSettingsIcon,
-    ViewModule as PortfolioNavIcon,
-    AccountTree as WorkflowTemplatesIcon,
+    PendingActions as ApprovalsIcon,
+    Psychology as SkillsIcon,
+    Schema as WorkflowsIcon,
+    Search as SearchIcon,
     Settings as SettingsIcon,
     SettingsBrightness as SystemModeIcon,
     SmartToy as AgentsIcon,
-    Cable as IntegrationsIcon,
+    Storefront as MarketplaceIcon,
+    Tune as ModelSettingsIcon,
+    ViewModule as PortfolioNavIcon,
 } from "@mui/icons-material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
 import { getPendingApprovalsCount, getOrchestrationProject } from "../../api/orchestration";
+import { getNotifications } from "../../api/notifications";
 import { useCanonicalUser } from "../../hooks/useCanonicalUser";
 import { useAuth } from "../../hooks/useAuth";
 import { queryKeys, defaultQueryStaleTimeMs } from "../../config/queryKeys";
 import { queryPolicies } from "../../config/queryPolicies";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
 import { getInitials } from "../../utils/formatters";
-import { CommandPalette } from "./CommandPalette";
-import GroupsIcon from '@mui/icons-material/Groups';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BusinessIcon from '@mui/icons-material/Business';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import StorefrontIcon from '@mui/icons-material/Storefront';
+import { CommandPalette, type CommandPaletteItem } from "./CommandPalette";
+import {
+    NAV_GROUPS,
+    pathMatchesNavItem,
+    readExpandedNavGroups,
+    writeExpandedNavGroups,
+    type NavGroupId,
+} from "./navConfig";
+import { commandShortcutLabel, readRecentProjects, recordRecentProject } from "./recentProjects";
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
+/** Keep AppBar / drawer / main margin on the same curve to avoid CLS on collapse. */
+const SHELL_TRANSITION_MS = 330;
 
 type NavItem = {
     label: string;
@@ -72,7 +92,7 @@ type NavItem = {
     badge?: number;
     /** Shown under the label when the drawer is expanded (e.g. pending approvals). */
     subtitle?: string;
-    group: "workspace" | "admin";
+    group: NavGroupId;
 };
 
 type BreadcrumbItem = {
@@ -140,7 +160,7 @@ export function ThemeToggle() {
                 onClick={cycle}
                 size="small"
                 aria-label={`Switch theme to ${nextMode}`}
-                sx={{ borderRadius: 1 }}
+                sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
             >
                 {icon}
             </IconButton>
@@ -148,97 +168,159 @@ export function ThemeToggle() {
     );
 }
 
-function NavBlock({
-    title,
-    items,
+function NavItemButton({
+    item,
     currentPath,
     onNavigate,
     collapsed,
 }: {
-    title?: string;
-    items: NavItem[];
+    item: NavItem;
     currentPath: string;
     onNavigate: (path: string) => void;
     collapsed: boolean;
+}) {
+    const selected = pathMatchesNavItem(currentPath, item.path);
+    const itemButton = (
+        <ListItemButton
+            selected={selected}
+            aria-label={collapsed ? item.label : undefined}
+            onClick={() => onNavigate(item.path)}
+            sx={
+                collapsed
+                    ? {
+                          minHeight: 48,
+                          px: 1,
+                          justifyContent: "center",
+                      }
+                    : {
+                          minHeight: 40,
+                          pl: 2,
+                          pr: 1.5,
+                      }
+            }
+        >
+            <ListItemIcon
+                sx={{
+                    minWidth: collapsed ? "auto" : 40,
+                    justifyContent: "center",
+                }}
+            >
+                {item.badge ? (
+                    <Badge badgeContent={item.badge} color="error" max={99}>
+                        {item.icon}
+                    </Badge>
+                ) : (
+                    item.icon
+                )}
+            </ListItemIcon>
+            {!collapsed && (
+                <ListItemText
+                    primary={item.label}
+                    secondary={item.subtitle}
+                    secondaryTypographyProps={{ sx: { fontSize: "0.74rem" } }}
+                />
+            )}
+        </ListItemButton>
+    );
+
+    if (!collapsed) {
+        return itemButton;
+    }
+
+    const collapsedTitle =
+        item.path === "/activity" && item.badge
+            ? `${item.label} — ${item.badge} pending approval${item.badge === 1 ? "" : "s"}`
+            : item.label;
+    return (
+        <Tooltip title={collapsedTitle} placement="right">
+            {itemButton}
+        </Tooltip>
+    );
+}
+
+function NavGroupBlock({
+    groupId,
+    title,
+    items,
+    currentPath,
+    onNavigate,
+    drawerCollapsed,
+    expanded,
+    onToggle,
+}: {
+    groupId: NavGroupId;
+    title: string;
+    items: NavItem[];
+    currentPath: string;
+    onNavigate: (path: string) => void;
+    drawerCollapsed: boolean;
+    expanded: boolean;
+    onToggle: (groupId: NavGroupId) => void;
 }) {
     if (items.length === 0) {
         return null;
     }
 
-    return (
-        <Stack spacing={1}>
-            {!collapsed && title && (
-                <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>
-                    {title}
-                </Typography>
-            )}
+    if (drawerCollapsed) {
+        return (
             <List disablePadding sx={{ display: "grid", gap: 0.75 }}>
-                {items.map((item) => {
-                    const selected =
-                        item.path === "/dashboard"
-                            ? currentPath === item.path
-                            : currentPath.startsWith(item.path);
-                    const itemButton = (
-                        <ListItemButton
-                            key={item.path}
-                            selected={selected}
-                            aria-label={collapsed ? item.label : undefined}
-                            onClick={() => onNavigate(item.path)}
-                            sx={
-                                collapsed
-                                    ? {
-                                          minHeight: 48,
-                                          px: 1,
-                                          justifyContent: "center",
-                                      }
-                                    : undefined
-                            }
-                        >
-                            <ListItemIcon
-                                sx={{
-                                    minWidth: collapsed ? "auto" : 40,
-                                    justifyContent: "center",
-                                }}
-                            >
-                                {item.badge ? (
-                                    <Badge badgeContent={item.badge} color="error" max={99}>
-                                        {item.icon}
-                                    </Badge>
-                                ) : (
-                                    item.icon
-                                )}
-                            </ListItemIcon>
-                            {!collapsed && (
-                                <ListItemText
-                                    primary={item.label}
-                                    secondary={
-                                        item.subtitle
-                                            ? item.subtitle
-                                            : selected
-                                              ? "Current section"
-                                              : undefined
-                                    }
-                                    secondaryTypographyProps={{ sx: { fontSize: "0.74rem" } }}
-                                />
-                            )}
-                        </ListItemButton>
-                    );
-
-                    if (!collapsed) {
-                        return itemButton;
-                    }
-
-                    const collapsedTitle =
-                        item.path === "/activity" && item.badge
-                            ? `${item.label} — ${item.badge} pending approval${item.badge === 1 ? "" : "s"}`
-                            : item.label;
-                    return (
-                        <Tooltip key={item.path} title={collapsedTitle} placement="right">
-                            {itemButton}
-                        </Tooltip>
-                    );
-                })}
+                {items.map((item) => (
+                    <NavItemButton
+                        key={item.path}
+                        item={item}
+                        currentPath={currentPath}
+                        onNavigate={onNavigate}
+                        collapsed
+                    />
+                ))}
             </List>
+        );
+    }
+
+    const groupBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0);
+
+    return (
+        <Stack spacing={0.5}>
+            <ListItemButton
+                onClick={() => onToggle(groupId)}
+                aria-expanded={expanded}
+                aria-controls={`nav-group-${groupId}`}
+                sx={{ minHeight: 36, px: 1.5, borderRadius: 1 }}
+            >
+                <ListItemText
+                    primary={title}
+                    primaryTypographyProps={{
+                        variant: "overline",
+                        color: "text.secondary",
+                        sx: { lineHeight: 1.2 },
+                    }}
+                />
+                {groupBadge > 0 && (
+                    <Badge badgeContent={groupBadge} color="error" max={99} sx={{ mr: 1 }} />
+                )}
+                {expanded ? (
+                    <ExpandLessIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                ) : (
+                    <ExpandMoreIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                )}
+            </ListItemButton>
+            <Collapse in={expanded} timeout="auto" unmountOnExit>
+                <List
+                    id={`nav-group-${groupId}`}
+                    disablePadding
+                    sx={{ display: "grid", gap: 0.5, pb: 0.5 }}
+                >
+                    {items.map((item) => (
+                        <NavItemButton
+                            key={item.path}
+                            item={item}
+                            currentPath={currentPath}
+                            onNavigate={onNavigate}
+                            collapsed={false}
+                        />
+                    ))}
+                </List>
+            </Collapse>
         </Stack>
     );
 }
@@ -247,6 +329,7 @@ export function AppLayout() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState<NavGroupId[]>(readExpandedNavGroups);
     const { logout, isAdmin, isAuthenticated, isReady } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -264,8 +347,18 @@ export function AppLayout() {
         enabled: authReady,
         retry: false,
     });
+    const { data: notifications } = useQuery({
+        queryKey: queryKeys.notifications.root,
+        queryFn: getNotifications,
+        ...queryPolicies.operational,
+        refetchInterval: 60_000,
+        enabled: authReady,
+        retry: false,
+    });
     const pendingCount = pendingApprovals?.count ?? 0;
+    const unreadNotifications = notifications?.filter((item) => !item.is_read).length ?? 0;
     const appName = platformMetadata?.app_name ?? "Troop";
+    const shortcutLabel = useMemo(() => commandShortcutLabel(), []);
     const hasAiModule =
         platformMetadata?.module_catalog.some((item) => item.key === "ai" && item.enabled) ?? false;
     const drawerCollapsed = !isMobile && desktopNavCollapsed;
@@ -273,78 +366,168 @@ export function AppLayout() {
 
     const navItems = useMemo<NavItem[]>(
         () => [
-            { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "workspace" },
-            { label: "Projects", icon: <AgentProjectsIcon />, path: "/projects", group: "workspace" },
-            { label: "My tasks", icon: <ActivityIcon />, path: "/my-tasks", group: "workspace" },
+            { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "work" },
+            { label: "Projects", icon: <ProjectsIcon />, path: "/projects", group: "work" },
+            { label: "My tasks", icon: <MyTasksIcon />, path: "/my-tasks", group: "work" },
             {
                 label: "Approvals",
-                icon: <ActivityIcon />,
+                icon: <ApprovalsIcon />,
                 path: "/activity",
-                group: "workspace",
+                group: "work",
                 badge: pendingCount || undefined,
                 subtitle:
                     pendingCount > 0
                         ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
                         : undefined,
             },
-            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "workspace" },
-            { label: "Skills", icon: <PsychologyIcon />, path: "/skills", group: "workspace" },
-            { label: "Marketplace", icon: <StorefrontIcon />, path: "/marketplace", group: "workspace" },
-            { label: "Integrations", icon: <IntegrationsIcon />, path: "/integrations", group: "workspace" },
-            { label: "Teams", icon: <GroupsIcon />, path: "/hierarchy-builder", group: "workspace" },
-            { label: "Workflows", icon: <WorkflowTemplatesIcon />, path: "/workforce-workflows", group: "workspace" },
-            { label: "Workflow templates", icon: <WorkflowTemplatesIcon />, path: "/workflow-templates", group: "workspace" },
-            { label: "Departments", icon: <BusinessIcon />, path: "/departments", group: "workspace" },
-            { label: "Knowledge", icon: <AutoAwesomeIcon />, path: "/companies", group: "workspace" },
-            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "workspace" },
-            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "workspace" },
-            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "workspace" },
-            { label: "Execution insights", icon: <ActivityIcon />, path: "/analytics/execution", group: "workspace" },
-            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "workspace" },
+            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "agents" },
+            { label: "Skills", icon: <SkillsIcon />, path: "/skills", group: "agents" },
+            { label: "Marketplace", icon: <MarketplaceIcon />, path: "/marketplace", group: "agents" },
+            { label: "Hierarchy", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "agents" },
+            { label: "Workflows", icon: <WorkflowsIcon />, path: "/workforce-workflows", group: "automate" },
+            {
+                label: "Workflow templates",
+                icon: <WorkflowTemplatesIcon />,
+                path: "/workflow-templates",
+                group: "automate",
+            },
+            { label: "Integrations", icon: <IntegrationsIcon />, path: "/integrations", group: "automate" },
+            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "insight" },
+            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "insight" },
+            {
+                label: "Execution insights",
+                icon: <ExecutionIcon />,
+                path: "/analytics/execution",
+                group: "insight",
+            },
+            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "insight" },
             ...(hasAiModule
-                ? [{ label: "AI Studio", icon: <AutoAwesomeIcon />, path: "/ai", group: "workspace" as const }]
+                ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "insight" as const }]
                 : []),
+            { label: "Departments", icon: <DepartmentsIcon />, path: "/departments", group: "org" },
+            { label: "Companies", icon: <CompaniesIcon />, path: "/companies", group: "org" },
+            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "org" },
             { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
         ],
-        [hasAiModule, pendingCount]
+        [hasAiModule, pendingCount],
     );
 
     const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
-    const commandRoutes = useMemo(
-        () => visibleNavItems.map((item) => ({ label: item.label, path: item.path })),
-        [visibleNavItems],
-    );
+    const activeGroupId = useMemo(() => {
+        const match = [...visibleNavItems]
+            .sort((left, right) => right.path.length - left.path.length)
+            .find((item) => pathMatchesNavItem(location.pathname, item.path));
+        return match?.group;
+    }, [location.pathname, visibleNavItems]);
+
+    const [trackedActiveGroup, setTrackedActiveGroup] = useState<NavGroupId | undefined>(activeGroupId);
+    if (activeGroupId !== trackedActiveGroup) {
+        setTrackedActiveGroup(activeGroupId);
+        if (activeGroupId && !expandedGroups.includes(activeGroupId)) {
+            const next = [...expandedGroups, activeGroupId];
+            setExpandedGroups(next);
+            writeExpandedNavGroups(next);
+        }
+    }
+
+    const toggleGroup = useCallback((groupId: NavGroupId) => {
+        setExpandedGroups((current) => {
+            const next = current.includes(groupId)
+                ? current.filter((id) => id !== groupId)
+                : [...current, groupId];
+            writeExpandedNavGroups(next);
+            return next;
+        });
+    }, []);
+
+    const commandItems = useMemo<CommandPaletteItem[]>(() => {
+        const suggested: CommandPaletteItem[] = [
+            {
+                id: "suggested-approvals",
+                label: pendingCount > 0 ? `Review approvals (${pendingCount})` : "Review approvals",
+                path: "/activity",
+                group: "suggested",
+                secondary: "Clear the approval queue",
+            },
+            {
+                id: "suggested-tasks",
+                label: "My tasks",
+                path: "/my-tasks",
+                group: "suggested",
+                secondary: "Personal work queue",
+            },
+            {
+                id: "suggested-projects",
+                label: "Projects",
+                path: "/projects",
+                group: "suggested",
+                secondary: "Browse orchestration projects",
+            },
+        ];
+        if (unreadNotifications > 0) {
+            suggested.unshift({
+                id: "suggested-notifications",
+                label: `Notifications (${unreadNotifications} unread)`,
+                path: "/notifications",
+                group: "suggested",
+                secondary: "Alerts and account events",
+            });
+        }
+        const recent: CommandPaletteItem[] = readRecentProjects().map((project) => ({
+            id: `recent-${project.id}`,
+            label: project.name,
+            path: `/projects/${project.id}`,
+            group: "recent",
+            secondary: "Recent project",
+        }));
+        const actions: CommandPaletteItem[] = [
+            {
+                id: "action-create-project",
+                label: "Create project",
+                path: "/projects?create=1",
+                group: "actions",
+                secondary: "Open new project drawer",
+            },
+            {
+                id: "action-approvals",
+                label: "Open approvals",
+                path: "/activity",
+                group: "actions",
+                secondary: pendingCount > 0 ? `${pendingCount} pending` : "Approval queue",
+            },
+            {
+                id: "action-create-task",
+                label: "Go to my tasks",
+                path: "/my-tasks",
+                group: "actions",
+                secondary: "Personal work queue",
+            },
+        ];
+        const pages: CommandPaletteItem[] = visibleNavItems.map((item) => ({
+            id: `page-${item.path}`,
+            label: item.label,
+            path: item.path,
+            group: "pages",
+            secondary: item.path,
+        }));
+        return [...suggested, ...recent, ...actions, ...pages];
+    }, [pendingCount, unreadNotifications, visibleNavItems]);
 
     useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {
             const isModK = (e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K");
-            const t = e.target as HTMLElement | null;
-            const inField =
-                !!t &&
-                (t.tagName === "INPUT" ||
-                    t.tagName === "TEXTAREA" ||
-                    t.tagName === "SELECT" ||
-                    t.isContentEditable);
-            if (isModK) {
-                e.preventDefault();
-                setCommandPaletteOpen((open) => !open);
+            if (!isModK) {
                 return;
             }
-            if (inField) return;
-            if (e.key === "k" || e.key === "K") {
-                if (e.ctrlKey || e.metaKey || e.altKey) return;
-                e.preventDefault();
-                setCommandPaletteOpen(true);
-            }
+            e.preventDefault();
+            setCommandPaletteOpen((open) => !open);
         }
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
 
-    const currentItem = visibleNavItems.find((item) =>
-        item.path === "/dashboard" ? location.pathname === item.path : location.pathname.startsWith(item.path)
-    );
+    const currentItem = visibleNavItems.find((item) => pathMatchesNavItem(location.pathname, item.path));
     const projectIdFromPath = useMemo(() => {
         const match = location.pathname.match(/^\/(?:projects|agent-projects)\/([^/]+)/);
         return match?.[1] ?? null;
@@ -355,6 +538,12 @@ export function AppLayout() {
         enabled: Boolean(projectIdFromPath),
         staleTime: defaultQueryStaleTimeMs,
     });
+
+    useEffect(() => {
+        if (breadcrumbProject?.id && breadcrumbProject.name) {
+            recordRecentProject({ id: breadcrumbProject.id, name: breadcrumbProject.name });
+        }
+    }, [breadcrumbProject?.id, breadcrumbProject?.name]);
 
     const breadcrumbs = useMemo(
         () =>
@@ -413,44 +602,59 @@ export function AppLayout() {
                             <Typography variant="h6" sx={{ mt: 0.5 }}>
                                 {appName}
                             </Typography>
-
-                            {platformMetadata?.module_pack && (
-                                <Chip
-                                    label={`Pack: ${platformMetadata.module_pack}`}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ mt: 1.5 }}
-                                />
-                            )}
+                            <Typography variant="caption" color="text.secondary">
+                                Workspace
+                            </Typography>
                         </Box>
                     )}
                 </Box>
             </Tooltip>
 
-            <Stack spacing={drawerCollapsed ? 1 : 2}>
-                <NavBlock
-                    title="Workspace"
-                    items={visibleNavItems.filter((item) => item.group === "workspace")}
-                    currentPath={location.pathname}
-                    onNavigate={handleNavigate}
-                    collapsed={drawerCollapsed}
-                />
-                {isAdmin && drawerCollapsed && <Divider sx={{ mx: 1.5 }} />}
-                {isAdmin && (
-                    <NavBlock
-                        title="Admin"
-                        items={visibleNavItems.filter((item) => item.group === "admin")}
-                        currentPath={location.pathname}
-                        onNavigate={handleNavigate}
-                        collapsed={drawerCollapsed}
-                    />
-                )}
+            <Stack
+                spacing={drawerCollapsed ? 1 : 0.75}
+                sx={{ overflowY: "auto", flexGrow: 1, minHeight: 0 }}
+            >
+                {NAV_GROUPS.map((group) => {
+                    const items = visibleNavItems.filter((item) => item.group === group.id);
+                    if (items.length === 0) {
+                        return null;
+                    }
+                    if (drawerCollapsed && group.id === "admin") {
+                        return (
+                            <Stack key={group.id} spacing={1}>
+                                <Divider sx={{ mx: 1.5 }} />
+                                <NavGroupBlock
+                                    groupId={group.id}
+                                    title={group.title}
+                                    items={items}
+                                    currentPath={location.pathname}
+                                    onNavigate={handleNavigate}
+                                    drawerCollapsed={drawerCollapsed}
+                                    expanded={expandedGroups.includes(group.id)}
+                                    onToggle={toggleGroup}
+                                />
+                            </Stack>
+                        );
+                    }
+                    return (
+                        <NavGroupBlock
+                            key={group.id}
+                            groupId={group.id}
+                            title={group.title}
+                            items={items}
+                            currentPath={location.pathname}
+                            onNavigate={handleNavigate}
+                            drawerCollapsed={drawerCollapsed}
+                            expanded={expandedGroups.includes(group.id)}
+                            onToggle={toggleGroup}
+                        />
+                    );
+                })}
             </Stack>
-
-            <Box sx={{ flexGrow: 1 }} />
 
             <Box
                 sx={(theme) => ({
+                    mt: 2,
                     p: drawerCollapsed ? 1.25 : 2,
                     borderRadius: 1,
                     backgroundColor:
@@ -490,7 +694,7 @@ export function AppLayout() {
                                 <IconButton
                                     onClick={() => handleNavigate("/profile")}
                                     aria-label="Manage profile"
-                                    sx={{ borderRadius: 1 }}
+                                    sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
                                 >
                                     <ProfileIcon fontSize="small" />
                                 </IconButton>
@@ -499,7 +703,7 @@ export function AppLayout() {
                                 <IconButton
                                     onClick={() => void handleSignOut()}
                                     aria-label="Sign out"
-                                    sx={{ borderRadius: 1 }}
+                                    sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
                                 >
                                     <LogoutIcon fontSize="small" />
                                 </IconButton>
@@ -507,7 +711,15 @@ export function AppLayout() {
                         </Stack>
                     ) : (
                         <Stack spacing={1}>
-
+                            <Button
+                                variant="text"
+                                color="inherit"
+                                fullWidth
+                                startIcon={<ProfileIcon />}
+                                onClick={() => handleNavigate("/profile")}
+                            >
+                                Profile
+                            </Button>
                             <Button
                                 variant="text"
                                 color="inherit"
@@ -526,6 +738,30 @@ export function AppLayout() {
 
     return (
         <Box sx={{ minHeight: "100vh" }}>
+            <Box
+                component="a"
+                href="#main-content"
+                sx={{
+                    position: "absolute",
+                    left: -10000,
+                    top: 0,
+                    zIndex: (t) => t.zIndex.tooltip + 1,
+                    px: 2,
+                    py: 1,
+                    borderRadius: 1,
+                    backgroundColor: "background.paper",
+                    color: "text.primary",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    textDecoration: "none",
+                    "&:focus": {
+                        left: 16,
+                        top: 16,
+                    },
+                }}
+            >
+                Skip to main content
+            </Box>
             <AppBar
                 position="fixed"
                 elevation={0}
@@ -538,14 +774,30 @@ export function AppLayout() {
                             : "rgba(255, 255, 255, 0.75)",
                     color: "text.primary",
                     backdropFilter: "blur(12px)",
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
                     transition: theme.transitions.create(["left", "width", "background-color"], {
-                        duration: 330,
+                        duration: SHELL_TRANSITION_MS,
+                        easing: theme.transitions.easing.easeInOut,
                     }),
                 }}
             >
-                <Toolbar sx={{ minHeight: { xs: 72, md: 80 }, px: { xs: 2, md: 3 } }}>
+                <Toolbar
+                    sx={{
+                        minHeight: { xs: 64, md: 72 },
+                        height: { xs: 64, md: 72 },
+                        px: { xs: 2, md: 3 },
+                        gap: 1,
+                        boxSizing: "border-box",
+                    }}
+                >
                     {isMobile ? (
-                        <IconButton edge="start" aria-label="Open navigation menu" onClick={() => setDrawerOpen(true)} sx={{ mr: 1.25 }}>
+                        <IconButton
+                            edge="start"
+                            aria-label="Open navigation menu"
+                            onClick={() => setDrawerOpen(true)}
+                            sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
+                        >
                             <MenuIcon />
                         </IconButton>
                     ) : (
@@ -554,27 +806,23 @@ export function AppLayout() {
                                 edge="start"
                                 aria-label={drawerCollapsed ? "Expand navigation" : "Collapse navigation"}
                                 onClick={() => setDesktopNavCollapsed((current) => !current)}
-                                sx={{ mr: 1.25, borderRadius: 1 }}
+                                sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
                             >
                                 {drawerCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
                             </IconButton>
                         </Tooltip>
                     )}
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                            {appName}
-                        </Typography>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                            {canGoBack ? (
-                                <Button
+                            {canGoBack && isMobile ? (
+                                <IconButton
                                     size="small"
-                                    variant="text"
-                                    startIcon={<ArrowBackIcon fontSize="small" />}
+                                    aria-label="Go back"
                                     onClick={() => navigate(-1)}
-                                    sx={{ minWidth: "auto", px: 0.75 }}
+                                    sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
                                 >
-                                    Back
-                                </Button>
+                                    <ArrowBackIcon fontSize="small" />
+                                </IconButton>
                             ) : null}
                             <Breadcrumbs
                                 separator="›"
@@ -588,7 +836,7 @@ export function AppLayout() {
                                     const isLast = index === breadcrumbs.length - 1;
                                     const crumbSx = {
                                         minWidth: 0,
-                                        maxWidth: "100%",
+                                        maxWidth: { xs: 140, sm: 220, md: 320 },
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
@@ -616,7 +864,56 @@ export function AppLayout() {
                             </Breadcrumbs>
                         </Stack>
                     </Box>
-                    <ThemeToggle />
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Tooltip title={`Command palette (${shortcutLabel})`}>
+                            <Button
+                                size="small"
+                                variant="text"
+                                color="inherit"
+                                onClick={() => setCommandPaletteOpen(true)}
+                                startIcon={<SearchIcon fontSize="small" />}
+                                aria-label={`Open command palette (${shortcutLabel})`}
+                                sx={{
+                                    display: { xs: "none", sm: "inline-flex" },
+                                    minHeight: 40,
+                                    color: "text.secondary",
+                                    px: 1,
+                                }}
+                            >
+                                <Chip
+                                    label={shortcutLabel}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ height: 22, borderRadius: 1, "& .MuiChip-label": { px: 0.75 } }}
+                                />
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title={`Command palette (${shortcutLabel})`}>
+                            <IconButton
+                                aria-label={`Open command palette (${shortcutLabel})`}
+                                onClick={() => setCommandPaletteOpen(true)}
+                                sx={{ display: { xs: "inline-flex", sm: "none" }, borderRadius: 1, minWidth: 40, minHeight: 40 }}
+                            >
+                                <SearchIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={unreadNotifications > 0 ? `${unreadNotifications} unread notifications` : "Notifications"}>
+                            <IconButton
+                                aria-label={
+                                    unreadNotifications > 0
+                                        ? `Notifications, ${unreadNotifications} unread`
+                                        : "Notifications"
+                                }
+                                onClick={() => handleNavigate("/notifications")}
+                                sx={{ borderRadius: 1, minWidth: 40, minHeight: 40 }}
+                            >
+                                <Badge badgeContent={unreadNotifications || undefined} color="error" max={99}>
+                                    <NotificationsIcon />
+                                </Badge>
+                            </IconButton>
+                        </Tooltip>
+                        <ThemeToggle />
+                    </Stack>
                 </Toolbar>
             </AppBar>
 
@@ -626,6 +923,12 @@ export function AppLayout() {
                     onClose={() => setDrawerOpen(false)}
                     ModalProps={{ keepMounted: true }}
                     sx={{ "& .MuiDrawer-paper": { width: DRAWER_WIDTH } }}
+                    slotProps={{
+                        paper: {
+                            component: "nav",
+                            "aria-label": "Primary",
+                        },
+                    }}
                 >
                     {drawerContent}
                 </Drawer>
@@ -640,9 +943,18 @@ export function AppLayout() {
                             width: desktopDrawerWidth,
                             boxSizing: "border-box",
                             overflowX: "hidden",
+                            borderRight: "1px solid",
+                            borderColor: "divider",
                             transition: theme.transitions.create("width", {
-                                duration: theme.transitions.duration.shorter,
+                                duration: SHELL_TRANSITION_MS,
+                                easing: theme.transitions.easing.easeInOut,
                             }),
+                        },
+                    }}
+                    slotProps={{
+                        paper: {
+                            component: "nav",
+                            "aria-label": "Primary",
                         },
                     }}
                 >
@@ -652,12 +964,16 @@ export function AppLayout() {
 
             <Box
                 component="main"
+                id="main-content"
+                tabIndex={-1}
                 sx={{
                     minHeight: "100vh",
                     ml: { md: `${desktopDrawerWidth}px` },
-                    pt: { xs: "72px", md: "80px" },
+                    pt: { xs: "64px", md: "72px" },
+                    outline: "none",
                     transition: theme.transitions.create("margin-left", {
-                        duration: theme.transitions.duration.shorter,
+                        duration: SHELL_TRANSITION_MS,
+                        easing: theme.transitions.easing.easeInOut,
                     }),
                 }}
             >
@@ -667,7 +983,7 @@ export function AppLayout() {
             <CommandPalette
                 open={commandPaletteOpen}
                 onClose={() => setCommandPaletteOpen(false)}
-                routes={commandRoutes}
+                items={commandItems}
                 onNavigate={handleNavigate}
             />
         </Box>

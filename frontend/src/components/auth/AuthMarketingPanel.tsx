@@ -8,16 +8,24 @@ type Highlight = {
 
 type AuthMarketingPanelProps = {
     appName: string;
-    eyebrow: string;
-    title: string;
-    description: string;
+    /** One-sentence product value prop (not marketing fluff). */
+    valueProp: string;
+    eyebrow?: string;
+    /** Optional secondary headline under the brand. Prefer short. */
+    title?: string;
+    description?: string;
     highlights?: Highlight[];
     points?: string[];
 };
 
+/**
+ * Brand-first auth side panel: product name is the hero signal;
+ * one value sentence + calm ops cues — not a photo hero.
+ */
 export function AuthMarketingPanel({
     appName,
-    eyebrow,
+    valueProp,
+    eyebrow = "Ops workspace",
     title,
     description,
     highlights = [],
@@ -29,16 +37,41 @@ export function AuthMarketingPanel({
                 <Box>
                     <Typography
                         variant="overline"
-                        sx={{ color: "text.secondary", display: "block", mb: 1 }}
+                        sx={{ color: "text.secondary", display: "block", mb: 1.5 }}
                     >
                         {eyebrow}
                     </Typography>
-                    <Typography variant="h2" sx={{ mb: 1.25 }}>
-                        {title}
+                    <Typography
+                        component="h1"
+                        variant="h1"
+                        sx={{
+                            fontFamily: (theme) => theme.typography.h1.fontFamily,
+                            fontWeight: 600,
+                            letterSpacing: "-0.03em",
+                            mb: 1.5,
+                            fontSize: { xs: "2.4rem", md: "3rem" },
+                            lineHeight: 1.05,
+                        }}
+                    >
+                        {appName}
                     </Typography>
-                    <Typography sx={{ color: "text.secondary", maxWidth: 620 }}>
-                        {description}
+                    <Typography
+                        variant="h5"
+                        component="h2"
+                        sx={{ color: "text.primary", fontWeight: 500, maxWidth: 520, mb: description || title ? 1 : 0 }}
+                    >
+                        {valueProp}
                     </Typography>
+                    {title ? (
+                        <Typography variant="subtitle1" component="p" sx={{ color: "text.secondary", mt: 1, maxWidth: 560 }}>
+                            {title}
+                        </Typography>
+                    ) : null}
+                    {description ? (
+                        <Typography sx={{ color: "text.secondary", mt: 1, maxWidth: 620 }}>
+                            {description}
+                        </Typography>
+                    ) : null}
                 </Box>
 
                 {highlights.length > 0 && (
@@ -61,7 +94,9 @@ export function AuthMarketingPanel({
                                             : theme.palette.grey[50],
                                 }}
                             >
-                                <Typography variant="h5">{item.value}</Typography>
+                                <Typography variant="h5" component="p" sx={{ fontWeight: 600 }}>
+                                    {item.value}
+                                </Typography>
                                 <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
                                     {item.label}
                                 </Typography>
@@ -72,9 +107,6 @@ export function AuthMarketingPanel({
             </Stack>
 
             <Stack spacing={1.25}>
-                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>
-                    {appName}
-                </Typography>
                 {points.map((point) => (
                     <Box
                         key={point}

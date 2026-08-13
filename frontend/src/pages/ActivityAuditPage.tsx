@@ -18,7 +18,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Check as ApproveIcon,
@@ -41,7 +41,10 @@ import {
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StatusChip } from "../components/ui/StatusChip";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
 import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { editEmailApprovalPayload, requestApprovalChanges } from "../api/integrations";
@@ -94,12 +97,6 @@ function describeAction(approval: { approval_type: string; payload: Record<strin
         default:
             return humanizeKey(type);
     }
-}
-
-function statusColor(status: string) {
-    if (status === "approved") return "success" as const;
-    if (status === "rejected") return "error" as const;
-    return "warning" as const;
 }
 
 function parseDateBoundary(value: string, endOfDay: boolean): number | null {
@@ -164,7 +161,15 @@ function EmailApprovalDetails({ approval }: { approval: Approval }) {
     );
 }
 
-function ApprovalCard({ approval }: { approval: Approval }) {
+function ApprovalCard({
+    approval,
+    focused = false,
+    onFocusCard,
+}: {
+    approval: Approval;
+    focused?: boolean;
+    onFocusCard?: () => void;
+}) {
     const [reason, setReason] = useState("");
     const [editOpen, setEditOpen] = useState(false);
     const email = normalizeEmailApproval(approval.payload, approval.approval_type);
@@ -217,9 +222,14 @@ function ApprovalCard({ approval }: { approval: Approval }) {
 
     return (
         <Paper
+            onClick={onFocusCard}
+            tabIndex={isPending ? 0 : -1}
+            onFocus={onFocusCard}
             sx={{
                 p: 2,
                 borderRadius: 1,
+                outline: focused ? (t) => `2px solid ${t.palette.primary.main}` : "none",
+                outlineOffset: 2,
                 border: (t) => (isPending ? `1px solid ${t.palette.warning.light}` : "1px solid transparent"),
                 bgcolor: (t) => (!isPending ? t.palette.action.hover : "transparent"),
             }}
@@ -229,11 +239,11 @@ function ApprovalCard({ approval }: { approval: Approval }) {
                     <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
                         {actionDescription}
                     </Typography>
-                    <Chip
-                        label={humanizeKey(approval.status)}
-                        size="small"
-                        color={statusColor(approval.status)}
+                    <StatusChip
+                        status={approval.status}
+                        kind="approval"
                         variant={isPending ? "outlined" : "filled"}
+                        celebrate={approval.status === "approved"}
                     />
                     {approval.approval_type.includes("escalation") && (
                         <Chip label="Escalation" size="small" variant="outlined" color="info" />
@@ -393,12 +403,15 @@ function ApprovalCard({ approval }: { approval: Approval }) {
 
 export default function ActivityAuditPage() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
     const [mainTab, setMainTab] = useState<"approvals" | "ledger" | "audit">("approvals");
     const [approvalSubTab, setApprovalSubTab] = useState<"pending" | "history">("pending");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [projectFilter, setProjectFilter] = useState("");
     const [agentFilter, setAgentFilter] = useState("");
+    const [queueIndex, setQueueIndex] = useState(0);
 
     const { data: approvals = [], isLoading: approvalsLoading } = useQuery({
         queryKey: queryKeys.orchestration.approvals,
@@ -491,13 +504,70 @@ export default function ActivityAuditPage() {
         return { pending: pendingList, resolved: resolvedList };
     }, [filteredApprovals]);
 
+    useEffect(() => {
+        setQueueIndex((idx) => (pending.length === 0 ? 0 : Math.min(idx, pending.length - 1)));
+    }, [pending.length]);
+
+    const queueDecide = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: "approved" | "rejected" }) =>
+            decideApproval(id, { status, reason: status === "rejected" ? "Rejected via keyboard shortcut" : undefined }),
+        onSuccess: async (_, vars) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
+            showToast({
+                message: vars.status === "approved" ? "Approved — next item focused." : "Rejected.",
+                severity: vars.status === "approved" ? "success" : "warning",
+            });
+        },
+        onError: (error) =>
+            showToast({ message: error instanceof Error ? error.message : "Decision failed.", severity: "error" }),
+    });
+
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if (mainTab !== "approvals" || approvalSubTab !== "pending" || pending.length === 0) return;
+            const target = event.target as HTMLElement | null;
+            const tag = target?.tagName?.toLowerCase();
+            if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+            if (event.key === "j" || event.key === "ArrowDown") {
+                event.preventDefault();
+                setQueueIndex((i) => Math.min(i + 1, pending.length - 1));
+            } else if (event.key === "k" || event.key === "ArrowUp") {
+                event.preventDefault();
+                setQueueIndex((i) => Math.max(i - 1, 0));
+            } else if (event.key === "a" || event.key === "A") {
+                const item = pending[queueIndex];
+                if (!item || queueDecide.isPending) return;
+                event.preventDefault();
+                queueDecide.mutate({ id: item.id, status: "approved" });
+            } else if (event.key === "r" || event.key === "R") {
+                const item = pending[queueIndex];
+                if (!item || queueDecide.isPending) return;
+                event.preventDefault();
+                queueDecide.mutate({ id: item.id, status: "rejected" });
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [mainTab, approvalSubTab, pending, queueIndex, queueDecide]);
+
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="browse">
+            <PageHeader
+                title="Approvals"
+                description="Decide pending requests, then browse the ledger or HITL audit log. This is the action queue — not My tasks."
+                actions={
+                    <Button variant="outlined" onClick={() => navigate("/my-tasks")}>
+                        My tasks
+                    </Button>
+                }
+            />
 
-
-            <Paper sx={{ p: 2, borderRadius: 1, mb: 2 }}>
+            <Paper sx={{ p: 2, borderRadius: 1 }}>
                 <Stack spacing={2}>
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap" useFlexGap>
+                    <Typography variant="body2" color="text.secondary">
+                        Queue tip: decide pending cards first. Keys: j/k move · a approve · r reject (when not typing). Ledger and Audit are history.
+                    </Typography>
+                    <FilterToolbar>
                         <TextField
                             label="From date"
                             type="date"
@@ -518,7 +588,7 @@ export default function ActivityAuditPage() {
                         />
                         <TextField
                             select
-                            label="Agent project"
+                            label="Project"
                             size="small"
                             value={projectFilter}
                             onChange={(e) => setProjectFilter(e.target.value)}
@@ -542,7 +612,7 @@ export default function ActivityAuditPage() {
                                 <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
                             ))}
                         </TextField>
-                    </Stack>
+                    </FilterToolbar>
                 </Stack>
             </Paper>
 
@@ -579,8 +649,13 @@ export default function ActivityAuditPage() {
                                         <Typography variant="body2">All caught up — no pending approvals in this filter.</Typography>
                                     </Alert>
                                 )}
-                                {pending.map((approval) => (
-                                    <ApprovalCard key={approval.id} approval={approval} />
+                                {pending.map((approval, index) => (
+                                    <ApprovalCard
+                                        key={approval.id}
+                                        approval={approval}
+                                        focused={index === queueIndex}
+                                        onFocusCard={() => setQueueIndex(index)}
+                                    />
                                 ))}
                             </Stack>
                         </SectionCard>

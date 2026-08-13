@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link as RouterLink } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -22,11 +22,6 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import {
-    CheckCircleOutline as DoneIcon,
-    Cancel as CancelIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as QueuedIcon,
-    PlayArrow as RunningIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
     SmartToy as AgentIcon,
@@ -58,22 +53,16 @@ import {
     ShallowKeyValueList,
 } from "../components/runInspector/RunInspectorDataViews";
 import { PageShell } from "../components/ui/PageShell";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StatusChip } from "../components/ui/StatusChip";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { queryKeys } from "../config/queryKeys";
 import { useSseStream } from "../hooks/useSseStream";
 import { safeRunValue } from "../features/workflows/builderState";
 
 function RunStatusChip({ status }: { status: string }) {
-    const map: Record<string, { color: "success" | "error" | "warning" | "info" | "default"; icon: React.ReactElement | null }> = {
-        completed: { color: "success", icon: <DoneIcon fontSize="small" /> },
-        failed: { color: "error", icon: <ErrorIcon fontSize="small" /> },
-        cancelled: { color: "default", icon: <CancelIcon fontSize="small" /> },
-        in_progress: { color: "info", icon: <RunningIcon fontSize="small" /> },
-        queued: { color: "warning", icon: <QueuedIcon fontSize="small" /> },
-    };
-    const { color, icon } = map[status] ?? { color: "default" as const, icon: null };
-    return <Chip icon={icon ?? undefined} label={humanizeKey(status)} color={color} size="small" />;
+    return <StatusChip status={status} kind="run" variant="filled" />;
 }
 
 function EventLevelColor(level: string) {
@@ -408,12 +397,46 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
     return (
         <Box
             sx={(theme) => ({
+                position: "sticky",
+                top: { xs: 64, md: 72 },
+                zIndex: 6,
                 p: 2,
-                borderRadius: 4,
+                borderRadius: 1,
                 border: `1px solid ${theme.palette.divider}`,
-                backgroundColor: alpha(theme.palette.background.paper, 0.7),
+                backgroundColor: alpha(theme.palette.background.paper, 0.92),
+                backdropFilter: "blur(10px)",
             })}
         >
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1.5 }}>
+                <Box>
+                    <Typography variant="h5">Run {run.id.slice(0, 8)}…</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Timeline-first inspector · status, cost, tools
+                    </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => void navigator.clipboard?.writeText(run.id)}
+                    >
+                        Copy id
+                    </Button>
+                    {run.task_id && run.project_id ? (
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            component={RouterLink}
+                            to={`/projects/${run.project_id}?tab=board&task=${run.task_id}`}
+                        >
+                            Related task
+                        </Button>
+                    ) : null}
+                    <Button size="small" variant="text" component={RouterLink} to="/activity">
+                        Approvals
+                    </Button>
+                </Stack>
+            </Stack>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <RunStatusChip status={run.status} />
                 <Chip label={humanizeKey(run.run_mode)} variant="outlined" size="small" />
@@ -592,6 +615,7 @@ export default function RunInspectorPage() {
     const [events, setEvents] = useState<RunEvent[]>([]);
     const [streamError, setStreamError] = useState<string | null>(null);
     const [tab, setTab] = useState<"timeline" | "trace" | "graph" | "conversation">("timeline");
+    const [techOpen, setTechOpen] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     const { data: run, isLoading } = useQuery({
@@ -696,7 +720,7 @@ export default function RunInspectorPage() {
 
     if (isLoading) {
         return (
-            <PageShell maxWidth="xl">
+            <PageShell variant="inspector">
                 <Stack spacing={2}>
                     <Skeleton variant="rounded" height={80} sx={{ borderRadius: 4 }} />
                     <Skeleton variant="rounded" height={400} sx={{ borderRadius: 4 }} />
@@ -716,7 +740,8 @@ export default function RunInspectorPage() {
     const eventTimes = events.map((e) => new Date(e.created_at).getTime());
 
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="inspector">
+            <DensePageMobileNotice surface="Run inspector" />
 
             <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} />
             {runExplanation && (
@@ -725,6 +750,82 @@ export default function RunInspectorPage() {
                 </SectionCard>
             )}
 
+            <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+                <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+                    <Tab label={`Timeline (${events.length})`} value="timeline" />
+                    <Tab label={`Trace (${traceSteps.length})`} value="trace" />
+                    <Tab label="Workflow graph" value="graph" />
+                    <Tab label="Conversation" value="conversation" />
+                </Tabs>
+            </Box>
+
+            {tab === "timeline" && (
+                <SectionCard
+                    title={
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Typography variant="h6">Event timeline</Typography>
+                            {isLive && streaming && (
+                                <Stack direction="row" spacing={0.75} alignItems="center">
+                                    <CircularProgress size={14} />
+                                    <Typography variant="caption" color="text.secondary">Live</Typography>
+                                </Stack>
+                            )}
+                            {!isLive && <Chip label="Completed" color="success" size="small" />}
+                        </Stack>
+                    }
+                    description="Events emitted during execution with timing deltas and per-event token usage."
+                >
+                    {streamError && <Alert severity="warning" sx={{ mb: 2 }}>{streamError}</Alert>}
+                    {events.length === 0 && !streaming && (
+                        <Typography variant="body2" color="text.secondary">No events recorded yet.</Typography>
+                    )}
+                    <Stack spacing={0.75}>
+                        {events.map((event, idx) => (
+                            <RunEventRow
+                                key={event.id}
+                                event={event}
+                                prevTime={idx > 0 ? eventTimes[idx - 1] : null}
+                                index={idx}
+                                modelRationale={modelRationale}
+                            />
+                        ))}
+                        <div ref={bottomRef} />
+                    </Stack>
+                </SectionCard>
+            )}
+
+            {tab === "trace" && (
+                <SectionCard
+                    title="Execution trace"
+                    description="Durable supervisor/worker workflow trace from checkpointed execution steps."
+                >
+                    <RunTraceView trace={traceSteps} />
+                </SectionCard>
+            )}
+
+            {tab === "graph" && (
+                <SectionCard
+                    title="Workflow graph"
+                    description="Step-to-step workflow graph (dependency map) from durable trace transitions."
+                >
+                    <WorkflowGraphView trace={traceSteps} />
+                </SectionCard>
+            )}
+
+            {tab === "conversation" && (
+                <SectionCard
+                    title="Agent conversation"
+                    description="Full agent ↔ model message exchange. Tool call/response pairs are foldable."
+                >
+                    <ConversationViewer events={events} modelRationale={modelRationale} />
+                </SectionCard>
+            )}
+
+            <Button variant="text" onClick={() => setTechOpen((v) => !v)} sx={{ alignSelf: "flex-start" }}>
+                {techOpen ? "Hide technical details" : "Technical details"}
+            </Button>
+            <Collapse in={techOpen}>
+                <Stack spacing={2}>
             <SectionCard
                 title="Execution snapshot"
                 description={
@@ -1087,76 +1188,8 @@ export default function RunInspectorPage() {
                 </Stack>
             </SectionCard>
 
-            <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-                <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-                    <Tab label={`Timeline (${events.length})`} value="timeline" />
-                    <Tab label={`Trace (${traceSteps.length})`} value="trace" />
-                    <Tab label="Workflow graph" value="graph" />
-                    <Tab label="Conversation" value="conversation" />
-                </Tabs>
-            </Box>
-
-            {tab === "timeline" && (
-                <SectionCard
-                    title={
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                            <Typography variant="h6">Event timeline</Typography>
-                            {isLive && streaming && (
-                                <Stack direction="row" spacing={0.75} alignItems="center">
-                                    <CircularProgress size={14} />
-                                    <Typography variant="caption" color="text.secondary">Live</Typography>
-                                </Stack>
-                            )}
-                            {!isLive && <Chip label="Completed" color="success" size="small" />}
-                        </Stack>
-                    }
-                    description="Events emitted during execution with timing deltas and per-event token usage."
-                >
-                    {streamError && <Alert severity="warning" sx={{ mb: 2 }}>{streamError}</Alert>}
-                    {events.length === 0 && !streaming && (
-                        <Typography variant="body2" color="text.secondary">No events recorded yet.</Typography>
-                    )}
-                    <Stack spacing={0.75}>
-                        {events.map((event, idx) => (
-                            <RunEventRow
-                                key={event.id}
-                                event={event}
-                                prevTime={idx > 0 ? eventTimes[idx - 1] : null}
-                                index={idx}
-                                modelRationale={modelRationale}
-                            />
-                        ))}
-                        <div ref={bottomRef} />
-                    </Stack>
-                </SectionCard>
-            )}
-
-            {tab === "trace" && (
-                <SectionCard
-                    title="Execution trace"
-                    description="Durable supervisor/worker workflow trace from checkpointed execution steps."
-                >
-                    <RunTraceView trace={traceSteps} />
-                </SectionCard>
-            )}
-
-            {tab === "graph" && (
-                <SectionCard
-                    title="Workflow graph"
-                    description="Step-to-step DAG derived from durable trace transitions."
-                >
-                    <WorkflowGraphView trace={traceSteps} />
-                </SectionCard>
-            )}
-
-            {tab === "conversation" && (
-                <SectionCard
-                    title="Agent conversation"
-                    description="Full agent ↔ model message exchange. Tool call/response pairs are foldable."
-                >
-                    <ConversationViewer events={events} modelRationale={modelRationale} />
-                </SectionCard>
-            )}
+                </Stack>
+            </Collapse>
 
             <Divider />
 

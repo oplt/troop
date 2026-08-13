@@ -11,13 +11,13 @@ export default function VerifyEmailPage() {
     const token = searchParams.get("token");
     const [email, setEmail] = useState(searchParams.get("email") ?? "");
     const [status, setStatus] = useState<"loading" | "success" | "error" | "no-token">(
-        token ? "loading" : "no-token"
+        token ? "loading" : "no-token",
     );
     const [resendDone, setResendDone] = useState(false);
     const [resending, setResending] = useState(false);
     const [resendError, setResendError] = useState("");
     const { data: platformMetadata } = usePlatformMetadata();
-    const appName = platformMetadata?.app_name ?? "Your App";
+    const appName = platformMetadata?.app_name ?? "Troop";
 
     useEffect(() => {
         if (!token) {
@@ -30,7 +30,7 @@ export default function VerifyEmailPage() {
 
     async function handleResend() {
         if (!email) {
-            setResendError("Enter your email address to resend the verification message.");
+            setResendError("Enter the email you signed up with.");
             return;
         }
 
@@ -40,28 +40,41 @@ export default function VerifyEmailPage() {
             await resendVerification({ email });
             setResendDone(true);
         } catch (error) {
-            setResendError(error instanceof Error ? error.message : "Couldn't send verification email. Try again in a moment.");
+            setResendError(
+                error instanceof Error
+                    ? error.message
+                    : "Couldn't send verification email. Try again in a moment.",
+            );
         } finally {
             setResending(false);
         }
     }
+
+    const statusCopy =
+        status === "loading"
+            ? { title: "Verifying…", detail: "Confirming your email with the link from your inbox." }
+            : status === "success"
+              ? { title: "Email verified", detail: "Your account is ready. Sign in to open the workspace." }
+              : status === "error"
+                ? {
+                      title: "Link expired or invalid",
+                      detail: "Request a new verification email, then open the fresh link.",
+                  }
+                : {
+                      title: "Check your inbox",
+                      detail: "Open the verification link we sent, or request another below.",
+                  };
 
     return (
         <AuthShell
             sideContent={
                 <AuthMarketingPanel
                     appName={appName}
-                    eyebrow="Identity confirmation"
-                    title="Verify your email and unlock the full experience."
-                    description="The verification flow is clearer now, with direct guidance when links expire and a simpler resend path when users need another attempt."
-                    highlights={[
-                        { value: "Trust", label: "Better account legitimacy signals" },
-                        { value: "Clarity", label: "More obvious next steps" },
-                        { value: "Speed", label: "A simpler resend flow" },
-                    ]}
+                    eyebrow="Account trust"
+                    valueProp="Verify email once so runs and approvals stay tied to a real identity."
                     points={[
-                        "Use the original verification link if it is still valid.",
-                        "If it expired, request another message without leaving the page.",
+                        "Valid link → you're verified and can sign in.",
+                        "Expired link → resend from this page, no support ticket needed.",
                     ]}
                 />
             }
@@ -71,25 +84,25 @@ export default function VerifyEmailPage() {
                     <Typography variant="overline" color="primary.main">
                         Email verification
                     </Typography>
-                    <Typography variant="h4" sx={{ mt: 0.5 }}>
-                        Confirm your email address
+                    <Typography variant="h4" component="h2" sx={{ mt: 0.5 }}>
+                        {statusCopy.title}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
-                        Verification improves account trust and unlocks the full sign-in experience.
+                        {statusCopy.detail}
                     </Typography>
                 </Box>
 
                 {status === "loading" && (
-                    <Box sx={{ display: "grid", placeItems: "center", py: 4 }}>
+                    <Box sx={{ display: "grid", placeItems: "center", py: 4 }} role="status" aria-live="polite">
                         <CircularProgress />
                     </Box>
                 )}
 
                 {status === "success" && (
                     <Stack spacing={2}>
-                        <Alert severity="success">Your email has been verified. You can now sign in.</Alert>
+                        <Alert severity="success">Verified. Next: sign in and create or open a project.</Alert>
                         <Button component={RouterLink} to="/" variant="contained">
-                            Go to sign in
+                            Sign in
                         </Button>
                     </Stack>
                 )}
@@ -98,12 +111,12 @@ export default function VerifyEmailPage() {
                     <Stack spacing={2}>
                         {status === "error" && (
                             <Alert severity="error">
-                                The verification link is invalid or has expired.
+                                That verification link is invalid or expired. Request a new one below.
                             </Alert>
                         )}
                         {status === "no-token" && (
                             <Alert severity="info">
-                                Check your email for a verification link, or request a new one below.
+                                No token in this URL. Use the email link, or resend a new message.
                             </Alert>
                         )}
                         <TextField
@@ -112,12 +125,17 @@ export default function VerifyEmailPage() {
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
                             fullWidth
+                            helperText="Same address you used at sign-up."
                         />
                         {resendError && <Alert severity="error">{resendError}</Alert>}
-                        {resendDone && <Alert severity="success">A new verification email has been sent.</Alert>}
+                        {resendDone && (
+                            <Alert severity="success">
+                                New message sent. Check inbox (and spam), then open the new link.
+                            </Alert>
+                        )}
                         {!resendDone && (
                             <Button variant="contained" disabled={resending} onClick={handleResend}>
-                                {resending ? "Sending..." : "Resend verification email"}
+                                {resending ? "Sending…" : "Resend verification email"}
                             </Button>
                         )}
                         <Button component={RouterLink} to="/" variant="text">

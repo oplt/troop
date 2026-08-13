@@ -50,6 +50,7 @@ import { listOrchestrationProjects } from "../../api/orchestration";
 import { useLiveSnapshotStream } from "../../hooks/useLiveSnapshotStream";
 import { formatDateTime } from "../../utils/formatters";
 import { SectionCard } from "../ui/SectionCard";
+import { statusChipColor } from "../ui/statusTokens";
 
 type AgentOperatingConsoleProps = {
     projectId?: string;
@@ -78,13 +79,6 @@ const DEFAULT_TASK_FORM = {
     task_type: "general",
     labels: "",
 };
-
-function statusColor(status: string) {
-    if (status === "running" || status === "in_progress") return "success";
-    if (status === "blocked") return "error";
-    if (status === "needs_review" || status === "queued") return "warning";
-    return "default";
-}
 
 function formatCost(micros: number) {
     return `$${(micros / 1_000_000).toFixed(4)}`;
@@ -473,7 +467,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                                 <Typography variant="subtitle1">{member.name}</Typography>
                                                 <Typography variant="body2" color="text.secondary">{member.role}</Typography>
                                             </Box>
-                                            <Chip label={member.current_status.replaceAll("_", " ")} size="small" color={statusColor(member.current_status) as never} />
+                                            <Chip label={member.current_status.replaceAll("_", " ")} size="small" color={statusChipColor(member.current_status, "task") as never} />
                                         </Stack>
                                         <Typography variant="body2" color="text.secondary">{member.objective || "No objective defined."}</Typography>
                                         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
@@ -555,7 +549,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                                     <Stack spacing={1}>
                                                         <Stack direction="row" justifyContent="space-between" spacing={1}>
                                                             <Typography variant="body2">{task.title}</Typography>
-                                                            <Chip label={task.status.replaceAll("_", " ")} size="small" color={statusColor(task.status) as never} />
+                                                            <Chip label={task.status.replaceAll("_", " ")} size="small" color={statusChipColor(task.status, "task")} />
                                                         </Stack>
                                                         <Typography variant="caption" color="text.secondary">
                                                             Updated {formatDateTime(task.updated_at)}
@@ -592,7 +586,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                                             </Typography>
                                                         </Box>
                                                         <Stack spacing={0.5} alignItems="flex-end">
-                                                            <Chip label={run.status.replaceAll("_", " ")} size="small" color={statusColor(run.status) as never} />
+                                                            <Chip label={run.status.replaceAll("_", " ")} size="small" color={statusChipColor(run.status, "run")} />
                                                             <Typography variant="caption" color="text.secondary">
                                                                 {run.token_total.toLocaleString()} tokens • {formatCost(run.estimated_cost_micros)}
                                                             </Typography>
@@ -623,7 +617,7 @@ export function AgentOperatingConsole({ projectId }: AgentOperatingConsoleProps)
                                                 {approval.task_id ? `Task ${approval.task_id}` : "No task"} • {formatDateTime(approval.created_at)}
                                             </Typography>
                                         </Box>
-                                        <Chip label={approval.status} size="small" color={statusColor(approval.status) as never} />
+                                        <Chip label={approval.status} size="small" color={statusChipColor(approval.status, "approval")} />
                                     </Stack>
                                 </Paper>
                             ))}

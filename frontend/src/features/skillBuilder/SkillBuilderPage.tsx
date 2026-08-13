@@ -32,6 +32,7 @@ import {
 } from "../../api/workforce";
 import { getDefaultCompany } from "../../api/companies";
 import { useSnackbar } from "../../app/snackbarContext";
+import { toastError, toastSuccess } from "../../app/mutationToast";
 import { PageShell } from "../../components/ui/PageShell";
 
 type SkillBuilderForm = {
@@ -140,12 +141,12 @@ export default function SkillBuilderPage() {
     const createMutation = useMutation({
         mutationFn: (payload: SkillDraftCreatePayload) => createSkillDraft(payload),
         onSuccess: (data) => {
-            showToast({ message: "Draft saved successfully", severity: "success" });
+            toastSuccess(showToast, "Draft saved");
             queryClient.invalidateQueries({ queryKey: ["workforce", "skill-drafts"] });
             navigate(`/skills/builder?draftId=${data.id}`);
         },
         onError: (error: Error) => {
-            showToast({ message: `Save failed: ${error.message}`, severity: "error" });
+            toastError(showToast, error, "Couldn't save draft.");
         },
     });
 
@@ -153,12 +154,12 @@ export default function SkillBuilderPage() {
         mutationFn: (payload: SkillDraftCreatePayload) =>
             updateSkillDraft(draftId!, payload),
         onSuccess: (data) => {
-            showToast({ message: "Draft updated successfully", severity: "success" });
+            toastSuccess(showToast, "Draft updated");
             queryClient.invalidateQueries({ queryKey: ["workforce", "skill-draft", draftId] });
             setValidationResult(data);
         },
         onError: (error: Error) => {
-            showToast({ message: `Update failed: ${error.message}`, severity: "error" });
+            toastError(showToast, error, "Couldn't update draft.");
         },
     });
 

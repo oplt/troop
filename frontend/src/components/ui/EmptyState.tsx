@@ -13,13 +13,13 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         <Box
             role="status"
             sx={(theme) => ({
-                border: `1px dashed ${alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.14 : 0.12)}`,
+                border: `1px dashed ${alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.28 : 0.12)}`,
                 borderRadius: 1,
                 px: 3,
                 py: 4,
                 textAlign: "center",
                 backgroundColor: theme.palette.mode === "dark"
-                    ? alpha(theme.palette.background.paper, 0.5)
+                    ? alpha(theme.palette.common.white, 0.04)
                     : theme.palette.grey[50],
             })}
         >

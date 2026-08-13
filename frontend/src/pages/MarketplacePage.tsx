@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
 import {
     Alert,
     Box,
@@ -174,7 +175,13 @@ export default function MarketplacePage() {
         <PageShell>
             <PageHeader
                 title="Marketplace"
-                description="Install skills, workflows, departments, agent templates, and MCP/A2A connectors."
+                description="One catalog for skills, workflows, departments, agent templates, and connectors. Prefer Skills or Agents when you already know the type."
+                actions={
+                    <Stack direction="row" spacing={1}>
+                        <Button component={RouterLink} to="/skills" size="small" variant="outlined">Skills</Button>
+                        <Button component={RouterLink} to="/agents" size="small" variant="outlined">Agents</Button>
+                    </Stack>
+                }
             />
             <Stack spacing={2}>
                 {error ? <Alert severity="error">{(error as Error).message}</Alert> : null}

@@ -53,6 +53,7 @@ import {
     Controls,
     Handle,
     MarkerType,
+    MiniMap,
     Position,
     ReactFlow,
     useEdgesState,
@@ -96,6 +97,7 @@ import { useSnackbar } from "../app/snackbarContext";
 import { queryKeys } from "../config/queryKeys";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
 import { SectionCard } from "../components/ui/SectionCard";
 import { AgentTemplateImportReviewDrawer } from "../features/agentTemplateImport/AgentTemplateImportReviewDrawer";
 import {
@@ -2701,9 +2703,16 @@ export default function AgentLibraryPage() {
     );
 
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="inspector">
+            <DensePageMobileNotice surface="Hierarchy builder" />
 
-            <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
+            {graphDirty ? (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    Unsaved hierarchy changes. Save or publish before leaving this project graph.
+                </Alert>
+            ) : null}
+
+            <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
                 <Tabs value={activeTab} onChange={(_, value: BuilderTab) => setManualTab(value)} variant="scrollable" scrollButtons="auto">
                     <Tab value="hierarchy" label="Team Builder" />
                     <Tab value="library" label="Templates" />
@@ -3235,6 +3244,7 @@ export default function AgentLibraryPage() {
                                         setDraggingItem(null);
                                     }}
                                     sx={{
+                                        position: "relative",
                                         height: { xs: 560, xl: 720 },
                                         borderRadius: 1,
                                         overflow: "hidden",
@@ -3285,9 +3295,56 @@ export default function AgentLibraryPage() {
                                         proOptions={{ hideAttribution: true }}
                                     >
                                         <Background color="#d0d5dd" gap={18} size={1.1} />
-
+                                        <MiniMap pannable zoomable />
                                         <Controls />
                                     </ReactFlow>
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        flexWrap="wrap"
+                                        useFlexGap
+                                        sx={{
+                                            position: "absolute",
+                                            left: 12,
+                                            bottom: 12,
+                                            zIndex: 5,
+                                            pointerEvents: "none",
+                                        }}
+                                    >
+                                        <Chip size="small" label="Manager" />
+                                        <Chip size="small" label="Specialist" variant="outlined" />
+                                        <Chip size="small" label="Reviewer" variant="outlined" />
+                                        <Chip size="small" label="Drag templates · zoom/pan · save when dirty" variant="outlined" />
+                                    </Stack>
+                                    {nodes.length === 0 ? (
+                                        <Box
+                                            sx={{
+                                                position: "absolute",
+                                                inset: 0,
+                                                display: "grid",
+                                                placeItems: "center",
+                                                pointerEvents: "none",
+                                                p: 2,
+                                            }}
+                                        >
+                                            <Paper sx={{ p: 2.5, maxWidth: 420, pointerEvents: "auto", border: 1, borderColor: "divider" }}>
+                                                <Typography variant="h6" gutterBottom>
+                                                    Empty team graph
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                                    Start from a template in the Library tab, or add a blank manager node on the canvas.
+                                                </Typography>
+                                                <Stack direction="row" spacing={1}>
+                                                    <Button size="small" variant="contained" onClick={() => setManualTab("library")}>
+                                                        Start from template
+                                                    </Button>
+                                                    <Button size="small" variant="outlined" onClick={() => flowInstance?.fitView()}>
+                                                        Fit view
+                                                    </Button>
+                                                </Stack>
+                                            </Paper>
+                                        </Box>
+                                    ) : null}
                                 </Box>
                             )}
                         </SectionCard>

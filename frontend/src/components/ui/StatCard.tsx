@@ -35,6 +35,8 @@ export function StatCard({
                 minHeight: "100%",
                 overflow: "hidden",
                 backgroundColor: theme.palette.background.paper,
+                border: "1px solid",
+                borderColor: "divider",
             }}
         >
             <Stack spacing={2}>

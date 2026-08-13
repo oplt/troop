@@ -31,6 +31,8 @@ import {
 } from "../api/settings";
 import { listGithubConnections, listProviders } from "../api/orchestration";
 import { EmptyState } from "../components/ui/EmptyState";
+import { ConfirmDestructiveDialog } from "../components/ui/ConfirmDestructiveDialog";
+import { PageHeader } from "../components/ui/PageHeader";
 import { CompaniesPanel } from "./CompaniesPage";
 import { GithubSyncPanel } from "./GithubSyncPage";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
@@ -210,6 +212,20 @@ function AdminSettingsContent({
         value: "",
         description: "",
     });
+    const [deleteTarget, setDeleteTarget] = useState<DatabaseSetting | null>(null);
+    const databaseDirty = databaseSettings.some((item) => {
+        const draft = databaseDrafts[item.id];
+        if (!draft) return false;
+        return draft.value !== item.value || draft.description !== (item.description ?? "");
+    });
+    const requestTabChange = (nextTab: SettingsTabValue) => {
+        if (nextTab === activeTab) return;
+        if (databaseDirty && activeTab === "database") {
+            const ok = window.confirm("You have unsaved parameter edits. Leave without saving?");
+            if (!ok) return;
+        }
+        onTabChange(nextTab);
+    };
     const parameterCatalogMap: ParameterCatalogMap = Object.fromEntries(
         parameterCatalog.map((item) => [item.key, item])
     );
@@ -239,6 +255,12 @@ function AdminSettingsContent({
     return (
         <PageShell maxWidth="xl">
             {hasDatabaseError && <Alert severity="error">{databaseErrorMessage}</Alert>}
+            {databaseDirty && activeTab === "database" && (
+                <Alert severity="warning" sx={{ mb: 1 }}>
+                    Unsaved parameter edits — save before switching tabs or leaving.
+                </Alert>
+            )}
+            <PageHeader title="Admin settings" description="Providers, sync, platform modules, users, and runtime parameters." />
 
             <Box
                 sx={(theme) => ({
@@ -253,7 +275,7 @@ function AdminSettingsContent({
             >
                 <Tabs
                     value={activeTab}
-                    onChange={(_, value: SettingsTabValue) => onTabChange(value)}
+                    onChange={(_, value: SettingsTabValue) => requestTabChange(value)}
                     orientation="vertical"
                     variant="scrollable"
                     scrollButtons="auto"
@@ -444,7 +466,7 @@ function AdminSettingsContent({
                                                                 "",
                                                         })
                                                     }
-                                                    onDelete={() => deleteDatabaseMutation.mutate(item.id)}
+                                                    onDelete={() => setDeleteTarget(item)}
                                                     isSaving={isSavingThisItem}
                                                     isDeleting={isDeletingThisItem}
                                                 />
@@ -463,6 +485,20 @@ function AdminSettingsContent({
                     )}
                 </Box>
             </Box>
+            <ConfirmDestructiveDialog
+                open={Boolean(deleteTarget)}
+                title="Delete parameter"
+                description={deleteTarget ? `Remove “${deleteTarget.key}”? Runtime code that reads this key will fall back to defaults.` : ""}
+                confirmLabel="Delete"
+                loading={deleteDatabaseMutation.isPending}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => {
+                    if (!deleteTarget) return;
+                    deleteDatabaseMutation.mutate(deleteTarget.id, {
+                        onSettled: () => setDeleteTarget(null),
+                    });
+                }}
+            />
         </PageShell>
     );
 }

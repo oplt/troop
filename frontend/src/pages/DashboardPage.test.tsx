@@ -11,6 +11,8 @@ import {
     getOrchestrationOverview,
 } from "../api/orchestration";
 import { getNotifications } from "../api/notifications";
+import { listCompanies } from "../api/companies";
+import { getGmailStatus, getTelegramStatus } from "../api/integrations";
 
 vi.mock("../api/orchestration", () => ({
     getExecutionInsights: vi.fn(),
@@ -21,6 +23,15 @@ vi.mock("../api/notifications", () => ({
     getNotifications: vi.fn(),
     markAllRead: vi.fn(),
     markRead: vi.fn(),
+}));
+
+vi.mock("../api/companies", () => ({
+    listCompanies: vi.fn(),
+}));
+
+vi.mock("../api/integrations", () => ({
+    getGmailStatus: vi.fn(),
+    getTelegramStatus: vi.fn(),
 }));
 
 function renderDashboard() {
@@ -46,6 +57,31 @@ describe("DashboardPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getNotifications).mockResolvedValue([]);
+        vi.mocked(listCompanies).mockResolvedValue([]);
+        vi.mocked(getGmailStatus).mockResolvedValue({
+            provider: "gmail",
+            status: "disconnected",
+            account_label: null,
+            error: null,
+            granted_scopes: [],
+            required_scopes: [],
+            last_successful_event_at: null,
+            expires_at: null,
+            installation_id: null,
+            metadata: {},
+        });
+        vi.mocked(getTelegramStatus).mockResolvedValue({
+            provider: "telegram",
+            status: "disconnected",
+            account_label: null,
+            error: null,
+            granted_scopes: [],
+            required_scopes: [],
+            last_successful_event_at: null,
+            expires_at: null,
+            installation_id: null,
+            metadata: {},
+        });
         vi.mocked(getOrchestrationOverview).mockResolvedValue({
             active_runs: [],
             pending_approvals: [],
@@ -68,9 +104,11 @@ describe("DashboardPage", () => {
     it("renders dashboard sections after data loads", async () => {
         renderDashboard();
 
-        expect(await screen.findByText("Agent Projects")).toBeInTheDocument();
-        expect(screen.getByText("Orchestration")).toBeInTheDocument();
-        expect(screen.getByText("Run activity")).toBeInTheDocument();
+        expect(await screen.findByText("Projects")).toBeInTheDocument();
+        expect(screen.getByText("Do next")).toBeInTheDocument();
+        expect(screen.getByText("Schedule & analytics")).toBeInTheDocument();
+        expect(screen.getByText("Check my tasks")).toBeInTheDocument();
+        expect(await screen.findByText("Get your workspace ready")).toBeInTheDocument();
     });
 
     it("shows retryable dashboard errors", async () => {

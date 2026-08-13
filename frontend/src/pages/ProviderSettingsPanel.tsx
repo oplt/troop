@@ -29,6 +29,7 @@ import {
     type ProviderConfig,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
+import { ConfirmDestructiveDialog } from "../components/ui/ConfirmDestructiveDialog";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { queryKeys } from "../config/queryKeys";
@@ -201,6 +202,7 @@ export function ProviderSettingsPanel() {
     const { showToast } = useSnackbar();
     const [form, setForm] = useState<ProviderForm>(INITIAL_PROVIDER_FORM);
     const [createAttempted, setCreateAttempted] = useState(false);
+    const [deleteProviderTarget, setDeleteProviderTarget] = useState<ProviderConfig | null>(null);
     const [compareForm, setCompareForm] = useState({
         provider_a_id: "",
         provider_b_id: "",
@@ -641,11 +643,7 @@ export function ProviderSettingsPanel() {
                                                     color="error"
                                                     variant="outlined"
                                                     disabled={deleteMutation.isPending}
-                                                    onClick={() => {
-                                                        if (window.confirm(`Delete provider "${provider.name}"?`)) {
-                                                            deleteMutation.mutate(provider.id);
-                                                        }
-                                                    }}
+                                                    onClick={() => setDeleteProviderTarget(provider)}
                                                 >
                                                     Delete
                                                 </Button>
@@ -882,6 +880,24 @@ export function ProviderSettingsPanel() {
                     ))}
                 </Stack>
             </SectionCard>
+            <ConfirmDestructiveDialog
+                open={Boolean(deleteProviderTarget)}
+                title="Delete provider"
+                description={
+                    deleteProviderTarget
+                        ? `Remove “${deleteProviderTarget.name}”? Models and routing that depend on it will need another provider.`
+                        : ""
+                }
+                confirmLabel="Delete provider"
+                loading={deleteMutation.isPending}
+                onClose={() => setDeleteProviderTarget(null)}
+                onConfirm={() => {
+                    if (!deleteProviderTarget) return;
+                    deleteMutation.mutate(deleteProviderTarget.id, {
+                        onSettled: () => setDeleteProviderTarget(null),
+                    });
+                }}
+            />
         </Stack>
     );
 }

@@ -2,6 +2,7 @@ import { Alert, Box, Chip, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { getOrchestrationRuntimeInfo } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
 
@@ -12,10 +13,14 @@ export default function ModelSettingsPage() {
     });
 
     return (
-        <PageShell maxWidth="xl">
+        <PageShell variant="form">
+            <PageHeader
+                title="Model settings"
+                description="Providers, runtime flags, and execution topology for agent runs."
+            />
 
             {runtime?.orchestration_use_langgraph && (
-                <Alert severity="info" sx={{ mb: 2 }}>
+                <Alert severity="info">
                     LangGraph routing is enabled: run modes are dispatched through a LangGraph StateGraph inside the worker
                     while Celery still enqueues runs.
                 </Alert>

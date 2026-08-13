@@ -33,15 +33,17 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import {
     AccountTree as DagIcon,
+    Add as AddIcon,
     Check as CheckSimpleIcon,
     Close as CloseIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
+    FactCheck as ApproveIcon,
     MoreVert as MoreIcon,
     PlayArrow as RunIcon,
     Upload as UploadIcon,
 } from "@mui/icons-material";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     addProjectAgent,
     assignOrchestrationTask,
@@ -89,6 +91,8 @@ import { useSnackbar } from "../../app/snackbarContext";
 import { queryKeys } from "../../config/queryKeys";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageShell } from "../../components/ui/PageShell";
+import { DensePageMobileNotice } from "../../components/ui/DensePageMobileNotice";
+import { StatusChip } from "../../components/ui/StatusChip";
 import { SectionCard } from "../../components/ui/SectionCard";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useProjectLiveSnapshotSync } from "../../hooks/projectLiveSnapshotSync";
@@ -2050,11 +2054,45 @@ const DagView = memo(function DagView({
 export default function OrchestrationProjectDetailView() {
     const { projectId = "" } = useParams();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const [tab, setTab] = useState<DetailTab>("overview");
+    const tabParam = searchParams.get("tab");
+    const initialTab: DetailTab =
+        tabParam === "board" ||
+        tabParam === "runs" ||
+        tabParam === "agents" ||
+        tabParam === "memory" ||
+        tabParam === "settings" ||
+        tabParam === "overview"
+            ? tabParam
+            : "overview";
+    const [tab, setTabState] = useState<DetailTab>(initialTab);
+    const setTab = useCallback(
+        (value: DetailTab) => {
+            setTabState(value);
+            const next = new URLSearchParams(searchParams);
+            next.set("tab", value);
+            setSearchParams(next, { replace: true });
+        },
+        [searchParams, setSearchParams],
+    );
+    const [trackedTabParam, setTrackedTabParam] = useState(tabParam);
+    if (tabParam !== trackedTabParam) {
+        setTrackedTabParam(tabParam);
+        if (
+            tabParam === "board" ||
+            tabParam === "runs" ||
+            tabParam === "agents" ||
+            tabParam === "memory" ||
+            tabParam === "settings" ||
+            tabParam === "overview"
+        ) {
+            setTabState(tabParam);
+        }
+    }
     const [workView, setWorkView] = useState<WorkView>("board");
-    const [knowledgeView, setKnowledgeView] = useState<KnowledgeView>("search");
+    const [knowledgeView, setKnowledgeView] = useState<KnowledgeView>("memory");
     const [teamView, setTeamView] = useState<TeamView>("agents");
     const [overviewEditOpen, setOverviewEditOpen] = useState(false);
     const [taskForm, setTaskForm] = useState<ProjectTaskDraft>(createProjectTaskDraft);
@@ -2804,14 +2842,14 @@ export default function OrchestrationProjectDetailView() {
     const latestDecision = decisions[0];
     const nextAction =
         pendingProjectApprovals.length > 0
-            ? { label: "Review approval", detail: `${pendingProjectApprovals.length} pending`, action: () => setTab("activity") }
+            ? { label: "Review approval", detail: `${pendingProjectApprovals.length} pending`, action: () => setTab("runs") }
             : blockedTasks.length > 0
-                ? { label: "Unblock task", detail: blockedTasks[0]?.title ?? "Blocked work", action: () => { setTab("work"); setWorkView("board"); } }
+                ? { label: "Unblock task", detail: blockedTasks[0]?.title ?? "Blocked work", action: () => { setTab("board"); setWorkView("board"); } }
                 : readyTask
-                    ? { label: "Run next task", detail: readyTask.title, action: () => { setTab("work"); setWorkView("board"); setSelectedTaskId(readyTask.id); } }
+                    ? { label: "Run next task", detail: readyTask.title, action: () => { setTab("board"); setWorkView("board"); setSelectedTaskId(readyTask.id); } }
                     : projectAgents.length === 0
-                        ? { label: "Add agent", detail: "No project team yet", action: () => { setTab("team"); setTeamView("agents"); } }
-                        : { label: "Add knowledge", detail: "Upload docs or connect repo", action: () => { setTab("knowledge"); setKnowledgeView("sources"); } };
+                        ? { label: "Add agent", detail: "No project team yet", action: () => { setTab("agents"); setTeamView("agents"); } }
+                        : { label: "Add knowledge", detail: "Upload docs or connect repo", action: () => { setTab("memory"); setKnowledgeView("sources"); } };
     const activityItems = [
         ...runs.map((run) => ({
             id: `run-${run.id}`,
@@ -2835,7 +2873,7 @@ export default function OrchestrationProjectDetailView() {
             title: humanizeKey(approval.approval_type),
             detail: "Pending review",
             at: approval.created_at,
-            action: () => setTab("activity"),
+            action: () => setTab("runs"),
         })),
         ...brainstorms.map((brainstorm) => ({
             id: `brainstorm-${brainstorm.id}`,
@@ -2994,17 +3032,37 @@ export default function OrchestrationProjectDetailView() {
     }
 
     return (
-        <PageShell maxWidth="xl">
-            <Paper sx={{ mb: 2, borderRadius: 4, p: { xs: 2, md: 2.5 }, border: 1, borderColor: "divider" }}>
+        <PageShell variant="inspector">
+            <DensePageMobileNotice surface="Project workspace" />
+            <Paper
+                sx={{
+                    mb: 2,
+                    borderRadius: 1,
+                    p: { xs: 2, md: 2.5 },
+                    border: 1,
+                    borderColor: "divider",
+                    position: "sticky",
+                    top: { xs: 64, md: 72 },
+                    zIndex: 8,
+                    backgroundColor: (theme) =>
+                        theme.palette.mode === "dark"
+                            ? alpha(theme.palette.background.paper, 0.92)
+                            : "rgba(255,255,255,0.92)",
+                    backdropFilter: "blur(10px)",
+                }}
+            >
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }}>
                     <Box sx={{ minWidth: 0 }}>
                         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                             <Typography variant="h4" sx={{ fontWeight: 500 }} noWrap>
                                 {project.name}
                             </Typography>
-                            <Chip size="small" label={humanizeKey(project.status)} color="primary" variant="outlined" />
+                            <StatusChip status={project.status} kind="project" />
                             {activeRuns.length > 0 ? <Chip size="small" color="warning" label={`${activeRuns.length} running`} /> : null}
                             {blockedTasks.length > 0 ? <Chip size="small" color="error" variant="outlined" label={`${blockedTasks.length} blocked`} /> : null}
+                            {pendingProjectApprovals.length > 0 ? (
+                                <Chip size="small" color="warning" label={`${pendingProjectApprovals.length} to approve`} />
+                            ) : null}
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
                             {effectiveWorkspaceOverview.current_focus || project.description || "No current focus set."}
@@ -3014,11 +3072,21 @@ export default function OrchestrationProjectDetailView() {
                         <Button variant="contained" startIcon={<RunIcon />} onClick={nextAction.action}>
                             {nextAction.label}
                         </Button>
-                        <Button variant="outlined" onClick={() => setTaskDrawerOpen(true)}>
-                            Create task
+                        {pendingProjectApprovals.length > 0 ? (
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                startIcon={<ApproveIcon />}
+                                onClick={() => setTab("runs")}
+                            >
+                                Approve ({pendingProjectApprovals.length})
+                            </Button>
+                        ) : null}
+                        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setTaskDrawerOpen(true)}>
+                            Add task
                         </Button>
                         <Tooltip title="Project settings">
-                            <IconButton onClick={() => { setTab("team"); setTeamView("settings"); }}>
+                            <IconButton onClick={() => { setTab("settings"); setTeamView("settings"); }} aria-label="Project settings">
                                 <MoreIcon />
                             </IconButton>
                         </Tooltip>
@@ -3026,13 +3094,28 @@ export default function OrchestrationProjectDetailView() {
                 </Stack>
             </Paper>
 
-            <Paper sx={{ mb: 2, borderRadius: 4, p: 1 }}>
-                <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+            <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
+                <Tabs
+                    value={tab}
+                    onChange={(_, value: DetailTab) => {
+                        setTab(value);
+                        if (value === "board") setWorkView("board");
+                        if (value === "agents") setTeamView("agents");
+                        if (value === "memory") setKnowledgeView("memory");
+                        if (value === "settings") {
+                            setTeamView("settings");
+                            setKnowledgeView("sources");
+                        }
+                    }}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                >
                     <Tab label="Overview" value="overview" />
-                    <Tab label="Work" value="work" />
-                    <Tab label="Team" value="team" />
-                    <Tab label="Knowledge" value="knowledge" />
-                    <Tab label="Activity" value="activity" />
+                    <Tab label="Board" value="board" />
+                    <Tab label="Runs" value="runs" />
+                    <Tab label="Agents" value="agents" />
+                    <Tab label="Memory" value="memory" />
+                    <Tab label="Settings" value="settings" />
                 </Tabs>
             </Paper>
 
@@ -3207,39 +3290,51 @@ export default function OrchestrationProjectDetailView() {
                 </Box>
             )}
 
-            {tab === "work" && (
+            {tab === "board" && (
                 <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
                     <Tabs value={workView} onChange={(_, value) => setWorkView(value)} variant="scrollable" scrollButtons="auto">
-                        <Tab label="Board" value="board" />
+                        <Tab label="Kanban" value="board" />
                         <Tab label="Dependencies" value="dependencies" />
                         <Tab label="Brainstorms" value="brainstorms" />
                     </Tabs>
                 </Paper>
             )}
 
-            {tab === "team" && (
+            {tab === "memory" && (
                 <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
-                    <Tabs value={teamView} onChange={(_, value) => setTeamView(value)} variant="scrollable" scrollButtons="auto">
-                        <Tab label="Agents" value="agents" />
-                        <Tab label="Settings" value="settings" />
+                    <Tabs value={knowledgeView} onChange={(_, value) => setKnowledgeView(value)} variant="scrollable" scrollButtons="auto">
+                        <Tab label="Memory" value="memory" />
+                        <Tab label="Search" value="search" />
+                        <Tab label="Sources" value="sources" />
+                        <Tab label="Decisions" value="decisions" />
                     </Tabs>
                 </Paper>
             )}
 
-            {tab === "knowledge" && (
+            {tab === "settings" && (
                 <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
-                    <Tabs value={knowledgeView} onChange={(_, value) => setKnowledgeView(value)} variant="scrollable" scrollButtons="auto">
-                        <Tab label="Search" value="search" />
-                        <Tab label="Sources" value="sources" />
-                        <Tab label="Decisions" value="decisions" />
+                    <Tabs
+                        value={teamView === "settings" || knowledgeView === "integrations" ? (knowledgeView === "integrations" ? "integrations" : "settings") : "settings"}
+                        onChange={(_, value) => {
+                            if (value === "integrations") {
+                                setKnowledgeView("integrations");
+                                setTeamView("settings");
+                            } else {
+                                setTeamView("settings");
+                                setKnowledgeView("sources");
+                            }
+                        }}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                    >
+                        <Tab label="Execution" value="settings" />
                         <Tab label="Integrations" value="integrations" />
-                        <Tab label="Memory" value="memory" />
                     </Tabs>
                 </Paper>
             )}
 
             {/* ── Board ── */}
-            {tab === "work" && workView === "board" && (
+            {tab === "board" && workView === "board" && (
                 <Stack spacing={2}>
 
                     <KanbanBoard
@@ -3499,7 +3594,7 @@ export default function OrchestrationProjectDetailView() {
             </Drawer>
 
             {/* ── DAG ── */}
-            {tab === "work" && workView === "dependencies" && (
+            {tab === "board" && workView === "dependencies" && (
                 <Stack spacing={2}>
                     <SectionCard
                         title="Parallel DAG execution"
@@ -3540,10 +3635,10 @@ export default function OrchestrationProjectDetailView() {
                 </Stack>
             )}
 
-            {/* ── Agents ── */}
-            {tab === "team" && (
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0, 1fr)" } }}>
-                    <SectionCard title="Assign agent" sx={{ display: teamView === "agents" ? "block" : "none" }}>
+            {/* ── Agents / Settings (execution) ── */}
+            {(tab === "agents" || (tab === "settings" && knowledgeView !== "integrations")) && (
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: tab === "agents" ? "340px minmax(0, 1fr)" : "1fr" } }}>
+                    <SectionCard title="Assign agent" sx={{ display: tab === "agents" ? "block" : "none" }}>
                         <Stack spacing={2}>
                             <TextField select label="Agent" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)}>
                                 {availableAgents.length > 0 ? <ListSubheader>Existing agents</ListSubheader> : null}
@@ -3573,7 +3668,7 @@ export default function OrchestrationProjectDetailView() {
                         </Stack>
                     </SectionCard>
                     <Stack spacing={2}>
-                        <SectionCard title="Project team" sx={{ display: teamView === "agents" ? "block" : "none" }}>
+                        <SectionCard title="Project team" sx={{ display: tab === "agents" ? "block" : "none" }}>
                             <Stack spacing={1.5}>
                                 {projectAgents.map((membership) => {
                                     const agent = allAgents.find((item) => item.id === membership.agent_id);
@@ -3660,7 +3755,7 @@ export default function OrchestrationProjectDetailView() {
                                 })}
                             </Stack>
                         </SectionCard>
-                        <SectionCard title="Execution settings" sx={{ display: teamView === "settings" ? "block" : "none" }}>
+                        <SectionCard title="Execution settings" sx={{ display: tab === "settings" ? "block" : "none" }}>
                             <Stack spacing={2}>
                                 <TextField
                                     select
@@ -3995,7 +4090,7 @@ export default function OrchestrationProjectDetailView() {
                         {/* ── Gate config ── */}
                         <SectionCard
                             title="Approval gates"
-                            sx={{ display: teamView === "settings" ? "block" : "none" }}
+                            sx={{ display: tab === "settings" ? "block" : "none" }}
                         >
                             <Stack spacing={2}>
                                 <TextField
@@ -4069,7 +4164,7 @@ export default function OrchestrationProjectDetailView() {
             )}
 
             {/* ── Brainstorms ── */}
-            {tab === "work" && workView === "brainstorms" && (
+            {tab === "board" && workView === "brainstorms" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "340px minmax(0, 1fr)" } }}>
                     <SectionCard title="Start brainstorm">
                         <Stack spacing={2}>
@@ -4259,7 +4354,7 @@ export default function OrchestrationProjectDetailView() {
             )}
 
             {/* ── Decisions ── */}
-            {tab === "knowledge" && knowledgeView === "decisions" && (
+            {tab === "memory" && knowledgeView === "decisions" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "380px minmax(0, 1fr)" } }}>
                     <SectionCard title="Record decision">
                         <Stack spacing={2}>
@@ -4300,7 +4395,7 @@ export default function OrchestrationProjectDetailView() {
             )}
 
             {/* ── GitHub ── */}
-            {tab === "knowledge" && knowledgeView === "integrations" && (
+            {tab === "settings" && knowledgeView === "integrations" && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" } }}>
                     <SectionCard title="Local repo workspace">
                         <Stack spacing={2}>
@@ -4556,7 +4651,7 @@ export default function OrchestrationProjectDetailView() {
             )}
 
             {/* ── Knowledge base ── */}
-            {tab === "knowledge" && (knowledgeView === "search" || knowledgeView === "sources" || knowledgeView === "memory") && (
+            {tab === "memory" && (knowledgeView === "search" || knowledgeView === "sources" || knowledgeView === "memory") && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 400px" }, alignItems: "start" }}>
                     <Stack spacing={2}>
                         <SectionCard title="Sources" sx={{ display: knowledgeView === "sources" ? "block" : "none" }}>
@@ -5043,13 +5138,23 @@ export default function OrchestrationProjectDetailView() {
                 </Box>
             )}
 
-            {/* ── Activity ── */}
-            {tab === "activity" && (
-                <SectionCard title="Activity feed">
+            {/* ── Runs ── */}
+            {tab === "runs" && (
+                <SectionCard
+                    title="Runs & approvals"
+                    description="Task runs, pending approvals, and sync events for this project."
+                    action={
+                        pendingProjectApprovals.length > 0 ? (
+                            <Button size="small" variant="contained" color="warning" startIcon={<ApproveIcon />} onClick={() => navigate("/activity")}>
+                                Open approval queue
+                            </Button>
+                        ) : undefined
+                    }
+                >
                     <Stack spacing={1.25}>
-                        {activityItems.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">No activity yet.</Typography>
-                        ) : activityItems.map((item) => (
+                        {activityItems.filter((item) => item.kind === "Run" || item.kind === "Approval").length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">No runs or approvals yet.</Typography>
+                        ) : activityItems.filter((item) => item.kind === "Run" || item.kind === "Approval").map((item) => (
                             <Paper key={item.id} sx={{ p: 1.5, borderRadius: 1 }}>
                                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
                                     <Box sx={{ minWidth: 0 }}>
@@ -5219,7 +5324,7 @@ export default function OrchestrationProjectDetailView() {
                             </Alert>
                         ) : null}
                         <Stack spacing={1}>
-                            <Button variant="outlined" onClick={() => { setTab("work"); setWorkView("board"); setDagDrawerTaskId(null); }}>
+                            <Button variant="outlined" onClick={() => { setTab("board"); setWorkView("board"); setDagDrawerTaskId(null); }}>
                                 Open board tab
                             </Button>
                             {dagTaskLatestRun ? (

@@ -1,11 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-    Alert,
     Box,
     Button,
     Chip,
-    MenuItem,
     Paper,
     Skeleton,
     Stack,
@@ -14,7 +12,6 @@ import {
     TableCell,
     TableHead,
     TableRow,
-    TextField,
     Typography,
 } from "@mui/material";
 import {
@@ -22,17 +19,22 @@ import {
     CheckCircleOutline as AcceptanceIcon,
     ErrorOutline as FailureIcon,
     Hub as ProviderIcon,
+    PlayArrow as RunFirstIcon,
     Replay as RetryIcon,
     Speed as RunIcon,
     Token as TokenIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { getExecutionInsights, getProviderHealthSummary, type ExecutionRollup } from "../api/orchestration";
+import { AnalyticsKpiStrip } from "../components/ui/AnalyticsKpiStrip";
+import { DateRangeControl } from "../components/ui/DateRangeControl";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { SectionError } from "../components/ui/SectionError";
 import { StatCard } from "../components/ui/StatCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
-import { extractApiErrorMessage } from "../utils/apiErrors";
 
 function RollupTable({ title, rows, emptyLabel }: { title: string; rows: ExecutionRollup[]; emptyLabel: string }) {
     return (
@@ -93,32 +95,49 @@ export default function ExecutionInsightsPage() {
     const failedProviders = providerRows.filter((provider) => provider.enabled && provider.healthy === false).length;
 
     return (
-        <PageShell maxWidth="xl">
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }} alignItems={{ sm: "center" }}>
-                <TextField select label="Window" size="small" value={days} onChange={(event) => setDays(Number(event.target.value))} sx={{ minWidth: 180 }}>
-                    <MenuItem value={7}>Last 7 days</MenuItem>
-                    <MenuItem value={14}>Last 14 days</MenuItem>
-                    <MenuItem value={30}>Last 30 days</MenuItem>
-                    <MenuItem value={90}>Last 90 days</MenuItem>
-                </TextField>
-                {data?.since && <Typography variant="body2" color="text.secondary">Since {formatDateTime(data.since)}</Typography>}
-                <Box sx={{ flex: 1 }} />
-                <Button variant="outlined" onClick={() => navigate("/analytics/cost")}>Cost analytics</Button>
-                <Button variant="outlined" onClick={() => navigate("/activity")}>GitHub sync log</Button>
-            </Stack>
+        <PageShell maxWidth="xl" variant="browse">
+            <PageHeader
+                title="Execution insights"
+                description="Reliability and quality signals across runs — investigate, then open a run for the full timeline."
+                actions={
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+                        <DateRangeControl value={days} onChange={setDays} />
+                        <Button variant="outlined" onClick={() => navigate("/analytics/cost")}>Cost</Button>
+                        <Button variant="outlined" onClick={() => navigate("/activity")}>Approvals / ledger</Button>
+                    </Stack>
+                }
+            />
 
             {(insights.isError || providerHealth.isError) && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    {extractApiErrorMessage(insights.error ?? providerHealth.error, "Observability data could not be loaded.")}
-                </Alert>
+                <SectionError
+                    error={insights.error ?? providerHealth.error}
+                    fallback="Observability data could not be loaded."
+                    onRetry={() => {
+                        void insights.refetch();
+                        void providerHealth.refetch();
+                    }}
+                />
             )}
 
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }, mb: 2 }}>
+            <AnalyticsKpiStrip>
                 <StatCard label="Runs" value={data?.total_runs ?? "—"} description={`${data?.completed_runs ?? 0} completed · ${data?.failed_runs ?? 0} failed`} icon={<RunIcon />} loading={insights.isLoading} />
                 <StatCard label="Tokens" value={data ? (data.total_tokens ?? 0).toLocaleString() : "—"} description={`$${(data?.total_cost_usd ?? 0).toFixed(4)} estimated cost`} icon={<TokenIcon />} color="secondary" loading={insights.isLoading} />
                 <StatCard label="Latency" value={data ? `${Math.round(data.avg_latency_ms ?? 0)} ms` : "—"} description={`p95 ${Math.round(data?.p95_latency_ms ?? 0)} ms`} icon={<LatencyIcon />} color="info" loading={insights.isLoading} />
                 <StatCard label="Acceptance after review" value={data?.acceptance_rate_after_review == null ? "—" : `${Math.round(data.acceptance_rate_after_review * 100)}%`} description={`${data?.accepted_after_review ?? 0} of ${data?.acceptance_checks ?? 0} review runs`} icon={<AcceptanceIcon />} color="success" loading={insights.isLoading} />
-            </Box>
+            </AnalyticsKpiStrip>
+
+            {!insights.isLoading && (data?.total_runs ?? 0) === 0 ? (
+                <EmptyState
+                    icon={<RunFirstIcon />}
+                    title="No runs in this window"
+                    description="Start a project run to populate execution insights."
+                    action={
+                        <Button component={RouterLink} to="/projects" variant="contained" size="small">
+                            Open projects
+                        </Button>
+                    }
+                />
+            ) : null}
 
             <SectionCard title="Quality and reliability signals" description="Operational signals are evidence for investigation, not a replacement for human review or offline evaluation.">
                 {insights.isLoading ? <Skeleton variant="rounded" height={80} /> : (

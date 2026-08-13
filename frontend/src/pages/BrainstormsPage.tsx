@@ -349,7 +349,16 @@ export default function BrainstormsPage() {
             </Paper>
             <SectionCard title="All brainstorms" description="Each room tracks mode, participants, rounds, guardrails, summaries, and promoted outputs.">
                 {brainstorms.length === 0 ? (
-                    <EmptyState icon={<BrainstormIcon />} title="No brainstorms yet" description="Create a room to coordinate structured discussion between multiple agents." />
+                    <EmptyState
+                        icon={<BrainstormIcon />}
+                        title="No brainstorms yet"
+                        description="Create a room to coordinate structured discussion between multiple agents."
+                        action={
+                            <Button variant="contained" onClick={() => setDialogOpen(true)}>
+                                New brainstorm
+                            </Button>
+                        }
+                    />
                 ) : filteredBrainstorms.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">No brainstorms match the current filters.</Typography>
                 ) : (

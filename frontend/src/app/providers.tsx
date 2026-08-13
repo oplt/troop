@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { ThemeProvider, CssBaseline, useMediaQuery } from "@mui/material";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -39,6 +39,13 @@ export function AppProviders({ children }: PropsWithChildren) {
         if (colorMode === "system") return prefersDark ? darkTheme : lightTheme;
         return colorMode === "dark" ? darkTheme : lightTheme;
     }, [colorMode, prefersDark]);
+
+    const resolvedMode = theme.palette.mode;
+
+    useEffect(() => {
+        document.documentElement.dataset.troopTheme = resolvedMode;
+        document.body.classList.toggle("troop-theme-dark", resolvedMode === "dark");
+    }, [resolvedMode]);
 
     return (
         <ColorModeContext.Provider value={{ colorMode, setColorMode }}>

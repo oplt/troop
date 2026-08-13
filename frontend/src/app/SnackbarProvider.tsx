@@ -16,15 +16,20 @@ export function SnackbarProvider({ children }: PropsWithChildren) {
             {children}
             <Snackbar
                 open={open}
-                autoHideDuration={4000}
+                autoHideDuration={opts.severity === "error" ? 6000 : 4000}
                 onClose={() => setOpen(false)}
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                ContentProps={{
+                    // MUI Alert already exposes role=alert for errors; keep polite for success/info.
+                    "aria-live": opts.severity === "error" ? "assertive" : "polite",
+                }}
             >
                 <Alert
                     severity={opts.severity ?? "info"}
                     onClose={() => setOpen(false)}
                     variant="filled"
                     sx={{ width: "100%" }}
+                    role={opts.severity === "error" ? "alert" : "status"}
                 >
                     {opts.message}
                 </Alert>

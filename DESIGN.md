@@ -1,5 +1,9 @@
 # Design System Inspired by Tesla
 
+> **Product vs marketing:** This file documents the Tesla *marketing site* visual language that inspired Troop tokens (color, radius, motion, flat elevation). The authenticated app is a **product** workspace — see `PRODUCT.md` for users, IA, and chrome rules. Do not port full-bleed photography heroes or gallery 100vh sections into app UI.
+>
+> **Typography in app:** Universal Sans is proprietary. Troop ships **Space Grotesk** (Display) + **DM Sans** (Text) + **IBM Plex Mono** (code). Token roles (Display for headings, Text for UI) stay; family names differ.
+
 ## 1. Visual Theme & Atmosphere
 
 Tesla's website is an exercise in radical subtraction — a digital showroom where the product is everything and the interface is almost nothing. The page opens with a full-viewport hero that fills the entire screen with cinematic car photography: three vehicles arranged on polished concrete against a hazy cityscape sky, with a single model name floating above in translucent white type. There are no decorative borders, no gradients, no patterns, no shadows. The UI exists only to provide just enough navigational structure to get out of the way. Every pixel that isn't product imagery is white space, and that restraint is the design system's most powerful statement.
@@ -284,3 +288,59 @@ When refining existing screens generated with this design system:
 3. Use natural language descriptions, not CSS values — "barely rounded corners" not "border-radius: 4px"
 4. Describe the desired "feel" alongside specific measurements — "gallery-like silence between sections" communicates the whitespace philosophy better than "margin-bottom: 100vh"
 5. Always verify that photography is doing the emotional heavy-lifting — if the UI itself feels "designed," it's too much
+
+---
+
+## 10. Product appendix (Troop app chrome)
+
+Marketing sections above inspire tokens. The authenticated app follows **PRODUCT.md** (`register: product`).
+
+### Layout kit
+
+| Variant | Use | Max width |
+|---------|-----|-----------|
+| `browse` | Lists, catalogs, dashboard | `xl` |
+| `form` | Settings, multi-field forms | `md` |
+| `inspector` | Hierarchy, project workspace, run inspector | fluid |
+
+Compose: `PageShell` → `PageHeader` → optional `FilterToolbar` → content → optional `InspectorSplit` side panel.
+
+### Surfaces
+
+- Prefer hairline dividers over nested `Paper` stacks.
+- `SectionCard` `density="framed"` for interactive units (forms, live panels).
+- `SectionCard` `density="plain"` for list/table sections.
+- Stat tiles may use a single bordered paper — never Paper-inside-Paper for row metrics.
+
+### Semantic status (ops)
+
+Use `StatusChip` / `resolveStatusTone` — marketing monochrome does **not** apply to run/task/approval state.
+
+| Tone | Examples |
+|------|----------|
+| success | completed, approved, active (project) |
+| warning | queued, pending, needs_review, running (project attention) |
+| error | failed, rejected, blocked, needs_attention |
+| info | in_progress, running (run), ready |
+| default | cancelled, archived, draft |
+
+Icons accompany chips. Optional `celebrate` applies `.troop-success-flash` on approve/complete.
+
+### Dark mode
+
+- Secondary / outlined buttons use transparent surfaces + light borders (not forced white fills).
+- Scrollbar thumb lightens under `data-troop-theme="dark"`.
+- Empty states use stronger dashed contrast on dark.
+
+### Motion
+
+- Chrome transitions: `0.33s cubic-bezier(0.5, 0, 0, 0.75)`.
+- `.troop-page-enter` — page content fade/slide.
+- Drawer width already animated in AppLayout.
+- `.troop-success-flash` — approve/complete pulse.
+- No scale/bounce on buttons. Honor `prefers-reduced-motion`.
+
+### Iconography
+
+- Filled MUI icons in nav; one unique icon per destination (Phase 0).
+- Prefer the same filled style for status icons inside `StatusChip`.

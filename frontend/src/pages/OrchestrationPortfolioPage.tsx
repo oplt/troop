@@ -13,11 +13,17 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getOrchestrationPortfolioControlPlane, updatePortfolioExecutionPolicy } from "../api/orchestration";
+import { AnalyticsKpiStrip } from "../components/ui/AnalyticsKpiStrip";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { SectionError } from "../components/ui/SectionError";
+import { StatCard } from "../components/ui/StatCard";
 import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
 import { formatDateTime } from "../utils/formatters";
 import { useSnackbar } from "../app/snackbarContext";
+import { FolderOpen as ProjectsIcon, PlayCircleOutline as RunsIcon, Block as BlockedIcon, PriorityHigh as EscalationIcon, AttachMoney as CostIcon } from "@mui/icons-material";
 
 export default function OrchestrationPortfolioPage() {
     const navigate = useNavigate();
@@ -73,27 +79,22 @@ export default function OrchestrationPortfolioPage() {
     const operatorDashboard = data?.operator_dashboard;
 
     return (
-        <PageShell maxWidth="xl">
+        <PageShell maxWidth="xl" variant="browse">
+            <PageHeader
+                title="Portfolio"
+                description="Control plane across projects: queues, health, cost, and inherited execution defaults."
+            />
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    {error.message || "An error occurred loading the portfolio data"}
-                </Alert>
+                <SectionError error={error} fallback="Couldn't load portfolio data." />
             )}
 
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 2, mb: 4 }}>
-                {[
-                    { label: "Active runs", value: String(totals.active_runs ?? 0) },
-                    { label: "Blocked tasks", value: String(totals.blocked_tasks ?? 0) },
-                    { label: "Escalations", value: String(totals.pending_escalations ?? 0) },
-                    { label: "30d cost", value: `$${Number(totals.cost_usd_30d ?? 0).toFixed(2)}` },
-                ].map((metric) => (
-                    <Paper key={metric.label} sx={{ p: 2, borderRadius: 4 }}>
-                        <Typography variant="caption" color="text.secondary">{metric.label}</Typography>
-                        <Typography variant="h5" sx={{ mt: 0.5 }}>{metric.value}</Typography>
-                    </Paper>
-                ))}
-            </Box>
+            <AnalyticsKpiStrip columns={{ xs: 1, sm: 2, md: 4, lg: 4 }}>
+                <StatCard label="Active runs" value={String(totals.active_runs ?? 0)} loading={isLoading} icon={<RunsIcon />} />
+                <StatCard label="Blocked tasks" value={String(totals.blocked_tasks ?? 0)} loading={isLoading} color="warning" icon={<BlockedIcon />} />
+                <StatCard label="Escalations" value={String(totals.pending_escalations ?? 0)} loading={isLoading} color="secondary" icon={<EscalationIcon />} />
+                <StatCard label="30d cost" value={`$${Number(totals.cost_usd_30d ?? 0).toFixed(2)}`} loading={isLoading} icon={<CostIcon />} />
+            </AnalyticsKpiStrip>
 
             <SectionCard title="Operator Dashboard" description="Runtime and sync health across queues, replay, webhook lag, and service planes.">
                 {!operatorDashboard ? (
@@ -216,7 +217,16 @@ export default function OrchestrationPortfolioPage() {
                 {isLoading ? (
                     <Typography variant="body2" color="text.secondary">Loading portfolio control plane…</Typography>
                 ) : projects.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">No orchestration projects yet.</Typography>
+                    <EmptyState
+                        icon={<ProjectsIcon />}
+                        title="No projects in portfolio"
+                        description="Create a project and run work to populate the supervisor grid."
+                        action={
+                            <Button variant="contained" onClick={() => navigate("/projects?create=1")}>
+                                Create project
+                            </Button>
+                        }
+                    />
                 ) : (
                     <Stack spacing={2}>
                         {projects.map((project) => {

@@ -143,15 +143,24 @@ export function CompaniesPanel() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [newName, setNewName] = useState("");
     const [newSlug, setNewSlug] = useState("");
+    const [companyQuery, setCompanyQuery] = useState("");
 
     const { data: companies = [], isLoading } = useQuery({
         queryKey: queryKeys.companies.root,
         queryFn: listCompanies,
     });
 
+    const filteredCompanies = useMemo(() => {
+        const q = companyQuery.trim().toLowerCase();
+        if (!q) return companies;
+        return companies.filter(
+            (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+        );
+    }, [companies, companyQuery]);
+
     const selected: Company | undefined = useMemo(
-        () => companies.find((c) => c.id === selectedId) ?? companies[0],
-        [companies, selectedId],
+        () => filteredCompanies.find((c) => c.id === selectedId) ?? filteredCompanies[0] ?? companies.find((c) => c.id === selectedId),
+        [filteredCompanies, companies, selectedId],
     );
 
     const createMut = useMutation({
@@ -226,20 +235,36 @@ export function CompaniesPanel() {
                             description="Create one to start scoping memory above the project level."
                         />
                     ) : (
-                        <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            label="Active company"
-                            value={selected?.id ?? ""}
-                            onChange={(e) => setSelectedId(e.target.value || null)}
-                        >
-                            {companies.map((company) => (
-                                <MenuItem key={company.id} value={company.id}>
-                                    {company.name} ({company.slug})
-                                </MenuItem>
-                            ))}
-                        </TextField>
+                        <Stack spacing={1.5}>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                label="Search companies"
+                                value={companyQuery}
+                                onChange={(e) => setCompanyQuery(e.target.value)}
+                                placeholder="Name or slug"
+                            />
+                            {filteredCompanies.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">
+                                    No companies match “{companyQuery}”.
+                                </Typography>
+                            ) : (
+                                <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    label="Active company"
+                                    value={selected?.id ?? ""}
+                                    onChange={(e) => setSelectedId(e.target.value || null)}
+                                >
+                                    {filteredCompanies.map((company) => (
+                                        <MenuItem key={company.id} value={company.id}>
+                                            {company.name} ({company.slug})
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            )}
+                        </Stack>
                     )}
                 </SectionCard>
             </Stack>

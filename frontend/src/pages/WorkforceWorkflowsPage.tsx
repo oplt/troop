@@ -26,6 +26,9 @@ import {
 } from "@mui/material";
 import { Add, AutoAwesome, DeleteOutline, PlayArrow, Publish, Save } from "@mui/icons-material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
+import { PageHeader } from "../components/ui/PageHeader";
+import { PageShell } from "../components/ui/PageShell";
 import {
     createWorkforceWorkflow,
     listSkills,
@@ -42,7 +45,6 @@ import {
     type WorkflowStepRun,
 } from "../api/integrations";
 import { useSnackbar } from "../app/snackbarContext";
-import { PageShell } from "../components/ui/PageShell";
 import {
     createWorkflowNode,
     emailTelegramStarter,
@@ -327,13 +329,25 @@ function WorkflowBuilder() {
     return (
         <PageShell maxWidth="xl">
             <Stack spacing={3} sx={{ py: 3 }}>
-                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2}>
-                    <Box>
-                        <Typography variant="h4" gutterBottom>Workforce workflows</Typography>
-                        <Typography color="text.secondary">Design event → agent → action → human approval workflows as a durable graph.</Typography>
-                    </Box>
-                    <Button startIcon={<AutoAwesome />} variant="outlined" onClick={useStarter}>Email + Telegram starter</Button>
-                </Stack>
+                <PageHeader
+                    title="Workforce workflows"
+                    description="Runnable event → agent → action graphs (instances). Blueprints live under Workflow templates."
+                    actions={
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Button component={RouterLink} to="/workflow-templates" variant="outlined">
+                                Workflow templates
+                            </Button>
+                            <Button startIcon={<AutoAwesome />} variant="outlined" onClick={useStarter}>
+                                Email + Telegram starter
+                            </Button>
+                        </Stack>
+                    }
+                />
+                {errors.length > 0 ? (
+                    <Alert severity="error" role="alert">
+                        Validation: {errors.join(" · ")}
+                    </Alert>
+                ) : null}
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
                     <Stack spacing={2}>
                         <Stack direction={{ xs: "column", sm: "row" }} gap={2}>

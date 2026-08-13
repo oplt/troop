@@ -208,7 +208,7 @@ export function PlatformPanel() {
 
             {visibleUserModules.length === 0 && (
                 <Alert severity="info">
-                    The active module pack does not expose any end-user platform modules right now.
+                    The active module pack (nav preset) does not expose any end-user platform modules right now.
                 </Alert>
             )}
 

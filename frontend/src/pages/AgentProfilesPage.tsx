@@ -8,8 +8,10 @@ import {
     updateAgent, validateAgentContract, type Agent, type AgentTemplate,
 } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { extractApiErrorMessage } from "../utils/apiErrors";
 import { queryKeys } from "../config/queryKeys";
+import { Link as RouterLink } from "react-router-dom";
 
 const DEFAULT_MARKDOWN = `---
 name: New Specialist
@@ -157,10 +159,18 @@ export default function AgentProfilesPage() {
     });
 
     return <PageShell maxWidth="xl">
-        <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 1 }}><Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
-            <Box><Typography variant="overline" color="text.secondary">Agent registry</Typography><Typography variant="h3">Versioned workers with explicit contracts</Typography><Typography color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>Define identity, capabilities, tools, model policy, memory, permissions, escalation, budgets, filters, and output shape before an agent can run.</Typography></Box>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}><TextField select label="Project scope" value={projectId} onChange={(e) => { setProjectId(e.target.value); setSelectedId(null); }} sx={{ minWidth: 220 }}><MenuItem value="">Global agents</MenuItem>{projects.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}</TextField><Button variant="outlined" startIcon={<AddIcon />} onClick={() => { setSelectedId(null); setForm(agentForm(null)); setMarkdown(DEFAULT_MARKDOWN); }}>New draft</Button></Stack>
-        </Stack></Paper>
+        <PageHeader
+            title="Agents"
+            description="Versioned worker contracts. Install packs from Marketplace, attach Skills, or compose teams in Hierarchy."
+            actions={
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Button component={RouterLink} to="/marketplace" size="small" variant="outlined">Marketplace</Button>
+                    <Button component={RouterLink} to="/skills" size="small" variant="outlined">Skills</Button>
+                    <TextField select label="Project scope" size="small" value={projectId} onChange={(e) => { setProjectId(e.target.value); setSelectedId(null); }} sx={{ minWidth: 200 }}><MenuItem value="">Global agents</MenuItem>{projects.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}</TextField>
+                    <Button variant="outlined" startIcon={<AddIcon />} onClick={() => { setSelectedId(null); setForm(agentForm(null)); setMarkdown(DEFAULT_MARKDOWN); }}>New draft</Button>
+                </Stack>
+            }
+        />
         {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}{message && <Alert severity="info" onClose={() => setMessage("")}>{message}</Alert>}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "320px minmax(0, 1fr)" }, gap: 3 }}>
             <Stack spacing={2}><Paper sx={{ p: 2, borderRadius: 1 }}><Typography variant="subtitle1">Registry</Typography><Typography variant="caption" color="text.secondary">{agents.length} profiles in this scope</Typography><Stack spacing={1} sx={{ mt: 1.5 }}>{agents.map((item) => <Button key={item.id} variant={agent?.id === item.id ? "contained" : "outlined"} onClick={() => setSelectedId(item.id)} sx={{ justifyContent: "flex-start", textAlign: "left" }}><Box><Typography variant="body2">{item.name}</Typography><Typography variant="caption">{item.role} · v{item.version} · {item.is_active ? "active" : "inactive"}</Typography></Box></Button>)}{agents.length === 0 && <Typography color="text.secondary">No agents in this scope yet.</Typography>}</Stack></Paper><Paper sx={{ p: 2, borderRadius: 1 }}><Typography variant="subtitle1">Templates</Typography><Typography variant="caption" color="text.secondary">Validated starting points with inheritance and skill composition.</Typography><Stack spacing={1} sx={{ mt: 1.5 }}>{templates.map((item) => <Button key={item.slug} size="small" variant="outlined" disabled={template.isPending} onClick={() => template.mutate(item)} sx={{ justifyContent: "space-between", textTransform: "none" }}><span>{item.name}</span><Typography variant="caption">{item.role}</Typography></Button>)}</Stack></Paper></Stack>

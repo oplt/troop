@@ -56,6 +56,7 @@ class PlatformEmailTemplatesMixin:
                 else None
             ),
         )
+
     @staticmethod
     def _render_template_string(template: str, context: dict[str, str]) -> str:
         def _replace(match: re.Match[str]) -> str:

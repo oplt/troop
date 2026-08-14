@@ -6,13 +6,16 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
-from backend.modules.orchestration.schemas.common import *  # noqa: F403
+from backend.modules.orchestration.schemas.common import (
+    HierarchyExecutionMode,
+    HierarchyRelationship,
+    HierarchyRoutingMode,
+)
 
 
 def _coerce_null_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
 
 class ProjectCreate(RequestModel):
     name: str = Field(min_length=2, max_length=255)
@@ -187,5 +190,3 @@ class LocalRepoContextPackResponse(BaseModel):
     files: list[dict[str, Any]]
     constraints: dict[str, Any]
     created_at: str
-
-

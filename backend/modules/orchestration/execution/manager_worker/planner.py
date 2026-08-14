@@ -51,6 +51,7 @@ class ManagerWorkerPlannerMixin:
             run_id=child.id,
         )
         return child
+
     async def _plan_agent_execution(
         self,
         run: TaskRun,

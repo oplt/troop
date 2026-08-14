@@ -10,7 +10,6 @@ from backend.core.cache import (
     set_cached_platform_metadata,
 )
 from backend.core.config import settings
-from backend.modules.identity_access.models import User
 from backend.modules.platform.catalog import (
     DEFAULT_EMAIL_TEMPLATES,
     DEFAULT_FEATURE_FLAGS,
@@ -20,10 +19,11 @@ from backend.modules.platform.catalog import (
     SETTING_APP_NAME,
     SETTING_CORE_DOMAIN_PLURAL,
     SETTING_CORE_DOMAIN_SINGULAR,
+    SETTING_MFA_ENABLED,
     SETTING_MODULE_OVERRIDE_PREFIX,
     SETTING_MODULE_PACK,
-    SETTING_MFA_ENABLED,
 )
+from backend.modules.platform.models import SubscriptionPlan
 from backend.modules.platform.schemas import (
     ModuleCatalogItem,
     ModulePackResponse,
@@ -215,6 +215,7 @@ class PlatformConfigMixin:
         await self.db.commit()
         await invalidate_platform_metadata_cache()
         return await self.get_platform_config()
+
     async def ensure_module_enabled(self, module_key: str) -> None:
         metadata = await self.get_platform_metadata()
         if module_key not in metadata.enabled_modules:

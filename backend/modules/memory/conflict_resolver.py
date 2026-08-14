@@ -66,7 +66,7 @@ def _cosine(a: Iterable[float] | None, b: Iterable[float] | None) -> float:
     vb = list(b)
     if not va or not vb or len(va) != len(vb):
         return 0.0
-    dot = sum(x * y for x, y in zip(va, vb))
+    dot = sum(x * y for x, y in zip(va, vb, strict=False))
     na = math.sqrt(sum(x * x for x in va))
     nb = math.sqrt(sum(y * y for y in vb))
     if na == 0 or nb == 0:
@@ -86,9 +86,7 @@ def _polarity_clash(a: str, b: str) -> bool:
     b_dir = bool(_DIRECTIVE_PATTERN.search(b))
     if a_neg and b_dir and not b_neg:
         return True
-    if b_neg and a_dir and not a_neg:
-        return True
-    return False
+    return bool(b_neg and a_dir and not a_neg)
 
 
 def _version_clash(a: str, b: str) -> bool:
@@ -132,17 +130,18 @@ def detect(
                     reason="cosine>=0.92 (near-duplicate)",
                 )
             )
-        elif sim >= _SIM_CONTRA_THRESHOLD:
-            if _polarity_clash(cand_txt, row_txt) or _version_clash(cand_txt, row_txt):
-                report.contradictions.append(
-                    ConflictHit(
-                        kind="contradicts",
-                        similarity=round(sim, 3),
-                        entry_id=row.id,
-                        entry_title=row.title,
-                        reason="polarity or version clash at sim>=0.75",
-                    )
+        elif sim >= _SIM_CONTRA_THRESHOLD and (
+            _polarity_clash(cand_txt, row_txt) or _version_clash(cand_txt, row_txt)
+        ):
+            report.contradictions.append(
+                ConflictHit(
+                    kind="contradicts",
+                    similarity=round(sim, 3),
+                    entry_id=row.id,
+                    entry_title=row.title,
+                    reason="polarity or version clash at sim>=0.75",
                 )
+            )
     return report
 
 

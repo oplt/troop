@@ -59,6 +59,25 @@ _ASYNC_PARALLEL_TYPES = frozenset({"agent", "subworkflow", "delay"})
 logger = get_logger(__name__)
 
 
+def _should_simulate_external_write(run: WorkflowRun, tool_slug: str) -> bool:
+    ctx = run.context_json or {}
+    if not ctx.get("test_mode") or not ctx.get("simulate_external_writes"):
+        return False
+    from backend.modules.workforce.services.tool_governance import is_external_mutating_tool
+
+    return is_external_mutating_tool(tool_slug)
+
+
+def _simulated_tool_result(tool_slug: str, params: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": "simulated",
+        "tool_slug": tool_slug,
+        "params": params,
+        "simulated": True,
+        "reason": "test_mode_external_write_simulation",
+    }
+
+
 def _normalize_join_policy(policy: str) -> str:
     return str(policy or "all_success").lower().replace("-", "_")
 
@@ -150,6 +169,7 @@ class WorkflowRuntimeService:
         project_id: str | None = None,
         task_id: str | None = None,
         input_json: dict[str, Any] | None = None,
+        environment: str = "prod",
     ) -> WorkflowRun:
         run, version = await self._create_run_record(
             owner_id,
@@ -157,9 +177,48 @@ class WorkflowRuntimeService:
             project_id=project_id,
             task_id=task_id,
             input_json=input_json,
+            environment=environment,
         )
         await self._advance(run, version)
         await self._notify_workflow_run_completed_if_terminal(run)
+        await self.db.commit()
+        await self._deliver_pending_external_approval(run, version)
+        await self.db.refresh(run)
+        return run
+
+    async def start_test_run(
+        self,
+        owner_id: str,
+        workflow_id: str,
+        *,
+        project_id: str | None = None,
+        task_id: str | None = None,
+        input_json: dict[str, Any] | None = None,
+        version_id: str | None = None,
+    ) -> WorkflowRun:
+        run, version = await self._create_run_record(
+            owner_id,
+            workflow_id,
+            project_id=project_id,
+            task_id=task_id,
+            input_json=input_json,
+            test_mode=True,
+            version_id=version_id,
+        )
+        await self._advance(run, version)
+        await self._notify_workflow_run_completed_if_terminal(run)
+        await self.db.commit()
+        from backend.modules.platform.activation_hooks import record_activation_for_owner
+
+        await record_activation_for_owner(
+            self.db,
+            owner_id,
+            "first_test_run",
+            at=run.created_at,
+            resource_type="workflow_run",
+            resource_id=run.id,
+            metadata={"workflow_id": run.workflow_id, "test_mode": True},
+        )
         await self.db.commit()
         await self._deliver_pending_external_approval(run, version)
         await self.db.refresh(run)
@@ -232,18 +291,56 @@ class WorkflowRuntimeService:
         project_id: str | None = None,
         task_id: str | None = None,
         input_json: dict[str, Any] | None = None,
+        test_mode: bool = False,
+        version_id: str | None = None,
+        environment: str = "prod",
     ) -> tuple[WorkflowRun, WorkflowVersion]:
         definition = await self.get_definition(owner_id, workflow_id)
-        if not definition.current_version_id:
-            raise ValueError("workflow has no published version")
-        version = await self.get_version(definition.current_version_id)
-        if version is None:
-            raise ValueError("workflow version missing")
-        nodes = list(version.nodes_json or [])
-        edges = list(version.edges_json or [])
-        errors = self.validate_graph(nodes=nodes, edges=edges, entry_node_id=version.entry_node_id)
+        from backend.modules.workforce.services.workflow_version_service import (
+            WorkflowVersionService,
+        )
+
+        version_service = WorkflowVersionService(self.db)
+        if version_id:
+            version = await version_service.get_version(version_id)
+            if version is None or version.workflow_id != definition.id:
+                raise ValueError("workflow version not found")
+            resolved_nodes = list(version.nodes_json or [])
+            resolved_edges = list(version.edges_json or [])
+            resolved_entry = version.entry_node_id
+        elif test_mode:
+            version = await version_service.get_draft(definition)
+            if version is None:
+                raise ValueError("workflow has no draft to test")
+            resolved_nodes = list(version.nodes_json or [])
+            resolved_edges = list(version.edges_json or [])
+            resolved_entry = version.entry_node_id
+        else:
+            from backend.modules.workforce.services.workflow_environment_service import (
+                WorkflowEnvironmentService,
+            )
+
+            env_service = WorkflowEnvironmentService(self.db)
+            version, resolved_nodes, resolved_edges, resolved_entry = (
+                await env_service.resolved_graph_for_environment(definition, environment)
+            )
+
+        nodes = resolved_nodes
+        edges = resolved_edges
+        errors = self.validate_graph(nodes=nodes, edges=edges, entry_node_id=resolved_entry)
         if errors:
             raise ValueError({"errors": errors})
+
+        context_json: dict[str, Any] = {
+            "input": input_json or {},
+            "completed": [],
+            "vars": dict(input_json or {}),
+        }
+        if test_mode:
+            context_json["test_mode"] = True
+            context_json["simulate_external_writes"] = True
+        else:
+            context_json["environment"] = environment
 
         run = WorkflowRun(
             id=str(uuid4()),
@@ -252,18 +349,21 @@ class WorkflowRuntimeService:
             project_id=project_id,
             task_id=task_id,
             status="running",
-            current_node_id=version.entry_node_id,
-            context_json={
-                "input": input_json or {},
-                "completed": [],
-                "vars": dict(input_json or {}),
-            },
+            current_node_id=resolved_entry,
+            context_json=context_json,
             result_json={},
             created_by=owner_id,
         )
         self.db.add(run)
         await self.db.flush()
-        return run, version
+
+        from copy import deepcopy
+
+        resolved_version = deepcopy(version)
+        resolved_version.nodes_json = nodes
+        resolved_version.edges_json = edges
+        resolved_version.entry_node_id = resolved_entry
+        return run, resolved_version
 
     async def apply_approval_rejection(
         self,
@@ -491,7 +591,8 @@ class WorkflowRuntimeService:
             None,
         )
         config = dict((node or {}).get("config") or {})
-        if str(config.get("approval_delivery_channel") or "") != "telegram":
+        channel = str(config.get("approval_delivery_channel") or "")
+        if channel not in {"telegram", "slack", "teams"}:
             return
         installation_id = str(config.get("approval_connector_installation_id") or "")
         variables = dict((run.context_json or {}).get("vars") or {})
@@ -503,10 +604,22 @@ class WorkflowRuntimeService:
                 ApprovalDeliveryService,
             )
 
-            await ApprovalDeliveryService(self.db).deliver_telegram(
-                approval_request_id=approval_id,
-                connector_installation_id=installation_id,
-            )
+            service = ApprovalDeliveryService(self.db)
+            if channel == "telegram":
+                await service.deliver_telegram(
+                    approval_request_id=approval_id,
+                    connector_installation_id=installation_id,
+                )
+            elif channel == "slack":
+                await service.deliver_slack(
+                    approval_request_id=approval_id,
+                    connector_installation_id=installation_id,
+                )
+            else:
+                await service.deliver_teams(
+                    approval_request_id=approval_id,
+                    connector_installation_id=installation_id,
+                )
         except Exception:
             logger.exception(
                 "workflow_approval_delivery_failed run_id=%s approval_id=%s",
@@ -525,31 +638,44 @@ class WorkflowRuntimeService:
         reason: str | None = None,
         extra_payload: dict[str, Any] | None = None,
     ) -> str:
-        from backend.modules.orchestration.models import ApprovalRequest
+        from backend.modules.orchestration.services.exact_effect_approval import (
+            create_exact_effect_approval,
+        )
+
+        raw_arguments = dict((extra_payload or {}).get("draft_arguments") or {})
+        if not raw_arguments and extra_payload:
+            raw_arguments = {
+                key: value
+                for key, value in extra_payload.items()
+                if key not in {"risk_level", "email", "tool_slug"}
+            }
 
         payload: dict[str, Any] = {
             "workflow_run_id": run.id,
             "workflow_node_id": node_id,
-            "action_key": action_key,
             "owner_id": run.created_by,
         }
-        if args_hash:
-            payload["arguments_hash"] = args_hash
         if extra_payload:
             payload.update(extra_payload)
 
-        approval = ApprovalRequest(
-            id=str(uuid4()),
+        approval = await create_exact_effect_approval(
+            self.db,
             project_id=run.project_id,
             task_id=run.task_id,
-            approval_type=approval_type,
-            status="pending",
+            run_id=None,
+            issue_link_id=None,
             requested_by_user_id=run.created_by,
+            approval_type=approval_type,
+            action_key=action_key,
+            raw_arguments=raw_arguments or None,
             reason=reason,
-            payload_json=payload,
+            extra_payload=payload,
         )
-        self.db.add(approval)
-        await self.db.flush()
+        if args_hash and approval.effect_hash != args_hash:
+            # Legacy callers may pass a precomputed hash; keep payload aligned.
+            merged = dict(approval.payload_json or {})
+            merged["arguments_hash"] = args_hash
+            approval.payload_json = merged
         return approval.id
 
     async def _consume_approval_for_node(
@@ -658,6 +784,18 @@ class WorkflowRuntimeService:
         pending = vars_.get("pending_tool")
         if isinstance(pending, dict) and pending.get("node_id") == node_id:
             if not pending.get("approval_consumed"):
+                tool_slug_pending = str(pending.get("tool_slug") or "")
+                if _should_simulate_external_write(run, tool_slug_pending):
+                    params = dict(pending.get("params") or {})
+                    vars_.pop("pending_tool", None)
+                    vars_.pop("pending_approval_request_id", None)
+                    simulated = _simulated_tool_result(tool_slug_pending, params)
+                    vars_[f"tool_result_{node_id}"] = simulated
+                    return (
+                        "succeeded",
+                        {"tool_slug": tool_slug_pending, "result": simulated, "simulated": True},
+                        None,
+                    )
                 approval_id = pending.get("approval_request_id") or vars_.get(
                     "pending_approval_request_id"
                 )
@@ -717,6 +855,15 @@ class WorkflowRuntimeService:
                 "failed",
                 {"error": "tool node missing config.tool or config.tool_slug"},
                 "failed",
+            )
+
+        if _should_simulate_external_write(run, tool_slug):
+            simulated = _simulated_tool_result(tool_slug, params)
+            vars_[f"tool_result_{node_id}"] = simulated
+            return (
+                "succeeded",
+                {"tool_slug": tool_slug, "result": simulated, "simulated": True},
+                None,
             )
 
         executor = ToolExecutionService(self.db)

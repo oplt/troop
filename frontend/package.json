@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "baseline:build": "node scripts/phase0-build-baseline.mjs",
-    "test:a11y": "vitest run src/**/*.a11y.test.tsx src/components/layout/AppLayout.accessibility.test.tsx"
+    "test:a11y": "vitest run src/**/*.a11y.test.tsx src/components/layout/AppLayout.accessibility.test.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "1.51.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.2",

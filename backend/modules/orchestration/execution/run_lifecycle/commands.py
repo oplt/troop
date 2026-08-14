@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import attributes as orm_attributes
 
-from backend.core.config import settings
+from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
-from backend.modules.memory.working_memory import EXECUTION_THREAD_ID_KEY
 from backend.modules.orchestration.constants import TASK_TRANSITIONS
 from backend.modules.orchestration.execution.execution_workflow import (
     ensure_workflow_state,
@@ -18,6 +18,8 @@ from backend.modules.orchestration.execution.execution_workflow import (
 )
 from backend.modules.orchestration.models import TaskRun
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
+
+logger = get_logger(__name__)
 
 
 class ExecutionRunCommandsMixin:
@@ -322,9 +324,7 @@ class ExecutionRunCommandsMixin:
 
                 await on_task_run_terminal(self.db, child.id, status="cancelled")
             except Exception:
-                logger.exception(
-                    "workflow_task_run_terminal_hook_failed run_id=%s", child.id
-                )
+                logger.exception("workflow_task_run_terminal_hook_failed run_id=%s", child.id)
         await self.db.refresh(run)
         return run
 

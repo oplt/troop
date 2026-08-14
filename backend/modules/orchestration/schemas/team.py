@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
 from backend.modules.orchestration.schemas.common import *  # noqa: F403
+
 
 class TeamTemplateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -74,4 +72,3 @@ class TeamProfileCreateFromTemplate(RequestModel):
         default=None, min_length=2, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*$"
     )
     name: str | None = Field(default=None, min_length=2, max_length=255)
-

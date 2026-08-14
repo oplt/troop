@@ -42,6 +42,7 @@ async def assert_database_matches_alembic_head(engine: AsyncEngine) -> str:
         )
     expected = heads[0]
     async with engine.connect() as connection:
+
         def _current(sync_conn) -> str | None:
             context = MigrationContext.configure(sync_conn)
             return context.get_current_revision()

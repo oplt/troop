@@ -71,17 +71,29 @@ def parse_agent_markdown(content: str) -> tuple[dict[str, Any] | None, list[str]
     if isinstance(permissions, dict):
         for perm_role, perm_value in permissions.items():
             if isinstance(perm_value, str) and perm_value not in valid_permission_values:
-                errors.append(f"Unrecognised permission value '{perm_value}' for role '{perm_role}'.")
+                errors.append(
+                    f"Unrecognised permission value '{perm_value}' for role '{perm_role}'."
+                )
     elif isinstance(permissions, str) and permissions not in valid_permission_values:
-        errors.append("`permissions` must be one of: read-only, comment-only, code-write, merge-blocked.")
+        errors.append(
+            "`permissions` must be one of: read-only, comment-only, code-write, merge-blocked."
+        )
 
     memory_scope = memory.get("scope")
     if memory_scope and memory_scope not in {"none", "project-only", "long-term"}:
         errors.append("`memory_policy.scope` must be one of: none, project-only, long-term.")
 
     output_format = output_schema.get("format")
-    if output_format and output_format not in {"checklist", "json", "patch_proposal", "issue_reply", "adr"}:
-        errors.append("`output_schema` must be one of: checklist, json, patch_proposal, issue_reply, adr.")
+    if output_format and output_format not in {
+        "checklist",
+        "json",
+        "patch_proposal",
+        "issue_reply",
+        "adr",
+    }:
+        errors.append(
+            "`output_schema` must be one of: checklist, json, patch_proposal, issue_reply, adr."
+        )
 
     for task_filter in task_filters:
         if _looks_like_regex(task_filter):

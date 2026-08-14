@@ -103,7 +103,9 @@ async def staged_semantic_vector_retrieval(
     n = _merge_unique_rows(rows, seen, out)
     meta["stages"].append({"scope": "task", "added": n, "total": len(out)})
     increment_memory_metric("retrieval_scope_semantic_task")
-    increment_memory_metric("retrieval_vec_semantic_task_hit" if n else "retrieval_vec_semantic_task_miss")
+    increment_memory_metric(
+        "retrieval_vec_semantic_task_hit" if n else "retrieval_vec_semantic_task_miss"
+    )
     if len(out) >= min_hits:
         increment_memory_metric("retrieval_scope_early_exit_semantic")
         return out, meta
@@ -114,7 +116,9 @@ async def staged_semantic_vector_retrieval(
     n = _merge_unique_rows(rows, seen, out)
     meta["stages"].append({"scope": "project", "added": n, "total": len(out)})
     increment_memory_metric("retrieval_scope_semantic_project")
-    increment_memory_metric("retrieval_vec_semantic_project_hit" if n else "retrieval_vec_semantic_project_miss")
+    increment_memory_metric(
+        "retrieval_vec_semantic_project_hit" if n else "retrieval_vec_semantic_project_miss"
+    )
     if len(out) >= min_hits:
         increment_memory_metric("retrieval_scope_early_exit_semantic")
         return out, meta
@@ -126,7 +130,9 @@ async def staged_semantic_vector_retrieval(
         n = _merge_unique_rows(rows, seen, out)
         meta["stages"].append({"scope": "company", "added": n, "total": len(out)})
         increment_memory_metric("retrieval_scope_semantic_company")
-        increment_memory_metric("retrieval_vec_semantic_company_hit" if n else "retrieval_vec_semantic_company_miss")
+        increment_memory_metric(
+            "retrieval_vec_semantic_company_hit" if n else "retrieval_vec_semantic_company_miss"
+        )
         if len(out) >= min_hits:
             increment_memory_metric("retrieval_scope_early_exit_semantic")
             return out, meta
@@ -144,7 +150,9 @@ async def staged_semantic_vector_retrieval(
         )
         increment_memory_metric("retrieval_scope_semantic_cross_project")
         increment_memory_metric(
-            "retrieval_vec_semantic_cross_project_hit" if n else "retrieval_vec_semantic_cross_project_miss"
+            "retrieval_vec_semantic_cross_project_hit"
+            if n
+            else "retrieval_vec_semantic_cross_project_miss"
         )
         if len(out) >= min_hits:
             increment_memory_metric("retrieval_scope_early_exit_semantic")
@@ -189,7 +197,9 @@ async def staged_episodic_vector_retrieval(
     n = merge_epi(rows)
     meta["stages"].append({"scope": "project", "added": n, "total": len(out)})
     increment_memory_metric("retrieval_scope_episodic_project")
-    increment_memory_metric("retrieval_vec_episodic_project_hit" if n else "retrieval_vec_episodic_project_miss")
+    increment_memory_metric(
+        "retrieval_vec_episodic_project_hit" if n else "retrieval_vec_episodic_project_miss"
+    )
     if len(out) >= min_hits:
         increment_memory_metric("retrieval_scope_early_exit_episodic")
         return out, meta
@@ -211,7 +221,9 @@ async def staged_episodic_vector_retrieval(
         )
         increment_memory_metric("retrieval_scope_episodic_cross_project")
         increment_memory_metric(
-            "retrieval_vec_episodic_cross_project_hit" if n else "retrieval_vec_episodic_cross_project_miss"
+            "retrieval_vec_episodic_cross_project_hit"
+            if n
+            else "retrieval_vec_episodic_cross_project_miss"
         )
 
     if company_id and len(out) < min_hits:

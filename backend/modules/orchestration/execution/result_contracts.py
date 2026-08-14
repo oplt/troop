@@ -43,7 +43,9 @@ def normalize_subtask_graph(
     for index, item in enumerate(sub_tasks):
         branch_id = str(item.get("branch_id") or item.get("id") or f"branch-{index + 1}").strip()
         dep_indexes = (
-            item.get("dependency_indexes") if isinstance(item.get("dependency_indexes"), list) else []
+            item.get("dependency_indexes")
+            if isinstance(item.get("dependency_indexes"), list)
+            else []
         )
         dep_ids = [
             str(item_id).strip()
@@ -129,12 +131,16 @@ def worker_result_contract(
     }
 
 
-def review_state_from_payload(review_payload: dict[str, Any], *, round_number: int) -> dict[str, Any]:
+def review_state_from_payload(
+    review_payload: dict[str, Any], *, round_number: int
+) -> dict[str, Any]:
     return {
         "round": round_number,
         "decision": str(review_payload.get("decision") or "rework"),
         "summary": str(review_payload.get("summary") or "")[:1200],
-        "reasons": [str(value) for value in (review_payload.get("reasons") or []) if str(value).strip()],
+        "reasons": [
+            str(value) for value in (review_payload.get("reasons") or []) if str(value).strip()
+        ],
         "checklist": [
             str(value) for value in (review_payload.get("checklist") or []) if str(value).strip()
         ],

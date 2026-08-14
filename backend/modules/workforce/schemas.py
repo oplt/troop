@@ -407,6 +407,12 @@ class ToolDefinitionResponse(BaseModel):
     tool_schema: dict[str, Any] = Field(default_factory=dict, validation_alias="schema_json")
     risk_level: str = "low"
     requires_approval: bool = False
+    side_effect: str = "read"
+    reversibility: str = "none"
+    data_sensitivity: str = "internal"
+    parallel_safe: bool = False
+    idempotency_strategy: str = "none"
+    commit_check_strategy: str = "none"
     is_active: bool = True
 
 
@@ -421,6 +427,8 @@ class WorkflowDefinitionResponse(BaseModel):
     category: str = "general"
     status: str = "draft"
     current_version_id: str | None = None
+    draft_version_id: str | None = None
+    published_version_id: str | None = None
     is_template: bool = False
     created_at: datetime
 
@@ -449,3 +457,63 @@ class AssembleAgentRequest(RequestModel):
     slug: str | None = None
     assign_to_task: bool = True
     activate: bool = False
+
+
+class WorkflowGenerateRequest(RequestModel):
+    prompt: str = Field(min_length=3, max_length=4000)
+    workflow_id: str | None = None
+    name: str | None = None
+    slug: str | None = None
+    company_id: str | None = None
+    use_llm: bool | None = None
+    deterministic: bool = False
+
+
+class WorkflowScaffoldGap(BaseModel):
+    kind: Literal[
+        "missing_connection",
+        "missing_scope",
+        "missing_approval_step",
+        "unavailable_operation",
+        "missing_agent",
+    ]
+    node_id: str | None = None
+    provider_slug: str | None = None
+    operation_slug: str | None = None
+    message: str
+    remediation: str | None = None
+
+
+class WorkflowScaffoldProvenance(BaseModel):
+    source: str = "nl_scaffold"
+    prompt: str
+    model: str | None = None
+    generated_at: str
+    catalog_snapshot_hash: str
+    generation_mode: str
+
+
+class WorkflowScaffoldDraftGraph(BaseModel):
+    nodes: list[dict] = Field(default_factory=list)
+    edges: list[dict] = Field(default_factory=list)
+    entry_node_id: str | None = None
+
+
+class WorkflowScaffoldValidation(BaseModel):
+    valid: bool
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    infos: list[str] = Field(default_factory=list)
+    external_write_nodes: list[dict] = Field(default_factory=list)
+
+
+class WorkflowGenerateResponse(BaseModel):
+    workflow_id: str
+    name: str
+    slug: str
+    summary: str
+    draft: WorkflowScaffoldDraftGraph
+    validation: WorkflowScaffoldValidation
+    gaps: list[WorkflowScaffoldGap] = Field(default_factory=list)
+    provenance: WorkflowScaffoldProvenance
+    published: bool = False

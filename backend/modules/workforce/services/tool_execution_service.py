@@ -29,6 +29,7 @@ _NATIVE_EXECUTABLE = frozenset(
         "github_comment",
         "github_label_issue",
         "github_create_pr",
+        "invoke_specialist",
     }
 )
 

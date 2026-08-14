@@ -83,9 +83,7 @@ def ensure_workflow_state(
         },
     )
     state.setdefault("artifacts", {})
-    state["steps"] = normalize_workflow_steps(
-        list(state.get("steps") or []) or deepcopy(steps)
-    )
+    state["steps"] = normalize_workflow_steps(list(state.get("steps") or []) or deepcopy(steps))
     if not state["steps"]:
         state["steps"] = normalize_workflow_steps(steps)
     checkpoint[WORKFLOW_STATE_KEY] = state
@@ -199,7 +197,9 @@ def set_workflow_artifact(
     return checkpoint
 
 
-def get_workflow_artifact(checkpoint_json: dict[str, Any] | None, key: str, default: Any = None) -> Any:
+def get_workflow_artifact(
+    checkpoint_json: dict[str, Any] | None, key: str, default: Any = None
+) -> Any:
     return workflow_state(checkpoint_json).get("artifacts", {}).get(key, default)
 
 
@@ -228,7 +228,9 @@ def enqueue_signal(
     return checkpoint
 
 
-def consume_signal_queue(checkpoint_json: dict[str, Any] | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def consume_signal_queue(
+    checkpoint_json: dict[str, Any] | None,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     checkpoint = dict(checkpoint_json or {})
     state = dict(checkpoint.get(WORKFLOW_STATE_KEY) or {})
     queued = list(state.get("signal_queue") or [])

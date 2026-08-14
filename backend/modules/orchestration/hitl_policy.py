@@ -46,9 +46,7 @@ _SENSITIVE_PAYLOAD_KEYS = frozenset(
 def normalize_approval_gates(value: Any) -> list[str]:
     requested = value if isinstance(value, (list, tuple, set)) else DEFAULT_APPROVAL_GATES
     selected = {
-        str(item).strip()
-        for item in requested
-        if str(item).strip() in MANDATORY_APPROVAL_GATES
+        str(item).strip() for item in requested if str(item).strip() in MANDATORY_APPROVAL_GATES
     }
     return [
         gate
@@ -86,6 +84,13 @@ def normalize_hitl_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
         sandbox_mode if sandbox_mode in VALID_SANDBOX_MODES else "allow_host_fallback"
     )
     settings["sandbox_note"] = str(settings.get("sandbox_note") or "")[:2000]
+    approval_sla = dict(settings.get("approval_sla") or {})
+    approval_sla.setdefault("enabled", True)
+    approval_sla.setdefault("response_hours", 24)
+    approval_sla.setdefault("warn_hours_before_due", 4)
+    approval_sla.setdefault("escalate_hours_after_due", 0)
+    approval_sla.setdefault("escalation_roles", ["admin", "owner"])
+    settings["approval_sla"] = approval_sla
     return settings
 
 

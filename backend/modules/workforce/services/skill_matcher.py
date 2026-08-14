@@ -167,17 +167,15 @@ class SkillMatcherService:
                 k.lower().strip() for k in (version.knowledge_requirements_json or []) if k
             }
 
-            capability_overlap = _jaccard_similarity(req_cap_set, skill_cap_set)
-            tool_overlap = (
-                _jaccard_similarity(req_tool_set, skill_tool_set) if req_tool_set else 0.5
-            )
+            capability_overlap = jaccard_similarity(req_cap_set, skill_cap_set)
+            tool_overlap = jaccard_similarity(req_tool_set, skill_tool_set) if req_tool_set else 0.5
             knowledge_overlap = (
-                _jaccard_similarity(req_knowledge_set, skill_knowledge_set)
+                jaccard_similarity(req_knowledge_set, skill_knowledge_set)
                 if req_knowledge_set
                 else 0.5
             )
             knowledge_availability = (
-                _jaccard_similarity(available_knowledge_set, skill_knowledge_set)
+                jaccard_similarity(available_knowledge_set, skill_knowledge_set)
                 if available_knowledge_set and skill_knowledge_set
                 else 0.5
                 if not skill_knowledge_set

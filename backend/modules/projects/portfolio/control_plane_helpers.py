@@ -5,9 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-ESCALATION_APPROVAL_TYPES = frozenset(
-    {"rule_escalation", "task_escalation", "sla_escalation"}
-)
+ESCALATION_APPROVAL_TYPES = frozenset({"rule_escalation", "task_escalation", "sla_escalation"})
 STUCK_RUN_THRESHOLD_MINUTES = 45
 
 
@@ -153,13 +151,11 @@ def build_operator_dashboard(
     webhook_status = _status_from_thresholds(webhook_lag_minutes, watch=15, critical=60)
     replay_status = _status_from_thresholds(float(len(replay_backlog)), watch=3, critical=8)
     stuck_status = "critical" if stuck_runs else "healthy"
-    index_status = "critical" if index_failed_count else "watch" if index_running_count else "healthy"
+    index_status = (
+        "critical" if index_failed_count else "watch" if index_running_count else "healthy"
+    )
     provider_status = (
-        "critical"
-        if len(provider_unhealthy) >= 2
-        else "watch"
-        if provider_unhealthy
-        else "healthy"
+        "critical" if len(provider_unhealthy) >= 2 else "watch" if provider_unhealthy else "healthy"
     )
 
     return {
@@ -223,8 +219,7 @@ def build_operator_dashboard(
                 "label": "Repo indexing",
                 "status": index_status,
                 "summary": (
-                    f"{index_running_count} indexing job(s) running, "
-                    f"{index_failed_count} failed."
+                    f"{index_running_count} indexing job(s) running, {index_failed_count} failed."
                 ),
                 "metrics": {
                     "running_jobs": index_running_count,

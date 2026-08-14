@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from backend.modules.identity_access.models import User
-from backend.modules.orchestration.control_plane_runtime import AgentRuntimeProfile, build_agent_runtime_profile
+from backend.modules.orchestration.control_plane_runtime import (
+    AgentRuntimeProfile,
+    build_agent_runtime_profile,
+)
 
 
 class ControlPlaneRuntimeProfilesMixin:
@@ -60,4 +63,3 @@ class ControlPlaneRuntimeProfilesMixin:
             skills=skills,
             assigned_skill_versions=assigned if assigned is not None else [],
         )
-

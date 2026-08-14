@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from backend.core.http_clients import ExternalHttpClientPool
-from backend.modules.orchestration.router import _live_snapshot_stream
+from backend.core.sse_streams import live_snapshot_stream
 from backend.modules.rag.bulk_ingest import bulk_ingest_documents_parallel
 from backend.workers.celery_app import celery_app
 
@@ -13,11 +13,14 @@ from backend.workers.celery_app import celery_app
 @pytest.mark.asyncio
 async def test_external_http_pool_reuses_clients_and_closes_them() -> None:
     pool = ExternalHttpClientPool(max_clients=2)
-    first = await pool.get("provider", base_url="https://example.test", timeout_seconds=3)
-    second = await pool.get("provider", base_url="https://example.test", timeout_seconds=3)
+    first, first_key = await pool.acquire("provider", base_url="https://example.test")
+    second, second_key = await pool.acquire("provider", base_url="https://example.test")
 
     assert first is second
+    assert first_key == second_key
     assert not first.is_closed
+    await pool.release(first_key)
+    await pool.release(second_key)
     await pool.aclose()
     assert first.is_closed
 
@@ -97,7 +100,7 @@ async def test_sse_stream_checks_disconnect_and_releases_capacity() -> None:
     request = MagicMock()
     request.is_disconnected = AsyncMock(side_effect=[False, True])
 
-    response = await _live_snapshot_stream(
+    response = await live_snapshot_stream(
         lambda: _snapshot(),
         request=request,
         stream_name="test",

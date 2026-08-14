@@ -37,7 +37,10 @@ class OrchestrationWorkerRuntime:
             except Exception as exc:
                 record_run_outcome("orchestration", "worker_error")
                 # SoftTimeLimitExceeded is not always importable in eager/dev; match by name.
-                if type(exc).__name__ == "SoftTimeLimitExceeded" or "SoftTimeLimit" in type(exc).__name__:
+                if (
+                    type(exc).__name__ == "SoftTimeLimitExceeded"
+                    or "SoftTimeLimit" in type(exc).__name__
+                ):
                     try:
                         run = await service.repo.get_run_for_worker(run_id)
                         if run is not None and run.status == "in_progress":
@@ -116,6 +119,17 @@ class OrchestrationWorkerRuntime:
                 await service.run_global_sla_escalation_scan()
 
         await self._run_singleton("sla_escalation_scan", operation)
+
+    async def scan_approval_sla(self) -> None:
+        async def operation() -> None:
+            from backend.db.session import SessionLocal
+            from backend.modules.orchestration.services.approvals_domain import ApprovalsService
+
+            async with SessionLocal() as db:
+                service = ApprovalsService(db)
+                await service.run_approval_sla_scan()
+
+        await self._run_singleton("approval_sla_scan", operation)
 
     async def recover_stale_in_progress_runs(self) -> None:
         async def operation() -> None:
@@ -311,6 +325,17 @@ def sla_escalation_scan() -> None:
 
 
 @celery_app.task(
+    name="backend.workers.orchestration.approval_sla_scan",
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=1,
+)
+def approval_sla_scan() -> None:
+    asyncio.run(OrchestrationWorkerRuntime().scan_approval_sla())
+
+
+@celery_app.task(
     name="backend.workers.orchestration.embed_semantic_memory_entry",
     autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
     retry_backoff=True,
@@ -462,15 +487,11 @@ def queue_orchestration_run(run_id: str, *, expected_owner_id: str | None = None
             loop = asyncio.get_running_loop()
         except RuntimeError:
             asyncio.run(
-                OrchestrationWorkerRuntime().execute(
-                    run_id, expected_owner_id=expected_owner_id
-                )
+                OrchestrationWorkerRuntime().execute(run_id, expected_owner_id=expected_owner_id)
             )
         else:
             loop.create_task(
-                OrchestrationWorkerRuntime().execute(
-                    run_id, expected_owner_id=expected_owner_id
-                )
+                OrchestrationWorkerRuntime().execute(run_id, expected_owner_id=expected_owner_id)
             )
         return
     run_orchestration_task.apply_async(

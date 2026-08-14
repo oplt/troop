@@ -67,4 +67,3 @@ async def delete_calendar_item(
     service = CalendarService(db)
     await service.delete_planner_item(current_user, entry_id)
     return Response(status_code=204)
-

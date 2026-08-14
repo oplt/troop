@@ -8,15 +8,14 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from cryptography.fernet import Fernet
-from fastapi import Request
-from starlette.responses import JSONResponse
-
 from backend.modules.orchestration.security import (
     clear_secrets_fernet_cache,
     decrypt_secret,
     encrypt_secret,
 )
+from cryptography.fernet import Fernet
+from fastapi import Request
+from starlette.responses import JSONResponse
 
 
 def _sign(body: bytes, secret: str) -> str:
@@ -109,6 +108,78 @@ def test_secrets_dedicated_key_encrypts_and_legacy_still_decrypts():
         assert decrypt_secret(legacy_cipher) == "legacy-token"
         fresh = encrypt_secret("fresh-token")
         assert decrypt_secret(fresh) == "fresh-token"
+
+    clear_secrets_fernet_cache()
+
+
+def test_production_requires_dedicated_secrets_encryption_key():
+    from backend.core.config import Settings
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="SECRETS_ENCRYPTION_KEY is required"):
+        Settings(
+            APP_ENV="production",
+            JWT_SECRET="x" * 32,
+            COOKIE_SECURE=True,
+            FRONTEND_URL="https://app.example.com",
+            CORS_ALLOWED_ORIGINS=["https://app.example.com"],
+            DATABASE_URL="postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/app",
+            REDIS_URL="redis://127.0.0.1:6379/0",
+            JWT_ALGORITHM="HS256",
+            ACCESS_TOKEN_EXPIRE_MINUTES=15,
+            REFRESH_TOKEN_EXPIRE_DAYS=7,
+            SECRETS_ENCRYPTION_KEY="",
+        )
+
+
+def test_new_ciphertext_survives_jwt_rotation():
+    clear_secrets_fernet_cache()
+    dedicated = Fernet.generate_key().decode()
+    with patch(
+        "backend.modules.orchestration.security.settings.JWT_SECRET",
+        "jwt-alpha-" + "x" * 24,
+    ), patch(
+        "backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_KEY",
+        dedicated,
+    ):
+        clear_secrets_fernet_cache()
+        ciphertext = encrypt_secret("provider-api-key")
+
+    with patch(
+        "backend.modules.orchestration.security.settings.JWT_SECRET",
+        "jwt-beta-" + "y" * 24,
+    ), patch(
+        "backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_KEY",
+        dedicated,
+    ):
+        clear_secrets_fernet_cache()
+        assert decrypt_secret(ciphertext) == "provider-api-key"
+
+    clear_secrets_fernet_cache()
+
+
+def test_previous_dedicated_key_decrypts_during_rotation():
+    clear_secrets_fernet_cache()
+    old_key = Fernet.generate_key().decode()
+    new_key = Fernet.generate_key().decode()
+    with patch(
+        "backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_KEY",
+        old_key,
+    ), patch("backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_PREVIOUS_KEY", ""):
+        clear_secrets_fernet_cache()
+        ciphertext = encrypt_secret("rotate-me")
+
+    with patch(
+        "backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_KEY",
+        new_key,
+    ), patch(
+        "backend.modules.orchestration.security.settings.SECRETS_ENCRYPTION_PREVIOUS_KEY",
+        old_key,
+    ):
+        clear_secrets_fernet_cache()
+        assert decrypt_secret(ciphertext) == "rotate-me"
+        rotated = encrypt_secret("rotate-me")
+        assert decrypt_secret(rotated) == "rotate-me"
 
     clear_secrets_fernet_cache()
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,6 +34,7 @@ import {
     getRunExplanation,
     getRunWorkingMemory,
     listRunEvents,
+    listRunTrace,
     patchRunWorkingMemory,
     signalRunWorkflow,
     type RunCostSummary,
@@ -62,6 +63,9 @@ import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { queryKeys } from "../config/queryKeys";
 import { useSseStream } from "../hooks/useSseStream";
 import { safeRunValue } from "../features/workflows/builderState";
+import { RunTraceSummaryCard } from "../features/runInspector/RunTraceSummaryCard";
+import { RunTraceTimeline } from "../features/runInspector/RunTraceTimeline";
+import { computeTraceSummary } from "../features/runInspector/traceUtils";
 
 function RunStatusChip({ status }: { status: string }) {
     return <StatusChip status={status} kind="run" variant="filled" celebrate={status === "completed"} />;
@@ -389,7 +393,17 @@ function ConversationBubble({
     );
 }
 
-function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: RunCostSummary | null; selection: ReturnType<typeof readOrchestrationSelectionMeta> }) {
+function RunMeta({
+    run,
+    costSummary,
+    selection,
+    traceStats,
+}: {
+    run: TaskRun;
+    costSummary?: RunCostSummary | null;
+    selection: ReturnType<typeof readOrchestrationSelectionMeta>;
+    traceStats?: ReturnType<typeof computeTraceSummary> | null;
+}) {
     const costUsd = run.estimated_cost_micros > 0
         ? `$${(run.estimated_cost_micros / 1_000_000).toFixed(4)}`
         : "—";
@@ -469,6 +483,13 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
                 </Tooltip>
                 {run.attempt_number > 1 && (
                     <Chip label={`Attempt ${run.attempt_number}`} color="warning" variant="outlined" size="small" />
+                )}
+                {traceStats && (
+                    <>
+                        <Chip label={`Human wait ${traceStats.humanWaitMs > 0 ? `${Math.round(traceStats.humanWaitMs / 1000)}s` : "—"}`} variant="outlined" size="small" />
+                        <Chip label={`${traceStats.modelCount} models`} variant="outlined" size="small" />
+                        <Chip label={`${traceStats.toolCount} tools`} variant="outlined" size="small" />
+                    </>
                 )}
             </Stack>
             <Stack direction="row" spacing={3} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
@@ -652,6 +673,23 @@ export default function RunInspectorPage() {
         enabled: Boolean(runId),
     });
 
+    const { data: tracePage, isLoading: traceLoading } = useQuery({
+        queryKey: queryKeys.runs.trace(runId ?? ""),
+        queryFn: () => listRunTrace(runId!),
+        enabled: Boolean(runId),
+        refetchInterval: (query) => {
+            const truncated = query.state.data?.meta.truncated;
+            const st = run?.status;
+            if (st && TERMINAL.has(st) && !truncated) return false;
+            return 5000;
+        },
+    });
+    const traceSpans = tracePage?.items ?? [];
+    const traceStats = useMemo(
+        () => (run ? computeTraceSummary(run, traceSpans, costSummary ?? null) : null),
+        [run, traceSpans, costSummary],
+    );
+
     const { data: workingMemory } = useQuery({
         queryKey: queryKeys.runs.workingMemory(runId ?? ""),
         queryFn: () => getRunWorkingMemory(runId!),
@@ -749,7 +787,7 @@ export default function RunInspectorPage() {
         <PageShell variant="inspector">
             <DensePageMobileNotice surface="Run inspector" />
 
-            <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} />
+            <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} traceStats={traceStats} />
             {runExplanation && (
                 <SectionCard title="Explain this run" description="Plain-English narrative for stakeholders and audit reviews.">
                     <Typography variant="body2">{String(runExplanation.summary ?? "")}</Typography>
@@ -759,7 +797,7 @@ export default function RunInspectorPage() {
             <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
                 <Tabs value={tab} onChange={(_, v) => setTab(v)}>
                     <Tab label={`Timeline (${events.length})`} value="timeline" />
-                    <Tab label={`Trace (${traceSteps.length})`} value="trace" />
+                    <Tab label={`Trace (${traceSpans.length || traceSteps.length})`} value="trace" />
                     <Tab label="Workflow graph" value="graph" />
                     <Tab label="Conversation" value="conversation" />
                 </Tabs>
@@ -801,12 +839,24 @@ export default function RunInspectorPage() {
             )}
 
             {tab === "trace" && (
-                <SectionCard
-                    title="Execution trace"
-                    description="Durable supervisor/worker workflow trace from checkpointed execution steps."
-                >
-                    <RunTraceView trace={traceSteps} />
-                </SectionCard>
+                <Stack spacing={2}>
+                    {traceStats && <RunTraceSummaryCard stats={traceStats} />}
+                    <SectionCard
+                        title="Safe execution trace"
+                        description="Ordered spans from the OBS-002A read model — models, tools, approvals, retries, and external effect receipts."
+                    >
+                        {traceLoading && traceSpans.length === 0 ? (
+                            <CircularProgress size={24} />
+                        ) : traceSpans.length > 0 ? (
+                            <RunTraceTimeline
+                                spans={traceSpans}
+                                truncated={tracePage?.meta.truncated}
+                            />
+                        ) : (
+                            <RunTraceView trace={traceSteps} />
+                        )}
+                    </SectionCard>
+                </Stack>
             )}
 
             {tab === "graph" && (

@@ -1,0 +1,46 @@
+import type { Agent } from "../../api/orchestration";
+
+/** Minimal Agent row for hierarchy workspace characterization tests. */
+export function buildHierarchyAgentFixture(
+    overrides: Partial<Agent> = {},
+): Agent {
+    return {
+        id: "agent-1",
+        project_id: "project-1",
+        parent_agent_id: null,
+        reviewer_agent_id: null,
+        provider_config_id: null,
+        parent_template_slug: null,
+        name: "Reviewer",
+        slug: "reviewer",
+        description: "Review work",
+        role: "reviewer",
+        system_prompt: "Review carefully",
+        mission_markdown: "",
+        rules_markdown: "",
+        output_contract_markdown: "",
+        source_markdown: "",
+        capabilities: [],
+        allowed_tools: [],
+        skills: [],
+        model_policy: {},
+        permissions: null,
+        escalation_path: null,
+        visibility: "private",
+        is_active: true,
+        tags: [],
+        budget: {},
+        timeout_seconds: 300,
+        retry_limit: 2,
+        memory_policy: {},
+        output_schema: {},
+        task_filters: [],
+        inheritance: null,
+        lint: null,
+        metadata: {},
+        version: 1,
+        created_at: "2026-06-18T00:00:00.000Z",
+        updated_at: "2026-06-18T00:00:00.000Z",
+        ...overrides,
+    };
+}

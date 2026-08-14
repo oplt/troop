@@ -26,9 +26,7 @@ class PublicRateLimitMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
         if not (
-            path.startswith("/api/")
-            or path.startswith("/health/")
-            or path.startswith("/webhooks/")
+            path.startswith("/api/") or path.startswith("/health/") or path.startswith("/webhooks/")
         ):
             return await call_next(request)
 

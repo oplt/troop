@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
+from backend.api.deps.workspace import get_session_workspace_context
 from backend.core.config import settings
 from backend.core.logging import get_logger
 from backend.core.rate_limit import (
@@ -27,8 +29,12 @@ from backend.modules.identity_access.schemas import (
     SignInRequest,
     SignUpRequest,
     VerifyEmailRequest,
+    WorkspaceContextResponse,
+    WorkspaceListResponse,
 )
 from backend.modules.identity_access.service import IdentityService
+from backend.modules.identity_access.workspace_authorization import WorkspaceAuthorizationService
+from backend.modules.identity_access.workspace_context import WorkspaceContext
 
 router = APIRouter()
 logger = get_logger("backend.auth")
@@ -106,7 +112,14 @@ def _clear_auth_cookies(response: Response) -> None:
     _clear_cookie_variants(response, settings.CSRF_COOKIE_NAME, paths)
 
 
-def _build_user(user: User) -> AuthUserResponse:
+def _build_user(
+    user: User,
+    *,
+    workspace_ctx: WorkspaceContext | None = None,
+) -> AuthUserResponse:
+    active_workspace = None
+    if workspace_ctx is not None:
+        active_workspace = _build_workspace_context(workspace_ctx)
     return AuthUserResponse(
         id=user.id,
         email=user.email,
@@ -114,10 +127,22 @@ def _build_user(user: User) -> AuthUserResponse:
         is_verified=user.is_verified,
         is_admin=user.is_admin,
         mfa_enabled=user.mfa_enabled,
+        active_workspace=active_workspace,
+    )
+
+
+def _build_workspace_context(ctx: WorkspaceContext) -> WorkspaceContextResponse:
+    return WorkspaceContextResponse(
+        id=ctx.workspace.id,
+        name=ctx.workspace.name,
+        slug=ctx.workspace.slug,
+        role=ctx.primary_role,
+        is_default=ctx.workspace.is_default,
     )
 
 
 # ------------------------------------------------------------------ core auth
+
 
 @router.post("/sign-up", response_model=GenericMessageResponse, status_code=202)
 async def sign_up(
@@ -185,7 +210,20 @@ async def sign_in(
     _set_access_cookie(response, access_token)
     _set_refresh_cookie(response, result["refresh_token"])
     _set_csrf_cookie(response, csrf_token)
-    return AuthSessionResponse(user=_build_user(result["user"]))
+    from backend.modules.audit.repository import AuditRepository
+
+    await AuditRepository(db).log(
+        "auth.sign_in",
+        user_id=result["user"].id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={"method": "password"},
+    )
+    await db.commit()
+    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(
+        result["user"]
+    )
+    return AuthSessionResponse(user=_build_user(result["user"], workspace_ctx=workspace_ctx))
 
 
 @router.post("/refresh", response_model=AuthSessionResponse)
@@ -203,27 +241,123 @@ async def refresh(
     _set_access_cookie(response, access_token)
     _set_refresh_cookie(response, result["refresh_token"])
     _set_csrf_cookie(response, csrf_token)
-    return AuthSessionResponse(user=_build_user(result["user"]))
+    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(
+        result["user"]
+    )
+    return AuthSessionResponse(user=_build_user(result["user"], workspace_ctx=workspace_ctx))
 
 
 @router.post("/logout", status_code=204)
 async def logout(
     response: Response,
+    request: Request,
     refresh_token: str | None = Cookie(default=None, alias=settings.REFRESH_COOKIE_NAME),
     db: AsyncSession = Depends(get_db),
 ):
+    user_id: str | None = None
     if refresh_token:
+        from backend.core.security import hash_refresh_token
+        from backend.modules.audit.repository import AuditRepository
+        from backend.modules.identity_access.repository import IdentityRepository
+
+        repo = IdentityRepository(db)
+        session = await repo.get_refresh_session_by_hash(hash_refresh_token(refresh_token))
+        if session:
+            user_id = session.user_id
         service = IdentityService(db)
         await service.logout(refresh_token)
+        if user_id:
+            await AuditRepository(db).log(
+                "auth.sign_out",
+                user_id=user_id,
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+            await db.commit()
     _clear_auth_cookies(response)
 
 
+# ------------------------------------------------------------------ enterprise SSO (ENT-001)
+
+
+@router.get("/sso/providers")
+async def list_sso_providers(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    from backend.modules.identity_access.sso_service import SsoService
+
+    return await SsoService(db).list_public_providers()
+
+
+@router.get("/sso/{provider_slug}/authorize")
+async def start_sso_authorize(
+    provider_slug: str,
+    redirect_after: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.modules.identity_access.sso_service import SsoService
+
+    url = await SsoService(db).build_authorize_url(provider_slug, redirect_after=redirect_after)
+    return RedirectResponse(url=url, status_code=302)
+
+
+@router.get("/sso/callback")
+async def sso_callback(
+    request: Request,
+    response: Response,
+    code: str | None = None,
+    state: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="missing OIDC callback parameters")
+    from backend.modules.identity_access.sso_service import SsoService
+
+    service = SsoService(db)
+    result = await service.handle_callback(
+        code=code,
+        state=state,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    access_token = create_access_token(result["user"].id, result["session_id"])
+    csrf_token = generate_csrf_token()
+    _set_access_cookie(response, access_token)
+    _set_refresh_cookie(response, result["refresh_token"])
+    _set_csrf_cookie(response, csrf_token)
+    redirect_target = str(result.get("redirect_after") or settings.FRONTEND_URL)
+    return RedirectResponse(url=redirect_target, status_code=302)
+
+
 @router.get("/me", response_model=AuthUserResponse)
-async def me(current_user: User = Depends(get_authenticated_user)):
-    return _build_user(current_user)
+async def me(
+    current_user: User = Depends(get_authenticated_user),
+    workspace_ctx: WorkspaceContext = Depends(get_session_workspace_context),
+):
+    return _build_user(current_user, workspace_ctx=workspace_ctx)
+
+
+@router.get("/workspaces", response_model=WorkspaceListResponse)
+async def list_workspaces(
+    current_user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+):
+    auth = WorkspaceAuthorizationService(db)
+    memberships = await auth.list_accessible_workspaces(current_user)
+    return WorkspaceListResponse(
+        items=[
+            WorkspaceContextResponse(
+                id=workspace.id,
+                name=workspace.name,
+                slug=workspace.slug,
+                role=membership.role,
+                is_default=workspace.is_default,
+            )
+            for workspace, membership in memberships
+        ]
+    )
 
 
 # ------------------------------------------------------------------ email verification
+
 
 @router.post("/verify-email", status_code=204)
 async def verify_email(
@@ -257,6 +391,7 @@ async def resend_verification(
 
 # ------------------------------------------------------------------ password reset
 
+
 @router.post("/forgot-password", status_code=204)
 async def forgot_password(
     payload: ForgotPasswordRequest,
@@ -282,6 +417,7 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
 
 
 # ------------------------------------------------------------------ MFA
+
 
 @router.post("/mfa/enable", response_model=MfaEnableResponse)
 async def mfa_enable(

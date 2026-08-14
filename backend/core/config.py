@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from cryptography.fernet import Fernet
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -74,19 +75,26 @@ class Settings(BaseSettings):
     DISTRIBUTED_LOCK_TTL_SECONDS: int = 300
     PROVIDER_HEALTHCHECK_INTERVAL_MINUTES: int = 5
     GITHUB_ISSUE_POLL_INTERVAL_MINUTES: int = 15
+    # Shared cursor pagination defaults for UI list endpoints.
+    CURSOR_PAGE_DEFAULT_LIMIT: int = 50
+    CURSOR_PAGE_MAX_LIMIT: int = 100
     # Run event query bounds (orchestration snapshots, API, replay, classifier).
-    RUN_EVENTS_DEFAULT_LIMIT: int = 200
-    RUN_EVENTS_MAX_LIMIT: int = 1000
+    RUN_EVENTS_DEFAULT_LIMIT: int = 50
+    RUN_EVENTS_MAX_LIMIT: int = 100
     RUN_EVENTS_REPLAY_MAX: int = 2000
     RUN_EVENTS_CLASSIFIER_MAX: int = 400
     RUN_EVENTS_EXPLAIN_MAX: int = 500
     AI_RETRIEVE_CHUNK_SCAN_MAX: int = 500
-    ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT: int = 500
+    ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT: int = 50
     ORCHESTRATION_LIST_TASKS_MAX_LIMIT: int = 5000
     ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT: int = 50
     ORCHESTRATION_LIST_RUNS_MAX_LIMIT: int = 100
     ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT: int = 200
     ORCHESTRATION_LIST_DOCUMENTS_MAX_LIMIT: int = 2000
+    NOTIFICATIONS_LIST_DEFAULT_LIMIT: int = 50
+    NOTIFICATIONS_LIST_MAX_LIMIT: int = 100
+    APPROVALS_LIST_DEFAULT_LIMIT: int = 50
+    APPROVALS_LIST_MAX_LIMIT: int = 100
     PROJECT_LIST_TASKS_DEFAULT_LIMIT: int = 500
     PROJECT_LIST_TASKS_MAX_LIMIT: int = 5000
 
@@ -108,13 +116,16 @@ class Settings(BaseSettings):
     ORCHESTRATION_CPU_REQUIRE_DOCKER: bool | None = None
 
     JWT_SECRET: str
-    # Fernet key (url-safe base64, 32 bytes). Empty falls back to JWT-derived legacy key for decrypt/encrypt.
+    # Fernet url-safe base64 key. Required in production.
     SECRETS_ENCRYPTION_KEY: str = ""
+    # Optional prior Fernet key kept during rotation.
+    SECRETS_ENCRYPTION_PREVIOUS_KEY: str = ""
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
 
     FRONTEND_URL: str = "http://localhost:5173"
+    PUBLIC_API_BASE: str = "http://localhost:8000/api/v1"
     COOKIE_SECURE: bool = False
     COOKIE_SAMESITE: str = "lax"
     COOKIE_DOMAIN: str | None = None
@@ -177,7 +188,9 @@ class Settings(BaseSettings):
     STORAGE_FORCE_PATH_STYLE: bool = True
     STORAGE_PUBLIC_BASE_URL: str = ""
     STORAGE_AUTO_CREATE_BUCKET: bool = True
-    STORAGE_PUBLIC_READ: bool = True
+    STORAGE_PUBLIC_READ: bool = False
+    STORAGE_PUBLIC_ASSET_BUCKET: str = ""
+    STORAGE_PRESIGNED_URL_TTL_SECONDS: int = 3600
     STORAGE_AVATAR_MAX_BYTES: int = 5 * 1024 * 1024
 
     AI_DEFAULT_PROVIDER: str = "local"
@@ -220,11 +233,48 @@ class Settings(BaseSettings):
     CONNECTOR_OAUTH_STATE_TTL_MINUTES: int = 10
     GMAIL_WATCH_RENEW_INTERVAL_MINUTES: int = 60
     GMAIL_WATCH_RENEW_BEFORE_HOURS: int = 24
+    OUTLOOK_CLIENT_ID: str = ""
+    OUTLOOK_CLIENT_SECRET: str = ""
+    OUTLOOK_OAUTH_REDIRECT_URI: str = ""
+    OUTLOOK_WEBHOOK_URL: str = ""
+    OUTLOOK_WEBHOOK_CLIENT_STATE: str = ""
+    OUTLOOK_SUBSCRIPTION_RENEW_INTERVAL_MINUTES: int = 60
+    OUTLOOK_SUBSCRIPTION_RENEW_BEFORE_HOURS: int = 24
+    GOOGLE_CALENDAR_OAUTH_REDIRECT_URI: str = ""
+    GOOGLE_DRIVE_OAUTH_REDIRECT_URI: str = ""
+    MICROSOFT_CALENDAR_OAUTH_REDIRECT_URI: str = ""
+    MICROSOFT_CALENDAR_CLIENT_ID: str = ""
+    MICROSOFT_CALENDAR_CLIENT_SECRET: str = ""
+    MICROSOFT_DRIVE_OAUTH_REDIRECT_URI: str = ""
+    MICROSOFT_DRIVE_CLIENT_ID: str = ""
+    MICROSOFT_DRIVE_CLIENT_SECRET: str = ""
+    JIRA_CLIENT_ID: str = ""
+    JIRA_CLIENT_SECRET: str = ""
+    JIRA_OAUTH_REDIRECT_URI: str = ""
+    LINEAR_CLIENT_ID: str = ""
+    LINEAR_CLIENT_SECRET: str = ""
+    LINEAR_OAUTH_REDIRECT_URI: str = ""
+    HUBSPOT_CLIENT_ID: str = ""
+    HUBSPOT_CLIENT_SECRET: str = ""
+    HUBSPOT_OAUTH_REDIRECT_URI: str = ""
+    SALESFORCE_CLIENT_ID: str = ""
+    SALESFORCE_CLIENT_SECRET: str = ""
+    SALESFORCE_OAUTH_REDIRECT_URI: str = ""
     TELEGRAM_BOT_USERNAME: str = ""
     TELEGRAM_WEBHOOK_BASE_URL: str = ""
     TELEGRAM_WEBHOOK_SECRET: str = ""
     TELEGRAM_LINK_TTL_MINUTES: int = 10
     TELEGRAM_EDIT_TTL_MINUTES: int = 15
+    SLACK_CLIENT_ID: str = ""
+    SLACK_CLIENT_SECRET: str = ""
+    SLACK_OAUTH_REDIRECT_URI: str = ""
+    SLACK_SIGNING_SECRET: str = ""
+    SLACK_LINK_TTL_MINUTES: int = 10
+    TEAMS_CLIENT_ID: str = ""
+    TEAMS_CLIENT_SECRET: str = ""
+    TEAMS_OAUTH_REDIRECT_URI: str = ""
+    TEAMS_BOT_APP_ID: str = ""
+    TEAMS_LINK_TTL_MINUTES: int = 10
     EXTERNAL_WEBHOOK_MAX_BYTES: int = 1_000_000
 
     # AI memory layer (mem0-inspired facade over semantic memory)
@@ -269,6 +319,9 @@ class Settings(BaseSettings):
     RAG_RERANK_ENABLED: bool = False
     RAG_MAX_CONTEXT_TOKENS: int = 4000
     RAG_INDEXING_BATCH_SIZE: int = 64
+    GITHUB_INSTALLATION_TOKEN_SAFETY_MARGIN_SECONDS: int = 300
+    FS_TOOL_MAX_READ_BYTES: int = 262_144
+    FS_TOOL_MAX_WRITE_BYTES: int = 524_288
     RAG_LOG_CONTENT_IN_DEV: bool = False
     RAG_CHUNK_FALLBACK_MAX: int = 200
     RAG_PYTHON_FALLBACK_ENABLED: bool = False
@@ -282,6 +335,9 @@ class Settings(BaseSettings):
     RAG_BULK_INGEST_CONCURRENCY: int = 4
     RAG_BULK_INGEST_BATCH_SIZE: int = 8
     RAG_BULK_INGEST_MAX_DOCUMENTS: int = 50
+    PARALLEL_READ_GROUP_MAX_CONCURRENCY: int = 4
+    PARALLEL_READ_WORKSPACE_MAX_INFLIGHT: int = 8
+    PARALLEL_READ_PROVIDER_MAX_INFLIGHT: int = 4
     SSE_MAX_CONNECTIONS: int = 100
     SSE_MAX_DURATION_SECONDS: int = 1800
     SSE_HEARTBEAT_SECONDS: int = 20
@@ -370,6 +426,20 @@ class Settings(BaseSettings):
             raise ValueError("JWT_SECRET must be a high-entropy secret with at least 32 characters")
         return stripped
 
+    @field_validator("SECRETS_ENCRYPTION_KEY", "SECRETS_ENCRYPTION_PREVIOUS_KEY")
+    @classmethod
+    def validate_fernet_encryption_key(cls, value: str) -> str:
+        normalized = (value or "").strip()
+        if not normalized:
+            return ""
+        try:
+            Fernet(normalized.encode("utf-8"))
+        except Exception as exc:
+            raise ValueError(
+                "SECRETS_ENCRYPTION_KEY values must be valid Fernet url-safe base64 keys"
+            ) from exc
+        return normalized
+
     @field_validator("ACCESS_TOKEN_EXPIRE_MINUTES")
     @classmethod
     def validate_access_ttl(cls, value: int) -> int:
@@ -417,6 +487,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 "ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE must be > 0 in production "
                 "(dev-only bypass requires APP_ENV=dev)"
+            )
+        if self.is_production and self.STORAGE_BUCKET and self.STORAGE_PUBLIC_READ:
+            raise ValueError(
+                "STORAGE_PUBLIC_READ must be false for the primary artifact bucket in production. "
+                "Use STORAGE_PUBLIC_ASSET_BUCKET for optional public avatars/branding."
+            )
+        if self.is_production and not (self.SECRETS_ENCRYPTION_KEY or "").strip():
+            raise ValueError(
+                "SECRETS_ENCRYPTION_KEY is required in production "
+                "and must be a dedicated Fernet key"
             )
         return self
 

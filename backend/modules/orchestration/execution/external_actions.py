@@ -52,9 +52,7 @@ class ExecutionExternalActionsMixin:
             message="GitHub sync stage completed.",
         )
 
-    async def _run_review_external_action_sync(
-        self, run: TaskRun, task: OrchestratorTask
-    ) -> None:
+    async def _run_review_external_action_sync(self, run: TaskRun, task: OrchestratorTask) -> None:
         await self._mark_run_step(
             run,
             step_id=EXTERNAL_ACTION_STEP_ID,

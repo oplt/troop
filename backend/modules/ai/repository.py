@@ -308,3 +308,24 @@ class AiRepository:
             .order_by(AiEvaluationRun.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def get_evaluation_run_for_user(
+        self, user_id: str, evaluation_run_id: str
+    ) -> AiEvaluationRun | None:
+        result = await self.db.execute(
+            select(AiEvaluationRun).where(
+                AiEvaluationRun.id == evaluation_run_id,
+                AiEvaluationRun.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_evaluation_run_items(
+        self, evaluation_run_id: str
+    ) -> list[AiEvaluationRunItem]:
+        result = await self.db.execute(
+            select(AiEvaluationRunItem)
+            .where(AiEvaluationRunItem.evaluation_run_id == evaluation_run_id)
+            .order_by(AiEvaluationRunItem.id.asc())
+        )
+        return list(result.scalars().all())

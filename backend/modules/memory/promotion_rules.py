@@ -49,18 +49,34 @@ class PromotionEvaluation:
 # Regex patterns matched against title + body (case-insensitive) to
 # accumulate promotion score.
 _PROJECT_RULE_PATTERNS: Final[list[tuple[str, str, float]]] = [
-    ("architecture_shift", r"\b(architect|design decision|rearchitect|refactor pattern|module boundary)\b", 0.35),
+    (
+        "architecture_shift",
+        r"\b(architect|design decision|rearchitect|refactor pattern|module boundary)\b",
+        0.35,
+    ),
     ("decision_change", r"\b(decided|chose|picked|will use|dropping|deprecat)\b", 0.2),
-    ("reusable_fix", r"\b(fix pattern|recurring bug|generalized fix|works everywhere|repeats in)\b", 0.25),
+    (
+        "reusable_fix",
+        r"\b(fix pattern|recurring bug|generalized fix|works everywhere|repeats in)\b",
+        0.25,
+    ),
     ("dependency_rule", r"\b(version ?pin|upgrade|downgrade|package (lock|bump|restrict))\b", 0.25),
-    ("recurring_failure", r"\b(keeps failing|kept failing|repeats|flaky|regressed|again broken)\b", 0.25),
+    (
+        "recurring_failure",
+        r"\b(keeps failing|kept failing|repeats|flaky|regressed|again broken)\b",
+        0.25,
+    ),
     ("explicit_adr", r"\b(adr|architecture decision record)\b", 0.4),
     ("policy_keyword", r"\b(must|never|always|policy)\b", 0.1),
     ("api_contract", r"\b(contract|invariant|schema (locked|frozen))\b", 0.2),
 ]
 
 _COMPANY_RULE_PATTERNS: Final[list[tuple[str, str, float]]] = [
-    ("cross_project", r"\b(cross-project|all projects|company[- ]wide|org[- ]wide|everyone must)\b", 0.45),
+    (
+        "cross_project",
+        r"\b(cross-project|all projects|company[- ]wide|org[- ]wide|everyone must)\b",
+        0.45,
+    ),
     ("coding_standard", r"\b(coding standard|style guide|convention|naming convention)\b", 0.35),
     ("security_policy", r"\b(security (policy|rule)|compliance|gdpr|soc2|pii)\b", 0.4),
     ("deploy_rule", r"\b(deploy(ment)? (rule|policy|freeze)|release process)\b", 0.3),

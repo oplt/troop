@@ -199,6 +199,7 @@ class ConnectorService:
         name: str,
         config_json: dict[str, Any] | None = None,
         company_id: str | None = None,
+        environment: str = "dev",
     ) -> ConnectorInstallation:
         definition: ConnectorDefinition | None = None
         if connector_definition_id:
@@ -233,6 +234,7 @@ class ConnectorService:
             company_id=company_id,
             name=name.strip() or definition.name,
             status="active",
+            environment=str(environment or "dev").strip().lower() or "dev",
             config_json=public_config,
             secrets_ref=secrets_ref,
             metadata_json={"provider_type": definition.provider_type},
@@ -263,6 +265,7 @@ class ConnectorService:
         *,
         name: str | None = None,
         status: str | None = None,
+        environment: str | None = None,
         config_json: dict[str, Any] | None = None,
     ) -> ConnectorInstallation:
         installation = await self.get_installation(owner_id, installation_id)
@@ -272,6 +275,8 @@ class ConnectorService:
             if status not in {"active", "disabled", "error"}:
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid status")
             installation.status = status
+        if environment is not None:
+            installation.environment = str(environment).strip().lower() or "dev"
         if config_json is not None:
             base_url = str(config_json.get("base_url") or config_json.get("url") or "").strip()
             if base_url:
@@ -321,6 +326,16 @@ class ConnectorService:
                 card = await client.describe()
                 return {"ok": True, "provider_type": "a2a", "agent": card}
             if definition.slug == "telegram":
+                from backend.modules.workforce.connectors.registry import ConnectorManifestRegistry
+
+                provider = ConnectorManifestRegistry.get_provider("telegram")
+                if provider is not None:
+                    health = await provider.health(self.db, installation.id)
+                    return {
+                        "ok": health.ok,
+                        "provider_type": "native",
+                        "result": health.details,
+                    }
                 from backend.modules.workforce.integrations.telegram import TelegramAdapter
 
                 result = (
@@ -333,6 +348,17 @@ class ConnectorService:
                 )
                 return {"ok": True, "provider_type": "native", "result": result}
             if definition.slug == "gmail":
+                from backend.modules.workforce.connectors.registry import ConnectorManifestRegistry
+
+                provider = ConnectorManifestRegistry.get_provider("gmail")
+                if provider is not None:
+                    health = await provider.health(self.db, installation.id)
+                    return {
+                        "ok": health.ok,
+                        "provider_type": "native",
+                        "email_address": health.details.get("email_address"),
+                        "result": health.details,
+                    }
                 from backend.modules.workforce.integrations.gmail import GmailAdapter
 
                 profile = await GmailAdapter(self.db, installation).request(

@@ -83,28 +83,43 @@ def _build_rollup(c: dict[str, int]) -> dict[str, Any]:
     return {
         "retrieval_keyword_semantic": {
             "task": pair("retrieval_kw_semantic_task_hit", "retrieval_kw_semantic_task_miss"),
-            "project": pair("retrieval_kw_semantic_project_hit", "retrieval_kw_semantic_project_miss"),
-            "company": pair("retrieval_kw_semantic_company_hit", "retrieval_kw_semantic_company_miss"),
+            "project": pair(
+                "retrieval_kw_semantic_project_hit", "retrieval_kw_semantic_project_miss"
+            ),
+            "company": pair(
+                "retrieval_kw_semantic_company_hit", "retrieval_kw_semantic_company_miss"
+            ),
             "cross_project": pair(
-                "retrieval_kw_semantic_cross_project_hit", "retrieval_kw_semantic_cross_project_miss"
+                "retrieval_kw_semantic_cross_project_hit",
+                "retrieval_kw_semantic_cross_project_miss",
             ),
         },
         "retrieval_vector_semantic": {
             "task": pair("retrieval_vec_semantic_task_hit", "retrieval_vec_semantic_task_miss"),
-            "project": pair("retrieval_vec_semantic_project_hit", "retrieval_vec_semantic_project_miss"),
-            "company": pair("retrieval_vec_semantic_company_hit", "retrieval_vec_semantic_company_miss"),
+            "project": pair(
+                "retrieval_vec_semantic_project_hit", "retrieval_vec_semantic_project_miss"
+            ),
+            "company": pair(
+                "retrieval_vec_semantic_company_hit", "retrieval_vec_semantic_company_miss"
+            ),
             "cross_project": pair(
-                "retrieval_vec_semantic_cross_project_hit", "retrieval_vec_semantic_cross_project_miss"
+                "retrieval_vec_semantic_cross_project_hit",
+                "retrieval_vec_semantic_cross_project_miss",
             ),
         },
         "retrieval_keyword_episodic": {
             "task": pair("retrieval_kw_episodic_task_hit", "retrieval_kw_episodic_task_miss"),
-            "project": pair("retrieval_kw_episodic_project_hit", "retrieval_kw_episodic_project_miss"),
+            "project": pair(
+                "retrieval_kw_episodic_project_hit", "retrieval_kw_episodic_project_miss"
+            ),
         },
         "retrieval_vector_episodic": {
-            "project": pair("retrieval_vec_episodic_project_hit", "retrieval_vec_episodic_project_miss"),
+            "project": pair(
+                "retrieval_vec_episodic_project_hit", "retrieval_vec_episodic_project_miss"
+            ),
             "cross_project": pair(
-                "retrieval_vec_episodic_cross_project_hit", "retrieval_vec_episodic_cross_project_miss"
+                "retrieval_vec_episodic_cross_project_hit",
+                "retrieval_vec_episodic_cross_project_miss",
             ),
         },
         "promotion_semantic_approval": {
@@ -116,7 +131,9 @@ def _build_rollup(c: dict[str, int]) -> dict[str, Any]:
         "conflicts": {
             "detections_write_path": c.get("semantic_conflict_detected", 0),
             "embedding_groups_scan": emb_g,
-            "title_duplicate_groups_scan": c.get("semantic_conflict_scan_title_duplicate_groups", 0),
+            "title_duplicate_groups_scan": c.get(
+                "semantic_conflict_scan_title_duplicate_groups", 0
+            ),
             "scan_total_groups": c.get("semantic_conflict_scan_total_groups", 0),
             "resolved_merge": conf_res,
             "merge_per_embedding_group_heuristic": rate(conf_res, max(1, emb_g)),

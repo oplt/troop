@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { Approval } from "../../../api/orchestration";
@@ -17,16 +18,49 @@ import { parseDateBoundary } from "../approvalUtils";
 export type MainTab = "approvals" | "ledger" | "audit";
 export type ApprovalSubTab = "pending" | "history";
 
-export function useApprovals() {
+function parseMainTab(value: string | null): MainTab | null {
+    if (value === "approvals" || value === "ledger" || value === "audit") {
+        return value;
+    }
+    return null;
+}
+
+type UseApprovalsOptions = {
+    initialTab?: MainTab;
+};
+
+export function useApprovals({ initialTab = "approvals" }: UseApprovalsOptions = {}) {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabFromUrl = parseMainTab(searchParams.get("tab"));
+    const resolvedInitialTab = tabFromUrl ?? initialTab;
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
-    const [mainTab, setMainTab] = useState<MainTab>("approvals");
+    const [mainTab, setMainTabState] = useState<MainTab>(resolvedInitialTab);
     const [approvalSubTab, setApprovalSubTab] = useState<ApprovalSubTab>("pending");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [projectFilter, setProjectFilter] = useState("");
     const [agentFilter, setAgentFilter] = useState("");
     const [queueIndex, setQueueIndex] = useState(0);
+
+    const setMainTab = useCallback(
+        (nextTab: MainTab) => {
+            setMainTabState(nextTab);
+            const nextParams = new URLSearchParams(searchParams);
+            if (nextTab === "approvals") {
+                nextParams.delete("tab");
+            } else {
+                nextParams.set("tab", nextTab);
+            }
+            setSearchParams(nextParams, { replace: true });
+        },
+        [searchParams, setSearchParams],
+    );
+
+    useEffect(() => {
+        const nextTab = parseMainTab(searchParams.get("tab")) ?? initialTab;
+        setMainTabState((current) => (current === nextTab ? current : nextTab));
+    }, [searchParams, initialTab]);
 
     const { data: approvals = [], isLoading: approvalsLoading } = useQuery({
         queryKey: queryKeys.orchestration.approvals,

@@ -19,3 +19,4 @@ This is the checked-in inventory for outbound calls in the runtime application. 
 - External calls must expose a bounded timeout, preserve cancellation, and emit duration/error telemetry. A retry must state why duplicate delivery is safe.
 - Calls that cannot be made async must be isolated from the event loop and documented with their shutdown behavior.
 - This inventory is reviewed whenever a provider, storage backend, worker integration, or diagnostic probe is added.
+- Action-level side effects, idempotency contracts, and autonomous-use blocks are documented in [EXTERNAL_EFFECT_IDEMPOTENCY_INVENTORY.md](./EXTERNAL_EFFECT_IDEMPOTENCY_INVENTORY.md).

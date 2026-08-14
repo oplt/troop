@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, API_BASE } from "./client";
 
 export type AuthUser = {
     id: string;
@@ -7,6 +7,13 @@ export type AuthUser = {
     is_verified: boolean;
     is_admin: boolean;
     mfa_enabled: boolean;
+    active_workspace?: {
+        id: string;
+        name: string;
+        slug: string;
+        role: string;
+        is_default: boolean;
+    } | null;
 };
 
 export type AuthResponse = {
@@ -103,4 +110,21 @@ export async function disableMfa(code: string) {
         method: "POST",
         body: JSON.stringify({ code }),
     });
+}
+
+export type SsoProvider = {
+    slug: string;
+    name: string;
+    provider_type: string;
+};
+
+export async function listSsoProviders(): Promise<SsoProvider[]> {
+    return apiFetch("/auth/sso/providers");
+}
+
+export function startSsoLogin(providerSlug: string, redirectAfter?: string) {
+    const qs = new URLSearchParams();
+    if (redirectAfter) qs.set("redirect_after", redirectAfter);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    window.location.href = `${API_BASE}/auth/sso/${encodeURIComponent(providerSlug)}/authorize${suffix}`;
 }

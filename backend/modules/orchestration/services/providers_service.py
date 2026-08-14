@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from datetime import UTC, datetime
 from typing import Any
@@ -20,6 +21,7 @@ from backend.modules.orchestration.providers import (
 )
 from backend.modules.orchestration.security import encrypt_secret, mask_secret
 from backend.modules.projects.orchestration_models import OrchestratorProject
+from backend.modules.team.models import AgentProfile
 
 logger = get_logger(__name__)
 
@@ -105,7 +107,9 @@ class OrchestrationProvidersServiceMixin:
             raise HTTPException(status_code=404, detail="Provider not found")
 
         connected_projects = await self.repo.list_projects_using_provider(user.id, provider_id)
-        if provider.project_id and all(project.id != provider.project_id for project in connected_projects):
+        if provider.project_id and all(
+            project.id != provider.project_id for project in connected_projects
+        ):
             project = await self.db.get(OrchestratorProject, provider.project_id)
             if project and project.owner_id == user.id:
                 connected_projects.append(project)
@@ -195,7 +199,10 @@ class OrchestrationProvidersServiceMixin:
                 "output_tokens": result_a.output_tokens,
                 "token_total": result_a.total_tokens,
                 "estimated_cost_usd": self._estimate_cost_micros(
-                    provider_a, result_a.input_tokens, result_a.output_tokens, model_name=result_a.model_name
+                    provider_a,
+                    result_a.input_tokens,
+                    result_a.output_tokens,
+                    model_name=result_a.model_name,
                 )
                 / 1_000_000,
                 "output_text": result_a.output_text,
@@ -211,7 +218,10 @@ class OrchestrationProvidersServiceMixin:
                 "output_tokens": result_b.output_tokens,
                 "token_total": result_b.total_tokens,
                 "estimated_cost_usd": self._estimate_cost_micros(
-                    provider_b, result_b.input_tokens, result_b.output_tokens, model_name=result_b.model_name
+                    provider_b,
+                    result_b.input_tokens,
+                    result_b.output_tokens,
+                    model_name=result_b.model_name,
                 )
                 / 1_000_000,
                 "output_text": result_b.output_text,
@@ -242,7 +252,9 @@ class OrchestrationProvidersServiceMixin:
         self._cached_model_capabilities = items
         return items
 
-    async def _model_capability(self, model_name: str, provider_type: str | None = None) -> ModelCapability | None:
+    async def _model_capability(
+        self, model_name: str, provider_type: str | None = None
+    ) -> ModelCapability | None:
         items = await self._model_capabilities()
         aliases = _provider_type_aliases(provider_type) if provider_type else None
         for item in items:
@@ -323,29 +335,37 @@ class OrchestrationProvidersServiceMixin:
         }
         existing = {
             item.model_slug: item
-            for item in await self.repo.list_model_capabilities(provider_id=provider.id, active_only=False)
+            for item in await self.repo.list_model_capabilities(
+                provider_id=provider.id, active_only=False
+            )
         }
         seen: set[str] = set()
         for item in discovered:
             seen.add(item["model_slug"])
-            metadata = self._jsonify({
-                "context_window": item.get("context_window"),
-                "max_output_tokens": item.get("max_output_tokens"),
-                "input_cost_per_1k": item.get("input_cost_per_1k"),
-                "output_cost_per_1k": item.get("output_cost_per_1k"),
-                "input_cost_per_1m": item.get("input_cost_per_1m"),
-                "output_cost_per_1m": item.get("output_cost_per_1m"),
-                "latency_p50": item.get("latency_p50"),
-                "health_status": item.get("health_status"),
-                "source_for_each_field": item.get("source_for_each_field") or {},
-                "supports_tool_calling": bool(item.get("supports_tool_calling", item.get("supports_tools"))),
-                "supports_structured_output": bool(item.get("supports_structured_output", False)),
-                "supports_reasoning": bool(item.get("supports_reasoning", False)),
-                "last_verified_at": item.get("last_verified_at"),
-                "override_reason": item.get("override_reason"),
-                "source": item.get("source"),
-                "raw": item.get("raw") or {},
-            })
+            metadata = self._jsonify(
+                {
+                    "context_window": item.get("context_window"),
+                    "max_output_tokens": item.get("max_output_tokens"),
+                    "input_cost_per_1k": item.get("input_cost_per_1k"),
+                    "output_cost_per_1k": item.get("output_cost_per_1k"),
+                    "input_cost_per_1m": item.get("input_cost_per_1m"),
+                    "output_cost_per_1m": item.get("output_cost_per_1m"),
+                    "latency_p50": item.get("latency_p50"),
+                    "health_status": item.get("health_status"),
+                    "source_for_each_field": item.get("source_for_each_field") or {},
+                    "supports_tool_calling": bool(
+                        item.get("supports_tool_calling", item.get("supports_tools"))
+                    ),
+                    "supports_structured_output": bool(
+                        item.get("supports_structured_output", False)
+                    ),
+                    "supports_reasoning": bool(item.get("supports_reasoning", False)),
+                    "last_verified_at": item.get("last_verified_at"),
+                    "override_reason": item.get("override_reason"),
+                    "source": item.get("source"),
+                    "raw": item.get("raw") or {},
+                }
+            )
             existing_item = existing.get(item["model_slug"])
             if existing_item:
                 existing_item.provider_type = provider.provider_type
@@ -376,7 +396,9 @@ class OrchestrationProvidersServiceMixin:
                 item.is_active = False
         return normalized
 
-    async def _provider_model_exists(self, provider: ProviderConfig, model_name: str | None) -> bool:
+    async def _provider_model_exists(
+        self, provider: ProviderConfig, model_name: str | None
+    ) -> bool:
         if not model_name:
             return True
         if model_name in {provider.default_model, provider.fallback_model}:
@@ -398,17 +420,17 @@ class OrchestrationProvidersServiceMixin:
                 status_code=422,
                 detail=f"Default model '{provider.default_model}' is not available for provider type '{provider.provider_type}'.",
             )
-        if provider.fallback_model and not await self._provider_model_exists(provider, provider.fallback_model):
+        if provider.fallback_model and not await self._provider_model_exists(
+            provider, provider.fallback_model
+        ):
             raise HTTPException(
                 status_code=422,
                 detail=f"Fallback model '{provider.fallback_model}' is not available for provider type '{provider.provider_type}'.",
             )
 
     async def _healthcheck_provider(self, provider: ProviderConfig) -> dict[str, Any]:
-        try:
+        with contextlib.suppress(Exception):
             await self._refresh_provider_models(provider)
-        except Exception:
-            pass
         checked_at = datetime.now(UTC)
         try:
             result = await test_provider(provider)
@@ -492,9 +514,9 @@ class OrchestrationProvidersServiceMixin:
         if not ids:
             return {}
         result = await self.db.execute(
-            select(ProviderConfig.id, ProviderConfig.is_healthy, ProviderConfig.last_healthcheck_at).where(
-                ProviderConfig.id.in_(ids)
-            )
+            select(
+                ProviderConfig.id, ProviderConfig.is_healthy, ProviderConfig.last_healthcheck_at
+            ).where(ProviderConfig.id.in_(ids))
         )
         return {row[0]: (bool(row[1]), row[2]) for row in result.all()}
 
@@ -524,13 +546,12 @@ class OrchestrationProvidersServiceMixin:
                 if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
                     return await _local_provider_for_project()
                 return provider
-        if project is not None:
-            if execution_settings.get("provider_config_id"):
-                provider = await self.db.get(ProviderConfig, execution_settings["provider_config_id"])
-                if provider:
-                    if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
-                        return await _local_provider_for_project()
-                    return provider
+        if project is not None and execution_settings.get("provider_config_id"):
+            provider = await self.db.get(ProviderConfig, execution_settings["provider_config_id"])
+            if provider:
+                if offline_local_only_mode and provider.provider_type not in {"ollama", "local"}:
+                    return await _local_provider_for_project()
+                return provider
         if agent and agent.provider_config_id:
             provider = await self.db.get(ProviderConfig, agent.provider_config_id)
             if provider:

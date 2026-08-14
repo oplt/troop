@@ -25,6 +25,14 @@ class SignInRequest(RequestModel):
         return value
 
 
+class WorkspaceContextResponse(BaseModel):
+    id: str
+    name: str
+    slug: str
+    role: str
+    is_default: bool
+
+
 class AuthUserResponse(BaseModel):
     id: str
     email: EmailStr
@@ -32,6 +40,11 @@ class AuthUserResponse(BaseModel):
     is_verified: bool
     is_admin: bool = False
     mfa_enabled: bool = False
+    active_workspace: WorkspaceContextResponse | None = None
+
+
+class WorkspaceListResponse(BaseModel):
+    items: list[WorkspaceContextResponse]
 
 
 class AuthSessionResponse(BaseModel):

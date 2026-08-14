@@ -53,6 +53,9 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.sla_escalation_scan": {
             "queue": s.CELERY_QUEUE_OBSERVABILITY
         },
+        "backend.workers.orchestration.approval_sla_scan": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
         "backend.workers.orchestration.embed_semantic_memory_entry": {
             "queue": s.CELERY_QUEUE_MODEL_GATEWAY
         },
@@ -78,6 +81,9 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
             "queue": s.CELERY_QUEUE_INTEGRATIONS
         },
         "backend.workers.integrations.renew_gmail_watches": {"queue": s.CELERY_QUEUE_INTEGRATIONS},
+        "backend.workers.integrations.renew_outlook_subscriptions": {
+            "queue": s.CELERY_QUEUE_INTEGRATIONS
+        },
     }
 
 
@@ -125,6 +131,12 @@ celery_app.conf.update(
                 minute=f"*/{max(1, settings.ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES)}"
             ),
         },
+        "approval-sla-scan": {
+            "task": "backend.workers.orchestration.approval_sla_scan",
+            "schedule": crontab(
+                minute=f"*/{max(1, settings.ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES)}"
+            ),
+        },
         "stale-in-progress-recovery": {
             "task": "backend.workers.orchestration.stale_in_progress_recovery",
             "schedule": crontab(minute="*/5"),
@@ -148,6 +160,12 @@ celery_app.conf.update(
         "gmail-watch-renewal": {
             "task": "backend.workers.integrations.renew_gmail_watches",
             "schedule": crontab(minute=f"*/{max(5, settings.GMAIL_WATCH_RENEW_INTERVAL_MINUTES)}"),
+        },
+        "outlook-subscription-renewal": {
+            "task": "backend.workers.integrations.renew_outlook_subscriptions",
+            "schedule": crontab(
+                minute=f"*/{max(5, settings.OUTLOOK_SUBSCRIPTION_RENEW_INTERVAL_MINUTES)}"
+            ),
         },
     },
 )

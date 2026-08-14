@@ -7,7 +7,10 @@ export type SettingsTabValue =
     | "platform"
     | "users"
     | "companies"
-    | "profile";
+    | "profile"
+    | "security"
+    | "audit"
+    | "identity";
 
 export type DatabaseSettingDraft = {
     value: string;
@@ -29,6 +32,9 @@ export const SETTINGS_TABS: SettingsTabValue[] = [
     "github_sync",
     "platform",
     "users",
+    "security",
+    "audit",
+    "identity",
     "database",
     "companies",
     "profile",

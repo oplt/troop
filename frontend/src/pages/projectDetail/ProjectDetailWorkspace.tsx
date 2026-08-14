@@ -1,14 +1,11 @@
-// @ts-nocheck
-import { useCallback, useEffect, useMemo, useRef, useState, memo, lazy, Suspense, type DragEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
-    Avatar,
     Box,
     Button,
     Checkbox,
     Chip,
-    CircularProgress,
     Collapse,
     Dialog,
     DialogActions,
@@ -18,7 +15,6 @@ import {
     Drawer,
     IconButton,
     LinearProgress,
-    Link,
     ListSubheader,
     MenuItem,
     Paper,
@@ -31,11 +27,9 @@ import {
     Tooltip,
     Typography,
 } from "@mui/material";
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 import {
-    AccountTree as DagIcon,
     Add as AddIcon,
-    Check as CheckSimpleIcon,
     Close as CloseIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
@@ -44,53 +38,9 @@ import {
     PlayArrow as RunIcon,
     Upload as UploadIcon,
 } from "@mui/icons-material";
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-    addProjectAgent,
-    assignOrchestrationTask,
-    createBrainstorm,
-    createAgentFromTemplate,
-    createProjectMemory,
-    createProjectDecision,
-    createProjectMilestone,
-    createTaskArtifact,
-    deleteAgent,
-    decideApproval,
-    deleteProjectDocument,
-    deleteProjectMemoryEntry,
-    patchProjectMemorySettings,
-    listTaskArtifacts,
-    listSemanticMemory,
-    startBrainstorm,
-    startTaskRun,
-    deleteOrchestrationTask,
-    updateOrchestrationTask,
-    updateOrchestrationProject,
-    updateAgent,
-    updateProjectAgent,
-    updateProjectMilestone,
-    uploadProjectDocument,
-    getTaskBlockers,
-    getTaskExecutionState,
-    getTaskTimeline,
-    isPendingSemanticWrite,
-    startDagParallelReady,
-    startMergeResolutionRun,
-    getRunWorkingMemory,
-    getTaskMemoryCoordination,
-    patchTaskMemoryCoordination,
-    queueProjectRepositoryIndex,
-    removeProjectAgent,
-    searchEpisodicMemory,
-    updateGateConfig,
-    updateLocalRepoWorkspace,
-    updateProjectRepository,
-} from "../../api/orchestration";
-import type { GateConfig, OrchestrationTask, ProviderConfig, TaskRun } from "../../api/orchestration";
-import { readOrchestrationSelectionMeta } from "../../utils/orchestrationSelection";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { ProviderConfig, TaskRun } from "../../api/orchestration";
 import { useSnackbar } from "../../app/snackbarContext";
-import { queryKeys } from "../../config/queryKeys";
-import { EmptyState } from "../../components/ui/EmptyState";
 import { PageShell } from "../../components/ui/PageShell";
 import { DensePageMobileNotice } from "../../components/ui/DensePageMobileNotice";
 import { StatusChip } from "../../components/ui/StatusChip";
@@ -101,11 +51,8 @@ import { formatDateTime, humanizeKey } from "../../utils/formatters";
 import { MilestoneTimeline } from "../../features/orchestration/project/components/MilestoneTimeline";
 import { ExternalLinksEditor, type ExternalLinkRecord } from "../../features/orchestration/project/components/ExternalLinksEditor";
 import { createProjectTaskDraft, normalizeProjectTaskDraft, type ProjectTaskDraft } from "../../features/orchestration/project/taskForm";
-import { SubtaskPanel } from "../../features/orchestration/project/components/SubtaskPanel";
 import { AcceptanceDialog } from "../../features/orchestration/project/components/AcceptanceDialog";
-import { TaskIntelligencePanel } from "../../features/workforce/TaskIntelligencePanel";
 import { extractApiErrorMessage } from "../../utils/apiErrors";
-import { ApiRequestError } from "../../api/client";
 import { MAIN_KANBAN_COLUMNS } from "./kanbanConstants";
 import {
     useProjectDetailQueries,
@@ -114,8 +61,16 @@ import {
     type TeamView,
     type WorkView,
 } from "../../features/orchestration/project/queries";
-import { projectDetailApi, type ProjectTaskPayload } from "../../features/orchestration/project/api";
-import { invalidateProjectMutation } from "../../features/orchestration/project/mutations";
+import {
+    EMPTY_BRAINSTORM_FORM,
+    useProjectDetailMutations,
+} from "../../features/orchestration/project/useProjectDetailMutations";
+import {
+    parseProjectDetailTab,
+    projectDetailTabSideEffects,
+    syncProjectDetailTabFromSearchParam,
+    withProjectDetailTab,
+} from "../../features/orchestration/project/routing";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import {
     ProjectDetailErrorState,
@@ -129,8 +84,6 @@ import {
     type LocalRepoDraft,
     type WorkspaceOverviewDraft,
     csvFromUnknown,
-    splitCsv,
-    toastQueuedRunWithOptionalWarnings,
     readExternalLinks,
     serializeExternalLinks,
     readWorkspaceOverview,
@@ -153,37 +106,21 @@ export function ProjectDetailWorkspace() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const tabParam = searchParams.get("tab");
-    const initialTab: DetailTab =
-        tabParam === "board" ||
-        tabParam === "runs" ||
-        tabParam === "agents" ||
-        tabParam === "memory" ||
-        tabParam === "settings" ||
-        tabParam === "overview"
-            ? tabParam
-            : "overview";
+    const initialTab: DetailTab = parseProjectDetailTab(tabParam);
     const [tab, setTabState] = useState<DetailTab>(initialTab);
     const setTab = useCallback(
         (value: DetailTab) => {
             setTabState(value);
-            const next = new URLSearchParams(searchParams);
-            next.set("tab", value);
-            setSearchParams(next, { replace: true });
+            setSearchParams(withProjectDetailTab(searchParams, value), { replace: true });
         },
         [searchParams, setSearchParams],
     );
     const [trackedTabParam, setTrackedTabParam] = useState(tabParam);
     if (tabParam !== trackedTabParam) {
         setTrackedTabParam(tabParam);
-        if (
-            tabParam === "board" ||
-            tabParam === "runs" ||
-            tabParam === "agents" ||
-            tabParam === "memory" ||
-            tabParam === "settings" ||
-            tabParam === "overview"
-        ) {
-            setTabState(tabParam);
+        const syncedTab = syncProjectDetailTabFromSearchParam(tabParam);
+        if (syncedTab) {
+            setTabState(syncedTab);
         }
     }
     const [workView, setWorkView] = useState<WorkView>("board");
@@ -205,22 +142,7 @@ export function ProjectDetailWorkspace() {
     const [taskReviewerTouched, setTaskReviewerTouched] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string>("");
     const [selectedAgentId, setSelectedAgentId] = useState("");
-    const [brainstormForm, setBrainstormForm] = useState({
-        topic: "",
-        task_id: "",
-        moderator_agent_id: "",
-        participant_agent_ids: [] as string[],
-        mode: "exploration",
-        output_type: "implementation_plan",
-        max_rounds: "3",
-        max_cost_usd: "10",
-        max_repetition_score: "0.92",
-        soft_consensus_min_similarity: "0.72",
-        conflict_pairwise_max_similarity: "0.38",
-        stop_on_consensus: true,
-        accept_soft_consensus: true,
-        escalate_on_no_consensus: true,
-    });
+    const [brainstormForm, setBrainstormForm] = useState(EMPTY_BRAINSTORM_FORM);
     const [brainstormAdvancedOpen, setBrainstormAdvancedOpen] = useState(false);
     const [milestoneForm, setMilestoneForm] = useState({ title: "", description: "", due_date: "" });
     const [decisionForm, setDecisionForm] = useState({ title: "", decision: "", rationale: "", author_label: "" });
@@ -599,332 +521,73 @@ export function ProjectDetailWorkspace() {
     const milestoneProgress = milestones.length === 0 ? 0
         : Math.round((milestones.filter((m) => m.status === "completed").length / milestones.length) * 100);
 
-    const addAgentMutation = useMutation({
-        mutationFn: async ({ selection }: { selection: string }) => {
-            if (selection.startsWith("agent:")) {
-                const agentId = selection.slice("agent:".length);
-                const membership = await addProjectAgent(projectId, { agent_id: agentId, role: "member" });
-                return { kind: "existing" as const, membership };
-            }
-            if (selection.startsWith("template:")) {
-                const templateSlug = selection.slice("template:".length);
-                const nextAgent = await createAgentFromTemplate(templateSlug, {
-                    project_id: projectId,
-                    slug: `${templateSlug}-${Date.now()}`,
-                });
-                const membership = await addProjectAgent(projectId, { agent_id: nextAgent.id, role: "member" });
-                return { kind: "from_template" as const, membership, createdAgent: nextAgent };
-            }
-            throw new Error("Pick an agent or template first.");
-        },
-        onSuccess: async (data) => {
-            setSelectedAgentId("");
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents(projectId) }),
-            ]);
-            const lintWarnings =
-                data.kind === "from_template"
-                    ? (data.createdAgent.lint?.warnings ?? []).filter((line): line is string => Boolean(line))
-                    : [];
-            if (lintWarnings.length > 0) {
-                showToast({
-                    message: `Agent assigned to project. ${lintWarnings.join(" ")}`,
-                    severity: "warning",
-                });
-            } else {
-                showToast({ message: "Agent assigned to project.", severity: "success" });
-            }
-        },
+    const mutationActions = useMemo(
+        () => ({
+            clearSelectedAgentId: () => setSelectedAgentId(""),
+            resetTaskCreateForm: () => {
+                setTaskForm(createProjectTaskDraft());
+                setTaskCriteriaList([]);
+                setTaskOwnerTouched(false);
+                setTaskReviewerTouched(false);
+                setTaskDrawerOpen(false);
+                setTaskAdditionalOpen(false);
+            },
+            resetBrainstormForm: () => setBrainstormForm(EMPTY_BRAINSTORM_FORM),
+            resetMilestoneForm: () => setMilestoneForm({ title: "", description: "", due_date: "" }),
+            resetDecisionForm: () => setDecisionForm({ title: "", decision: "", rationale: "", author_label: "" }),
+            resetAgentMemoryFields: () => setAgentMemoryForm((current) => ({ ...current, key: "", value_text: "" })),
+            clearLocalRepoDraft: () => setLocalRepoForm({}),
+            clearMergeResolution: () => {
+                setMergeTaskId(null);
+                setMergeNotes("");
+            },
+            clearDagDependencyDraft: (taskId: string) =>
+                setDagDependencyDrafts((current) => {
+                    const next = { ...current };
+                    delete next[taskId];
+                    return next;
+                }),
+        }),
+        [],
+    );
+
+    const {
+        addAgentMutation,
+        deleteAgentMutation,
+        createTaskMutation,
+        runMutation,
+        dagParallelMutation,
+        mergeResolutionMutation,
+        queueRepositoryIndexMutation,
+        updateRepositoryMutation,
+        updateMembershipMutation,
+        removeMembershipMutation,
+        updateHierarchyAgentMutation,
+        saveProjectSettingsMutation,
+        updateGateConfigMutation,
+        brainstormMutation,
+        milestoneMutation,
+        toggleMilestoneMutation,
+        updateDagTaskMutation,
+        decisionMutation,
+        uploadDocumentMutation,
+        deleteDocumentMutation,
+        deleteMemoryMutation,
+        createMemoryMutation,
+        memoryApprovalMutation,
+        memorySettingsMutation,
+        saveLocalRepoSettingsMutation,
+    } = useProjectDetailMutations({
+        projectId,
+        queryClient,
+        showToast,
+        navigate,
+        actions: mutationActions,
+        agentMemoryForm,
+        documentTtlDays,
+        resolvedLocalRepoForm,
     });
-    const deleteAgentMutation = useMutation({
-        mutationFn: (selection: string) => {
-            const agentId = selection.startsWith("agent:") ? selection.slice("agent:".length) : selection;
-            return deleteAgent(agentId);
-        },
-        onSuccess: async () => {
-            setSelectedAgentId("");
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) }),
-            ]);
-            showToast({ message: "Agent deleted from database.", severity: "success" });
-        },
-    });
-    const createTaskMutation = useMutation({
-        mutationFn: (payload: ProjectTaskPayload) => projectDetailApi.createTask(projectId, payload),
-        onSuccess: async () => {
-            setTaskForm(createProjectTaskDraft());
-            setTaskCriteriaList([]);
-            setTaskOwnerTouched(false);
-            setTaskReviewerTouched(false);
-            setTaskDrawerOpen(false);
-            setTaskAdditionalOpen(false);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            showToast({ message: "Task created.", severity: "success" });
-        },
-    });
-    const runMutation = useMutation({
-        mutationFn: ({ taskId, runMode, createPr }: { taskId: string; runMode: ExecutionMode; createPr: boolean }) =>
-            startTaskRun(projectId, taskId, { run_mode: runMode, input_payload: { create_pr: createPr, draft_pr: true } }),
-        onSuccess: async (run) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            toastQueuedRunWithOptionalWarnings(showToast, run, "Run queued.");
-            navigate(`/runs/${run.id}`);
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Couldn't start run. Try again."), severity: "error" });
-        },
-    });
-    const dagParallelMutation = useMutation({
-        mutationFn: () =>
-            startDagParallelReady(projectId, {
-                run_mode: "single_agent",
-                limit: 12,
-                input_payload: { dag_parallel_wave: true },
-            }),
-        onSuccess: async (res) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDagReady(projectId) });
-            showToast({
-                message: `Started ${res.started_run_ids.length} parallel run(s).${res.skipped_task_ids.length ? ` ${res.skipped_task_ids.length} skipped (see messages).` : ""}`,
-                severity: res.started_run_ids.length ? "success" : "warning",
-            });
-        },
-    });
-    const mergeResolutionMutation = useMutation({
-        mutationFn: ({ parentTaskId, notes }: { parentTaskId: string; notes: string }) =>
-            startMergeResolutionRun(projectId, parentTaskId, {
-                notes,
-                input_payload: {
-                    merge_resolution: {
-                        checklist_confirmed: true,
-                        notes,
-                    },
-                },
-            }),
-        onSuccess: async (run) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            toastQueuedRunWithOptionalWarnings(showToast, run, "Merge resolution run queued.");
-            setMergeTaskId(null);
-            setMergeNotes("");
-            navigate(`/runs/${run.id}`);
-        },
-    });
-    const queueRepositoryIndexMutation = useMutation({
-        mutationFn: ({ repositoryLinkId, mode, pathPrefixes, scheduleLabel, autoEnabled }: {
-            repositoryLinkId: string;
-            mode: "full" | "incremental";
-            pathPrefixes: string[];
-            scheduleLabel?: string | null;
-            autoEnabled?: boolean | null;
-        }) =>
-            queueProjectRepositoryIndex(projectId, repositoryLinkId, {
-                mode,
-                path_prefixes: pathPrefixes,
-                schedule_label: scheduleLabel,
-                auto_enabled: autoEnabled,
-            }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemoryIngestJobs(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId) });
-            showToast({ message: "Repository indexing queued.", severity: "success" });
-        },
-    });
-    const updateRepositoryMutation = useMutation({
-        mutationFn: ({ repositoryLinkId, defaultBranch, metadata }: {
-            repositoryLinkId: string;
-            defaultBranch?: string | null;
-            metadata?: Record<string, unknown>;
-        }) =>
-            updateProjectRepository(projectId, repositoryLinkId, {
-                default_branch: defaultBranch,
-                metadata,
-            }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositories(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId) });
-            showToast({ message: "Repository index settings saved.", severity: "success" });
-        },
-    });
-    const updateMembershipMutation = useMutation({
-        mutationFn: ({ membershipId, payload }: { membershipId: string; payload: Record<string, unknown> }) =>
-            updateProjectAgent(projectId, membershipId, payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) });
-            showToast({ message: "Project team updated.", severity: "success" });
-        },
-    });
-    const removeMembershipMutation = useMutation({
-        mutationFn: (membershipId: string) => removeProjectAgent(projectId, membershipId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectAgents(projectId) });
-            showToast({ message: "Agent removed from project team.", severity: "success" });
-        },
-    });
-    const updateHierarchyAgentMutation = useMutation({
-        mutationFn: ({ agentId, payload }: { agentId: string; payload: Record<string, unknown> }) =>
-            updateAgent(agentId, payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.agents() });
-            showToast({ message: "Reporting line updated.", severity: "success" });
-        },
-    });
-    const saveProjectSettingsMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => updateOrchestrationProject(projectId, payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.project(projectId) });
-            showToast({ message: "Project execution settings saved.", severity: "success" });
-        },
-    });
-    const updateGateConfigMutation = useMutation({
-        mutationFn: (payload: Partial<GateConfig>) => updateGateConfig(projectId, payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectGateConfig(projectId) });
-            showToast({ message: "Gate configuration saved.", severity: "success" });
-        },
-    });
-    const brainstormMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => createBrainstorm(payload),
-        onSuccess: async (brainstorm) => {
-            setBrainstormForm({
-                topic: "",
-                task_id: "",
-                moderator_agent_id: "",
-                participant_agent_ids: [],
-                mode: "exploration",
-                output_type: "implementation_plan",
-                max_rounds: "3",
-                max_cost_usd: "10",
-                max_repetition_score: "0.92",
-                soft_consensus_min_similarity: "0.72",
-                conflict_pairwise_max_similarity: "0.38",
-                stop_on_consensus: true,
-                accept_soft_consensus: true,
-                escalate_on_no_consensus: true,
-            });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectBrainstorms(projectId) });
-            showToast({ message: "Brainstorm created.", severity: "success" });
-            await startBrainstorm(brainstorm.id);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectRuns(projectId) });
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Couldn't start brainstorm. Try again."), severity: "error" });
-        },
-    });
-    const milestoneMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => createProjectMilestone(projectId, payload),
-        onSuccess: async () => {
-            setMilestoneForm({ title: "", description: "", due_date: "" });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMilestones(projectId) });
-            showToast({ message: "Milestone created.", severity: "success" });
-        },
-    });
-    const toggleMilestoneMutation = useMutation({
-        mutationFn: ({ id, status }: { id: string; status: string }) =>
-            updateProjectMilestone(projectId, id, { status }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMilestones(projectId) });
-        },
-    });
-    const updateDagTaskMutation = useMutation({
-        mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
-            updateOrchestrationTask(projectId, taskId, payload),
-        onSuccess: async (_, variables) => {
-            setDagDependencyDrafts((current) => {
-                const next = { ...current };
-                delete next[variables.taskId];
-                return next;
-            });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDagReady(projectId) });
-            showToast({ message: "Task graph updated.", severity: "success" });
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Couldn't save task graph. Refresh and retry."), severity: "error" });
-        },
-    });
-    const decisionMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => createProjectDecision(projectId, payload),
-        onSuccess: async () => {
-            setDecisionForm({ title: "", decision: "", rationale: "", author_label: "" });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDecisions(projectId) });
-            showToast({ message: "Decision recorded.", severity: "success" });
-        },
-    });
-    const uploadDocumentMutation = useMutation({
-        mutationFn: (file: File) =>
-            uploadProjectDocument(
-                projectId,
-                file,
-                undefined,
-                Number(documentTtlDays || 0) || undefined,
-            ),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDocuments(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectKnowledge(projectId) });
-            showToast({ message: "Knowledge document uploaded.", severity: "success" });
-        },
-    });
-    const deleteDocumentMutation = useMutation({
-        mutationFn: (documentId: string) => deleteProjectDocument(projectId, documentId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectDocuments(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectKnowledge(projectId) });
-            showToast({ message: "Knowledge document removed.", severity: "success" });
-        },
-    });
-    const deleteMemoryMutation = useMutation({
-        mutationFn: (memoryId: string) => deleteProjectMemoryEntry(projectId, memoryId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemory(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
-            showToast({ message: "Memory entry removed.", severity: "success" });
-        },
-    });
-    const createMemoryMutation = useMutation({
-        mutationFn: () =>
-            createProjectMemory(projectId, {
-                agent_id: agentMemoryForm.agent_id,
-                key: agentMemoryForm.key.trim(),
-                value_text: agentMemoryForm.value_text.trim(),
-                scope: agentMemoryForm.scope,
-                ttl_days: Number(agentMemoryForm.ttl_days || 0) || undefined,
-            }),
-        onSuccess: async (result) => {
-            setAgentMemoryForm((current) => ({ ...current, key: "", value_text: "" }));
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemory(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
-            showToast({
-                message: isPendingSemanticWrite(result)
-                    ? "Long-term memory submitted for approval."
-                    : "Agent memory saved.",
-                severity: isPendingSemanticWrite(result) ? "info" : "success",
-            });
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Couldn't save agent memory."), severity: "error" });
-        },
-    });
-    const memoryApprovalMutation = useMutation({
-        mutationFn: ({ approvalId, status, reason }: { approvalId: string; status: "approved" | "rejected"; reason?: string }) =>
-            decideApproval(approvalId, { status, reason }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemory(projectId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.approvals });
-            showToast({ message: "Memory review updated.", severity: "success" });
-        },
-    });
-    const memorySettingsMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) => patchProjectMemorySettings(projectId, payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectMemorySettings(projectId) });
-            showToast({ message: "Memory rules updated.", severity: "success" });
-        },
-    });
+
     const pendingMemoryApprovals = approvals.filter(
         (approval) => approval.project_id === projectId && approval.approval_type === "agent_memory_write" && approval.status === "pending",
     );
@@ -1068,31 +731,6 @@ export function ProjectDetailWorkspace() {
         });
     };
 
-    const saveLocalRepoSettingsMutation = useMutation({
-        mutationFn: () =>
-            updateLocalRepoWorkspace(projectId, {
-                enabled: resolvedLocalRepoForm.enabled && Boolean(resolvedLocalRepoForm.repo_path.trim()),
-                repo_path: resolvedLocalRepoForm.repo_path.trim(),
-                dirty_worktree_policy: resolvedLocalRepoForm.dirty_worktree_policy || "block",
-                allowed_branches: splitCsv(resolvedLocalRepoForm.allowed_branches),
-                file_allowlist: splitCsv(resolvedLocalRepoForm.file_allowlist),
-                file_denylist: splitCsv(resolvedLocalRepoForm.file_denylist),
-                command_allowlist: splitCsv(resolvedLocalRepoForm.command_allowlist),
-                max_diff_bytes: Math.max(
-                    1_000,
-                    Math.min(5_000_000, Math.floor(Number(resolvedLocalRepoForm.max_diff_bytes) || 200_000)),
-                ),
-            }),
-        onSuccess: async () => {
-            setLocalRepoForm({});
-            await invalidateProjectMutation(queryClient, projectId, "project", "repositories");
-            showToast({ message: "Local repo settings saved.", severity: "success" });
-        },
-        onError: (error) => {
-            showToast({ message: extractApiErrorMessage(error, "Could not save local repo settings."), severity: "error" });
-        },
-    });
-
     const saveHitlSettings = () => {
         saveProjectSettingsMutation.mutate({
             settings: {
@@ -1194,13 +832,10 @@ export function ProjectDetailWorkspace() {
                     value={tab}
                     onChange={(_, value: DetailTab) => {
                         setTab(value);
-                        if (value === "board") setWorkView("board");
-                        if (value === "agents") setTeamView("agents");
-                        if (value === "memory") setKnowledgeView("memory");
-                        if (value === "settings") {
-                            setTeamView("settings");
-                            setKnowledgeView("sources");
-                        }
+                        const sideEffects = projectDetailTabSideEffects(value);
+                        if (sideEffects.workView) setWorkView(sideEffects.workView);
+                        if (sideEffects.teamView) setTeamView(sideEffects.teamView);
+                        if (sideEffects.knowledgeView) setKnowledgeView(sideEffects.knowledgeView);
                     }}
                     variant="scrollable"
                     scrollButtons="auto"

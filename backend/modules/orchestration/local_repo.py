@@ -12,7 +12,14 @@ from typing import Any
 
 DEFAULT_ALLOWED_BRANCHES = ["main", "master", "develop", "feature/*", "fix/*", "agent/*"]
 DEFAULT_COMMAND_ALLOWLIST = ["pnpm", "uv", "pytest", "ruff", "mypy", "git status", "git diff", "rg"]
-DEFAULT_FILE_DENYLIST = [".env", ".env.*", "**/.env", "**/.env.*", "**/node_modules/**", "**/.git/**"]
+DEFAULT_FILE_DENYLIST = [
+    ".env",
+    ".env.*",
+    "**/.env",
+    "**/.env.*",
+    "**/node_modules/**",
+    "**/.git/**",
+]
 DEFAULT_MAX_DIFF_BYTES = 200_000
 
 
@@ -34,10 +41,18 @@ class CommandResult:
 def normalize_workspace(raw: dict[str, Any] | None) -> dict[str, Any]:
     data = dict(raw or {})
     repo_path = str(data.get("repo_path") or data.get("path") or "").strip()
-    allowlist = [str(item).strip() for item in data.get("command_allowlist") or [] if str(item).strip()]
-    allowed_branches = [str(item).strip() for item in data.get("allowed_branches") or [] if str(item).strip()]
-    file_allowlist = [str(item).strip() for item in data.get("file_allowlist") or [] if str(item).strip()]
-    file_denylist = [str(item).strip() for item in data.get("file_denylist") or [] if str(item).strip()]
+    allowlist = [
+        str(item).strip() for item in data.get("command_allowlist") or [] if str(item).strip()
+    ]
+    allowed_branches = [
+        str(item).strip() for item in data.get("allowed_branches") or [] if str(item).strip()
+    ]
+    file_allowlist = [
+        str(item).strip() for item in data.get("file_allowlist") or [] if str(item).strip()
+    ]
+    file_denylist = [
+        str(item).strip() for item in data.get("file_denylist") or [] if str(item).strip()
+    ]
     dirty_policy = str(data.get("dirty_worktree_policy") or "block").strip()
     if dirty_policy not in {"block", "warn", "allow"}:
         dirty_policy = "block"
@@ -163,20 +178,31 @@ def branch_name_for_task(task_id: str, title: str | None = None) -> str:
     return f"agent/{task_id[:8]}-{slug}"
 
 
-def create_isolated_worktree(raw: dict[str, Any] | None, *, task_id: str, title: str | None = None) -> dict[str, Any]:
+def create_isolated_worktree(
+    raw: dict[str, Any] | None, *, task_id: str, title: str | None = None
+) -> dict[str, Any]:
     status = inspect_workspace(raw)
     if not status["valid"]:
         raise LocalRepoError("; ".join(status["blocked_reasons"]))
     workspace = status["workspace"]
     root = Path(workspace["repo_path"]).resolve()
     branch = branch_name_for_task(task_id, title)
-    worktree_root = Path(workspace.get("worktree_root") or root.parent / f"{root.name}.worktrees").expanduser().resolve()
+    worktree_root = (
+        Path(workspace.get("worktree_root") or root.parent / f"{root.name}.worktrees")
+        .expanduser()
+        .resolve()
+    )
     worktree_root.mkdir(parents=True, exist_ok=True)
     target = worktree_root / branch.replace("/", "-")
     if target.exists():
         raise LocalRepoError(f"Worktree already exists: {target}")
     _run(["git", "worktree", "add", "-b", branch, str(target)], root, timeout_seconds=60)
-    return {"branch": branch, "path": str(target), "base_repo_path": str(root), "created_at": datetime.now(UTC).isoformat()}
+    return {
+        "branch": branch,
+        "path": str(target),
+        "base_repo_path": str(root),
+        "created_at": datetime.now(UTC).isoformat(),
+    }
 
 
 def command_allowed(command: str, allowlist: list[str]) -> bool:
@@ -244,7 +270,9 @@ def file_allowed(relative_path: str, workspace: dict[str, Any]) -> bool:
     return not allow or any(fnmatch.fnmatch(rel, pattern) for pattern in allow)
 
 
-def read_repo_file(raw: dict[str, Any] | None, relative_path: str, limit: int = 40_000) -> dict[str, Any]:
+def read_repo_file(
+    raw: dict[str, Any] | None, relative_path: str, limit: int = 40_000
+) -> dict[str, Any]:
     workspace = normalize_workspace(raw)
     root = _repo_root(workspace["repo_path"])
     rel = relative_path.strip().lstrip("/")
@@ -257,11 +285,19 @@ def read_repo_file(raw: dict[str, Any] | None, relative_path: str, limit: int = 
     return {"path": rel, "content": data[:limit], "truncated": len(data) > limit}
 
 
-def build_context_pack(raw: dict[str, Any] | None, *, issue_text: str, acceptance_criteria: str | None = None) -> dict[str, Any]:
+def build_context_pack(
+    raw: dict[str, Any] | None, *, issue_text: str, acceptance_criteria: str | None = None
+) -> dict[str, Any]:
     workspace = normalize_workspace(raw)
     root = _repo_root(workspace["repo_path"])
-    tree = run_safe_command(workspace, command="rg --files", timeout_seconds=20).stdout.splitlines()[:600]
-    agent_files = [name for name in ["AGENTS.md", "CLAUDE.md", "README.md", "package.json", "pyproject.toml"] if (root / name).exists()]
+    tree = run_safe_command(
+        workspace, command="rg --files", timeout_seconds=20
+    ).stdout.splitlines()[:600]
+    agent_files = [
+        name
+        for name in ["AGENTS.md", "CLAUDE.md", "README.md", "package.json", "pyproject.toml"]
+        if (root / name).exists()
+    ]
     file_payloads = [read_repo_file(workspace, name, limit=12_000) for name in agent_files]
     status = inspect_workspace(workspace)
     return {

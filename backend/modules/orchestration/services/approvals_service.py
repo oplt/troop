@@ -10,6 +10,7 @@ from backend.modules.memory.coordination import (
     MEMORY_COORDINATION_KEY,
 )
 from backend.modules.memory.metrics import increment_memory_metric
+from backend.modules.orchestration.constants import TASK_TRANSITIONS
 from backend.modules.orchestration.hitl_policy import (
     action_requires_approval as hitl_action_requires_approval,
 )
@@ -28,13 +29,33 @@ from backend.modules.memory.entry_types import (
 )
 
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
+TASK_STATUS_VALUES = frozenset(TASK_TRANSITIONS) | frozenset().union(*TASK_TRANSITIONS.values())
 
 
 class OrchestrationApprovalsServiceMixin:
-    async def list_approvals(self, user: User):
-        return await self.repo.list_approvals(user.id)
+    async def list_approvals(
+        self,
+        user: User,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ):
+        return await self.repo.list_approvals(
+            user.id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
 
     async def decide_approval(self, user: User, approval_id: str, status: str, reason: str | None):
+        from backend.modules.orchestration.execution.hitl.approver_resolver import (
+            ApproverEligibilityError,
+            format_eligibility_reason,
+            recheck_user_eligible,
+        )
+        from backend.modules.orchestration.execution.hitl.exact_effect import is_approval_expired
+
         approval = await self.repo.get_approval_for_update(user.id, approval_id)
         if not approval:
             raise HTTPException(status_code=404, detail="Approval request not found")
@@ -43,17 +64,40 @@ class OrchestrationApprovalsServiceMixin:
                 status_code=409,
                 detail=f"Approval request is already {approval.status} and cannot be decided again.",
             )
+        if is_approval_expired(approval):
+            approval.status = "stale"
+            approval.reason = "Approval effect expired before decision"
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail="Approval effect expired before decision",
+            )
+        try:
+            eligible = await recheck_user_eligible(
+                self.db, approval=approval, user_id=user.id
+            )
+        except ApproverEligibilityError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=str(exc),
+            ) from exc
         if status == "rejected" and not str(reason or "").strip():
             raise HTTPException(status_code=422, detail="A rejection reason is required.")
         approval.status = status
         approval.reason = reason
         approval.approved_by_user_id = user.id
+        approval.decided_eligibility_reason = format_eligibility_reason(eligible)
         approval.resolved_at = datetime.now(UTC)
-        if status == "approved" and approval.approval_type in {
-            "github_comment",
-            "github_progress_comment",
-            "github_manager_closure",
-        } and approval.issue_link_id:
+        if (
+            status == "approved"
+            and approval.approval_type
+            in {
+                "github_comment",
+                "github_progress_comment",
+                "github_manager_closure",
+            }
+            and approval.issue_link_id
+        ):
             await self._post_approved_github_comment(approval)
         elif status == "approved" and approval.approval_type == "github_create_pr":
             await self._approve_github_create_pr(approval)
@@ -72,7 +116,9 @@ class OrchestrationApprovalsServiceMixin:
                         if memory.project_id:
                             proj = await self.db.get(OrchestratorProject, memory.project_id)
                             if proj:
-                                await self._maybe_promote_agent_memory_to_semantic(user, proj, memory)
+                                await self._maybe_promote_agent_memory_to_semantic(
+                                    user, proj, memory
+                                )
                     else:
                         memory.status = "rejected"
                         memory.deleted_at = datetime.now(UTC)
@@ -255,6 +301,59 @@ class OrchestrationApprovalsServiceMixin:
             )
         await self.db.refresh(approval)
         return approval
+
+    async def delegate_approval(
+        self,
+        user: User,
+        approval_id: str,
+        to_user_id: str,
+        reason: str | None,
+    ):
+        from backend.modules.orchestration.execution.hitl.approval_delegation import (
+            ApprovalDelegationError,
+            delegate_approval as delegate_approval_row,
+        )
+        from backend.modules.orchestration.execution.hitl.approver_resolver import (
+            ApproverEligibilityError,
+        )
+
+        approval = await self.repo.get_approval_for_update(user.id, approval_id)
+        if not approval:
+            raise HTTPException(status_code=404, detail="Approval request not found")
+        try:
+            approval = await delegate_approval_row(
+                self.db,
+                approval=approval,
+                from_user_id=user.id,
+                to_user_id=to_user_id,
+                reason=reason,
+            )
+        except ApproverEligibilityError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ApprovalDelegationError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        await self.audit_repo.log(
+            user_id=user.id,
+            action="orchestration.approval.delegated",
+            resource_type="approval_request",
+            resource_id=approval.id,
+            metadata={
+                "to_user_id": to_user_id,
+                "reason": reason,
+                "approval_type": approval.approval_type,
+            },
+        )
+        await self.db.commit()
+        await self.db.refresh(approval)
+        return approval
+
+    async def run_approval_sla_scan(self) -> dict[str, int]:
+        from backend.modules.orchestration.execution.hitl.approval_sla import (
+            scan_pending_approval_sla,
+        )
+
+        return await scan_pending_approval_sla(self.db)
 
     async def get_pending_approvals_count(self, user: User) -> int:
         """Return the count of pending approvals for the user."""

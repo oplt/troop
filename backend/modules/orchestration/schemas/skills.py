@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
 from backend.modules.orchestration.schemas.common import *  # noqa: F403
+
 
 class SkillPackResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

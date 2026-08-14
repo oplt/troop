@@ -612,8 +612,7 @@ async def _execute_ollama(
 
     payload: dict[str, Any]
     async with managed_http_client(
-        "orchestration-provider",
-        timeout_seconds=float(provider.timeout_seconds), base_url=base
+        "orchestration-provider", timeout_seconds=float(provider.timeout_seconds), base_url=base
     ) as client:
         payload = await _post_chat(client, json_format=True)
         content = _ollama_extract_text_from_payload(payload)

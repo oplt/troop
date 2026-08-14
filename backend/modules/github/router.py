@@ -16,13 +16,13 @@ from backend.modules.github.schemas import (
     GithubIssueLinkResponse,
     GithubPrRequest,
     GithubRepositoryResponse,
-    GithubSyncReplayRequest,
     GithubSyncEventResponse,
+    GithubSyncReplayRequest,
     GithubWebhookResponse,
 )
 from backend.modules.identity_access.models import User
-from backend.modules.orchestration.schemas import ApprovalResponse, TaskResponse
 from backend.modules.orchestration.hitl_policy import redact_approval_payload
+from backend.modules.orchestration.schemas import ApprovalResponse, TaskResponse
 from backend.modules.orchestration.services.service import OrchestrationService
 
 router = APIRouter()
@@ -176,7 +176,9 @@ async def list_github_connections(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_github_connection(item) for item in await service.list_github_connections(current_user)]
+    return [
+        _github_connection(item) for item in await service.list_github_connections(current_user)
+    ]
 
 
 @router.get("/github/app/install-url", response_model=GithubAppInstallResponse)
@@ -214,7 +216,9 @@ async def create_github_connection(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return _github_connection(await service.create_github_connection(current_user, payload.model_dump()))
+    return _github_connection(
+        await service.create_github_connection(current_user, payload.model_dump())
+    )
 
 
 @router.delete("/github/connections/{connection_id}", status_code=204)
@@ -228,14 +232,19 @@ async def delete_github_connection(
     return Response(status_code=204)
 
 
-@router.post("/github/connections/{connection_id}/sync-repos", response_model=list[GithubRepositoryResponse])
+@router.post(
+    "/github/connections/{connection_id}/sync-repos", response_model=list[GithubRepositoryResponse]
+)
 async def sync_github_repositories(
     connection_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_github_repository(item) for item in await service.sync_github_repositories(current_user, connection_id)]
+    return [
+        _github_repository(item)
+        for item in await service.sync_github_repositories(current_user, connection_id)
+    ]
 
 
 @router.get("/github/repositories", response_model=list[GithubRepositoryResponse])
@@ -244,7 +253,9 @@ async def list_github_repositories(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_github_repository(item) for item in await service.list_github_repositories(current_user)]
+    return [
+        _github_repository(item) for item in await service.list_github_repositories(current_user)
+    ]
 
 
 @router.post("/github/import-issues", response_model=list[TaskResponse])
@@ -265,7 +276,10 @@ async def list_github_issue_links(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_github_issue_link(item) for item in await service.list_github_issue_links(current_user, project_id)]
+    return [
+        _github_issue_link(item)
+        for item in await service.list_github_issue_links(current_user, project_id)
+    ]
 
 
 @router.post("/github/issues/{issue_link_id}/refresh", response_model=GithubIssueLinkResponse)
@@ -285,10 +299,15 @@ async def list_github_sync_events(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_github_sync_event(item) for item in await service.list_github_sync_events(current_user, project_id)]
+    return [
+        _github_sync_event(item)
+        for item in await service.list_github_sync_events(current_user, project_id)
+    ]
 
 
-@router.post("/github/issues/{issue_link_id}/comment", response_model=ApprovalResponse, status_code=201)
+@router.post(
+    "/github/issues/{issue_link_id}/comment", response_model=ApprovalResponse, status_code=201
+)
 async def request_github_comment(
     issue_link_id: str,
     payload: GithubCommentRequest,

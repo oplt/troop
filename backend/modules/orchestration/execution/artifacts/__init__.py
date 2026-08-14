@@ -1,7 +1,11 @@
 """Execution run artifact persistence."""
 
-from backend.modules.orchestration.execution.artifacts.evidence import ExecutionArtifactsEvidenceMixin
-from backend.modules.orchestration.execution.artifacts.publisher import ExecutionArtifactsPublisherMixin
+from backend.modules.orchestration.execution.artifacts.evidence import (
+    ExecutionArtifactsEvidenceMixin,
+)
+from backend.modules.orchestration.execution.artifacts.publisher import (
+    ExecutionArtifactsPublisherMixin,
+)
 
 
 class ExecutionArtifactsMixin(

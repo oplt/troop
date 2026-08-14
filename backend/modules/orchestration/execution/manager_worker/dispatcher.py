@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.models import TaskRun
@@ -147,6 +148,18 @@ class ManagerWorkerDispatcherMixin:
                     break
                 parallel = [item for item in ready if item.get("parallelizable")]
                 sequential = [item for item in ready if not item.get("parallelizable")]
+                max_branches = int(
+                    (run.input_payload_json or {}).get("max_parallel_branches")
+                    or (
+                        (project.settings_json or {}).get("execution") or {}
+                    ).get("max_parallel_branches")
+                    or 999
+                )
+                if parallel and max_branches < len(parallel):
+                    overflow = parallel[max_branches:]
+                    parallel = parallel[:max_branches]
+                    for item in overflow:
+                        sequential.append({**item, "parallelizable": False})
                 if parallel:
                     scheduled: list[tuple[dict[str, Any], TaskRun]] = []
                     for item in parallel:

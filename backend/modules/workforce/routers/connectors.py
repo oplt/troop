@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from backend.core.schemas import RequestModel
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.workforce.authz import assert_company_owned
+from backend.modules.workforce.connectors.registry import ConnectorManifestRegistry
 from backend.modules.workforce.services.connector_service import ConnectorService
 
 router = APIRouter(prefix="/connectors")
@@ -32,6 +33,7 @@ class ConnectorInstallationResponse(BaseModel):
     company_id: str | None = None
     name: str
     status: str
+    environment: str = "dev"
     config_json: dict = Field(default_factory=dict)
     metadata_json: dict = Field(default_factory=dict)
 
@@ -41,12 +43,14 @@ class ConnectorInstallRequest(RequestModel):
     connector_slug: str | None = None
     connector_definition_id: str | None = None
     company_id: str | None = None
+    environment: str = "dev"
     config_json: dict = Field(default_factory=dict)
 
 
 class ConnectorUpdateRequest(RequestModel):
     name: str | None = None
     status: str | None = None
+    environment: str | None = None
     config_json: dict | None = None
 
 
@@ -78,6 +82,26 @@ async def seed_connector_definitions(
     return await ConnectorService(db).seed_definitions()
 
 
+@router.get("/manifests")
+async def list_connector_manifests(
+    user: User = Depends(get_authenticated_user),
+) -> list[dict]:
+    _ = user
+    return [manifest.to_dict() for manifest in ConnectorManifestRegistry.list_manifests()]
+
+
+@router.get("/manifests/{provider_slug}")
+async def get_connector_manifest(
+    provider_slug: str,
+    user: User = Depends(get_authenticated_user),
+) -> dict:
+    _ = user
+    manifest = ConnectorManifestRegistry.get_manifest(provider_slug)
+    if manifest is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="connector manifest not found")
+    return manifest.to_dict()
+
+
 @router.get("/installations", response_model=list[ConnectorInstallationResponse])
 async def list_connector_installations(
     user: User = Depends(get_authenticated_user),
@@ -92,6 +116,7 @@ async def list_connector_installations(
             company_id=i.company_id,
             name=i.name,
             status=i.status,
+            environment=i.environment or "dev",
             config_json=_public_config(i.config_json or {}),
             metadata_json=i.metadata_json or {},
         )
@@ -113,7 +138,20 @@ async def install_connector(
         name=payload.name,
         config_json=payload.config_json,
         company_id=payload.company_id,
+        environment=payload.environment,
     )
+    from backend.modules.platform.activation_hooks import record_activation_for_owner
+
+    await record_activation_for_owner(
+        db,
+        user.id,
+        "first_connected_integration",
+        at=installation.created_at,
+        resource_type="connector_installation",
+        resource_id=installation.id,
+        metadata={"provider": (installation.metadata_json or {}).get("provider")},
+    )
+    await db.commit()
     return ConnectorInstallationResponse(
         id=installation.id,
         connector_definition_id=installation.connector_definition_id,
@@ -121,6 +159,7 @@ async def install_connector(
         company_id=installation.company_id,
         name=installation.name,
         status=installation.status,
+        environment=installation.environment or "dev",
         config_json=_public_config(installation.config_json or {}),
         metadata_json=installation.metadata_json or {},
     )
@@ -138,6 +177,7 @@ async def update_connector_installation(
         installation_id,
         name=payload.name,
         status=payload.status,
+        environment=payload.environment,
         config_json=payload.config_json,
     )
     return ConnectorInstallationResponse(
@@ -147,6 +187,7 @@ async def update_connector_installation(
         company_id=installation.company_id,
         name=installation.name,
         status=installation.status,
+        environment=installation.environment or "dev",
         config_json=_public_config(installation.config_json or {}),
         metadata_json=installation.metadata_json or {},
     )

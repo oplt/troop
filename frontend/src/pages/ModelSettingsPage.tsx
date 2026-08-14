@@ -41,6 +41,18 @@ export default function ModelSettingsPage() {
                             <Chip size="small" color={runtime.durable_backend.available ? "success" : "error"} label={`Durable: ${String(runtime.durable_backend.active ?? runtime.durable_backend.configured ?? "unknown")}`} />
                             <Chip size="small" variant="outlined" label={runtime.durable_backend.delivery ? String(runtime.durable_backend.delivery) : "unavailable"} />
                             <Chip size="small" variant="outlined" label={runtime.durable_backend.checkpointed ? "Postgres checkpointed" : "not checkpointed"} />
+                            {runtime.durable_backend.migration_review_verdict && (
+                                <Chip
+                                    size="small"
+                                    color={
+                                        runtime.durable_backend.migration_review_verdict === "review_recommended"
+                                            ? "warning"
+                                            : "default"
+                                    }
+                                    variant="outlined"
+                                    label={`Migration review: ${String(runtime.durable_backend.migration_review_verdict)}`}
+                                />
+                            )}
                             <Chip size="small" variant="outlined" label={runtime.realtime_transport?.protocol ? `Realtime: ${String(runtime.realtime_transport.protocol)}` : "Realtime unavailable"} />
                         </Stack>
                     )}

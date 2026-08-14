@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
+from backend.modules.orchestration.schemas.agents import AgentInheritancePreview
 from backend.modules.orchestration.schemas.common import *  # noqa: F403
 
-from backend.modules.orchestration.schemas.agents import AgentInheritancePreview
 
 class AgentTemplateResponse(BaseModel):
     id: str | None = None
@@ -137,4 +134,3 @@ class AgentTestRunResponse(BaseModel):
     trace: list[AgentTestRunTraceEvent] = Field(default_factory=list)
     simulated_tool_results: list[dict[str, Any]] = Field(default_factory=list)
     inheritance: AgentInheritancePreview | None = None
-

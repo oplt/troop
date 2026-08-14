@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from pathlib import Path
 from typing import Any
 
-import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +12,11 @@ from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
 from backend.modules.orchestration.execution.cpu_executor import execute_code_job_async
+from backend.modules.orchestration.filesystem_tools import (
+    FilesystemToolError,
+    read_bounded_text,
+    write_bounded_text,
+)
 from backend.modules.orchestration.models import (
     GithubConnection,
     GithubIssueLink,
@@ -27,7 +30,7 @@ from backend.modules.orchestration.models import (
     TaskRun,
 )
 from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.orchestration.security import decrypt_secret
+from backend.modules.identity_access.models import User
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -64,9 +67,7 @@ class OrchestrationToolbox:
         ctx = self.ctx
         if ctx is None:
             return None
-        return getattr(ctx, "triggered_by_user_id", None) or getattr(
-            ctx, "owner_id", None
-        )
+        return getattr(ctx, "triggered_by_user_id", None) or getattr(ctx, "owner_id", None)
 
     @property
     def _event_run_id(self) -> str | None:
@@ -188,14 +189,12 @@ class OrchestrationToolbox:
         if output is not None:
             return {"result": output}
         if status in {"succeeded", "completed"}:
-            return {
-                k: v
-                for k, v in result.items()
-                if k not in {"status", "tool_slug", "evidence"}
-            }
+            return {k: v for k, v in result.items() if k not in {"status", "tool_slug", "evidence"}}
         return result
 
-    async def dispatch(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def dispatch(
+        self, tool_name: str, arguments: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Pure tool dispatch — no authorization (caller must authorize first)."""
         tool_name = str(tool_name or "").strip()
         arguments = arguments if isinstance(arguments, dict) else {}
@@ -224,6 +223,8 @@ class OrchestrationToolbox:
             return await self._repo_search(arguments)
         if tool_name == "knowledge_search":
             return await self._knowledge_search(arguments)
+        if tool_name == "invoke_specialist":
+            return await self._invoke_specialist(arguments)
 
         if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
             from backend.modules.orchestration.tool_execution_context import (
@@ -279,76 +280,59 @@ class OrchestrationToolbox:
     async def _resolve_issue_context(
         self, arguments: dict[str, Any]
     ) -> tuple[GithubConnection, GithubRepository, GithubIssueLink | None, int]:
+        owner_id = self.project.owner_id
+        project_id = self.project.id
         issue_link: GithubIssueLink | None = None
         issue_link_id = arguments.get("issue_link_id") or (
             self.task.github_issue_link_id if self.task else None
         )
-        if issue_link_id:
-            issue_link = await self.db.get(GithubIssueLink, issue_link_id)
         repository: GithubRepository | None = None
-        if issue_link is not None:
-            repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        if issue_link_id:
+            issue_link = await self.repo.resolve_authorized_issue_link(
+                owner_id,
+                str(issue_link_id),
+                project_id=project_id,
+            )
+            if issue_link is None:
+                raise ToolExecutionError("GitHub resource is not authorized for this workspace")
+            repository = await self.repo.resolve_authorized_repository(
+                owner_id,
+                project_id=project_id,
+                repository_id=issue_link.repository_id,
+            )
             issue_number = issue_link.issue_number
         else:
             issue_number = int(arguments.get("issue_number", 0))
             repository_id = arguments.get("repository_id")
-            if repository_id:
-                repository = await self.db.get(GithubRepository, repository_id)
-            elif arguments.get("repository_full_name"):
-                rows = await self.db.execute(
-                    select(GithubRepository).where(
-                        GithubRepository.full_name == arguments["repository_full_name"]
-                    )
+            full_name = arguments.get("repository_full_name")
+            if repository_id or full_name:
+                repository = await self.repo.resolve_authorized_repository(
+                    owner_id,
+                    project_id=project_id,
+                    repository_id=str(repository_id) if repository_id else None,
+                    full_name=str(full_name) if full_name else None,
                 )
-                repository = rows.scalar_one_or_none()
-        if repository is None or issue_number <= 0:
+        if repository is None:
+            if issue_number <= 0:
+                raise ToolExecutionError("GitHub tool call requires a repository and issue context")
+            raise ToolExecutionError("GitHub resource is not authorized for this workspace")
+        if issue_number <= 0:
             raise ToolExecutionError("GitHub tool call requires a repository and issue context")
-        connection = await self.db.get(GithubConnection, repository.connection_id)
+        connection = await self.repo.get_github_connection(owner_id, repository.connection_id)
         if connection is None:
-            raise ToolExecutionError("GitHub connection not found for repository")
+            raise ToolExecutionError("GitHub resource is not authorized for this workspace")
         return connection, repository, issue_link, issue_number
 
-    def _github_connection_mode(self, connection: GithubConnection) -> str:
-        return str((connection.metadata_json or {}).get("connection_mode") or "token")
-
-    def _github_app_jwt(self) -> str:
-        if not settings.GITHUB_APP_ID or not settings.GITHUB_APP_PRIVATE_KEY:
-            raise ToolExecutionError("GitHub App credentials are not configured")
-        now = int(time.time())
-        return jwt.encode(
-            {"iat": now - 60, "exp": now + 540, "iss": settings.GITHUB_APP_ID},
-            settings.GITHUB_APP_PRIVATE_KEY,
-            algorithm="RS256",
-        )
-
     async def _github_auth_headers(self, connection: GithubConnection) -> dict[str, str]:
-        if self._github_connection_mode(connection) == "github_app":
-            installation_id = int((connection.metadata_json or {}).get("installation_id") or 0)
-            if installation_id <= 0:
-                raise ToolExecutionError("GitHub App connection is missing installation_id")
-            async with managed_http_client(
-                "github-tools",
-                timeout_seconds=30.0, base_url=connection.api_url
-            ) as client:
-                response = await client.post(
-                    f"/app/installations/{installation_id}/access_tokens",
-                    headers=external_headers(
-                        {
-                            "Authorization": f"Bearer {self._github_app_jwt()}",
-                            "Accept": "application/vnd.github+json",
-                        }
-                    ),
-                )
-            if response.status_code >= 400:
-                raise ToolExecutionError("Failed to mint GitHub installation token")
-            token = str(response.json()["token"])
-        else:
-            token = decrypt_secret(connection.encrypted_token)
-        return {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
+        from fastapi import HTTPException
+
+        from backend.modules.github.http_client import auth_headers as github_auth_headers
+
+        try:
+            return await github_auth_headers(connection)
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, str) else "GitHub auth failed"
+            raise ToolExecutionError(str(detail)) from exc
 
     async def _github_comment(self, arguments: dict[str, Any]) -> dict[str, Any]:
         body = str(arguments.get("body") or "").strip()
@@ -360,8 +344,7 @@ class OrchestrationToolbox:
         )
         headers = await self._github_auth_headers(connection)
         async with managed_http_client(
-            "github-tools",
-            timeout_seconds=30.0, base_url=connection.api_url
+            "github-tools", timeout_seconds=30.0, base_url=connection.api_url
         ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/issues/{issue_number}/comments",
@@ -397,8 +380,7 @@ class OrchestrationToolbox:
         )
         headers = await self._github_auth_headers(connection)
         async with managed_http_client(
-            "github-tools",
-            timeout_seconds=30.0, base_url=connection.api_url
+            "github-tools", timeout_seconds=30.0, base_url=connection.api_url
         ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/issues/{issue_number}/labels",
@@ -425,23 +407,22 @@ class OrchestrationToolbox:
             raise ToolExecutionError("Pull request creation requires title, head, and base")
         repository_id = arguments.get("repository_id")
         repository_full_name = arguments.get("repository_full_name")
-        repository: GithubRepository | None = None
-        if repository_id:
-            repository = await self.db.get(GithubRepository, repository_id)
-        elif repository_full_name:
-            rows = await self.db.execute(
-                select(GithubRepository).where(GithubRepository.full_name == repository_full_name)
-            )
-            repository = rows.scalar_one_or_none()
+        repository = await self.repo.resolve_authorized_repository(
+            self.project.owner_id,
+            project_id=self.project.id,
+            repository_id=str(repository_id) if repository_id else None,
+            full_name=str(repository_full_name) if repository_full_name else None,
+        )
         if repository is None:
-            raise ToolExecutionError("GitHub repository was not found")
-        connection = await self.db.get(GithubConnection, repository.connection_id)
+            raise ToolExecutionError("GitHub resource is not authorized for this workspace")
+        connection = await self.repo.get_github_connection(
+            self.project.owner_id, repository.connection_id
+        )
         if connection is None:
-            raise ToolExecutionError("GitHub connection not found for repository")
+            raise ToolExecutionError("GitHub resource is not authorized for this workspace")
         headers = await self._github_auth_headers(connection)
         async with managed_http_client(
-            "github-tools",
-            timeout_seconds=30.0, base_url=connection.api_url
+            "github-tools", timeout_seconds=30.0, base_url=connection.api_url
         ) as client:
             response = await client.post(
                 f"/repos/{repository.full_name}/pulls",
@@ -580,14 +561,20 @@ class OrchestrationToolbox:
         if not relative_path:
             raise ToolExecutionError("fs_read requires a project-scoped path")
         path = self._resolve_scoped_path(relative_path)
-        if not path.exists():
-            raise ToolExecutionError(f"File does not exist: {relative_path}")
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = await read_bounded_text(path)
+        except FileNotFoundError as exc:
+            raise ToolExecutionError(f"File does not exist: {relative_path}") from exc
+        except FilesystemToolError as exc:
+            raise ToolExecutionError(str(exc)) from exc
+        except OSError as exc:
+            raise ToolExecutionError(f"Failed to read file: {relative_path}") from exc
         max_chars = max(1, min(int(arguments.get("max_chars", 5000)), 50000))
         return {
             "path": relative_path,
             "absolute_path": str(path),
             "content": text[:max_chars],
+            "truncated": len(text) > max_chars,
         }
 
     async def _fs_write(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -596,12 +583,16 @@ class OrchestrationToolbox:
         if not relative_path:
             raise ToolExecutionError("fs_write requires a project-scoped path")
         path = self._resolve_scoped_path(relative_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        try:
+            bytes_written = await write_bounded_text(path, content)
+        except FilesystemToolError as exc:
+            raise ToolExecutionError(str(exc)) from exc
+        except OSError as exc:
+            raise ToolExecutionError(f"Failed to write file: {relative_path}") from exc
         return {
             "path": relative_path,
             "absolute_path": str(path),
-            "bytes_written": len(content.encode("utf-8")),
+            "bytes_written": bytes_written,
         }
 
     async def _db_query(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -784,12 +775,18 @@ class OrchestrationToolbox:
         from backend.modules.rag.schemas import RagSearchFilters
         from backend.modules.rag.service import RagService
 
+        actor_email: str | None = None
+        if self._actor_user_id:
+            actor = await self.db.get(User, self._actor_user_id)
+            actor_email = actor.email if actor else None
+
         rag = RagService(self.db)
         matches = await rag.retrieve(
             query,
             filters=RagSearchFilters(
                 project_id=self.project.id,
                 user_id=self._actor_user_id,
+                actor_email=actor_email,
                 include_decisions=include_decisions,
             ),
             limit=limit,
@@ -809,6 +806,80 @@ class OrchestrationToolbox:
                 }
                 for match in matches
             ],
+        }
+
+
+    async def _invoke_specialist(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from backend.modules.orchestration.execution.execution_workflow import ensure_workflow_state
+        from backend.modules.orchestration.models import TaskRun
+        from backend.modules.orchestration.services.execution_domain import ExecutionService
+
+        run_id = self._event_run_id
+        if not run_id:
+            raise ToolExecutionError("invoke_specialist requires an active task run")
+        parent = await self.db.get(TaskRun, str(run_id))
+        if parent is None:
+            raise ToolExecutionError("Parent task run not found")
+        if parent.parent_run_id:
+            raise ToolExecutionError("Specialist depth limit exceeded (max 1)")
+
+        specialist_agent_id = str(arguments.get("specialist_agent_id") or "").strip()
+        prompt = str(arguments.get("prompt") or arguments.get("task") or "").strip()
+        if not specialist_agent_id or not prompt:
+            raise ToolExecutionError("specialist_agent_id and prompt are required")
+
+        payload = parent.input_payload_json or {}
+        max_invocations = int(payload.get("max_specialist_invocations") or 3)
+        children = await self.repo.list_child_runs(parent.id)
+        specialist_children = [
+            child
+            for child in children
+            if (child.input_payload_json or {}).get("specialist_invocation")
+        ]
+        if len(specialist_children) >= max_invocations:
+            raise ToolExecutionError(
+                f"Max specialist invocations ({max_invocations}) reached for this run"
+            )
+
+        child = await self.repo.create_run(
+            parent_run_id=parent.id,
+            project_id=parent.project_id,
+            task_id=parent.task_id,
+            triggered_by_user_id=parent.triggered_by_user_id,
+            orchestrator_agent_id=parent.orchestrator_agent_id,
+            worker_agent_id=specialist_agent_id,
+            reviewer_agent_id=None,
+            provider_config_id=parent.provider_config_id,
+            brainstorm_id=parent.brainstorm_id,
+            run_mode="single_agent",
+            status="queued",
+            model_name=parent.model_name,
+            input_payload_json={
+                "specialist_invocation": True,
+                "specialist_prompt": prompt,
+                "parent_run_id": parent.id,
+                "orchestration_meta": {
+                    "parent_run_id": parent.id,
+                    "specialist_agent_id": specialist_agent_id,
+                },
+            },
+        )
+        child.checkpoint_json = ensure_workflow_state(
+            child.checkpoint_json,
+            run_mode=child.run_mode,
+            steps=[],
+            run_id=child.id,
+        )
+        await self.db.commit()
+        owner_id = self._actor_user_id or str(getattr(self.project, "owner_id", "") or "")
+        service = ExecutionService(self.db)
+        completed = await service.execute_run(child.id, expected_owner_id=owner_id or None)
+        output = completed.output_payload_json or {}
+        return {
+            "child_run_id": child.id,
+            "status": completed.status,
+            "output": output.get("final_output") or output.get("summary") or "",
+            "structured_output": output.get("structured_output_json"),
         }
 
 

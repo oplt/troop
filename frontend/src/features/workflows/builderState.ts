@@ -1,4 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
+import { clientValidationIssues } from "./validationIssues";
 
 export const WORKFLOW_NODE_TYPES = [
     "trigger",
@@ -27,7 +28,7 @@ export type WorkflowCanvasNode = Node<WorkflowNodeData>;
 export function createWorkflowNode(type: WorkflowNodeType, index: number): WorkflowCanvasNode {
     return {
         id: `node_${Date.now()}_${index}`,
-        type: "default",
+        type: "workflow",
         position: { x: 100 + (index % 3) * 260, y: 80 + Math.floor(index / 3) * 160 },
         data: {
             label: type.replaceAll("_", " "),
@@ -59,20 +60,9 @@ export function toWorkflowPayload(nodes: WorkflowCanvasNode[], edges: Edge[]) {
 }
 
 export function validateWorkflow(nodes: WorkflowCanvasNode[], edges: Edge[]): string[] {
-    const errors: string[] = [];
-    if (nodes.length === 0) errors.push("Add at least one node.");
-    if (!nodes.some((node) => node.data.nodeType === "trigger")) errors.push("A workflow needs a trigger node.");
-    const ids = new Set(nodes.map((node) => node.id));
-    if (edges.some((edge) => !ids.has(edge.source) || !ids.has(edge.target))) errors.push("An edge references a missing node.");
-    for (const node of nodes) {
-        if (["trigger", "tool"].includes(node.data.nodeType) && !node.data.config.connector_installation_id) {
-            errors.push(`${node.data.label}: select an explicit connection.`);
-        }
-        if (node.data.nodeType === "approval" && !node.data.config.action) {
-            errors.push(`${node.data.label}: select an approval action.`);
-        }
-    }
-    return errors;
+    return clientValidationIssues(nodes, edges)
+        .filter((issue) => issue.severity === "error")
+        .map((issue) => issue.message);
 }
 
 export function emailTelegramStarter(): { nodes: WorkflowCanvasNode[]; edges: Edge[] } {
@@ -88,7 +78,7 @@ export function emailTelegramStarter(): { nodes: WorkflowCanvasNode[]; edges: Ed
     ];
     const nodes = specs.map(([id, nodeType, label, config], index) => ({
         id,
-        type: "default",
+        type: "workflow",
         position: { x: index % 2 === 0 ? 120 : 440, y: index * 120 },
         data: { label, nodeType, config },
     })) satisfies WorkflowCanvasNode[];

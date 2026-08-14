@@ -4,11 +4,12 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.admin import get_admin_user
 from backend.api.deps.auth import get_current_user
+from backend.api.deps.workspace import get_session_workspace_context
 from backend.api.deps.orchestration import (
     get_execution_service,
     get_github_sync_service,
@@ -17,31 +18,59 @@ from backend.api.deps.orchestration import (
 )
 from backend.core.config import settings
 from backend.core.http_cache import apply_private_list_cache_headers, compute_documents_etag
+from backend.core.pagination import (
+    build_cursor_page,
+    token_from_created_at_id,
+    token_from_position_created_at_id,
+)
+from backend.core.schemas import CursorPageResponse
+from backend.core.sse_streams import live_snapshot_stream as _live_snapshot_stream
 from backend.db.session import SessionLocal, get_db
-from backend.modules.audit.repository import AuditRepository
 from backend.modules.identity_access.models import User
 from backend.modules.observability.metrics import record_sse_event
+from backend.modules.orchestration._helpers import resolve_query_limit
+from backend.modules.audit.repository import AuditRepository
 from backend.modules.orchestration.models import ApprovalRequest
 from backend.modules.orchestration.presenters import (
     to_agent_response as _agent,
+)
+from backend.modules.orchestration.presenters import (
+    to_event_list_item as _event_list_item,
+)
+from backend.modules.orchestration.presenters import (
     to_event_response as _event,
+)
+from backend.modules.orchestration.presenters import (
+    to_project_list_item as _project_list_item,
     to_project_response,
+)
+from backend.modules.orchestration.presenters import (
     to_run_execution_snapshot as _run_execution_snapshot,
+)
+from backend.modules.orchestration.presenters import (
+    to_run_list_item as _run_list_item,
+)
+from backend.modules.orchestration.presenters import (
     to_run_response as _run,
+)
+from backend.modules.orchestration.presenters import (
     to_task_execution_snapshot as _task_execution_snapshot,
+)
+from backend.modules.orchestration.presenters import (
+    to_task_list_item as _task_list_item,
+)
+from backend.modules.orchestration.presenters import (
     to_task_response as _task,
 )
 from backend.modules.orchestration.routers.approvals import router as approvals_router
+from backend.modules.orchestration.schemas.run_trace import RunTracePageResponse
 from backend.modules.orchestration.schemas import (
     AgentCreate,
     AgentFromTemplateRequest,
-    AgentInheritancePreview,
-    AgentLintSummary,
     AgentMarkdownValidationResponse,
     AgentMemoryEntryCreate,
     AgentMemoryEntryResponse,
     AgentQualityScoreResponse,
-    AgentResolvedProfile,
     AgentResponse,
     AgentTemplateCreate,
     AgentTemplateResponse,
@@ -66,6 +95,8 @@ from backend.modules.orchestration.schemas import (
     DagParallelStartPayload,
     DagParallelStartResult,
     DagReadyTaskItem,
+    DurableEngineReviewResponse,
+    DurableRecoveryBenchmarkResponse,
     EpisodicArchiveManifestResponse,
     EpisodicSearchResponse,
     EvalLeaderboardEntryResponse,
@@ -94,6 +125,14 @@ from backend.modules.orchestration.schemas import (
     MemorySettingsResponse,
     MergeResolveRunPayload,
     ModelCapabilityResponse,
+    ActivationStatusResponse,
+    AgentPatternApplyResponse,
+    AgentPatternBenchmarkRequest,
+    AgentPatternBenchmarkResponse,
+    AgentPatternEnableResponse,
+    AgentPatternProjectStatusResponse,
+    AgentPatternResponse,
+    AgentPatternStatusResponse,
     OverviewResponse,
     PendingSemanticWriteResponse,
     PortfolioControlPlaneResponse,
@@ -107,6 +146,7 @@ from backend.modules.orchestration.schemas import (
     ProjectDecisionCreate,
     ProjectDecisionResponse,
     ProjectDocumentResponse,
+    ProjectListItem,
     ProjectLiveSnapshotResponse,
     ProjectMilestoneCreate,
     ProjectMilestoneResponse,
@@ -125,6 +165,7 @@ from backend.modules.orchestration.schemas import (
     ProviderModelListResponse,
     ReplayRunRequest,
     RunCostSummaryResponse,
+    RunEventListItem,
     RunEventResponse,
     RunExecutionSnapshotResponse,
     RuntimeInfoResponse,
@@ -148,10 +189,12 @@ from backend.modules.orchestration.schemas import (
     TaskCreate,
     TaskDecomposeRequest,
     TaskExecutionSnapshotResponse,
+    TaskListItem,
     TaskMemoryCoordinationPatch,
     TaskMemoryCoordinationResponse,
     TaskResponse,
     TaskRunCreate,
+    TaskRunListItem,
     TaskRunResponse,
     TaskTimelineEntry,
     TaskUpdate,
@@ -171,6 +214,7 @@ from backend.modules.orchestration.services.github_sync_domain import GithubSync
 from backend.modules.orchestration.services.knowledge_domain import KnowledgeService
 from backend.modules.orchestration.services.memory_domain import MemoryService
 from backend.modules.orchestration.services.service import OrchestrationService
+from backend.modules.orchestration.agent_patterns import BUILTIN_AGENT_PATTERNS
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.schemas import (
     ProjectAgentMembershipCreate,
@@ -471,6 +515,19 @@ def _approval(item) -> ApprovalResponse:
         status=item.status,
         reason=item.reason,
         payload=item.payload_json,
+        effect_hash=item.effect_hash,
+        effect_version=item.effect_version or 1,
+        precondition_fingerprint=item.precondition_fingerprint,
+        expires_at=item.expires_at,
+        proposed_effect=item.proposed_effect_json,
+        workspace_id=item.workspace_id,
+        eligible_approvers=list(item.eligible_approvers_json or []),
+        routing_snapshot=dict(item.routing_snapshot_json or {}),
+        decided_eligibility_reason=item.decided_eligibility_reason,
+        due_at=item.due_at,
+        sla_policy=dict(item.sla_policy_json or {}),
+        delegations=list(item.delegations_json or []),
+        escalation_state=dict(item.escalation_state_json or {}),
         created_at=item.created_at,
         resolved_at=item.resolved_at,
     )
@@ -571,6 +628,18 @@ async def overview(
     )
 
 
+@router.get("/activation", response_model=ActivationStatusResponse)
+async def orchestration_activation_status(
+    db: AsyncSession = Depends(get_db),
+    workspace_ctx=Depends(get_session_workspace_context),
+):
+    from backend.modules.platform.activation_service import ActivationService
+
+    data = await ActivationService(db).get_status(workspace_ctx.workspace)
+    await db.commit()
+    return ActivationStatusResponse(**data)
+
+
 @router.get("/runtime-info", response_model=RuntimeInfoResponse)
 async def orchestration_runtime_info(
     db: AsyncSession = Depends(get_db),
@@ -578,6 +647,28 @@ async def orchestration_runtime_info(
 ):
     data = await OrchestrationService(db).get_runtime_info(current_user)
     return RuntimeInfoResponse(**data)
+
+
+@router.get("/durable-engine/review", response_model=DurableEngineReviewResponse)
+async def durable_engine_migration_review(
+    days: int = Query(default=90, ge=7, le=365),
+    include_benchmark: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).get_durable_engine_review(
+        current_user,
+        days=days,
+        include_benchmark=include_benchmark,
+    )
+
+
+@router.post("/durable-engine/recovery-benchmark", response_model=DurableRecoveryBenchmarkResponse)
+async def durable_engine_recovery_benchmark(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).run_durable_recovery_benchmark(current_user)
 
 
 @router.get("/memory-metrics")
@@ -630,68 +721,6 @@ async def update_orchestration_portfolio_execution_policy(
     return PortfolioExecutionPolicyResponse(**data)
 
 
-_sse_slots = asyncio.Semaphore(max(1, settings.SSE_MAX_CONNECTIONS))
-
-
-async def _live_snapshot_stream(snapshot_factory, *, request: Request, stream_name: str):
-    try:
-        await asyncio.wait_for(_sse_slots.acquire(), timeout=0.05)
-    except TimeoutError:
-        record_sse_event(stream_name, "rejected")
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "Live stream capacity is temporarily exhausted"},
-            headers={"Retry-After": "5"},
-        )
-
-    last_signature: str | None = None
-    record_sse_event(stream_name, "opened", delta_connections=1)
-
-    async def event_stream():
-        nonlocal last_signature
-        loop = asyncio.get_running_loop()
-        started_at = loop.time()
-        last_heartbeat_at = started_at
-        try:
-            while loop.time() - started_at < settings.SSE_MAX_DURATION_SECONDS:
-                if await request.is_disconnected():
-                    record_sse_event(stream_name, "disconnected")
-                    return
-
-                snapshot = await snapshot_factory()
-                payload = json.dumps(snapshot, default=str, sort_keys=True)
-                now = loop.time()
-                if len(payload.encode("utf-8")) > settings.SSE_MAX_PAYLOAD_BYTES:
-                    record_sse_event(stream_name, "payload_dropped")
-                elif payload != last_signature:
-                    last_signature = payload
-                    last_heartbeat_at = now
-                    record_sse_event(stream_name, "snapshot")
-                    yield f"event: snapshot\ndata: {payload}\n\n"
-                elif now - last_heartbeat_at >= settings.SSE_HEARTBEAT_SECONDS:
-                    last_heartbeat_at = now
-                    record_sse_event(stream_name, "heartbeat")
-                    yield "event: heartbeat\ndata: {}\n\n"
-
-                await asyncio.sleep(max(0.1, settings.SSE_POLL_INTERVAL_SECONDS))
-        except asyncio.CancelledError:
-            record_sse_event(stream_name, "cancelled")
-            raise
-        finally:
-            _sse_slots.release()
-            record_sse_event(stream_name, "closed", delta_connections=-1)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
-
 async def _with_fresh_orchestration_session(callback):
     session = SessionLocal()
     try:
@@ -731,6 +760,20 @@ async def hierarchy_stream(
         ),
         request=request,
         stream_name="hierarchy",
+    )
+
+
+@router.get("/workspace/stream")
+async def workspace_shell_stream(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    return await _live_snapshot_stream(
+        lambda: _with_fresh_orchestration_session(
+            lambda service: service.workspace_shell_snapshot(current_user)
+        ),
+        request=request,
+        stream_name="workspace",
     )
 
 
@@ -1111,12 +1154,15 @@ async def list_agent_versions(
     ]
 
 
-@router.get("/projects", response_model=list[ProjectResponse])
+@router.get("/projects", response_model=list[ProjectListItem])
 async def list_projects(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [_project(item) for item in await OrchestrationService(db).list_projects(current_user)]
+    return [
+        _project_list_item(item)
+        for item in await OrchestrationService(db).list_projects(current_user)
+    ]
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
@@ -1764,6 +1810,19 @@ async def list_episodic_archives(
     ]
 
 
+@router.get("/projects/{project_id}/episodic-memory/archives/{archive_id}/download")
+async def download_episodic_archive(
+    project_id: str,
+    archive_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    url = await OrchestrationService(db).get_episodic_archive_download_url(
+        current_user, project_id, archive_id
+    )
+    return RedirectResponse(url, status_code=307)
+
+
 @router.post("/projects/{project_id}/episodic-memory/reindex")
 async def reindex_episodic_memory(
     project_id: str,
@@ -1915,30 +1974,52 @@ async def add_project_repository(
     )
 
 
-@router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
+@router.get("/projects/{project_id}/tasks", response_model=CursorPageResponse[TaskListItem])
 async def list_tasks(
     project_id: str,
     limit: int = Query(
         settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
         ge=1,
-        le=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
+        le=settings.CURSOR_PAGE_MAX_LIMIT,
     ),
+    cursor_position: int | None = Query(default=None),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
     await service.get_project(current_user, project_id)
-    tasks, deps_by_task = await service.repo.list_tasks_with_dependencies(project_id, limit=limit)
-    link_ids = [t.github_issue_link_id for t in tasks if t.github_issue_link_id]
+    effective_limit = resolve_query_limit(
+        limit,
+        default=settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
+        maximum=settings.CURSOR_PAGE_MAX_LIMIT,
+    )
+    tasks, deps_by_task = await service.repo.list_tasks_with_dependencies(
+        project_id,
+        limit=effective_limit,
+        cursor_position=cursor_position,
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(
+        tasks,
+        effective_limit,
+        token_from_row=token_from_position_created_at_id,
+    )
+    link_ids = [t.github_issue_link_id for t in page if t.github_issue_link_id]
     summaries = await service.github_issue_summaries_for_link_ids(link_ids)
-    return [
-        _task(
-            item,
-            deps_by_task.get(item.id, []),
-            summaries.get(item.github_issue_link_id) if item.github_issue_link_id else None,
-        )
-        for item in tasks
-    ]
+    return CursorPageResponse(
+        items=[
+            _task_list_item(
+                item,
+                deps_by_task.get(item.id, []),
+                summaries.get(item.github_issue_link_id) if item.github_issue_link_id else None,
+            )
+            for item in page
+        ],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskResponse, status_code=201)
@@ -2602,7 +2683,7 @@ async def benchmark_historical(
     )
 
 
-@router.get("/runs", response_model=list[TaskRunResponse])
+@router.get("/runs", response_model=CursorPageResponse[TaskRunListItem])
 async def list_runs(
     project_id: str | None = None,
     limit: int = Query(
@@ -2615,16 +2696,27 @@ async def list_runs(
     current_user: User = Depends(get_current_user),
     execution: ExecutionService = Depends(get_execution_service),
 ):
-    return [
-        _run(item)
-        for item in await execution.list_task_runs(
-            current_user,
-            project_id,
-            limit=limit,
-            cursor_created_at=cursor_created_at,
-            cursor_id=cursor_id,
-        )
-    ]
+    effective_limit = resolve_query_limit(
+        limit,
+        default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
+        maximum=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
+    )
+    rows = await execution.list_task_runs(
+        current_user,
+        project_id,
+        limit=effective_limit,
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(
+        rows,
+        effective_limit,
+        token_from_row=token_from_created_at_id,
+    )
+    return CursorPageResponse(
+        items=[_run_list_item(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/runs/{run_id}", response_model=TaskRunResponse)
@@ -2646,23 +2738,67 @@ async def get_run_cost_summary(
     return RunCostSummaryResponse(**payload)
 
 
-@router.get("/runs/{run_id}/events", response_model=list[RunEventResponse])
+@router.get("/runs/{run_id}/events", response_model=CursorPageResponse[RunEventListItem])
 async def list_run_events(
     run_id: str,
-    limit: int | None = Query(default=None, ge=1),
-    offset: int = Query(default=0, ge=0),
+    limit: int = Query(
+        settings.RUN_EVENTS_DEFAULT_LIMIT,
+        ge=1,
+        le=settings.RUN_EVENTS_MAX_LIMIT,
+    ),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    effective_limit = (
-        settings.RUN_EVENTS_DEFAULT_LIMIT
-        if limit is None
-        else min(limit, settings.RUN_EVENTS_MAX_LIMIT)
+    effective_limit = resolve_query_limit(
+        limit,
+        default=settings.RUN_EVENTS_DEFAULT_LIMIT,
+        maximum=settings.RUN_EVENTS_MAX_LIMIT,
     )
     items = await OrchestrationService(db).list_run_events(
-        current_user, run_id, limit=effective_limit, offset=offset
+        current_user,
+        run_id,
+        limit=effective_limit,
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
     )
-    return [_event(item) for item in items]
+    page, next_cursor = build_cursor_page(
+        items,
+        effective_limit,
+        token_from_row=token_from_created_at_id,
+    )
+    return CursorPageResponse(
+        items=[_event_list_item(item) for item in page],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/runs/{run_id}/trace", response_model=RunTracePageResponse)
+async def list_run_trace(
+    run_id: str,
+    limit: int = Query(
+        settings.RUN_EVENTS_DEFAULT_LIMIT,
+        ge=1,
+        le=settings.RUN_EVENTS_MAX_LIMIT,
+    ),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    effective_limit = resolve_query_limit(
+        limit,
+        default=settings.RUN_EVENTS_DEFAULT_LIMIT,
+        maximum=settings.RUN_EVENTS_MAX_LIMIT,
+    )
+    return await OrchestrationService(db).list_run_trace(
+        current_user,
+        run_id,
+        limit=effective_limit,
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
 
 
 @router.get("/runs/{run_id}/execution-state", response_model=RunExecutionSnapshotResponse)
@@ -3000,6 +3136,97 @@ async def cross_project_dependencies(
 async def list_workflow_templates(current_user: User = Depends(get_current_user)):
     _ = current_user
     return [WorkflowTemplateResponse(**item) for item in BUILTIN_WORKFLOW_TEMPLATES]
+
+
+@router.get("/agent-patterns", response_model=list[AgentPatternResponse])
+async def list_agent_patterns(current_user: User = Depends(get_current_user)):
+    _ = current_user
+    return [AgentPatternResponse(**item) for item in BUILTIN_AGENT_PATTERNS]
+
+
+@router.get(
+    "/projects/{project_id}/agent-patterns",
+    response_model=AgentPatternProjectStatusResponse,
+)
+async def list_project_agent_patterns(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).list_project_agent_patterns(current_user, project_id)
+    return AgentPatternProjectStatusResponse(
+        project_id=result["project_id"],
+        patterns=[AgentPatternStatusResponse(**item) for item in result["patterns"]],
+    )
+
+
+@router.post(
+    "/projects/{project_id}/agent-patterns/{pattern_id}/apply",
+    response_model=AgentPatternApplyResponse,
+)
+async def apply_agent_pattern(
+    project_id: str,
+    pattern_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).apply_agent_pattern(
+        current_user, project_id, pattern_id
+    )
+    return AgentPatternApplyResponse(
+        project_id=result["project_id"],
+        pattern=AgentPatternResponse(**result["pattern"]),
+        status=result["status"],
+        applied_execution=result["applied_execution"],
+    )
+
+
+@router.post(
+    "/projects/{project_id}/agent-patterns/{pattern_id}/benchmark",
+    response_model=AgentPatternBenchmarkResponse,
+)
+async def benchmark_agent_pattern(
+    project_id: str,
+    pattern_id: str,
+    payload: AgentPatternBenchmarkRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).start_agent_pattern_benchmark(
+        current_user,
+        project_id,
+        pattern_id,
+        payload.model_dump(exclude_unset=True),
+    )
+    return AgentPatternBenchmarkResponse(**result)
+
+
+@router.post("/projects/{project_id}/agent-patterns/evals/{eval_id}/score")
+async def score_agent_pattern_eval(
+    project_id: str,
+    eval_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await OrchestrationService(db).score_agent_pattern_eval(
+        current_user, project_id, eval_id
+    )
+
+
+@router.post(
+    "/projects/{project_id}/agent-patterns/{pattern_id}/enable",
+    response_model=AgentPatternEnableResponse,
+)
+async def enable_agent_pattern(
+    project_id: str,
+    pattern_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await OrchestrationService(db).enable_agent_pattern(
+        current_user, project_id, pattern_id
+    )
+    return AgentPatternEnableResponse(**result)
 
 
 @router.post(
@@ -3343,7 +3570,9 @@ async def incident_webhook(
             content={"detail": "Incident webhook is not configured"},
         )
     body = await request.body()
-    signature = request.headers.get("X-Troop-Signature") or request.headers.get("X-Hub-Signature-256")
+    signature = request.headers.get("X-Troop-Signature") or request.headers.get(
+        "X-Hub-Signature-256"
+    )
     expected = "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
     if not signature or not hmac.compare_digest(expected, signature):
         await AuditRepository(db).log(

@@ -11,16 +11,10 @@ from backend.modules.workforce.constants import SKILL_SCOPES
 from backend.modules.workforce.models import SkillDraft
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.services.duplicate_detector import DuplicateDetectorService
+from backend.modules.workforce.services.tool_governance import is_governed_high_risk_tool
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-]*$")
 _RISK = {"low", "medium", "high", "critical"}
-_DANGEROUS_TOOLS = {
-    "code_execute",
-    "fs_write",
-    "db_query",
-    "github_create_pr",
-    "shell_destructive_action",
-}
 
 
 def _is_json_schema(value: Any) -> bool:
@@ -107,7 +101,7 @@ class SkillValidationService:
                 f"ecosystem tools require active connectors/grants: {', '.join(ecosystem)}"
             )
 
-        dangerous = [t for t in tools if t in _DANGEROUS_TOOLS]
+        dangerous = [t for t in tools if is_governed_high_risk_tool(t)]
         if dangerous and risk in {"low"}:
             errors.append(
                 f"dangerous tools ({', '.join(dangerous)}) incompatible with risk_level=low"

@@ -20,6 +20,7 @@ from backend.core.security import (
 )
 from backend.modules.identity_access.models import User
 from backend.modules.identity_access.repository import IdentityRepository
+from backend.modules.identity_access.workspace_repository import WorkspaceRepository
 from backend.modules.platform.service import PlatformService
 from backend.workers.email import queue_email
 
@@ -57,9 +58,8 @@ class IdentityService:
         configured_invite_code = settings.ADMIN_SIGNUP_INVITE_CODE.strip()
         is_admin = False
         if invite_code:
-            if (
-                not configured_invite_code
-                or not secrets.compare_digest(invite_code, configured_invite_code)
+            if not configured_invite_code or not secrets.compare_digest(
+                invite_code, configured_invite_code
             ):
                 raise HTTPException(status_code=403, detail="Invalid admin invite code")
             is_admin = True
@@ -70,6 +70,11 @@ class IdentityService:
             full_name=full_name,
             is_admin=is_admin,
             is_verified=not settings.REQUIRE_EMAIL_VERIFICATION,
+        )
+        await WorkspaceRepository(self.db).ensure_default_workspace(
+            user_id=user.id,
+            email=user.email,
+            full_name=user.full_name,
         )
         await self.db.commit()
         await self.db.refresh(user)
@@ -90,7 +95,7 @@ class IdentityService:
                 fallback_subject="Verify your email address",
                 fallback_html=(
                     "<p>Thanks for signing up. Click the link below to verify your email:</p>"
-                    f"<p><a href=\"{verification_link}\">{verification_link}</a></p>"
+                    f'<p><a href="{verification_link}">{verification_link}</a></p>'
                     "<p>This link expires in 24 hours.</p>"
                 ),
                 fallback_text=(
@@ -110,8 +115,13 @@ class IdentityService:
 
     async def sign_in(self, email: str, password: str, mfa_code: str | None = None) -> dict:
         user = await self.repo.get_user_by_email(email)
-        if not user or not verify_password(password, user.password_hash):
+        if not user or not user.password_hash or not verify_password(password, user.password_hash):
             raise HTTPException(status_code=401, detail="Invalid credentials")
+        if user.external_auth_only:
+            raise HTTPException(
+                status_code=403,
+                detail="Password sign-in disabled for this account. Use SSO.",
+            )
 
         if not user.is_active:
             raise HTTPException(status_code=403, detail="Account disabled")
@@ -133,9 +143,7 @@ class IdentityService:
                 )
 
         raw_refresh = generate_refresh_token()
-        expires_at = datetime.now(UTC) + timedelta(
-            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-        )
+        expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         session = await self.repo.create_refresh_session(
             user_id=user.id,
             token_hash=hash_refresh_token(raw_refresh),
@@ -236,7 +244,7 @@ class IdentityService:
             fallback_subject="Verify your email address",
             fallback_html=(
                 "<p>Thanks for signing up. Click the link below to verify your email:</p>"
-                f"<p><a href=\"{verification_link}\">{verification_link}</a></p>"
+                f'<p><a href="{verification_link}">{verification_link}</a></p>'
                 "<p>This link expires in 24 hours.</p>"
             ),
             fallback_text=(
@@ -276,7 +284,7 @@ class IdentityService:
             fallback_subject="Reset your password",
             fallback_html=(
                 "<p>We received a request to reset your password. Click the link below:</p>"
-                f"<p><a href=\"{reset_link}\">{reset_link}</a></p>"
+                f'<p><a href="{reset_link}">{reset_link}</a></p>'
                 "<p>This link expires in 1 hour."
                 " If you did not request this, ignore this email.</p>"
             ),

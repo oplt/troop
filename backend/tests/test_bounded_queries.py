@@ -15,8 +15,10 @@ def test_run_event_query_settings_have_sensible_defaults():
     assert settings.RUN_EVENTS_EXPLAIN_MAX >= 1
     assert settings.RAG_CHUNK_FALLBACK_MAX == 200
     assert settings.AI_RETRIEVE_CHUNK_SCAN_MAX >= 1
-    assert settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT >= 1
+    assert settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT == 50
     assert settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT >= 1
+    assert settings.CURSOR_PAGE_DEFAULT_LIMIT == 50
+    assert settings.CURSOR_PAGE_MAX_LIMIT == 100
     assert settings.ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT >= 1
 
 

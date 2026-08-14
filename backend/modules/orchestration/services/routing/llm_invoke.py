@@ -158,9 +158,7 @@ def filter_provider_chain_by_policy(
 ) -> list[ProviderConfig | None]:
     if not enforce or not allowed_provider_types:
         return chain
-    return [
-        p for p in chain if p is None or p.provider_type.lower() in allowed_provider_types
-    ]
+    return [p for p in chain if p is None or p.provider_type.lower() in allowed_provider_types]
 
 
 def llm_attempt_budget() -> int:

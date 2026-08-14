@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.modules.identity_access.models import User
 from backend.modules.orchestration.hitl_policy import (
     MANDATORY_APPROVAL_GATES,
     normalize_approval_gates,
     normalize_autonomy_level,
 )
-from backend.modules.identity_access.models import User
 from backend.modules.projects.orchestration_models import OrchestratorProject
 from backend.modules.projects.project_settings import (
     apply_portfolio_defaults_to_project_settings,
@@ -29,7 +29,6 @@ class ProjectSettingsMixin:
             "approval_gates": normalize_approval_gates(settings.get("approval_gates")),
             "mandatory_approval_gates": sorted(MANDATORY_APPROVAL_GATES),
         }
-
 
     async def update_gate_config(
         self,
@@ -62,7 +61,6 @@ class ProjectSettingsMixin:
         await self.db.refresh(project)
         return await self.get_gate_config(user, project_id)
 
-
     def _normalize_project_settings(self, settings: dict[str, Any] | None) -> dict[str, Any]:
         normalize_policy_routing = getattr(self, "_normalize_policy_routing", None)
         return normalize_project_settings(
@@ -70,12 +68,10 @@ class ProjectSettingsMixin:
             normalize_policy_routing=normalize_policy_routing,
         )
 
-
     def _normalize_portfolio_execution_policy(
         self, settings: dict[str, Any] | None
     ) -> dict[str, Any]:
         return normalize_portfolio_execution_policy(settings)
-
 
     def _apply_portfolio_defaults_to_project_settings(
         self,
@@ -90,7 +86,6 @@ class ProjectSettingsMixin:
             explicit_settings=explicit_settings,
         )
 
-
     def _project_execution_policy_summary(
         self,
         project: OrchestratorProject,
@@ -103,14 +98,12 @@ class ProjectSettingsMixin:
             normalize_policy_routing=normalize_policy_routing,
         )
 
-
     def _merge_nested_project_settings(
         self,
         base: dict[str, Any],
         incoming: dict[str, Any],
     ) -> dict[str, Any]:
         return merge_nested_project_settings(base, incoming)
-
 
     def _project_execution_settings(self, project: OrchestratorProject) -> dict[str, Any]:
         return self._normalize_project_settings(project.settings_json).get("execution", {})

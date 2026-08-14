@@ -28,7 +28,13 @@ def build_task_close_snapshot_text(
         f"[task_close_snapshot] task_id={task_id}",
         f"title: {task_title}",
     ]
-    for key in ("objective", "accepted_plan", "latest_findings", "open_questions", "discussion_summary"):
+    for key in (
+        "objective",
+        "accepted_plan",
+        "latest_findings",
+        "open_questions",
+        "discussion_summary",
+    ):
         val = str(wm.get(key) or "").strip()
         if val:
             parts.append(f"{key}:\n{val[:4000]}")
@@ -51,7 +57,9 @@ def prune_checkpoint_after_compaction(checkpoint_json: dict[str, Any] | None) ->
         "temp_notes": "",
         "open_questions": "",
         "discussion_summary": "",
-        "artifact_refs": (wm.get("artifact_refs") or [])[:8] if isinstance(wm.get("artifact_refs"), list) else [],
+        "artifact_refs": (wm.get("artifact_refs") or [])[:8]
+        if isinstance(wm.get("artifact_refs"), list)
+        else [],
         "updated_at": now,
         "compacted": True,
     }

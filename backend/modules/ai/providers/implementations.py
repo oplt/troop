@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import math
@@ -9,22 +8,14 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException
 
-from backend.core.cache import (
-    cache_singleflight,
-    embedding_cache_key,
-    get_cached_embeddings,
-    set_cached_embeddings,
-)
 from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
 from backend.core.logging import get_logger
-from backend.modules.ai.gateway.pricing import estimate_tokens
 from backend.modules.observability.decorators import (
     observe_provider_call,
     observe_provider_stream,
 )
-from backend.modules.observability.metrics import record_embed_tokens
 
 logger = get_logger(__name__)
 
@@ -170,8 +161,7 @@ class OpenAIProvider(BaseAiProvider):
         if not settings.OPENAI_API_KEY:
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
         async with managed_http_client(
-            "ai-openai",
-            timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+            "ai-openai", timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
         ) as client:
             response = await client.post(
                 "/chat/completions",
@@ -217,8 +207,7 @@ class OpenAIProvider(BaseAiProvider):
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
         async with (
             managed_http_client(
-                "ai-openai",
-                timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+                "ai-openai", timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
             ) as client,
             client.stream(
                 "POST",
@@ -260,8 +249,7 @@ class OpenAIProvider(BaseAiProvider):
         if not settings.OPENAI_API_KEY:
             raise HTTPException(status_code=422, detail="OPENAI_API_KEY is not configured")
         async with managed_http_client(
-            "ai-openai",
-            timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
+            "ai-openai", timeout_seconds=60.0, base_url=settings.OPENAI_BASE_URL
         ) as client:
             response = await client.post(
                 "/embeddings",
@@ -288,8 +276,7 @@ class AnthropicProvider(BaseAiProvider):
         if not settings.ANTHROPIC_API_KEY:
             raise HTTPException(status_code=422, detail="ANTHROPIC_API_KEY is not configured")
         async with managed_http_client(
-            "ai-anthropic",
-            timeout_seconds=60.0, base_url=settings.ANTHROPIC_BASE_URL
+            "ai-anthropic", timeout_seconds=60.0, base_url=settings.ANTHROPIC_BASE_URL
         ) as client:
             response = await client.post(
                 "/messages",
@@ -340,4 +327,3 @@ class AnthropicProvider(BaseAiProvider):
             status_code=422,
             detail="Anthropic embeddings are not configured. Use the local embedding provider.",
         )
-

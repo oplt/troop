@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from backend.core.config import settings
 from backend.core.logging import get_logger
-from backend.core.storage import StorageNotConfiguredError, object_storage
+from backend.core.storage import StorageAssetClass, StorageNotConfiguredError, object_storage
 from backend.modules.identity_access.models import User
 from backend.modules.memory.episodic import build_episodic_archive_jsonl_gz, episodic_object_key
 from backend.modules.memory.metrics import increment_memory_metric
@@ -19,6 +20,66 @@ from backend.modules.orchestration.models import RunEvent, TaskRun
 from backend.modules.projects.orchestration_models import OrchestratorProject
 
 logger = get_logger(__name__)
+
+
+class _EmbeddingProvider(Protocol):
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]: ...
+
+
+def episodic_embedding_batch_size() -> int:
+    return max(1, int(getattr(settings, "RAG_INDEXING_BATCH_SIZE", 64)))
+
+
+async def embed_episodic_index_rows_batched(
+    ai_providers: _EmbeddingProvider,
+    rows: list[Any],
+    texts: list[str],
+    *,
+    batch_size: int | None = None,
+) -> int:
+    """Embed episodic index rows in provider-sized batches with per-row fallback."""
+    if not rows or not texts or len(rows) != len(texts):
+        return 0
+
+    size = max(1, int(batch_size or episodic_embedding_batch_size()))
+    embedded = 0
+    for start in range(0, len(rows), size):
+        batch_rows = rows[start : start + size]
+        batch_texts = texts[start : start + size]
+        try:
+            vectors = await ai_providers.embed_texts(batch_texts)
+            if len(vectors) != len(batch_rows):
+                raise ValueError(
+                    f"embedding provider returned {len(vectors)} vectors for {len(batch_rows)} rows"
+                )
+            for row, vec in zip(batch_rows, vectors, strict=True):
+                try:
+                    row.embedding_vector = normalize_embedding_for_vector(vec)
+                    embedded += 1
+                except Exception as exc:
+                    logger.warning(
+                        "episodic_index_embed_failed source_id=%s error=%s",
+                        getattr(row, "source_id", None),
+                        exc,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "episodic_index_embed_batch_failed batch_size=%s error=%s",
+                len(batch_rows),
+                exc,
+            )
+            for row, text in zip(batch_rows, batch_texts, strict=True):
+                try:
+                    vec = (await ai_providers.embed_texts([text]))[0]
+                    row.embedding_vector = normalize_embedding_for_vector(vec)
+                    embedded += 1
+                except Exception as row_exc:
+                    logger.warning(
+                        "episodic_index_embed_failed source_id=%s error=%s",
+                        getattr(row, "source_id", None),
+                        row_exc,
+                    )
+    return embedded
 
 
 class EpisodicJobsMixin:
@@ -83,6 +144,29 @@ class EpisodicJobsMixin:
         project = await self.get_project(user, project_id)
         return await self.repo.list_episodic_archive_manifests(project.owner_id, project_id)
 
+    async def get_episodic_archive_download_url(
+        self, user: User, project_id: str, archive_id: str
+    ) -> str:
+        project = await self.get_project(user, project_id)
+        manifest = await self.repo.get_episodic_archive_manifest(
+            project.owner_id, project_id, archive_id
+        )
+        if manifest is None:
+            raise HTTPException(status_code=404, detail="Episodic archive not found")
+        if not object_storage.is_configured:
+            raise HTTPException(status_code=503, detail="Object storage is not configured")
+        try:
+            return await object_storage.presigned_get_url(
+                manifest.object_key,
+                bucket=object_storage.private_bucket(),
+            )
+        except StorageNotConfiguredError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail="Failed to prepare archive download"
+            ) from exc
+
     async def run_episodic_retention_and_archive_job(self) -> dict[str, Any]:
         """Archive old episodic sources to cold storage; trim search index (never deletes run_events)."""
         result = await self.db.execute(select(OrchestratorProject))
@@ -121,7 +205,10 @@ class EpisodicJobsMixin:
             key = episodic_object_key(project.owner_id, project.id, tag)
             try:
                 await object_storage.upload_bytes(
-                    object_key=key, body=body, content_type="application/gzip"
+                    object_key=key,
+                    body=body,
+                    content_type="application/gzip",
+                    asset_class=StorageAssetClass.PRIVATE,
                 )
             except StorageNotConfiguredError:
                 logger.warning("episodic archive skipped: storage not configured")
@@ -190,15 +277,12 @@ class EpisodicJobsMixin:
             pending_rows.append(row)
             pending_texts.append(text[:8000])
         await self.db.commit()
-        for row, text in zip(pending_rows, pending_texts, strict=True):
-            try:
-                vec = (await self.ai_providers.embed_texts([text]))[0]
-                row.embedding_vector = normalize_embedding_for_vector(vec)
-            except Exception as exc:
-                logger.warning(
-                    "episodic_index_embed_failed source_id=%s error=%s", row.source_id, exc
-                )
         if pending_rows:
+            await embed_episodic_index_rows_batched(
+                self.ai_providers,
+                pending_rows,
+                pending_texts,
+            )
             await self.db.commit()
         increment_memory_metric("episodic_index_backfills")
         return len(pending_rows)
@@ -213,15 +297,12 @@ class EpisodicJobsMixin:
             if not rows:
                 continue
             texts = [(row.text_content or "")[:8000] for row in rows]
-            try:
-                vectors = await self.ai_providers.embed_texts(texts)
-            except Exception:
-                continue
-            for row, vec in zip(rows, vectors, strict=False):
-                try:
-                    row.embedding_vector = normalize_embedding_for_vector(vec)
-                    done += 1
-                except Exception:
-                    continue
-            await self.db.commit()
+            embedded = await embed_episodic_index_rows_batched(
+                self.ai_providers,
+                rows,
+                texts,
+            )
+            if embedded:
+                await self.db.commit()
+            done += embedded
         return done

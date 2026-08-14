@@ -20,8 +20,14 @@ from backend.modules.audit.repository import AuditRepository
 from backend.modules.workforce.integrations.email import (
     event_dedupe_key,
     normalize_gmail_message,
+    normalize_outlook_message,
 )
 from backend.modules.workforce.integrations.gmail import GmailAdapter, GmailAPIError
+from backend.modules.workforce.integrations.outlook import (
+    OutlookAdapter,
+    OutlookAPIError,
+    validate_outlook_webhook_client_state,
+)
 from backend.modules.workforce.models import (
     ConnectorInstallation,
     ExternalEvent,
@@ -66,9 +72,7 @@ async def verify_pubsub_authentication(authorization: str | None) -> bool:
                 response = await client.get("https://www.googleapis.com/oauth2/v1/certs")
             if response.status_code >= 400:
                 return False
-            _GOOGLE_CERTS = {
-                str(key): str(value) for key, value in dict(response.json()).items()
-            }
+            _GOOGLE_CERTS = {str(key): str(value) for key, value in dict(response.json()).items()}
             _GOOGLE_CERTS_EXPIRES_AT = time.monotonic() + 3600
         certificate = _GOOGLE_CERTS.get(kid)
         if not certificate:
@@ -83,8 +87,7 @@ async def verify_pubsub_authentication(authorization: str | None) -> bool:
     except (jwt.PyJWTError, ValueError, TypeError):
         return False
     return (
-        str(claims.get("iss") or "")
-        in {"accounts.google.com", "https://accounts.google.com"}
+        str(claims.get("iss") or "") in {"accounts.google.com", "https://accounts.google.com"}
         and str(claims.get("email") or "").lower() == service_account
         and claims.get("email_verified") is True
     )
@@ -190,6 +193,88 @@ class ExternalEventService:
                 ingested.append((existing_result.scalar_one(), False))
         return ingested
 
+    async def ingest_outlook_push(self, payload: dict[str, Any]) -> list[tuple[ExternalEvent, bool]]:
+        notifications = payload.get("value")
+        if not isinstance(notifications, list) or not notifications:
+            raise ValueError("Outlook notification payload is required")
+        ingested: list[tuple[ExternalEvent, bool]] = []
+        for notification in notifications:
+            if not isinstance(notification, dict):
+                continue
+            if not validate_outlook_webhook_client_state(str(notification.get("clientState") or "")):
+                raise ValueError("Invalid Outlook webhook client state")
+            subscription_id = str(notification.get("subscriptionId") or "")
+            resource = str(notification.get("resource") or "")
+            change_type = str(notification.get("changeType") or "created")
+            message_id = resource.rsplit("/", 1)[-1] if resource else ""
+            subscriptions_result = await self.db.execute(
+                select(TriggerSubscription, ConnectorInstallation)
+                .join(
+                    ConnectorInstallation,
+                    ConnectorInstallation.id == TriggerSubscription.connector_installation_id,
+                )
+                .where(
+                    TriggerSubscription.provider == "outlook",
+                    TriggerSubscription.status == "active",
+                    ConnectorInstallation.status == "active",
+                    TriggerSubscription.external_subscription_id == subscription_id,
+                )
+            )
+            row = subscriptions_result.first()
+            if row is None:
+                raise ValueError("No active Outlook subscription for notification")
+            subscription, installation = row
+            dedupe = event_dedupe_key(
+                "outlook",
+                installation.id,
+                subscription.id,
+                change_type,
+                message_id,
+                subscription_id,
+            )
+            event = ExternalEvent(
+                owner_id=installation.owner_id,
+                company_id=installation.company_id,
+                provider="outlook",
+                connector_installation_id=installation.id,
+                external_event_id=message_id or None,
+                event_type="outlook.mail_notification",
+                dedupe_key=dedupe,
+                payload_json={
+                    "subscription_id": subscription.id,
+                    "resource": resource,
+                    "change_type": change_type,
+                    "message_id": message_id,
+                },
+                status="pending",
+            )
+            self.db.add(event)
+            try:
+                await self.db.flush()
+                await AuditRepository(self.db).log(
+                    "external_event.outlook.received",
+                    user_id=installation.owner_id,
+                    resource_type="external_event",
+                    resource_id=event.id,
+                    metadata={
+                        "connector_installation_id": installation.id,
+                        "event_type": event.event_type,
+                    },
+                )
+                await self.db.commit()
+                await self.db.refresh(event)
+                ingested.append((event, True))
+            except IntegrityError:
+                await self.db.rollback()
+                existing_result = await self.db.execute(
+                    select(ExternalEvent).where(
+                        ExternalEvent.provider == "outlook",
+                        ExternalEvent.dedupe_key == dedupe,
+                    )
+                )
+                ingested.append((existing_result.scalar_one(), False))
+        return ingested
+
     async def process(self, event_id: str) -> ExternalEvent:
         result = await self.db.execute(
             select(ExternalEvent).where(ExternalEvent.id == event_id).with_for_update()
@@ -209,6 +294,8 @@ class ExternalEventService:
         try:
             if event.provider == "gmail":
                 await self._process_gmail(event)
+            elif event.provider == "outlook":
+                await self._process_outlook(event)
             else:
                 raise ValueError(f"Unsupported external event provider: {event.provider}")
         except Exception as exc:
@@ -312,6 +399,69 @@ class ExternalEventService:
             subscription.external_cursor = newest
         subscription.last_event_at = datetime.now(UTC)
 
+    async def _process_outlook(self, event: ExternalEvent) -> None:
+        subscription_id = str((event.payload_json or {}).get("subscription_id") or "")
+        message_id = str((event.payload_json or {}).get("message_id") or "")
+        subscription = await self.db.get(TriggerSubscription, subscription_id)
+        if (
+            subscription is None
+            or subscription.owner_id != event.owner_id
+            or subscription.connector_installation_id != event.connector_installation_id
+        ):
+            raise ValueError("Outlook event subscription ownership mismatch")
+        if not message_id:
+            raise ValueError("Outlook notification missing message id")
+        adapter = await OutlookAdapter.for_owner(
+            self.db,
+            owner_id=event.owner_id,
+            installation_id=event.connector_installation_id,
+        )
+        child_dedupe = event_dedupe_key(
+            "outlook", event.connector_installation_id, "message_added", message_id
+        )
+        existing = await self.db.execute(
+            select(ExternalEvent).where(
+                ExternalEvent.provider == "outlook",
+                ExternalEvent.dedupe_key == child_dedupe,
+            )
+        )
+        child_event = existing.scalar_one_or_none()
+        if child_event is not None and child_event.workflow_run_id:
+            return
+        message = await adapter.execute(
+            "outlook.get_message", {"message_id": message_id}
+        )
+        normalized = normalize_outlook_message(
+            message,
+            connector_installation_id=event.connector_installation_id,
+        )
+        if child_event is None:
+            child_event = ExternalEvent(
+                owner_id=event.owner_id,
+                company_id=event.company_id,
+                provider="outlook",
+                connector_installation_id=event.connector_installation_id,
+                external_event_id=message_id,
+                event_type="outlook.message_added",
+                dedupe_key=child_dedupe,
+                payload_json={"email": normalized},
+                status="processing",
+            )
+            self.db.add(child_event)
+            await self.db.flush()
+        runtime = WorkflowRuntimeService(self.db)
+        workflow_run = await runtime.start_run(
+            event.owner_id,
+            subscription.workflow_id,
+            project_id=(subscription.metadata_json or {}).get("project_id"),
+            task_id=(subscription.metadata_json or {}).get("task_id"),
+            input_json={"email": normalized, "external_event_id": child_event.id},
+        )
+        child_event.workflow_run_id = workflow_run.id
+        child_event.status = "processed"
+        child_event.processed_at = datetime.now(UTC)
+        subscription.last_event_at = datetime.now(UTC)
+
 
 class TriggerSubscriptionService:
     def __init__(self, db: AsyncSession) -> None:
@@ -385,6 +535,68 @@ class TriggerSubscriptionService:
             created.append(subscription)
         return created
 
+    async def register_published_outlook_triggers(
+        self,
+        *,
+        owner_id: str,
+        definition: WorkflowDefinition,
+        version: WorkflowVersion,
+    ) -> list[TriggerSubscription]:
+        created: list[TriggerSubscription] = []
+        for node in version.nodes_json or []:
+            if not isinstance(node, dict) or node.get("type") != "trigger":
+                continue
+            config = dict(node.get("config") or {})
+            trigger_type = str(config.get("trigger_type") or "")
+            if trigger_type not in {"outlook_new_message", "outlook.new_message"}:
+                continue
+            installation_id = str(config.get("connector_installation_id") or "")
+            if not installation_id:
+                raise ValueError("Outlook trigger requires connector_installation_id")
+            from backend.modules.workforce.authz import assert_project_owned, assert_task_owned
+
+            await assert_project_owned(self.db, owner_id, config.get("project_id"))
+            await assert_task_owned(self.db, owner_id, config.get("task_id"))
+            adapter = await OutlookAdapter.for_owner(
+                self.db, owner_id=owner_id, installation_id=installation_id
+            )
+            granted = set((adapter.installation.config_json or {}).get("granted_scopes") or [])
+            if not granted.intersection({"Mail.Read", "Mail.ReadWrite"}):
+                raise ValueError("Outlook trigger installation lacks a mailbox read scope")
+            existing_result = await self.db.execute(
+                select(TriggerSubscription).where(
+                    TriggerSubscription.workflow_version_id == version.id,
+                    TriggerSubscription.node_id == str(node["id"]),
+                    TriggerSubscription.connector_installation_id == installation_id,
+                )
+            )
+            subscription = existing_result.scalar_one_or_none()
+            if subscription is None:
+                subscription = TriggerSubscription(
+                    owner_id=owner_id,
+                    company_id=definition.company_id,
+                    connector_installation_id=installation_id,
+                    workflow_id=definition.id,
+                    workflow_version_id=version.id,
+                    node_id=str(node["id"]),
+                    provider="outlook",
+                    status="provisioning",
+                    metadata_json={
+                        "project_id": config.get("project_id"),
+                        "task_id": config.get("task_id"),
+                    },
+                )
+                self.db.add(subscription)
+                await self.db.flush()
+            subscription.metadata_json = {
+                **dict(subscription.metadata_json or {}),
+                "project_id": config.get("project_id"),
+                "task_id": config.get("task_id"),
+            }
+            await adapter.register_subscription(subscription)
+            created.append(subscription)
+        return created
+
     async def renew_due_gmail_watches(self) -> int:
         cutoff = datetime.now(UTC) + timedelta(hours=settings.GMAIL_WATCH_RENEW_BEFORE_HOURS)
         result = await self.db.execute(
@@ -404,6 +616,31 @@ class TriggerSubscriptionService:
                     installation_id=subscription.connector_installation_id,
                 )
                 await adapter.register_watch(subscription)
+                renewed += 1
+            except Exception:
+                subscription.status = "renewal_failed"
+        await self.db.commit()
+        return renewed
+
+    async def renew_due_outlook_subscriptions(self) -> int:
+        cutoff = datetime.now(UTC) + timedelta(hours=settings.OUTLOOK_SUBSCRIPTION_RENEW_BEFORE_HOURS)
+        result = await self.db.execute(
+            select(TriggerSubscription).where(
+                TriggerSubscription.provider == "outlook",
+                TriggerSubscription.status.in_(("active", "subscription_expiring")),
+                TriggerSubscription.expires_at.is_not(None),
+                TriggerSubscription.expires_at <= cutoff,
+            )
+        )
+        renewed = 0
+        for subscription in result.scalars().all():
+            try:
+                adapter = await OutlookAdapter.for_owner(
+                    self.db,
+                    owner_id=subscription.owner_id,
+                    installation_id=subscription.connector_installation_id,
+                )
+                await adapter.renew_subscription(subscription)
                 renewed += 1
             except Exception:
                 subscription.status = "renewal_failed"
@@ -438,6 +675,22 @@ class TriggerSubscriptionService:
                     installation_id=subscription.connector_installation_id,
                 )
                 await adapter.stop_watch()
+        elif subscription.provider == "outlook":
+            remaining_result = await self.db.execute(
+                select(TriggerSubscription.id).where(
+                    TriggerSubscription.connector_installation_id
+                    == subscription.connector_installation_id,
+                    TriggerSubscription.id != subscription.id,
+                    TriggerSubscription.status == "active",
+                )
+            )
+            if remaining_result.first() is None:
+                adapter = await OutlookAdapter.for_owner(
+                    self.db,
+                    owner_id=owner_id,
+                    installation_id=subscription.connector_installation_id,
+                )
+                await adapter.stop_subscription(subscription)
         await self.db.commit()
         await self.db.refresh(subscription)
         return subscription

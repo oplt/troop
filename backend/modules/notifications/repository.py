@@ -1,7 +1,13 @@
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
+from backend.core.pagination import (
+    apply_desc_time_id_cursor,
+    fetch_limit,
+)
 from backend.modules.notifications.models import Notification, NotificationPreference
+from backend.modules.orchestration.list_load_options import notification_list_load
 
 
 class NotificationsRepository:
@@ -25,14 +31,42 @@ class NotificationsRepository:
         await self.db.flush()
         return notification
 
-    async def list_for_user(self, user_id: str) -> list[Notification]:
+    async def list_for_user(
+        self,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ) -> list[Notification]:
+        from backend.modules.orchestration._helpers import resolve_query_limit
+
+        cap = resolve_query_limit(
+            limit,
+            default=settings.NOTIFICATIONS_LIST_DEFAULT_LIMIT,
+            maximum=settings.NOTIFICATIONS_LIST_MAX_LIMIT,
+        )
+        stmt = select(Notification).where(Notification.user_id == user_id)
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            Notification,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
         result = await self.db.execute(
-            select(Notification)
-            .where(Notification.user_id == user_id)
-            .order_by(Notification.created_at.desc())
-            .limit(50)
+            stmt.order_by(Notification.created_at.desc(), Notification.id.desc())
+            .limit(fetch_limit(cap))
+            .options(notification_list_load())
         )
         return list(result.scalars().all())
+
+    async def count_unread_for_user(self, user_id: str) -> int:
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.user_id == user_id, Notification.is_read.is_(False))
+        )
+        return int(result.scalar_one() or 0)
 
     async def get_by_id(self, notification_id: str) -> Notification | None:
         result = await self.db.execute(

@@ -79,7 +79,9 @@ class OrchestrationRunQueryMixin:
             raise HTTPException(status_code=404, detail="Run not found")
         return run
 
-    def _run_event_tail_payloads(self, events: list[Any], *, limit: int = 12) -> list[dict[str, Any]]:
+    def _run_event_tail_payloads(
+        self, events: list[Any], *, limit: int = 12
+    ) -> list[dict[str, Any]]:
         tail = events[-limit:] if len(events) > limit else events
         out: list[dict[str, Any]] = []
         for e in tail:

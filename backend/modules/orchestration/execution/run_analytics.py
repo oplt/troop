@@ -28,15 +28,25 @@ class ExecutionRunAnalyticsMixin:
 
     async def get_runtime_info(self, user: User) -> dict[str, Any]:
         """Non-secret orchestration flags for admin UI (air-gapped / failover toggles)."""
-        _ = user
+        from backend.modules.orchestration.execution.durable_engine_review import (
+            default_evidence_window_days,
+            evaluate_durable_engine_triggers,
+        )
         from backend.modules.orchestration.execution.durable_execution import durable_backend_status
 
+        window_days = default_evidence_window_days()
+        since = datetime.now(UTC) - timedelta(days=window_days)
+        evidence = await self.repo.collect_durable_engine_evidence(user.id, since)
+        evaluation = evaluate_durable_engine_triggers(evidence)
+        backend = durable_backend_status()
+        backend["migration_review_verdict"] = evaluation["verdict"]
+        backend["migration_triggers_met"] = evaluation["triggers_met"]
         return {
             "orchestration_provider_failover": settings.ORCHESTRATION_PROVIDER_FAILOVER,
             "orchestration_durable_queue_backend": settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND,
             "durable_signal_model": "checkpoint_signal_queue",
             "durable_query_model": "checkpoint_query_snapshot",
-            "durable_backend": durable_backend_status(),
+            "durable_backend": backend,
             "execution_topology": {
                 "api_gateway": "FastAPI",
                 "orchestration_service": "modular_monolith",
@@ -64,7 +74,42 @@ class ExecutionRunAnalyticsMixin:
             },
         }
 
+    async def get_durable_engine_review(
+        self,
+        user: User,
+        *,
+        days: int | None = None,
+        include_benchmark: bool = False,
+    ) -> dict[str, Any]:
+        from backend.modules.orchestration.execution.durable_engine_review import (
+            build_durable_engine_review,
+            default_evidence_window_days,
+        )
 
+        window_days = max(7, min(int(days or default_evidence_window_days()), 365))
+        since = datetime.now(UTC) - timedelta(days=window_days)
+        evidence = await self.repo.collect_durable_engine_evidence(user.id, since)
+        recovery_benchmark = None
+        if include_benchmark:
+            from backend.modules.orchestration.execution.durable_engine_review import (
+                benchmark_durable_recovery_side_by_side,
+            )
+
+            recovery_benchmark = await benchmark_durable_recovery_side_by_side(self.repo)
+        return build_durable_engine_review(
+            evidence=evidence,
+            recovery_benchmark=recovery_benchmark,
+            window_days=window_days,
+            owner_id=user.id,
+        )
+
+    async def run_durable_recovery_benchmark(self, user: User) -> dict[str, Any]:
+        from backend.modules.orchestration.execution.durable_engine_review import (
+            benchmark_durable_recovery_side_by_side,
+        )
+
+        _ = user
+        return await benchmark_durable_recovery_side_by_side(self.repo)
 
     async def aggregate_cost_analytics(self, user: User, days: int = 30) -> dict[str, Any]:
         since = datetime.now(UTC) - timedelta(days=max(1, min(days, 365)))

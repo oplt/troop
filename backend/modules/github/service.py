@@ -9,7 +9,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-import jwt
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
@@ -19,25 +18,45 @@ from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
 from backend.core.logging import get_logger
+from backend.modules.github.commit_checks import github_issue_precondition_fingerprint
+from backend.modules.github.http_client import (
+    app_get_installation,
+    github_request,
+)
+from backend.modules.github.http_client import (
+    auth_headers as github_auth_headers,
+)
+from backend.modules.github.http_client import (
+    connection_mode as github_connection_mode,
+)
+from backend.modules.github.http_client import (
+    installation_token as github_installation_token,
+)
 from backend.modules.github.models import GithubConnection, GithubIssueLink, GithubRepository
 from backend.modules.identity_access.models import User
 from backend.modules.memory.entry_types import (
     SEMANTIC_ENTRY_TYPES as _CANONICAL_SEMANTIC_ENTRY_TYPES,
 )
 from backend.modules.orchestration.constants import GITHUB_WEBHOOK_EVENT_ALLOWLIST
+from backend.modules.orchestration.execution.hitl.commit_authorization import (
+    CommitAuthorizationError,
+    authorize_and_claim_execution,
+    build_idempotency_key,
+    mark_execution_failed,
+    mark_execution_sending,
+    mark_execution_succeeded,
+)
+from backend.modules.orchestration.execution.hitl.exact_effect import (
+    apply_proposed_effect_to_approval,
+    build_proposed_effect,
+    compute_effect_hash,
+)
 from backend.modules.orchestration.hitl_policy import action_requires_approval
 from backend.modules.orchestration.models import (
     ApprovalRequest,
     TaskRun,
 )
-from backend.modules.github.http_client import (
-    app_get_installation,
-    auth_headers as github_auth_headers,
-    connection_mode as github_connection_mode,
-    github_request,
-    installation_token as github_installation_token,
-)
-from backend.modules.orchestration.security import decrypt_secret, encrypt_secret, mask_secret
+from backend.modules.orchestration.security import encrypt_secret, mask_secret
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
     OrchestratorTask,
@@ -575,6 +594,9 @@ class OrchestrationGithubServiceMixin:
             "draft_status": "pending_approval",
             "idempotency_key": dedup_key,
             "artifact_ids": artifact_ids,
+            "issue_link_id": issue_link.id,
+            "repository_id": issue_link.repository_id,
+            "issue_number": issue_link.issue_number,
         }
         approval: ApprovalRequest | None = None
         try:
@@ -607,6 +629,18 @@ class OrchestrationGithubServiceMixin:
             return approval
         if approval is None:
             raise RuntimeError("GitHub comment approval was not created")
+        effect = build_proposed_effect(
+            action_key="github_comment",
+            raw_arguments={
+                "issue_link_id": issue_link.id,
+                "repository_id": issue_link.repository_id,
+                "issue_number": issue_link.issue_number,
+                "body": body,
+                "close_issue": close_issue,
+            },
+            precondition_fingerprint=github_issue_precondition_fingerprint(issue_link),
+        )
+        apply_proposed_effect_to_approval(approval, effect)
         if (
             policy == "auto_trusted_agent"
             and user.id in trusted_ids
@@ -949,23 +983,88 @@ class OrchestrationGithubServiceMixin:
         return [item for item in response.json() if "pull_request" not in item]
 
     async def _post_approved_github_comment(self, approval: ApprovalRequest) -> None:
-        issue_link = await self.db.get(GithubIssueLink, approval.issue_link_id)
+        owner_id = str(approval.approved_by_user_id or approval.requested_by_user_id or "")
+        if not owner_id or not approval.issue_link_id:
+            raise HTTPException(status_code=422, detail="Approval is missing owner or issue link")
+
+        payload = dict(approval.payload_json or {})
+        if payload.get("posted_comment_id"):
+            return
+
+        issue_link = await self.repo.resolve_authorized_issue_link(
+            owner_id,
+            approval.issue_link_id,
+            project_id=approval.project_id,
+        )
         if issue_link is None:
             raise HTTPException(status_code=404, detail="Issue link not found")
-        repository = await self.db.get(GithubRepository, issue_link.repository_id)
+        repository = await self.repo.resolve_authorized_repository(
+            owner_id,
+            project_id=approval.project_id,
+            repository_id=issue_link.repository_id,
+        )
         if repository is None:
             raise HTTPException(status_code=404, detail="Repository not found")
         connection = await self.db.get(GithubConnection, repository.connection_id)
-        if connection is None:
+        if connection is None or connection.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Connection not found")
-        payload = approval.payload_json
+
+        payload = dict(approval.payload_json or {})
         comment_body = payload.get("body") or payload.get("draft_comment")
         if not comment_body:
             raise HTTPException(
                 status_code=422, detail="Approval payload does not include a comment body"
             )
-        if payload.get("posted_comment_id"):
+
+        raw_arguments = {
+            "issue_link_id": issue_link.id,
+            "repository_id": repository.id,
+            "issue_number": issue_link.issue_number,
+            "body": comment_body,
+            "close_issue": bool(payload.get("close_issue")),
+        }
+        args_hash = compute_effect_hash(raw_arguments, action_key=approval.approval_type)
+        try:
+            claim = await authorize_and_claim_execution(
+                self.db,
+                owner_id=owner_id,
+                action_key=approval.approval_type,
+                raw_arguments=raw_arguments,
+                approval_id=approval.id,
+                idempotency_key=build_idempotency_key(
+                    approval.approval_type, approval.id, issue_link.id
+                ),
+                arguments_hash=args_hash,
+                require_approver=True,
+                precondition_fingerprint=github_issue_precondition_fingerprint(issue_link),
+            )
+        except CommitAuthorizationError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        execution = claim.execution
+        if claim.replayed:
+            receipt = dict(execution.result_json or {})
+            approval.payload_json = {
+                **payload,
+                "draft_status": "posted",
+                "posted_comment_id": receipt.get("posted_comment_id"),
+                "posted_comment_url": receipt.get("posted_comment_url"),
+                "posted_at": receipt.get("posted_at") or payload.get("posted_at"),
+            }
+            orm_attributes.flag_modified(approval, "payload_json")
             return
+
+        await mark_execution_sending(
+            self.db,
+            execution,
+            owner_id=owner_id,
+            audit_action="connector.github.comment_attempted",
+            audit_metadata={
+                "approval_request_id": approval.id,
+                "issue_link_id": issue_link.id,
+                "repository_id": repository.id,
+            },
+        )
         response = await self._github_request(
             connection,
             "POST",
@@ -973,15 +1072,32 @@ class OrchestrationGithubServiceMixin:
             json_body={"body": comment_body},
         )
         if response.status_code >= 400:
+            await mark_execution_failed(
+                self.db,
+                execution,
+                owner_id=owner_id,
+                error="Failed to post GitHub comment",
+                audit_action="connector.github.comment_failed",
+            )
             raise HTTPException(status_code=502, detail="Failed to post GitHub comment")
         comment_payload = response.json() if callable(getattr(response, "json", None)) else {}
-        approval.payload_json = {
-            **payload,
+        posted_at = datetime.now(UTC).isoformat()
+        receipt = {
             "draft_status": "posted",
             "posted_comment_id": comment_payload.get("id"),
             "posted_comment_url": comment_payload.get("html_url"),
-            "posted_at": datetime.now(UTC).isoformat(),
+            "posted_at": posted_at,
         }
+        await mark_execution_succeeded(
+            self.db,
+            execution,
+            owner_id=owner_id,
+            result_json=receipt,
+            external_result_id=str(comment_payload.get("id") or ""),
+            audit_action="connector.github.comment_succeeded",
+            audit_metadata={"posted_comment_id": comment_payload.get("id")},
+        )
+        approval.payload_json = {**payload, **receipt}
         orm_attributes.flag_modified(approval, "payload_json")
         if payload.get("close_issue"):
             close_response = await self._github_request(

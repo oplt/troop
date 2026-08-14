@@ -20,7 +20,7 @@ from backend.core.cache import (
 )
 from backend.core.config import settings
 from backend.core.logging import get_logger
-from backend.core.storage import StorageNotConfiguredError, object_storage
+from backend.core.storage import StorageAssetClass, object_storage
 from backend.modules.identity_access.models import User
 from backend.modules.memory.classifier import (
     classify_run_events,
@@ -97,7 +97,6 @@ from backend.modules.orchestration.context_packet import (
 from backend.modules.orchestration.hitl_policy import action_requires_approval
 from backend.modules.orchestration.models import (
     ApprovalRequest,
-    RunEvent,
     TaskRun,
 )
 from backend.modules.orchestration.procedural_context import build_procedural_snippets
@@ -1408,29 +1407,32 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         project = await self.db.get(OrchestratorProject, project_id)
         if project is None:
             raise HTTPException(status_code=404, detail="Project not found")
-        if "shared" in payload and payload["shared"] is not None:
-            if self.action_requires_approval(project, "write_memory"):
-                approval = await self.repo.create_approval(
-                    project_id=project.id,
-                    task_id=task.id,
-                    run_id=None,
-                    issue_link_id=task.github_issue_link_id,
-                    requested_by_user_id=user.id,
-                    approval_type="shared_memory_write",
-                    status="pending",
-                    payload_json={
-                        "task_id": task.id,
-                        "shared": str(payload["shared"]),
-                    },
-                )
-                await self.db.commit()
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "message": "Writing shared task memory requires approval.",
-                        "approval_id": approval.id,
-                    },
-                )
+        if (
+            "shared" in payload
+            and payload["shared"] is not None
+            and self.action_requires_approval(project, "write_memory")
+        ):
+            approval = await self.repo.create_approval(
+                project_id=project.id,
+                task_id=task.id,
+                run_id=None,
+                issue_link_id=task.github_issue_link_id,
+                requested_by_user_id=user.id,
+                approval_type="shared_memory_write",
+                status="pending",
+                payload_json={
+                    "task_id": task.id,
+                    "shared": str(payload["shared"]),
+                },
+            )
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Writing shared task memory requires approval.",
+                    "approval_id": approval.id,
+                },
+            )
         meta = dict(task.metadata_json or {})
         cur: dict[str, Any] = dict(meta.get(MEMORY_COORDINATION_KEY) or {})
         if "shared" in payload and payload["shared"] is not None:
@@ -1458,7 +1460,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         merge_entry_ids: list[str],
         link_relation: str = "supersedes",
     ) -> SemanticMemoryEntry:
-        project = await self.get_project(user, project_id)
+        await self.get_project(user, project_id)
         canonical = await self.get_semantic_memory_entry_for_project(
             user, project_id, canonical_entry_id
         )
@@ -1544,9 +1546,12 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             elif e.relation_type == "reviewed_by" and e.target_kind == "agent_profile":
                 if not task.reviewer_agent_id or e.target_id != task.reviewer_agent_id:
                     await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
-            elif e.relation_type == "tracks_issue" and e.target_kind == "github_issue_link":
-                if not task.github_issue_link_id or e.target_id != task.github_issue_link_id:
-                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+            elif (
+                e.relation_type == "tracks_issue"
+                and e.target_kind == "github_issue_link"
+                and (not task.github_issue_link_id or e.target_id != task.github_issue_link_id)
+            ):
+                await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
 
     async def _sync_knowledge_graph_for_task(
         self, project: OrchestratorProject, task: OrchestratorTask
@@ -1584,9 +1589,12 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             oid, pid, "project_decision", decision.id, limit=100
         )
         for e in edges:
-            if e.relation_type == "about_task" and e.target_kind == "task":
-                if not decision.task_id or e.target_id != decision.task_id:
-                    await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
+            if (
+                e.relation_type == "about_task"
+                and e.target_kind == "task"
+                and (not decision.task_id or e.target_id != decision.task_id)
+            ):
+                await self.repo.delete_knowledge_graph_edge(oid, pid, e.id)
         if decision.task_id:
             await self._ensure_knowledge_graph_edge(
                 project.owner_id,
@@ -2130,6 +2138,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
                 object_key=object_key,
                 body=payload,
                 content_type=file.content_type or "text/markdown",
+                asset_class=StorageAssetClass.PRIVATE,
             )
         item = await self.repo.create_document(
             project_id=project_id,

@@ -30,6 +30,15 @@ export type ProjectTaskPayload = {
     required_tools: string[];
 };
 
+/** Normalize the three primary project-detail reads into one view-model bundle. */
+export function buildProjectDetailResources(
+    project: OrchestrationProject,
+    tasks: OrchestrationTask[],
+    milestones: ProjectMilestone[],
+): ProjectDetailResources {
+    return { project, tasks, milestones };
+}
+
 /** Feature-owned typed façade; the legacy client remains the compatibility boundary during migration. */
 export const projectDetailApi = {
     getProject: (projectId: string) => getOrchestrationProject(projectId),

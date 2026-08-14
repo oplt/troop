@@ -81,6 +81,14 @@ CONFIG_FIELD_METADATA: dict[str, dict[str, Any]] = {
         "requires_restart": True,
     },
     "JWT_SECRET": {"description": "JWT signing secret.", "requires_restart": False},
+    "SECRETS_ENCRYPTION_KEY": {
+        "description": "Dedicated Fernet key for connector/provider secrets. Required in production.",
+        "requires_restart": True,
+    },
+    "SECRETS_ENCRYPTION_PREVIOUS_KEY": {
+        "description": "Prior Fernet key kept during secrets rotation.",
+        "requires_restart": True,
+    },
     "JWT_ALGORITHM": {"description": "JWT signing algorithm.", "requires_restart": False},
     "ACCESS_TOKEN_EXPIRE_MINUTES": {
         "description": "Access token TTL in minutes.",
@@ -160,8 +168,16 @@ CONFIG_FIELD_METADATA: dict[str, dict[str, Any]] = {
         "requires_restart": True,
     },
     "STORAGE_PUBLIC_READ": {
-        "description": "Apply a public-read policy to the storage bucket.",
+        "description": "Legacy dev-only public-read policy for the primary bucket. Must stay false in production.",
         "requires_restart": True,
+    },
+    "STORAGE_PUBLIC_ASSET_BUCKET": {
+        "description": "Optional separate bucket for public avatars/branding assets.",
+        "requires_restart": True,
+    },
+    "STORAGE_PRESIGNED_URL_TTL_SECONDS": {
+        "description": "TTL for authorized presigned download URLs for private artifacts.",
+        "requires_restart": False,
     },
     "STORAGE_AVATAR_MAX_BYTES": {
         "description": "Maximum avatar upload size in bytes.",

@@ -181,6 +181,41 @@ async def test_singleflight_coalesces_concurrent_cache_fills():
 
 
 @pytest.mark.asyncio
+async def test_singleflight_bounds_map_after_many_unique_keys() -> None:
+    from backend.core.cache import AsyncSingleFlight
+
+    flight = AsyncSingleFlight(max_keys=128)
+    for index in range(5001):
+        assert await flight.run(f"key-{index}", AsyncMock(return_value=index)) == index
+    assert len(flight._locks) <= 128
+
+
+@pytest.mark.asyncio
+async def test_singleflight_never_evicts_active_locked_key() -> None:
+    from backend.core.cache import AsyncSingleFlight
+
+    flight = AsyncSingleFlight(max_keys=8)
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def pinned_loader() -> str:
+        started.set()
+        await release.wait()
+        return "pinned"
+
+    pinned_task = asyncio.create_task(flight.run("pinned", pinned_loader))
+    await started.wait()
+
+    for index in range(200):
+        await flight.run(f"filler-{index}", AsyncMock(return_value=index))
+
+    assert "pinned" in flight._locks
+    release.set()
+    assert await pinned_task == "pinned"
+    assert len(flight._locks) <= 8
+
+
+@pytest.mark.asyncio
 async def test_read_through_policy_stores_negative_result_with_short_policy():
     from backend.core.cache import CachePolicy, cache_get_or_set_json
 

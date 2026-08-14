@@ -243,6 +243,15 @@ class AiEvaluationCaseCreate(RequestModel):
     input_variables: dict[str, Any] = Field(default_factory=dict)
     expected_output_text: str | None = None
     expected_output_json: dict[str, Any] | None = None
+    expected_assertions: dict[str, Any] | None = None
+    notes: str | None = None
+
+
+class AiEvaluationCaseFromTraceCreate(RequestModel):
+    run_id: str
+    source_trace_span_id: str | None = None
+    correction: dict[str, Any] | None = None
+    expected_assertions: dict[str, Any] | None = None
     notes: str | None = None
 
 
@@ -254,12 +263,23 @@ class AiEvaluationCaseResponse(BaseModel):
     input_variables: dict[str, Any]
     expected_output_text: str | None
     expected_output_json: dict[str, Any] | None
+    expected_assertions: dict[str, Any] | None = None
     notes: str | None
+    source_run_id: str | None = None
+    source_trace_span_id: str | None = None
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    input_snapshot: dict[str, Any] = Field(default_factory=dict)
+    correction: dict[str, Any] | None = None
     created_at: datetime
 
 
 class AiEvaluationRunRequest(RequestModel):
     prompt_version_id: str
+    baseline_run_id: str | None = None
+    workflow_version_id: str | None = None
+    model_name: str | None = None
+    qualitative_rubric: dict[str, Any] | None = None
+    regression_threshold: float = Field(default=0.05, ge=0.0, le=1.0)
 
 
 class AiEvaluationRunItemResponse(BaseModel):
@@ -268,6 +288,15 @@ class AiEvaluationRunItemResponse(BaseModel):
     score: float
     passed: bool
     notes: str | None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+
+
+class AiEvaluationScorecardResponse(BaseModel):
+    candidate: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    baseline_metrics: dict[str, Any] | None = None
+    regression: dict[str, Any] = Field(default_factory=dict)
+    judge: dict[str, Any] = Field(default_factory=dict)
 
 
 class AiEvaluationRunResponse(BaseModel):
@@ -280,6 +309,11 @@ class AiEvaluationRunResponse(BaseModel):
     total_cases: int
     passed_cases: int
     average_score: float
+    baseline_run_id: str | None = None
+    candidate_config: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    scorecard: dict[str, Any] = Field(default_factory=dict)
+    judge_version_id: str | None = None
     created_at: datetime
     completed_at: datetime | None
     items: list[AiEvaluationRunItemResponse] = Field(default_factory=list)

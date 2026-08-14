@@ -15,6 +15,9 @@ class ManagerWorkerSingleAgentMixin:
         if project is None:
             raise RuntimeError("Run project not found")
         prompt = self._workflow_checkpoint_artifact(run, "single_agent.prompt")
+        specialist_prompt = (run.input_payload_json or {}).get("specialist_prompt")
+        if isinstance(specialist_prompt, str) and specialist_prompt.strip():
+            prompt = specialist_prompt.strip()
         if not isinstance(prompt, str) or not prompt.strip():
             await self._mark_run_step(
                 run,
@@ -73,7 +76,7 @@ class ManagerWorkerSingleAgentMixin:
                 project=project,
                 task=task,
                 tool_calls=execution_plan.get("tool_calls", []),
-                allowed_tools=(agent.allowed_tools_json if agent else []),
+                allowed_tools=self._effective_allowed_tools(run, agent),
                 agent=agent,
             )
             self._set_workflow_checkpoint_artifact(

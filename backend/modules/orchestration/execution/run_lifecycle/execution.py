@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
+from fastapi import HTTPException
+
 from backend.core.config import settings
 from backend.core.logging import get_logger
+from backend.modules.identity_access.models import User
 from backend.modules.memory.working_memory import EXECUTION_THREAD_ID_KEY
 from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.execution.durable_execution import is_run_execution_claimable
@@ -20,7 +23,6 @@ from backend.modules.orchestration.execution.execution_workflow import (
 from backend.modules.orchestration.execution.policies import next_retry_numbers
 from backend.modules.orchestration.models import TaskRun
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
-from backend.modules.identity_access.models import User
 
 logger = get_logger(__name__)
 
@@ -90,6 +92,7 @@ class ExecutionRunExecutionMixin:
             valid = False
         if not valid:
             raise BlockedExecution(f"Output validation failed for schema format '{fmt}'.")
+
     async def retry_run(self, user: User, run_id: str):
         run = await self.get_run(user, run_id)
         project = await self.db.get(OrchestratorProject, run.project_id)
@@ -141,12 +144,13 @@ class ExecutionRunExecutionMixin:
         submit_orchestration_run(new_run.id, expected_owner_id=project.owner_id)
         await self.db.refresh(new_run)
         return new_run
+
     async def recover_stale_in_progress_runs(self, *, limit: int = 100) -> int:
         """Mark stuck in_progress runs as failed so they become claimable again.
 
         Soft/hard worker kills can leave runs in ``in_progress`` after the early status commit.
         """
-        from datetime import UTC, datetime, timedelta
+        from datetime import UTC, datetime
 
         stale_after = max(60, int(settings.ORCHESTRATION_STALE_IN_PROGRESS_SECONDS))
         cutoff = datetime.now(UTC) - timedelta(seconds=stale_after)
@@ -169,8 +173,11 @@ class ExecutionRunExecutionMixin:
             recovered += 1
         if recovered:
             await self.db.commit()
-            logger.warning("stale_in_progress_recovered count=%s cutoff=%s", recovered, cutoff.isoformat())
+            logger.warning(
+                "stale_in_progress_recovered count=%s cutoff=%s", recovered, cutoff.isoformat()
+            )
         return recovered
+
     async def execute_run(self, run_id: str, *, expected_owner_id: str | None = None) -> TaskRun:
         logger.info("execute_run_start run_id=%s", run_id)
         run = await self.repo.get_run_for_worker(run_id)
@@ -487,4 +494,3 @@ class ExecutionRunExecutionMixin:
                     project, run=run, task=task, trigger="run_failed"
                 )
             return run
-

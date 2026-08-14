@@ -32,9 +32,7 @@ class AiPromptsMixin:
         await self.db.refresh(template)
         return template
 
-    async def update_prompt_template(
-        self, user: User, template_id: str, updates: dict[str, Any]
-    ):
+    async def update_prompt_template(self, user: User, template_id: str, updates: dict[str, Any]):
         template = await self.repo.get_prompt_template_for_user(user.id, template_id)
         if not template:
             raise HTTPException(status_code=404, detail="Prompt template not found")

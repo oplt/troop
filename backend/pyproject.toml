@@ -75,3 +75,7 @@ ignore = ["B008"]  # FastAPI Depends() in defaults
 [tool.ruff.lint.per-file-ignores]
 "alembic/versions/*.py" = ["E501"]
 "alembic/env.py" = ["E402"]
+"modules/memory/service.py" = ["E402"]
+"modules/orchestration/services/approvals_service.py" = ["E402"]
+"modules/orchestration/services/evals_service.py" = ["E402"]
+"modules/orchestration/services/routing_service.py" = ["E402"]

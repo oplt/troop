@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import HTTPException
+
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.execution.execution_workflow import (
     enqueue_signal,
@@ -17,7 +19,6 @@ from backend.modules.orchestration.execution.execution_workflow import (
 from backend.modules.orchestration.execution.external_actions import external_action_workflow_step
 from backend.modules.orchestration.execution.result_contracts import (
     durable_workflow_payload,
-    run_is_resumable,
 )
 from backend.modules.orchestration.models import TaskRun
 
@@ -62,6 +63,7 @@ class ExecutionRunWorkflowMixin:
 
     async def _child_runs_for_parent(self, parent_run_id: str) -> list[TaskRun]:
         return await self.repo.list_child_runs(parent_run_id)
+
     async def _mark_run_step(
         self,
         run: TaskRun,

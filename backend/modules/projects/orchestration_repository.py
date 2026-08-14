@@ -35,6 +35,12 @@ class OrchestrationProjectsRepositoryMixin:
         )
         return result.scalar_one_or_none()
 
+    async def get_project_by_id(self, project_id: str) -> OrchestratorProject | None:
+        result = await self.db.execute(
+            select(OrchestratorProject).where(OrchestratorProject.id == project_id)
+        )
+        return result.scalar_one_or_none()
+
     async def create_project(self, **kwargs) -> OrchestratorProject:
         item = OrchestratorProject(**kwargs)
         self.db.add(item)
@@ -163,8 +169,9 @@ class OrchestrationProjectsRepositoryMixin:
     async def list_project_decisions(
         self, project_id: str, *, limit: int | None = None, query: str | None = None
     ) -> list[ProjectDecision]:
-        from backend.core.config import settings
         from sqlalchemy import or_
+
+        from backend.core.config import settings
 
         cap = max(1, min(int(limit or settings.PROJECT_DECISIONS_MERGE_LIMIT), 1000))
         stmt = select(ProjectDecision).where(ProjectDecision.project_id == project_id)

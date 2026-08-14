@@ -38,17 +38,14 @@ class ProjectWorkspaceMixin:
             await self.db.commit()
         return item
 
-
     async def list_project_repositories(self, user: User, project_id: str):
         await self.get_project(user, project_id)
         return await self.repo.list_project_repositories(project_id)
-
 
     async def get_local_repo_workspace(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         settings = dict(project.settings_json or {})
         return normalize_workspace(settings.get("local_repo"))
-
 
     async def validate_local_repo_workspace(
         self, user: User, payload: dict[str, Any]
@@ -59,7 +56,6 @@ class ProjectWorkspaceMixin:
             return await inspect_workspace_async(workspace)
         except LocalRepoError as exc:
             return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
-
 
     async def update_local_repo_workspace(
         self,
@@ -82,14 +78,12 @@ class ProjectWorkspaceMixin:
         await self.db.refresh(project)
         return status
 
-
     async def inspect_local_repo_workspace(self, user: User, project_id: str) -> dict[str, Any]:
         workspace = await self.get_local_repo_workspace(user, project_id)
         try:
             return await inspect_workspace_async(workspace)
         except LocalRepoError as exc:
             return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
-
 
     async def create_local_repo_worktree(
         self,
@@ -121,7 +115,6 @@ class ProjectWorkspaceMixin:
         task.metadata_json = metadata
         await self.db.commit()
         return worktree
-
 
     async def build_local_repo_context_pack(
         self,
@@ -158,7 +151,6 @@ class ProjectWorkspaceMixin:
         await self.db.commit()
         return context
 
-
     async def run_local_repo_command(
         self,
         user: User,
@@ -185,7 +177,6 @@ class ProjectWorkspaceMixin:
             "timed_out": result.timed_out,
         }
 
-
     async def read_local_repo_file(
         self,
         user: User,
@@ -194,12 +185,9 @@ class ProjectWorkspaceMixin:
     ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         try:
-            return await read_repo_file_async(
-                (project.settings_json or {}).get("local_repo"), path
-            )
+            return await read_repo_file_async((project.settings_json or {}).get("local_repo"), path)
         except LocalRepoError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-
 
     async def update_project_repository(
         self, user: User, project_id: str, repository_link_id: str, updates: dict[str, Any]
@@ -224,7 +212,6 @@ class ProjectWorkspaceMixin:
             await sync_repository(project, repository_link)
             await self.db.commit()
         return repository_link
-
 
     async def project_repository_index_status(
         self, user: User, project_id: str
@@ -334,7 +321,6 @@ class ProjectWorkspaceMixin:
             )
         return rows
 
-
     async def index_project_repository(
         self,
         user: User,
@@ -399,7 +385,6 @@ class ProjectWorkspaceMixin:
             "mode": mode,
             "path_prefixes": path_prefixes,
         }
-
 
     async def _run_repository_index_job(
         self,
@@ -482,7 +467,9 @@ class ProjectWorkspaceMixin:
                     _, _, path = raw_name.partition("/")
                     if not path or not any(path.endswith(suffix) for suffix in allowed_suffixes):
                         continue
-                    if path_prefixes and not any(path.startswith(prefix) for prefix in path_prefixes):
+                    if path_prefixes and not any(
+                        path.startswith(prefix) for prefix in path_prefixes
+                    ):
                         continue
                     extracted = tf.extractfile(member)
                     if extracted is None:
@@ -534,4 +521,3 @@ class ProjectWorkspaceMixin:
             "mode": requested_mode,
             "path_prefixes": path_prefixes,
         }
-

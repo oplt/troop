@@ -12,14 +12,16 @@ import {
 } from "@mui/material";
 import {
     Assignment as TasksIcon,
+    EmailOutlined as EmailTemplateIcon,
     FolderOpen as ProjectsIcon,
     NotificationsActive as NotificationsActiveIcon,
     PendingActions as ApprovalsIcon,
     PlayCircleOutline as RunsIcon,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
+    getActivationStatus,
     getExecutionInsights,
     getOrchestrationOverview,
 } from "../api/orchestration";
@@ -31,6 +33,7 @@ import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard"
 import { SectionCard } from "../components/ui/SectionCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { OnboardingChecklist } from "../components/ui/OnboardingChecklist";
+import { ActivationProgress } from "../components/ui/ActivationProgress";
 import { SectionError } from "../components/ui/SectionError";
 import { StatusChip } from "../components/ui/StatusChip";
 import { queryKeys } from "../config/queryKeys";
@@ -98,6 +101,11 @@ export default function DashboardPage() {
     } = useQuery({
         queryKey: queryKeys.orchestration.executionInsights(signalDays),
         queryFn: () => getExecutionInsights(signalDays),
+        ...queryPolicies.userScoped,
+    });
+    const { data: activationStatus } = useQuery({
+        queryKey: queryKeys.orchestration.activation,
+        queryFn: getActivationStatus,
         ...queryPolicies.userScoped,
     });
 
@@ -169,7 +177,19 @@ export default function DashboardPage() {
         return items.sort((a, b) => a.priority - b.priority).slice(0, 3);
     }, [pendingApprovals, activeRuns, attentionProjects]);
 
-    const primaryAction = nextActions[0];
+    const primaryAction = useMemo<NextAction | null>(() => {
+        if (activationStatus?.next_step && !activationStatus.activated) {
+            return {
+                id: `activation-${activationStatus.next_step.key}`,
+                title: activationStatus.next_step.label,
+                detail: "Next activation milestone for this workspace.",
+                cta: activationStatus.next_step.cta,
+                path: activationStatus.next_step.path,
+                priority: -1,
+            };
+        }
+        return nextActions[0] ?? null;
+    }, [activationStatus, nextActions]);
     const visibleNotifications = useMemo(() => notifications?.slice(0, 5) ?? [], [notifications]);
     const hasIntegration =
         Boolean(gmailStatus && ["connected", "active", "healthy"].includes(String(gmailStatus.status))) ||
@@ -217,6 +237,35 @@ export default function DashboardPage() {
             )}
 
             {showOnboarding ? <OnboardingChecklist steps={onboardingSteps} /> : null}
+
+            <SectionCard
+                title="Flagship template"
+                description="Install Gmail triage → AI draft → human approval → send with stale-check protection."
+            >
+                <Stack spacing={2}>
+                    {activationStatus && !activationStatus.activated ? (
+                        <ActivationProgress
+                            status={activationStatus}
+                            title="Template activation"
+                            description="Product milestones that matter for governed email automation — not vanity analytics."
+                        />
+                    ) : null}
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1 }}>
+                            <EmailTemplateIcon color="primary" />
+                            <Box>
+                                <Typography variant="subtitle1">Email approval automation</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    See what AI decides, what is deterministic, and what requires approval before any send.
+                                </Typography>
+                            </Box>
+                        </Stack>
+                        <Button component={RouterLink} to="/templates/email-approval" variant="contained">
+                            Guided install
+                        </Button>
+                    </Stack>
+                </Stack>
+            </SectionCard>
 
             <PageHeader
                 eyebrow="Work"

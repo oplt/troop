@@ -4,14 +4,13 @@ import uuid
 from collections.abc import AsyncIterator
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
-
 from backend.api.main import app
 from backend.core.config import settings
 from backend.core.security import hash_password
 from backend.db.session import SessionLocal
 from backend.modules.identity_access.models import RefreshSession, User
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete
 
 
 def services_available_sync() -> bool:
@@ -45,6 +44,15 @@ def integration_services_ok() -> None:
 
 @pytest.fixture
 async def require_integration(integration_services_ok: None) -> None:
+    from backend.db.session import engine
+    from backend.modules.identity_access.models import Workspace, WorkspaceMembership
+
+    def _create_workspace_tables(sync_conn) -> None:
+        Workspace.__table__.create(sync_conn, checkfirst=True)
+        WorkspaceMembership.__table__.create(sync_conn, checkfirst=True)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(_create_workspace_tables)
     return None
 
 

@@ -57,6 +57,7 @@ class PlatformFeatureFlagsMixin:
         await self.db.commit()
         await self.db.refresh(flag)
         return flag
+
     @staticmethod
     def _is_flag_effective(flag: FeatureFlag, user_id: str, enabled_modules: set[str]) -> bool:
         if not flag.is_enabled:

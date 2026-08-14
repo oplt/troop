@@ -6,6 +6,7 @@ import asyncio
 
 from backend.core.logging import get_logger
 from backend.modules.workforce.integrations.gmail import GmailAPIError
+from backend.modules.workforce.integrations.outlook import OutlookAPIError
 from backend.workers.celery_app import celery_app
 
 logger = get_logger(__name__)
@@ -22,7 +23,7 @@ async def _process_external_event(event_id: str) -> None:
 @celery_app.task(
     name="backend.workers.integrations.process_external_event",
     bind=True,
-    autoretry_for=(GmailAPIError,),
+    autoretry_for=(GmailAPIError, OutlookAPIError),
     retry_backoff=True,
     retry_jitter=True,
     max_retries=5,
@@ -43,3 +44,16 @@ async def _renew_gmail_watches() -> int:
 @celery_app.task(name="backend.workers.integrations.renew_gmail_watches")
 def renew_gmail_watches() -> int:
     return asyncio.run(_renew_gmail_watches())
+
+
+async def _renew_outlook_subscriptions() -> int:
+    from backend.db.session import SessionLocal
+    from backend.modules.workforce.integrations.events import TriggerSubscriptionService
+
+    async with SessionLocal() as db:
+        return await TriggerSubscriptionService(db).renew_due_outlook_subscriptions()
+
+
+@celery_app.task(name="backend.workers.integrations.renew_outlook_subscriptions")
+def renew_outlook_subscriptions() -> int:
+    return asyncio.run(_renew_outlook_subscriptions())

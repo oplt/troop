@@ -4,8 +4,6 @@ import {
     Controls,
     MiniMap,
     ReactFlow,
-    type Edge,
-    type Node,
     type NodeTypes,
     type OnEdgesChange,
     type OnNodesChange,
@@ -14,19 +12,20 @@ import {
 } from "@xyflow/react";
 import { CanvasChrome } from "../../components/canvas/CanvasChrome";
 import type { CanvasTheme } from "../../features/canvas/canvasTheme";
+import type { TeamGraphEdge, TeamGraphNode } from "./hierarchyTypes";
 
 type TeamGraphProps = {
     canvas: CanvasTheme;
-    nodes: Node[];
-    edges: Edge[];
+    nodes: TeamGraphNode[];
+    edges: TeamGraphEdge[];
     nodeTypes: NodeTypes;
     graphDirty: boolean;
     validationCount: number;
     showMiniMap: boolean;
     onShowMiniMapChange: (next: boolean) => void;
-    onInit: (instance: ReactFlowInstance) => void;
-    onNodesChange: OnNodesChange;
-    onEdgesChange: OnEdgesChange;
+    onInit: (instance: ReactFlowInstance<TeamGraphNode, TeamGraphEdge>) => void;
+    onNodesChange: OnNodesChange<TeamGraphNode>;
+    onEdgesChange: OnEdgesChange<TeamGraphEdge>;
     onConnect: (connection: Connection) => void;
     onNodeClick: (nodeId: string) => void;
     onEdgeClick: (edgeId: string) => void;
@@ -136,10 +135,10 @@ export function HierarchyTeamReactFlow({
 
 type PreviewProps = {
     canvas: CanvasTheme;
-    nodes: Node[];
-    edges: Edge[];
+    nodes: TeamGraphNode[];
+    edges: TeamGraphEdge[];
     nodeTypes: NodeTypes;
-    onNodesChange: OnNodesChange;
+    onNodesChange: OnNodesChange<TeamGraphNode>;
     onNodeClick: (nodeId: string) => void;
     onPaneClick: () => void;
 };

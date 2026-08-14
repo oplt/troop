@@ -202,7 +202,9 @@ class RunEvent(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd_micros: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )
 
 
 class Brainstorm(Base):
@@ -315,6 +317,27 @@ class ApprovalRequest(Base):
     status: Mapped[str] = mapped_column(String(32), default="pending")
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    effect_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    effect_version: Mapped[int] = mapped_column(Integer, default=1)
+    precondition_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    proposed_effect_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    eligible_approvers_json: Mapped[list] = mapped_column(JSON, default=list)
+    routing_snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    decided_eligibility_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    sla_policy_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    delegations_json: Mapped[list] = mapped_column(JSON, default=list)
+    escalation_state_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

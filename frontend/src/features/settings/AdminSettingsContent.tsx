@@ -13,6 +13,8 @@ import { ProfileContent } from "../../pages/ProfilePage";
 import type { DatabaseSetting } from "../../api/settings";
 import { DatabaseSettingsPanel } from "./database/DatabaseSettingsPanel";
 import { useDatabaseSettings } from "./database/useDatabaseSettings";
+import { SecurityPosturePanel } from "./SecurityPosturePanel";
+import { AuditExportPanel, IdentityProvidersPanel } from "./EnterpriseAuthPanels";
 import { settingsShellSx, settingsTabsSx } from "./styles";
 import type { SettingsTabValue } from "./types";
 
@@ -73,6 +75,9 @@ export function AdminSettingsContent({
                     <Tab value="github_sync" label={`GitHub sync (${githubConnections.length})`} />
                     <Tab value="platform" label="Platform" />
                     <Tab value="users" label="Users" />
+                    <Tab value="security" label="Security posture" />
+                    <Tab value="audit" label="Audit export" />
+                    <Tab value="identity" label="SSO / IdP" />
                     <Tab value="database" label={`Parameters (${databaseSettings.length})`} />
                     <Tab value="companies" label="Companies" />
                     <Tab value="profile" label="Profile" />
@@ -91,6 +96,12 @@ export function AdminSettingsContent({
                         <Suspense fallback={<Skeleton variant="rounded" height={320} sx={{ borderRadius: 1 }} />}>
                             <AdminUsersPage />
                         </Suspense>
+                    ) : activeTab === "security" ? (
+                        <SecurityPosturePanel />
+                    ) : activeTab === "audit" ? (
+                        <AuditExportPanel />
+                    ) : activeTab === "identity" ? (
+                        <IdentityProvidersPanel />
                     ) : activeTab === "companies" ? (
                         <CompaniesPanel />
                     ) : activeTab === "profile" ? (

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import HTTPException
+
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.control_plane.pubsub import (
     ControlPlaneEvent,
@@ -36,10 +38,13 @@ class ControlPlaneTeamMixin:
                 "skills": list(payload.get("skills") or []),
                 "model_policy": {
                     "model": model_profile.get("model_slug"),
-                    "fallback_model": (payload.get("fallback_model_profile") or {}).get("model_slug"),
+                    "fallback_model": (payload.get("fallback_model_profile") or {}).get(
+                        "model_slug"
+                    ),
                     "routes": payload.get("routing_policy") or [],
                 },
-                "memory_policy": payload.get("memory_policy") or {"scope": payload.get("memory_scope") or "project"},
+                "memory_policy": payload.get("memory_policy")
+                or {"scope": payload.get("memory_scope") or "project"},
                 "metadata": {
                     "objective": payload.get("objective") or "",
                     "autonomy_level": payload.get("autonomy_level") or "medium",
@@ -71,12 +76,16 @@ class ControlPlaneTeamMixin:
         )
         return agent
 
-    async def update_team_member(self, user: User, member_id: str, payload: dict[str, Any]) -> AgentProfile:
+    async def update_team_member(
+        self, user: User, member_id: str, payload: dict[str, Any]
+    ) -> AgentProfile:
         existing = await self.service.get_agent(user, member_id)
         model_profile = dict(payload.get("model_profile") or {})
         updates = {
             "parent_agent_id": payload.get("parent_member_id", existing.parent_agent_id),
-            "provider_config_id": model_profile.get("provider_config_id", existing.provider_config_id),
+            "provider_config_id": model_profile.get(
+                "provider_config_id", existing.provider_config_id
+            ),
             "name": payload.get("name"),
             "role": payload.get("role"),
             "description": payload.get("objective"),
@@ -87,13 +96,25 @@ class ControlPlaneTeamMixin:
             "is_active": payload.get("is_active"),
             "model_policy": {
                 **(existing.model_policy_json or {}),
-                **({"model": model_profile["model_slug"]} if model_profile.get("model_slug") else {}),
                 **(
-                    {"fallback_model": (payload.get("fallback_model_profile") or {}).get("model_slug")}
+                    {"model": model_profile["model_slug"]}
+                    if model_profile.get("model_slug")
+                    else {}
+                ),
+                **(
+                    {
+                        "fallback_model": (payload.get("fallback_model_profile") or {}).get(
+                            "model_slug"
+                        )
+                    }
                     if (payload.get("fallback_model_profile") or {}).get("model_slug")
                     else {}
                 ),
-                **({"routes": payload.get("routing_policy")} if payload.get("routing_policy") is not None else {}),
+                **(
+                    {"routes": payload.get("routing_policy")}
+                    if payload.get("routing_policy") is not None
+                    else {}
+                ),
             },
             "memory_policy": payload.get("memory_policy")
             or {
@@ -102,10 +123,26 @@ class ControlPlaneTeamMixin:
             },
             "metadata": {
                 **(existing.metadata_json or {}),
-                **({"objective": payload.get("objective")} if payload.get("objective") is not None else {}),
-                **({"autonomy_level": payload.get("autonomy_level")} if payload.get("autonomy_level") else {}),
-                **({"approval_policy": payload.get("approval_policy")} if payload.get("approval_policy") else {}),
-                **({"memory_scope": payload.get("memory_scope")} if payload.get("memory_scope") else {}),
+                **(
+                    {"objective": payload.get("objective")}
+                    if payload.get("objective") is not None
+                    else {}
+                ),
+                **(
+                    {"autonomy_level": payload.get("autonomy_level")}
+                    if payload.get("autonomy_level")
+                    else {}
+                ),
+                **(
+                    {"approval_policy": payload.get("approval_policy")}
+                    if payload.get("approval_policy")
+                    else {}
+                ),
+                **(
+                    {"memory_scope": payload.get("memory_scope")}
+                    if payload.get("memory_scope")
+                    else {}
+                ),
             },
         }
         clean_updates = {key: value for key, value in updates.items() if value is not None}

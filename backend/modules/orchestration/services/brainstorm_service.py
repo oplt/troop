@@ -9,8 +9,8 @@ from typing import Any
 from fastapi import HTTPException
 
 from backend.modules.identity_access.models import User
-from backend.modules.orchestration.models import Brainstorm, TaskRun
-from backend.modules.projects.orchestration_models import OrchestratorTask
+from backend.modules.orchestration.models import Brainstorm, ProviderConfig, TaskRun
+from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
 
 
@@ -72,7 +72,9 @@ class OrchestrationBrainstormServiceMixin:
         stop_conditions = dict(brainstorm.stop_conditions_json or {})
         soft_thr = float(stop_conditions.get("soft_consensus_min_similarity", 0.72))
         conflict_thr = float(stop_conditions.get("conflict_pairwise_max_similarity", 0.38))
-        metrics = self._brainstorm_consensus_metrics_from_contents(last_contents, soft_thr, conflict_thr)
+        metrics = self._brainstorm_consensus_metrics_from_contents(
+            last_contents, soft_thr, conflict_thr
+        )
         latest_log = None
         for entry in reversed(brainstorm.decision_log_json or []):
             if entry.get("type") == "round_summary":
@@ -87,7 +89,8 @@ class OrchestrationBrainstormServiceMixin:
             if latest_log and latest_log.get("repetition_score") is not None
             else metrics.get("repetition_score"),
             "last_round_pairwise_min_similarity": metrics.get("pairwise_min_similarity"),
-            "consensus_kind": (latest_log or {}).get("consensus_kind") or metrics.get("consensus_kind"),
+            "consensus_kind": (latest_log or {}).get("consensus_kind")
+            or metrics.get("consensus_kind"),
             "conflict_signal": (latest_log or {}).get("conflict_signal")
             if latest_log and "conflict_signal" in latest_log
             else metrics.get("conflict_signal"),
@@ -113,11 +116,15 @@ class OrchestrationBrainstormServiceMixin:
             )
         moderator_agent_id = payload.get("moderator_agent_id")
         if moderator_agent_id:
-            await self._ensure_brainstorm_agent_member(user, project.id, moderator_agent_id, "Moderator")
+            await self._ensure_brainstorm_agent_member(
+                user, project.id, moderator_agent_id, "Moderator"
+            )
         else:
             manager = await self._project_default_manager(project.id, project=project)
             moderator_agent_id = manager.id if manager else participant_ids[0]
-        await self._ensure_brainstorm_agent_member(user, project.id, moderator_agent_id, "Moderator")
+        await self._ensure_brainstorm_agent_member(
+            user, project.id, moderator_agent_id, "Moderator"
+        )
         for agent_id in participant_ids:
             await self._ensure_brainstorm_agent_member(user, project.id, agent_id, "Participant")
         item = await self.repo.create_brainstorm(
@@ -180,16 +187,27 @@ class OrchestrationBrainstormServiceMixin:
     ):
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         if brainstorm.status in {"running", "completed"}:
-            raise HTTPException(status_code=409, detail="Participants can only change before or between runs.")
-        await self._ensure_brainstorm_agent_member(user, brainstorm.project_id, agent_id, "Participant")
+            raise HTTPException(
+                status_code=409, detail="Participants can only change before or between runs."
+            )
+        await self._ensure_brainstorm_agent_member(
+            user, brainstorm.project_id, agent_id, "Participant"
+        )
         participants = await self.repo.list_brainstorm_participants(brainstorm.id)
         if any(item.agent_id == agent_id for item in participants):
-            raise HTTPException(status_code=409, detail="Agent is already a brainstorm participant.")
+            raise HTTPException(
+                status_code=409, detail="Agent is already a brainstorm participant."
+            )
         profiles = [await self.get_agent(user, item.agent_id) for item in participants]
         candidate = await self.get_agent(user, agent_id)
         project = await self.get_project(user, brainstorm.project_id)
-        if any(not self._brainstorm_pair_allowed(existing, candidate, project=project) for existing in profiles):
-            raise HTTPException(status_code=400, detail="Brainstorm collaboration rules disallow this participant.")
+        if any(
+            not self._brainstorm_pair_allowed(existing, candidate, project=project)
+            for existing in profiles
+        ):
+            raise HTTPException(
+                status_code=400, detail="Brainstorm collaboration rules disallow this participant."
+            )
         item = await self.repo.create_brainstorm_participant(
             brainstorm_id=brainstorm.id,
             agent_id=agent_id,
@@ -209,7 +227,9 @@ class OrchestrationBrainstormServiceMixin:
     ):
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         if brainstorm.status in {"running", "completed"}:
-            raise HTTPException(status_code=409, detail="Participants can only change before or between runs.")
+            raise HTTPException(
+                status_code=409, detail="Participants can only change before or between runs."
+            )
         participants = await self.repo.list_brainstorm_participants(brainstorm.id)
         item = next((row for row in participants if row.id == participant_id), None)
         if item is None:
@@ -220,16 +240,22 @@ class OrchestrationBrainstormServiceMixin:
         await self.db.refresh(item)
         return item
 
-    async def remove_brainstorm_participant(self, user: User, brainstorm_id: str, participant_id: str) -> None:
+    async def remove_brainstorm_participant(
+        self, user: User, brainstorm_id: str, participant_id: str
+    ) -> None:
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         if brainstorm.status in {"running", "completed"}:
-            raise HTTPException(status_code=409, detail="Participants can only change before or between runs.")
+            raise HTTPException(
+                status_code=409, detail="Participants can only change before or between runs."
+            )
         participants = await self.repo.list_brainstorm_participants(brainstorm.id)
         item = next((row for row in participants if row.id == participant_id), None)
         if item is None:
             raise HTTPException(status_code=404, detail="Brainstorm participant not found")
         if len(participants) <= 2:
-            raise HTTPException(status_code=409, detail="A brainstorm requires at least two participants.")
+            raise HTTPException(
+                status_code=409, detail="A brainstorm requires at least two participants."
+            )
         await self.db.delete(item)
         await self.db.commit()
 
@@ -246,7 +272,9 @@ class OrchestrationBrainstormServiceMixin:
             raise HTTPException(status_code=409, detail="A brainstorm round is already active")
         current_round = self._brainstorm_current_round(brainstorm)
         if current_round >= brainstorm.max_rounds:
-            raise HTTPException(status_code=409, detail="Brainstorm already reached the round limit")
+            raise HTTPException(
+                status_code=409, detail="Brainstorm already reached the round limit"
+            )
         run = await self.repo.create_run(
             project_id=brainstorm.project_id,
             task_id=brainstorm.task_id,
@@ -275,7 +303,9 @@ class OrchestrationBrainstormServiceMixin:
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         final_output = self._brainstorm_final_output(brainstorm)
         if not final_output:
-            raise HTTPException(status_code=409, detail="Brainstorm has no finalized output to promote")
+            raise HTTPException(
+                status_code=409, detail="Brainstorm has no finalized output to promote"
+            )
         tasks: list[OrchestratorTask] = []
         for line in final_output.splitlines():
             cleaned = line.strip(" -0123456789.")
@@ -296,7 +326,9 @@ class OrchestrationBrainstormServiceMixin:
                     acceptance_criteria=None,
                     due_date=None,
                     labels_json=["brainstorm"],
-                    result_payload_json={"brainstorm_output_type": self._brainstorm_output_type(brainstorm)},
+                    result_payload_json={
+                        "brainstorm_output_type": self._brainstorm_output_type(brainstorm)
+                    },
                     metadata_json={"brainstorm_id": brainstorm.id, "promoted_from": "brainstorm"},
                     position=await self.repo.get_next_task_position(brainstorm.project_id),
                 )
@@ -317,7 +349,9 @@ class OrchestrationBrainstormServiceMixin:
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         final_output = self._brainstorm_final_output(brainstorm)
         if not final_output:
-            raise HTTPException(status_code=409, detail="Brainstorm has no finalized output to promote")
+            raise HTTPException(
+                status_code=409, detail="Brainstorm has no finalized output to promote"
+            )
         decision = await self.repo.create_project_decision(
             project_id=brainstorm.project_id,
             task_id=brainstorm.task_id,
@@ -335,12 +369,16 @@ class OrchestrationBrainstormServiceMixin:
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         final_output = self._brainstorm_final_output(brainstorm)
         if not final_output:
-            raise HTTPException(status_code=409, detail="Brainstorm has no finalized output to promote")
+            raise HTTPException(
+                status_code=409, detail="Brainstorm has no finalized output to promote"
+            )
         item = await self.repo.create_document(
             project_id=brainstorm.project_id,
             task_id=brainstorm.task_id,
             uploaded_by_user_id=user.id,
-            filename=f"{self._slugify(brainstorm.topic)}-{self._brainstorm_output_type(brainstorm)}.md"[:255],
+            filename=f"{self._slugify(brainstorm.topic)}-{self._brainstorm_output_type(brainstorm)}.md"[
+                :255
+            ],
             content_type="text/markdown",
             source_text=final_output,
             object_key=None,
@@ -366,7 +404,9 @@ class OrchestrationBrainstormServiceMixin:
         brainstorm = await self.get_brainstorm(user, brainstorm_id)
         final_output = self._brainstorm_final_output(brainstorm)
         if not final_output:
-            raise HTTPException(status_code=409, detail="Brainstorm has no finalized output to export")
+            raise HTTPException(
+                status_code=409, detail="Brainstorm has no finalized output to export"
+            )
         output_type = self._brainstorm_output_type(brainstorm)
         title = f"{brainstorm.topic[:220]} — {output_type.replace('_', ' ').title()}"
         for entry in reversed(brainstorm.decision_log_json or []):
@@ -470,7 +510,9 @@ class OrchestrationBrainstormServiceMixin:
             payload.get("mode") or stop_conditions.get("mode") or "exploration"
         )
         output_type = self._normalize_brainstorm_output_type(
-            payload.get("output_type") or stop_conditions.get("output_type") or self._brainstorm_default_output_type(mode)
+            payload.get("output_type")
+            or stop_conditions.get("output_type")
+            or self._brainstorm_default_output_type(mode)
         )
         stop_conditions["mode"] = mode
         stop_conditions["output_type"] = output_type
@@ -481,12 +523,16 @@ class OrchestrationBrainstormServiceMixin:
             1000,
         )
         stop_conditions["max_repetition_score"] = self._guardrail_float(
-            payload.get("max_repetition_score") or stop_conditions.get("max_repetition_score") or 0.92,
+            payload.get("max_repetition_score")
+            or stop_conditions.get("max_repetition_score")
+            or 0.92,
             "max_repetition_score",
             0.1,
             1,
         )
-        stop_conditions["stop_on_consensus"] = self._guardrail_bool(stop_conditions.get("stop_on_consensus", True))
+        stop_conditions["stop_on_consensus"] = self._guardrail_bool(
+            stop_conditions.get("stop_on_consensus", True)
+        )
         stop_conditions["escalate_on_no_consensus"] = self._guardrail_bool(
             stop_conditions.get("escalate_on_no_consensus", True)
         )
@@ -543,7 +589,9 @@ class OrchestrationBrainstormServiceMixin:
         return aliases.get(raw, "exploration")
 
     def _normalize_brainstorm_output_type(self, value: Any) -> str:
-        raw = re.sub(r"[^a-z0-9]+", "_", str(value or "implementation_plan").strip().lower()).strip("_")
+        raw = re.sub(r"[^a-z0-9]+", "_", str(value or "implementation_plan").strip().lower()).strip(
+            "_"
+        )
         aliases = {
             "adr": "adr",
             "architecture_decision_record": "adr",
@@ -572,15 +620,25 @@ class OrchestrationBrainstormServiceMixin:
         return str((brainstorm.stop_conditions_json or {}).get("mode") or "exploration")
 
     def _brainstorm_output_type(self, brainstorm: Brainstorm) -> str:
-        return str((brainstorm.stop_conditions_json or {}).get("output_type") or "implementation_plan")
+        return str(
+            (brainstorm.stop_conditions_json or {}).get("output_type") or "implementation_plan"
+        )
 
     def _brainstorm_current_round(self, brainstorm: Brainstorm) -> int:
-        summaries = [int(item.get("round", 0)) for item in (brainstorm.decision_log_json or []) if item.get("type") == "round_summary"]
+        summaries = [
+            int(item.get("round", 0))
+            for item in (brainstorm.decision_log_json or [])
+            if item.get("type") == "round_summary"
+        ]
         return max(summaries, default=0)
 
     def _brainstorm_final_output(self, brainstorm: Brainstorm) -> str | None:
         final_entry = next(
-            (item for item in reversed(brainstorm.decision_log_json or []) if item.get("type") == "final_output"),
+            (
+                item
+                for item in reversed(brainstorm.decision_log_json or [])
+                if item.get("type") == "final_output"
+            ),
             None,
         )
         if final_entry and final_entry.get("content"):
@@ -628,7 +686,9 @@ class OrchestrationBrainstormServiceMixin:
 
     def _message_similarity(self, left: str, right: str) -> float:
         left_tokens = {token for token in re.findall(r"[a-z0-9_]+", left.lower()) if len(token) > 2}
-        right_tokens = {token for token in re.findall(r"[a-z0-9_]+", right.lower()) if len(token) > 2}
+        right_tokens = {
+            token for token in re.findall(r"[a-z0-9_]+", right.lower()) if len(token) > 2
+        }
         if not left_tokens or not right_tokens:
             return 0.0
         intersection = len(left_tokens.intersection(right_tokens))
@@ -661,9 +721,7 @@ class OrchestrationBrainstormServiceMixin:
                 pairwise.append(self._message_similarity(contents[i], contents[j]))
         min_s = min(pairwise)
         max_s = max(pairwise)
-        adj_scores = [
-            self._message_similarity(contents[i - 1], contents[i]) for i in range(1, n)
-        ]
+        adj_scores = [self._message_similarity(contents[i - 1], contents[i]) for i in range(1, n)]
         rep = max(adj_scores, default=0.0)
         normalized = {c.strip().lower()[:120] for c in contents if c.strip()}
         hard = len(normalized) == 1
@@ -682,7 +740,10 @@ class OrchestrationBrainstormServiceMixin:
 
     def _structured_output_response_format(self, agent: AgentProfile | None) -> str:
         policy = (agent.model_policy_json if agent else {}) or {}
-        if policy.get("structured_output") is True or policy.get("structured_output_enabled") is True:
+        if (
+            policy.get("structured_output") is True
+            or policy.get("structured_output_enabled") is True
+        ):
             return "json"
         schema = (agent.output_schema_json or {}) if agent else {}
         if str(schema.get("format") or "").strip().lower() == "json":
@@ -712,12 +773,19 @@ class OrchestrationBrainstormServiceMixin:
         round_number: int,
         round_messages: list[dict[str, Any]],
     ) -> str:
-        run.input_payload_json = {**(run.input_payload_json or {}), "fallback_model": provider.default_model if provider else None}
+        run.input_payload_json = {
+            **(run.input_payload_json or {}),
+            "fallback_model": provider.default_model if provider else None,
+        }
         _, result = await self._execute_with_routing(
             run,
             provider=provider,
             agent=moderator,
-            system_prompt=(moderator.system_prompt if moderator else "You summarize multi-agent discussion rounds."),
+            system_prompt=(
+                moderator.system_prompt
+                if moderator
+                else "You summarize multi-agent discussion rounds."
+            ),
             user_prompt=(
                 f"Summarize brainstorm mode '{mode}' after round {round_number}. "
                 "Be concise. Capture consensus, unresolved disagreements, and the best next move.\n\n"
@@ -755,14 +823,22 @@ class OrchestrationBrainstormServiceMixin:
                 provider = await self.db.get(ProviderConfig, moderator.provider_config_id)
             if provider is None:
                 project = await self.db.get(OrchestratorProject, brainstorm.project_id)
-                providers = await self.repo.list_providers(brainstorm.initiator_user_id, project.id if project else None)
-                provider = next((item for item in providers if item.is_default), None) or (providers[0] if providers else None)
+                providers = await self.repo.list_providers(
+                    brainstorm.initiator_user_id, project.id if project else None
+                )
+                provider = next((item for item in providers if item.is_default), None) or (
+                    providers[0] if providers else None
+                )
         output_type = self._brainstorm_output_type(brainstorm)
         _, result = await self._execute_with_routing(
             run,
             provider=provider,
             agent=moderator,
-            system_prompt=(moderator.system_prompt if moderator else "You are a structured discussion moderator."),
+            system_prompt=(
+                moderator.system_prompt
+                if moderator
+                else "You are a structured discussion moderator."
+            ),
             user_prompt=(
                 f"Finalize brainstorm '{brainstorm.topic}'. Reason: {reason}. "
                 f"Output target: {output_type}. {self._brainstorm_output_instruction(output_type)}\n\n"
@@ -825,7 +901,9 @@ class OrchestrationBrainstormServiceMixin:
                 run,
                 provider=provider,
                 agent=agent,
-                system_prompt=(agent.system_prompt if agent else "You are a brainstorming participant."),
+                system_prompt=(
+                    agent.system_prompt if agent else "You are a brainstorming participant."
+                ),
                 user_prompt=(
                     f"Brainstorm topic: {brainstorm.topic}\n"
                     f"Mode: {mode}\n"
@@ -885,7 +963,9 @@ class OrchestrationBrainstormServiceMixin:
                 soft_match and bool(stop_conditions.get("accept_soft_consensus", True))
             )
         if consensus_reached:
-            stop_conditions["consensus_status"] = "consensus" if hard_consensus else "soft_consensus"
+            stop_conditions["consensus_status"] = (
+                "consensus" if hard_consensus else "soft_consensus"
+            )
         elif bool(consensus_metrics.get("conflict_signal")):
             stop_conditions["consensus_status"] = "conflict"
         elif repetition_score >= float(stop_conditions.get("max_repetition_score", 0.92)):
@@ -919,9 +999,13 @@ class OrchestrationBrainstormServiceMixin:
         brainstorm.summary = round_summary
         brainstorm.updated_at = datetime.now(UTC)
         cost_usd = run.estimated_cost_micros / 1_000_000
-        total_cost_usd = sum(
-            item.estimated_cost_micros for item in await self.repo.list_brainstorm_runs(brainstorm.id)
-        ) / 1_000_000
+        total_cost_usd = (
+            sum(
+                item.estimated_cost_micros
+                for item in await self.repo.list_brainstorm_runs(brainstorm.id)
+            )
+            / 1_000_000
+        )
         force_finalize = False
         force_reason = ""
         if consensus_reached:
@@ -933,7 +1017,9 @@ class OrchestrationBrainstormServiceMixin:
         elif total_cost_usd >= float(stop_conditions.get("max_cost_usd", 10)):
             force_finalize = True
             force_reason = "max_cost"
-        elif bool(consensus_metrics.get("conflict_signal")) and stop_conditions.get("conflict_requires_moderation", True):
+        elif bool(consensus_metrics.get("conflict_signal")) and stop_conditions.get(
+            "conflict_requires_moderation", True
+        ):
             force_finalize = True
             force_reason = "conflict_requires_moderation"
         elif repetition_score >= float(stop_conditions.get("max_repetition_score", 0.92)):
@@ -959,7 +1045,11 @@ class OrchestrationBrainstormServiceMixin:
             run,
             event_type="brainstorm_round_summary",
             message=f"Round {target_round} summary generated.",
-            payload={"round": target_round, "repetition_score": repetition_score, "consensus_reached": consensus_reached},
+            payload={
+                "round": target_round,
+                "repetition_score": repetition_score,
+                "consensus_reached": consensus_reached,
+            },
         )
         if force_finalize:
             await self._finalize_brainstorm_output(
@@ -1015,7 +1105,9 @@ class OrchestrationBrainstormServiceMixin:
         if len(participants) < 2:
             raise RuntimeError("Debate mode requires at least two agents")
         provider = await self._resolve_provider_for_run(run, moderator or participants[0])
-        prompt = await self._build_task_prompt(run, moderator, prefix="Moderate a structured two-sided debate.")
+        prompt = await self._build_task_prompt(
+            run, moderator, prefix="Moderate a structured two-sided debate."
+        )
         statements: list[dict[str, Any]] = list(
             self._workflow_checkpoint_artifact(run, "debate.statements") or []
         )
@@ -1038,7 +1130,8 @@ class OrchestrationBrainstormServiceMixin:
                     run,
                     provider=provider,
                     agent=agent,
-                    system_prompt=agent.system_prompt or "You are a specialist debating a task approach.",
+                    system_prompt=agent.system_prompt
+                    or "You are a specialist debating a task approach.",
                     user_prompt=(
                         f"{prompt}\n\nDebate round {round_number}. You are side {side}. "
                         f"Respond to the prior position and defend your recommendation.\n\nPrior:\n{prior or 'No prior argument.'}"
@@ -1046,7 +1139,9 @@ class OrchestrationBrainstormServiceMixin:
                     purpose="debate argument",
                 )
                 prior = result.output_text
-                statements.append({"round": round_number, "agent_id": agent.id, "text": result.output_text})
+                statements.append(
+                    {"round": round_number, "agent_id": agent.id, "text": result.output_text}
+                )
                 self._set_workflow_checkpoint_artifact(
                     run, key="debate.statements", value=statements
                 )

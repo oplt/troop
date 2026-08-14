@@ -12,6 +12,11 @@ from fastapi import HTTPException
 from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
+from backend.modules.github.installation_token_cache import (
+    get_or_refresh_installation_token,
+    invalidate_installation_token_cache,
+    parse_installation_token_expiry,
+)
 from backend.modules.github.models import GithubConnection
 from backend.modules.orchestration.security import decrypt_secret
 
@@ -55,7 +60,7 @@ async def app_get_installation(
     return response.json()
 
 
-async def installation_token(connection: GithubConnection) -> str:
+async def _mint_installation_token(connection: GithubConnection) -> tuple[str, float]:
     installation_id = int((connection.metadata_json or {}).get("installation_id") or 0)
     if installation_id <= 0:
         raise HTTPException(
@@ -77,7 +82,15 @@ async def installation_token(connection: GithubConnection) -> str:
         )
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail="Failed to mint GitHub installation token")
-    return str(response.json()["token"])
+    payload = response.json()
+    return str(payload["token"]), parse_installation_token_expiry(payload)
+
+
+async def installation_token(connection: GithubConnection) -> str:
+    async def mint() -> tuple[str, float]:
+        return await _mint_installation_token(connection)
+
+    return await get_or_refresh_installation_token(connection, mint)
 
 
 async def auth_headers(connection: GithubConnection) -> dict[str, str]:
@@ -107,10 +120,21 @@ async def github_request(
         timeout_seconds=30.0,
         base_url=connection.api_url,
     ) as client:
-        return await client.request(
+        response = await client.request(
             method,
             path,
             headers=external_headers(headers),
             params=params,
             json=json_body,
         )
+        if response.status_code == 401 and connection_mode(connection) == "github_app":
+            invalidate_installation_token_cache(connection)
+            headers = await auth_headers(connection)
+            response = await client.request(
+                method,
+                path,
+                headers=external_headers(headers),
+                params=params,
+                json=json_body,
+            )
+        return response

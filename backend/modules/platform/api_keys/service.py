@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -40,6 +39,7 @@ class PlatformApiKeysMixin:
         await self.db.commit()
         await self.db.refresh(api_key)
         return api_key
+
     @staticmethod
     def _hash_secret(raw_value: str) -> str:
         return hashlib.sha256(raw_value.encode("utf-8")).hexdigest()

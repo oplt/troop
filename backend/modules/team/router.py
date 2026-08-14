@@ -32,10 +32,14 @@ async def list_project_agents(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [_project_agent(item) for item in await service.list_project_agents(current_user, project_id)]
+    return [
+        _project_agent(item) for item in await service.list_project_agents(current_user, project_id)
+    ]
 
 
-@router.post("/projects/{project_id}/agents", response_model=ProjectAgentMembershipResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/agents", response_model=ProjectAgentMembershipResponse, status_code=201
+)
 async def add_project_agent(
     project_id: str,
     payload: ProjectAgentMembershipCreate,
@@ -43,10 +47,14 @@ async def add_project_agent(
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return _project_agent(await service.add_project_agent(current_user, project_id, payload.model_dump()))
+    return _project_agent(
+        await service.add_project_agent(current_user, project_id, payload.model_dump())
+    )
 
 
-@router.patch("/projects/{project_id}/agents/{membership_id}", response_model=ProjectAgentMembershipResponse)
+@router.patch(
+    "/projects/{project_id}/agents/{membership_id}", response_model=ProjectAgentMembershipResponse
+)
 async def update_project_agent(
     project_id: str,
     membership_id: str,

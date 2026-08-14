@@ -135,6 +135,25 @@ export type AiEvaluationRunItem = {
     score: number;
     passed: boolean;
     notes: string | null;
+    metrics?: Record<string, unknown>;
+};
+
+export type AiEvaluationScorecard = {
+    candidate: Record<string, unknown>;
+    metrics: Record<string, unknown>;
+    baseline_metrics?: Record<string, unknown> | null;
+    regression: {
+        detected?: boolean;
+        threshold?: number;
+        baseline_pass_rate?: number | null;
+        candidate_pass_rate?: number;
+        delta_pass_rate?: number | null;
+        publish_recommendation?: "approve" | "review" | "block";
+    };
+    judge: {
+        version_id?: string | null;
+        mode?: string;
+    };
 };
 
 export type AiEvaluationRun = {
@@ -145,6 +164,11 @@ export type AiEvaluationRun = {
     total_cases: number;
     passed_cases: number;
     average_score: number;
+    baseline_run_id?: string | null;
+    candidate_config?: Record<string, unknown>;
+    metrics?: Record<string, unknown>;
+    scorecard?: AiEvaluationScorecard;
+    judge_version_id?: string | null;
     created_at: string;
     completed_at: string | null;
     items: AiEvaluationRunItem[];
@@ -371,12 +395,29 @@ export async function listAiEvaluationRuns(): Promise<AiEvaluationRun[]> {
     return apiFetch("/ai/evaluation-runs");
 }
 
+export async function getAiEvaluationRun(evaluationRunId: string): Promise<AiEvaluationRun> {
+    return apiFetch(`/ai/evaluation-runs/${encodeURIComponent(evaluationRunId)}`);
+}
+
+export async function getAiEvaluationScorecard(
+    evaluationRunId: string,
+): Promise<AiEvaluationRun["scorecard"]> {
+    return apiFetch(`/ai/evaluation-runs/${encodeURIComponent(evaluationRunId)}/scorecard`);
+}
+
 export async function runAiEvaluation(
     datasetId: string,
-    promptVersionId: string
+    payload: {
+        prompt_version_id: string;
+        baseline_run_id?: string | null;
+        workflow_version_id?: string | null;
+        model_name?: string | null;
+        qualitative_rubric?: Record<string, unknown> | null;
+        regression_threshold?: number;
+    },
 ): Promise<AiEvaluationRun> {
     return apiFetch(`/ai/evaluation-datasets/${datasetId}/run`, {
         method: "POST",
-        body: JSON.stringify({ prompt_version_id: promptVersionId }),
+        body: JSON.stringify(payload),
     });
 }

@@ -53,10 +53,14 @@ class RagConfig:
 
     def effective_score_threshold(self) -> float:
         provider = (
-            self.embedding_provider
-            or getattr(settings, "AI_EMBEDDING_PROVIDER", "local")
-            or "local"
-        ).strip().lower()
+            (
+                self.embedding_provider
+                or getattr(settings, "AI_EMBEDDING_PROVIDER", "local")
+                or "local"
+            )
+            .strip()
+            .lower()
+        )
         if provider == "local":
             return self.score_threshold_local
         return self.score_threshold

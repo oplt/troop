@@ -59,9 +59,7 @@ class PlatformRepository:
 
     async def list_api_keys_for_user(self, user_id: str) -> list[ApiKey]:
         result = await self.db.execute(
-            select(ApiKey)
-            .where(ApiKey.user_id == user_id)
-            .order_by(ApiKey.created_at.desc())
+            select(ApiKey).where(ApiKey.user_id == user_id).order_by(ApiKey.created_at.desc())
         )
         return list(result.scalars().all())
 

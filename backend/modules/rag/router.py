@@ -181,6 +181,8 @@ async def create_rag_document(
             level="warning",
         )
     return _document_response(document)
+
+
 async def bulk_ingest_documents(
     project_id: str,
     payload: RagBulkIngestRequest,

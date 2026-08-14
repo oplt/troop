@@ -6,13 +6,13 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from backend.modules.identity_access.models import User
 from backend.modules.orchestration.hierarchy_policy import (
     apply_policy_to_execution,
     normalize_hierarchy_policy,
     policy_from_execution,
     validate_hierarchy_policy,
 )
-from backend.modules.identity_access.models import User
 
 
 class ProjectHierarchyMixin:
@@ -71,7 +71,6 @@ class ProjectHierarchyMixin:
                 detail="Project must retain at least one reviewer role. Add another reviewer before changing or removing this one.",
             )
 
-
     async def get_hierarchy_policy(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         execution = self._normalize_project_settings(project.settings_json or {}).get(
@@ -83,7 +82,6 @@ class ProjectHierarchyMixin:
             **policy,
             "validation_errors": validate_hierarchy_policy(policy, member_ids, roles),
         }
-
 
     async def update_hierarchy_policy(
         self,
@@ -109,4 +107,3 @@ class ProjectHierarchyMixin:
         await self.db.commit()
         await self.db.refresh(project)
         return {**policy, "validation_errors": []}
-

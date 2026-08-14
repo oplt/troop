@@ -5,6 +5,15 @@ from pydantic import BaseModel
 from backend.core.schemas import RequestModel
 
 
+class NotificationListItem(BaseModel):
+    id: str
+    type: str
+    title: str
+    body_preview: str | None
+    is_read: bool
+    created_at: datetime
+
+
 class NotificationResponse(BaseModel):
     id: str
     type: str

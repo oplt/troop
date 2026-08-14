@@ -75,7 +75,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             payload = dict(exc.detail)
             payload.setdefault("correlation_id", correlation_id)
             payload.setdefault("request_id", request_id)
-            message = payload.get("detail") or payload.get("error", {}).get("message") or "HTTP error"
+            message = (
+                payload.get("detail") or payload.get("error", {}).get("message") or "HTTP error"
+            )
         else:
             message = exc.detail if isinstance(exc.detail, str) else "HTTP error"
             payload = error_payload(

@@ -10,6 +10,9 @@ from backend.modules.orchestration.services.base import (
     OrchestrationRunQueryMixin,
     OrchestrationServiceBase,
 )
+from backend.modules.orchestration.services.agent_pattern_service import (
+    OrchestrationAgentPatternServiceMixin,
+)
 from backend.modules.orchestration.services.evals_service import OrchestrationEvalsServiceMixin
 from backend.modules.orchestration.services.providers_service import (
     OrchestrationProvidersServiceMixin,
@@ -22,6 +25,7 @@ from backend.modules.team.service import TeamServiceMixin
 class EvalsService(
     OrchestrationRunQueryMixin,
     OrchestrationServiceBase,
+    OrchestrationAgentPatternServiceMixin,
     OrchestrationEvalsServiceMixin,
     OrchestrationExecutionServiceMixin,
     OrchestrationProvidersServiceMixin,

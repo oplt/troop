@@ -1,4 +1,6 @@
-export type NavGroupId = "work" | "agents" | "automate" | "insight" | "org" | "admin";
+export type NavGroupId = "work" | "build" | "observe" | "org" | "admin" | "advanced";
+
+export type NavPersona = "operator" | "builder" | "admin";
 
 export type NavGroupDef = {
     id: NavGroupId;
@@ -11,6 +13,7 @@ export type NavIconId =
     | "projects"
     | "myTasks"
     | "approvals"
+    | "activity"
     | "agents"
     | "skills"
     | "marketplace"
@@ -25,7 +28,10 @@ export type NavIconId =
     | "aiStudio"
     | "departments"
     | "companies"
+    | "people"
     | "modelSettings"
+    | "policies"
+    | "audit"
     | "settings";
 
 export type NavItemDef = {
@@ -34,6 +40,8 @@ export type NavItemDef = {
     path: string;
     group: NavGroupId;
     icon: NavIconId;
+    /** Personas that show this item in primary navigation (others land under Advanced). */
+    primaryPersonas: NavPersona[];
     adminOnly?: boolean;
     /** When true, only include if the AI module pack is enabled. */
     requiresAiModule?: boolean;
@@ -42,56 +50,207 @@ export type NavItemDef = {
 /** Top-level nav sections. Default open: Work only. */
 export const NAV_GROUPS: NavGroupDef[] = [
     { id: "work", title: "Work" },
-    { id: "agents", title: "Agents" },
-    { id: "automate", title: "Automate" },
-    { id: "insight", title: "Insight" },
-    { id: "org", title: "Org" },
+    { id: "build", title: "Build" },
+    { id: "observe", title: "Observe" },
+    { id: "org", title: "Organization" },
     { id: "admin", title: "Admin" },
+    { id: "advanced", title: "Advanced" },
 ];
+
+const ALL_PERSONAS: NavPersona[] = ["operator", "builder", "admin"];
 
 /**
  * Single IA source for drawer + command palette pages.
  * Canonical paths: /approvals, /portfolio, /hierarchy (legacy URLs redirect).
  */
 export const NAV_ITEM_DEFS: NavItemDef[] = [
-    { id: "dashboard", label: "Dashboard", path: "/dashboard", group: "work", icon: "dashboard" },
-    { id: "projects", label: "Projects", path: "/projects", group: "work", icon: "projects" },
-    { id: "my-tasks", label: "My tasks", path: "/my-tasks", group: "work", icon: "myTasks" },
-    { id: "approvals", label: "Approvals", path: "/approvals", group: "work", icon: "approvals" },
-    { id: "agents", label: "Agents", path: "/agents", group: "agents", icon: "agents" },
-    { id: "skills", label: "Skills", path: "/skills", group: "agents", icon: "skills" },
-    { id: "marketplace", label: "Marketplace", path: "/marketplace", group: "agents", icon: "marketplace" },
-    { id: "hierarchy", label: "Hierarchy", path: "/hierarchy", group: "agents", icon: "hierarchy" },
-    { id: "workflows", label: "Workflows", path: "/workforce-workflows", group: "automate", icon: "workflows" },
+    {
+        id: "dashboard",
+        label: "Dashboard",
+        path: "/dashboard",
+        group: "work",
+        icon: "dashboard",
+        primaryPersonas: ALL_PERSONAS,
+    },
+    {
+        id: "projects",
+        label: "Projects",
+        path: "/projects",
+        group: "work",
+        icon: "projects",
+        primaryPersonas: ["builder", "admin"],
+    },
+    {
+        id: "my-tasks",
+        label: "My tasks",
+        path: "/my-tasks",
+        group: "work",
+        icon: "myTasks",
+        primaryPersonas: ["operator"],
+    },
+    {
+        id: "approvals",
+        label: "Approvals",
+        path: "/approvals",
+        group: "work",
+        icon: "approvals",
+        primaryPersonas: ["operator", "admin"],
+    },
+    {
+        id: "activity",
+        label: "Activity",
+        path: "/activity",
+        group: "work",
+        icon: "activity",
+        primaryPersonas: ["operator", "admin"],
+    },
+    {
+        id: "agents",
+        label: "Agents",
+        path: "/agents",
+        group: "build",
+        icon: "agents",
+        primaryPersonas: ["builder"],
+    },
+    {
+        id: "skills",
+        label: "Skills",
+        path: "/skills",
+        group: "build",
+        icon: "skills",
+        primaryPersonas: ["builder"],
+    },
+    {
+        id: "marketplace",
+        label: "Marketplace",
+        path: "/marketplace",
+        group: "build",
+        icon: "marketplace",
+        primaryPersonas: [],
+    },
+    {
+        id: "hierarchy",
+        label: "Hierarchy",
+        path: "/hierarchy",
+        group: "build",
+        icon: "hierarchy",
+        primaryPersonas: [],
+    },
+    {
+        id: "workflows",
+        label: "Workflows",
+        path: "/workforce-workflows",
+        group: "build",
+        icon: "workflows",
+        primaryPersonas: ["operator", "builder"],
+    },
     {
         id: "workflow-templates",
-        label: "Workflow templates",
+        label: "Templates",
         path: "/workflow-templates",
-        group: "automate",
+        group: "build",
         icon: "workflowTemplates",
+        primaryPersonas: ["builder"],
     },
-    { id: "integrations", label: "Integrations", path: "/integrations", group: "automate", icon: "integrations" },
-    { id: "portfolio", label: "Portfolio", path: "/portfolio", group: "insight", icon: "portfolio" },
-    { id: "cost", label: "Cost & usage", path: "/analytics/cost", group: "insight", icon: "cost" },
+    {
+        id: "integrations",
+        label: "Integrations",
+        path: "/integrations",
+        group: "build",
+        icon: "integrations",
+        primaryPersonas: ["builder", "admin"],
+    },
+    {
+        id: "portfolio",
+        label: "Portfolio",
+        path: "/portfolio",
+        group: "observe",
+        icon: "portfolio",
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "cost",
+        label: "Usage",
+        path: "/analytics/cost",
+        group: "observe",
+        icon: "cost",
+        primaryPersonas: ["admin"],
+    },
     {
         id: "execution",
-        label: "Execution insights",
+        label: "Runs",
         path: "/analytics/execution",
-        group: "insight",
+        group: "observe",
         icon: "execution",
+        primaryPersonas: ["builder", "admin"],
     },
-    { id: "brainstorms", label: "Brainstorms", path: "/brainstorms", group: "insight", icon: "brainstorms" },
+    {
+        id: "brainstorms",
+        label: "Brainstorms",
+        path: "/brainstorms",
+        group: "observe",
+        icon: "brainstorms",
+        primaryPersonas: [],
+    },
     {
         id: "ai-studio",
         label: "AI Studio",
         path: "/ai",
-        group: "insight",
+        group: "observe",
         icon: "aiStudio",
         requiresAiModule: true,
+        primaryPersonas: [],
     },
-    { id: "departments", label: "Departments", path: "/departments", group: "org", icon: "departments" },
-    { id: "companies", label: "Companies", path: "/companies", group: "org", icon: "companies" },
-    { id: "model-settings", label: "Model settings", path: "/model-settings", group: "org", icon: "modelSettings" },
+    {
+        id: "departments",
+        label: "Departments",
+        path: "/departments",
+        group: "org",
+        icon: "departments",
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "companies",
+        label: "Companies",
+        path: "/companies",
+        group: "org",
+        icon: "companies",
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "people",
+        label: "People",
+        path: "/admin/settings?tab=users",
+        group: "org",
+        icon: "people",
+        adminOnly: true,
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "model-settings",
+        label: "Models",
+        path: "/model-settings",
+        group: "org",
+        icon: "modelSettings",
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "policies",
+        label: "Policies",
+        path: "/admin/settings?tab=providers",
+        group: "org",
+        icon: "policies",
+        adminOnly: true,
+        primaryPersonas: ["admin"],
+    },
+    {
+        id: "audit",
+        label: "Audit",
+        path: "/audit",
+        group: "admin",
+        icon: "audit",
+        primaryPersonas: ["admin"],
+    },
     {
         id: "settings",
         label: "Settings",
@@ -99,12 +258,13 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         group: "admin",
         icon: "settings",
         adminOnly: true,
+        primaryPersonas: ["admin"],
     },
 ];
 
 export const NAV_GROUPS_STORAGE_KEY = "troop.navGroupsExpanded";
 
-/** Fresh sessions: only Work expanded; Insight/Org stay collapsed until opened or active. */
+/** Fresh sessions: only Work expanded; Observe/Org stay collapsed until opened or active. */
 export const DEFAULT_EXPANDED_GROUPS: NavGroupId[] = ["work"];
 
 export function readExpandedNavGroups(): NavGroupId[] {
@@ -133,15 +293,20 @@ export function writeExpandedNavGroups(ids: NavGroupId[]) {
     }
 }
 
+export function navItemPathname(path: string): string {
+    return path.split("?")[0] ?? path;
+}
+
 export function pathMatchesNavItem(currentPath: string, itemPath: string) {
-    if (itemPath === "/dashboard") {
-        return currentPath === itemPath;
+    const pathname = navItemPathname(itemPath);
+    if (pathname === "/dashboard") {
+        return currentPath === pathname;
     }
-    return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
+    return currentPath === pathname || currentPath.startsWith(`${pathname}/`);
 }
 
 /** Product label for a path segment when it is not a UUID-like id. */
 export function navLabelForPath(path: string): string | undefined {
-    const exact = NAV_ITEM_DEFS.find((item) => item.path === path);
+    const exact = NAV_ITEM_DEFS.find((item) => navItemPathname(item.path) === navItemPathname(path));
     return exact?.label;
 }

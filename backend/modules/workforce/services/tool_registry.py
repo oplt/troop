@@ -6,10 +6,19 @@ from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.orchestration.external_effect_inventory import (
+    get_external_effect_contract,
+)
+from backend.modules.workforce.action_metadata import (
+    governance_for_action_key,
+    native_tool_governance_rows,
+)
 from backend.modules.workforce.constants import NATIVE_TOOL_CATALOG
 from backend.modules.workforce.models import ToolDefinition
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.services.action_policy import (
+    DECISION_APPROVAL,
+    DECISION_AUTONOMOUS,
     DECISION_PROHIBITED,
     ActionPolicyService,
 )
@@ -164,7 +173,9 @@ class ToolRegistryService:
         }
 
     def provider_for(self, tool_slug: str) -> ToolProvider:
-        if tool_slug.startswith(("gmail.", "telegram.")):
+        if tool_slug.startswith(
+            ("gmail.", "outlook.", "google_calendar.", "microsoft_calendar.", "telegram.", "slack.", "teams.")
+        ):
             return self.providers["connector"]
         if tool_slug.startswith("github_"):
             return self.providers["github"]
@@ -177,8 +188,10 @@ class ToolRegistryService:
     async def seed_tool_definitions(self) -> int:
         count = 0
         for tool_data in NATIVE_TOOL_CATALOG:
+            governance = governance_for_action_key(tool_data["slug"])
             existing = await self.repo.get_tool_definition(tool_data["slug"])
             if existing:
+                await self._apply_governance_to_tool(existing, governance)
                 continue
             await self.repo.create_tool_definition(
                 slug=tool_data["slug"],
@@ -188,12 +201,53 @@ class ToolRegistryService:
                 schema_json=tool_data.get("schema_json", {}),
                 risk_level=tool_data["risk_level"],
                 requires_approval=tool_data["requires_approval"],
+                side_effect=governance.side_effect.value,
+                reversibility=governance.reversibility.value,
+                data_sensitivity=governance.data_sensitivity.value,
+                parallel_safe=governance.parallel_safe,
+                idempotency_strategy=governance.idempotency_strategy.value,
+                commit_check_strategy=governance.commit_check_strategy.value,
                 is_active=True,
-                metadata_json={},
+                metadata_json={"governance": governance.to_dict()},
             )
             count += 1
         await self.db.commit()
         return count
+
+    async def sync_native_tool_governance(self) -> int:
+        """Backfill governance columns for all native catalog tools."""
+        updated = 0
+        for slug, governance in native_tool_governance_rows():
+            tool = await self.repo.get_tool_definition(slug)
+            if tool is None:
+                continue
+            if await self._apply_governance_to_tool(tool, governance):
+                updated += 1
+        await self.db.commit()
+        return updated
+
+    @staticmethod
+    async def _apply_governance_to_tool(tool, governance) -> bool:
+        changed = False
+        fields = {
+            "side_effect": governance.side_effect.value,
+            "reversibility": governance.reversibility.value,
+            "data_sensitivity": governance.data_sensitivity.value,
+            "parallel_safe": governance.parallel_safe,
+            "idempotency_strategy": governance.idempotency_strategy.value,
+            "commit_check_strategy": governance.commit_check_strategy.value,
+        }
+        for key, value in fields.items():
+            if getattr(tool, key) != value:
+                setattr(tool, key, value)
+                changed = True
+        meta = dict(tool.metadata_json or {})
+        gov = governance.to_dict()
+        if meta.get("governance") != gov:
+            meta["governance"] = gov
+            tool.metadata_json = meta
+            changed = True
+        return changed
 
     async def list_tools(self, is_active: bool | None = True) -> list[ToolDefinition]:
         return await self.repo.list_tool_definitions(is_active=is_active)
@@ -227,7 +281,7 @@ class ToolRegistryService:
         if self.db is not None and (
             context.get("agent_id") or context.get("project_id") or context.get("company_id")
         ):
-            from backend.modules.orchestration.tool_execution_context import is_low_risk_tool
+            from backend.modules.workforce.services.tool_governance import is_low_risk_tool
 
             try:
                 from backend.modules.workforce.services.effective_permissions import (
@@ -284,13 +338,32 @@ class ToolRegistryService:
         if resolution.get("decision") == DECISION_PROHIBITED:
             permitted = False
 
+        contract = get_external_effect_contract(tool_slug)
+        if (
+            contract
+            and contract.blocks_autonomous_use
+            and resolution.get("decision") == DECISION_AUTONOMOUS
+            and not context.get("approval_granted")
+        ):
+            resolution = {
+                **dict(resolution or {}),
+                "decision": DECISION_APPROVAL,
+                "matched_scope": "idempotency_contract",
+                "reason": "missing_durable_idempotency",
+                "idempotency_blocked_autonomous": True,
+                "action_key": contract.action_key,
+            }
+            context["_policy_resolution"] = resolution
+
         if tool_slug.startswith("mcp."):
             provider_name = "mcp"
         elif tool_slug.startswith("a2a."):
             provider_name = "a2a"
         elif tool_slug.startswith("github_"):
             provider_name = "github"
-        elif tool_slug.startswith(("gmail.", "telegram.")):
+        elif tool_slug.startswith(
+            ("gmail.", "outlook.", "google_calendar.", "microsoft_calendar.", "telegram.", "slack.", "teams.")
+        ):
             provider_name = "connector"
         else:
             provider_name = "native"

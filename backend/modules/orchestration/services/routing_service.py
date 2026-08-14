@@ -12,12 +12,12 @@ from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.config import settings
 from backend.core.logging import get_logger
+from backend.modules.observability.metrics import record_llm_attempt, record_llm_cost_micros
 from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.execution.policies import RetryPolicy
 from backend.modules.orchestration.hierarchy_policy import policy_from_execution
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.providers import _provider_metric_label, execute_prompt
-from backend.modules.observability.metrics import record_llm_attempt, record_llm_cost_micros
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
 
@@ -36,6 +36,8 @@ from backend.modules.orchestration.services.routing.llm_invoke import (
     llm_attempt_budget,
     summarize_provider_chain_for_error,
 )
+
+
 class OrchestrationRoutingServiceMixin:
     def _global_policy_routing(self) -> dict[str, Any]:
         return {
@@ -286,9 +288,7 @@ class OrchestrationRoutingServiceMixin:
 
         provider_chain = build_provider_failover_chain(
             target_provider,
-            await self.repo.list_providers(project.owner_id, project.id)
-            if project and run
-            else [],
+            await self.repo.list_providers(project.owner_id, project.id) if project and run else [],
             failover_enabled=bool(
                 settings.ORCHESTRATION_PROVIDER_FAILOVER and project and run and target_provider
             ),

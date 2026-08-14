@@ -187,3 +187,106 @@ def thread_fingerprint(thread: dict[str, Any]) -> str:
 def event_dedupe_key(provider: str, *parts: object) -> str:
     raw = "\x1f".join([provider, *(str(part) for part in parts)])
     return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def normalize_outlook_message(
+    message: dict[str, Any],
+    *,
+    connector_installation_id: str,
+) -> dict[str, Any]:
+    sender = dict((message.get("from") or {}).get("emailAddress") or {})
+    to_recipients = [
+        {
+            "name": str((item.get("emailAddress") or {}).get("name") or ""),
+            "email": str((item.get("emailAddress") or {}).get("address") or "").lower(),
+        }
+        for item in message.get("toRecipients") or []
+        if (item.get("emailAddress") or {}).get("address")
+    ]
+    cc_recipients = [
+        {
+            "name": str((item.get("emailAddress") or {}).get("name") or ""),
+            "email": str((item.get("emailAddress") or {}).get("address") or "").lower(),
+        }
+        for item in message.get("ccRecipients") or []
+        if (item.get("emailAddress") or {}).get("address")
+    ]
+    body = dict(message.get("body") or {})
+    html_body = ""
+    text_body = ""
+    if str(body.get("contentType") or "").lower() == "html":
+        html_body = sanitize_email_html(str(body.get("content") or ""))
+        text_body = html_to_text(html_body)
+    else:
+        text_body = str(body.get("content") or "")
+    received_at = message.get("receivedDateTime")
+    attachments = [
+        {
+            "filename": str(item.get("name") or ""),
+            "mime_type": str(item.get("contentType") or ""),
+            "size": int(item.get("size") or 0),
+            "attachment_id": str(item.get("id") or ""),
+        }
+        for item in message.get("attachments") or []
+    ]
+    return {
+        "provider": "outlook",
+        "connector_installation_id": connector_installation_id,
+        "message_id": str(message.get("id") or ""),
+        "thread_id": str(message.get("conversationId") or ""),
+        "from": {
+            "name": str(sender.get("name") or ""),
+            "email": str(sender.get("address") or "").lower(),
+        },
+        "to": to_recipients,
+        "cc": cc_recipients,
+        "subject": str(message.get("subject") or ""),
+        "text_body": text_body,
+        "html_body": html_body,
+        "received_at": str(received_at) if received_at else None,
+        "headers": {
+            key: message.get(key)
+            for key in ("internetMessageId", "inReplyTo")
+            if message.get(key)
+        },
+        "attachments": attachments,
+    }
+
+
+def canonical_outlook_email_action_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
+    canonical = canonical_email_action_arguments(
+        {
+            **arguments,
+            "provider": "outlook",
+            "gmail_draft_id": arguments.get("outlook_draft_id") or arguments.get("draft_id"),
+        }
+    )
+    return {
+        **canonical,
+        "provider": "outlook",
+        "outlook_draft_id": str(
+            arguments.get("outlook_draft_id") or arguments.get("draft_id") or ""
+        ),
+    }
+
+
+def outlook_email_action_arguments_hash(arguments: dict[str, Any]) -> str:
+    return arguments_hash(canonical_outlook_email_action_arguments(arguments))
+
+
+def outlook_thread_fingerprint(thread: dict[str, Any]) -> str:
+    messages = [
+        {
+            "id": str(item.get("id") or ""),
+            "last_modified": str(item.get("lastModifiedDateTime") or ""),
+            "received_at": str(item.get("receivedDateTime") or ""),
+        }
+        for item in thread.get("value") or []
+        if not item.get("isDraft")
+    ]
+    return arguments_hash(
+        {
+            "conversation_id": str(thread.get("conversation_id") or ""),
+            "messages": messages,
+        }
+    )

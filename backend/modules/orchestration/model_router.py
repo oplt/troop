@@ -65,9 +65,7 @@ def _cap_satisfies(
     structured = bool(meta.get("supports_structured_output", cap.supports_tools))
     if require_structured and not structured:
         return False
-    if require_tools and not cap.supports_tools:
-        return False
-    return True
+    return not (require_tools and not cap.supports_tools)
 
 
 def _rank_candidate(
@@ -179,7 +177,9 @@ async def resolve_route(
     # Soft path only when no hard requirements: prefer default provider model.
     for provider in active:
         if provider.is_default and provider.default_model:
-            return ModelRouteResult(provider, provider.default_model, fallback_reason="default_flag")
+            return ModelRouteResult(
+                provider, provider.default_model, fallback_reason="default_flag"
+            )
     fallback = active[0]
     return ModelRouteResult(
         fallback,

@@ -3,12 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
+from backend.modules.orchestration.schemas.common import RunMode
 
-from backend.modules.orchestration.schemas.common import *  # noqa: F403
 
 class TaskAssignmentRequest(RequestModel):
     """Explicit assignment contract used by board drag-and-drop actions."""
@@ -204,4 +203,3 @@ class RunEventResponse(BaseModel):
     output_tokens: int = 0
     cost_usd_micros: int = 0
     created_at: datetime
-

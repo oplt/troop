@@ -26,6 +26,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.workforce.action_metadata import governance_for_action_key
 from backend.modules.workforce.models import ActionPolicy
 from backend.modules.workforce.repository import WorkforceRepository
 
@@ -166,6 +167,15 @@ class ActionPolicyService:
         if tool is not None:
             resolved["tool_risk_level"] = tool.risk_level
             resolved["tool_requires_approval"] = tool.requires_approval
+            governance = governance_for_action_key(slug)
+            resolved["governance"] = {
+                **governance.to_dict(),
+                "risk_level": tool.risk_level,
+                "requires_approval": tool.requires_approval,
+            }
+        else:
+            governance = governance_for_action_key(action_key)
+            resolved["governance"] = governance.to_dict()
         return resolved
 
     async def may_execute(

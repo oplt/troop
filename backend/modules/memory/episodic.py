@@ -9,7 +9,9 @@ from typing import Any
 
 
 def build_episodic_archive_jsonl_gz(records: list[dict[str, Any]]) -> bytes:
-    lines = "\n".join(json.dumps(r, default=_json_default) for r in records) + ("\n" if records else "")
+    lines = "\n".join(json.dumps(r, default=_json_default) for r in records) + (
+        "\n" if records else ""
+    )
     return gzip.compress(lines.encode("utf-8"), compresslevel=6)
 
 

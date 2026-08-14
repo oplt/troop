@@ -5,15 +5,18 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from backend.modules.audit.repository import AuditRepository
+from backend.modules.orchestration.execution.hitl.exact_effect import (
+    build_proposed_effect,
+    create_replacement_approval,
+    read_proposed_effect,
+)
 from backend.modules.orchestration.models import ApprovalRequest
-from backend.modules.orchestration.tool_execution_context import arguments_hash
 from backend.modules.workforce.integrations.approval_delivery import ApprovalDeliveryService
 from backend.modules.workforce.integrations.email import email_action_arguments_hash
 from backend.modules.workforce.integrations.gmail import GmailAdapter
@@ -46,7 +49,12 @@ async def replace_email_approval_draft(
         raise ValueError("Only a pending approval can be edited")
 
     payload = dict(approval.payload_json or {})
-    draft_arguments = dict(payload.get("draft_arguments") or {})
+    bound = read_proposed_effect(approval)
+    draft_arguments = dict(
+        (bound.normalized_effect if bound else None)
+        or payload.get("draft_arguments")
+        or {}
+    )
     installation_id = str(draft_arguments.get("connector_installation_id") or "")
     draft_id = str(draft_arguments.get("gmail_draft_id") or "")
     if not installation_id or not draft_id:
@@ -83,37 +91,30 @@ async def replace_email_approval_draft(
     metadata.draft_version += 1
     metadata.status = "current"
 
-    now = datetime.now(UTC)
-    approval.status = "invalidated"
-    approval.reason = "Draft edited; replacement approval created"
-    approval.resolved_at = now
-    payload["invalidated_by_edit"] = True
-    approval.payload_json = payload
-    flag_modified(approval, "payload_json")
-
-    replacement_payload = {
-        **payload,
-        "arguments_hash": arguments_hash(draft_arguments),
-        "draft_arguments": draft_arguments,
-        "replaces_approval_request_id": approval.id,
-    }
-    replacement = ApprovalRequest(
-        id=str(uuid4()),
-        project_id=approval.project_id,
-        task_id=approval.task_id,
-        run_id=approval.run_id,
-        requested_by_user_id=owner_id,
-        approval_type=approval.approval_type,
-        status="pending",
-        reason="Approve the revised Gmail draft",
-        payload_json=replacement_payload,
+    prior_version = int(approval.effect_version or (bound.effect_version if bound else 1))
+    replacement_effect = build_proposed_effect(
+        action_key="gmail.send_draft",
+        raw_arguments=draft_arguments,
+        precondition_fingerprint=metadata.thread_fingerprint or None,
+        effect_version=prior_version + 1,
     )
-    db.add(replacement)
+    replacement = create_replacement_approval(
+        db,
+        approval=approval,
+        effect=replacement_effect,
+        owner_id=owner_id,
+        reason="Approve the revised Gmail draft",
+    )
+    replacement_payload = dict(replacement.payload_json or {})
+    replacement_payload["draft_arguments"] = draft_arguments
+    replacement.payload_json = replacement_payload
+    flag_modified(replacement, "payload_json")
     await db.flush()
 
     deliveries_result = await db.execute(
         select(ApprovalDelivery).where(ApprovalDelivery.approval_request_id == approval.id)
     )
+    now = datetime.now(UTC)
     telegram_installation_ids: set[str] = set()
     for delivery in deliveries_result.scalars().all():
         delivery.status = "invalidated"
@@ -146,6 +147,7 @@ async def replace_email_approval_draft(
             "replaces_approval_request_id": approval.id,
             "connector_installation_id": installation_id,
             "draft_version": metadata.draft_version,
+            "effect_version": replacement.effect_version,
         },
     )
     await db.commit()

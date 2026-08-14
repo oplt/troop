@@ -97,8 +97,35 @@ With `APP_ENV=production`, settings validation requires:
 - `COOKIE_SECURE=true`
 - HTTPS CORS / `FRONTEND_URL`
 - `ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE > 0`
+- `STORAGE_PUBLIC_READ=false` on the primary artifact bucket
+- `SECRETS_ENCRYPTION_KEY` set to a dedicated Fernet key (not JWT-derived)
+
+### Secrets encryption key rotation
+
+1. Generate a new Fernet key and set `SECRETS_ENCRYPTION_PREVIOUS_KEY` to the current `SECRETS_ENCRYPTION_KEY`.
+2. Set `SECRETS_ENCRYPTION_KEY` to the new key and restart API/workers.
+3. Run `python backend/tools/rotate_secrets_encryption.py` to re-encrypt stored connector/provider secrets.
+4. Verify connector health and provider calls.
+5. Remove `SECRETS_ENCRYPTION_PREVIOUS_KEY` after `undecryptable=0` for all targets.
+
+Legacy ciphertext encrypted with the JWT-derived fallback key continues to decrypt after a dedicated key is configured until rows are re-encrypted.
 
 Dev (`APP_ENV=dev`) skips the orchestration run rate limiter entirely.
+
+## Object storage
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `STORAGE_BUCKET` | empty | Primary **private** bucket for artifacts, episodic archives, documents |
+| `STORAGE_PUBLIC_READ` | `false` | **Must stay false in production** for the primary bucket |
+| `STORAGE_PUBLIC_ASSET_BUCKET` | empty | Optional separate bucket for public avatars/branding |
+| `STORAGE_PRESIGNED_URL_TTL_SECONDS` | 3600 | Authorized download URLs for private objects |
+
+Deployment checklist:
+
+1. Keep the primary artifact bucket private (no world-readable bucket policy).
+2. Use `STORAGE_PUBLIC_ASSET_BUCKET` only when avatars/branding must be permanently public.
+3. Serve private artifacts through authenticated API routes or short-lived presigned URLs.
 
 ## Local reference
 

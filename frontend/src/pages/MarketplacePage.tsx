@@ -17,23 +17,36 @@ import {
 } from "@mui/material";
 import {
     getMarketplaceCatalog,
+    importWorkspacePackage,
     installConnector,
     installMarketplaceAgentTemplate,
     installMarketplaceDepartment,
     installMarketplaceSkill,
     installMarketplaceWorkflow,
+    installWorkspacePackage,
     listConnectorDefinitions,
     listConnectorInstallations,
+    listWorkspacePackages,
     seedMarketplaceAgentTemplates,
     testConnectorInstallation,
+    type WorkspacePackageSummary,
 } from "../api/workforce";
+import { listConnectorManifests } from "../api/integrations";
 import { getDefaultCompany } from "../api/companies";
 import { useSnackbar } from "../app/snackbarContext";
+import { ConnectorSetupForm } from "../features/connectors/ConnectorSetupForm";
+import { resolveSetupManifest } from "../features/connectors/manifestUtils";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { CatalogCard } from "../components/ui/CatalogCard";
+import { GovernanceStepLegend } from "../features/templates/emailApproval/GovernanceStepLegend";
+import {
+    EMAIL_APPROVAL_FLAGSHIP_SLUG,
+    findFlagshipWorkflow,
+    type EmailApprovalTemplatePack,
+} from "../features/templates/emailApproval/types";
 
-type TabKey = "skills" | "workflows" | "departments" | "agents" | "connectors";
+type TabKey = "skills" | "workflows" | "departments" | "agents" | "connectors" | "workspace";
 
 export default function MarketplacePage() {
     const queryClient = useQueryClient();
@@ -41,8 +54,9 @@ export default function MarketplacePage() {
     const [tab, setTab] = useState<TabKey>("skills");
     const [connectorSlug, setConnectorSlug] = useState("mcp-http");
     const [connectorName, setConnectorName] = useState("My MCP server");
-    const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8080/mcp");
-    const [authToken, setAuthToken] = useState("");
+    const [connectorConfig, setConnectorConfig] = useState<Record<string, unknown>>({
+        base_url: "http://127.0.0.1:8080/mcp",
+    });
 
     const { data: company } = useQuery({
         queryKey: ["companies", "default"],
@@ -52,6 +66,12 @@ export default function MarketplacePage() {
     const { data: catalog, isLoading, error } = useQuery({
         queryKey: ["workforce", "marketplace"],
         queryFn: getMarketplaceCatalog,
+    });
+
+    const { data: workspacePackages = [], isLoading: workspaceLoading } = useQuery({
+        queryKey: ["workforce", "marketplace", "workspace-packages"],
+        queryFn: listWorkspacePackages,
+        enabled: tab === "workspace",
     });
 
     const { data: definitions = [] } = useQuery({
@@ -64,6 +84,35 @@ export default function MarketplacePage() {
         queryKey: ["workforce", "connectors", "installations"],
         queryFn: listConnectorInstallations,
         enabled: tab === "connectors",
+    });
+
+    const { data: manifests = [] } = useQuery({
+        queryKey: ["workforce", "connectors", "manifests"],
+        queryFn: listConnectorManifests,
+        enabled: tab === "connectors",
+    });
+
+    const selectedManifest = resolveSetupManifest(manifests, definitions, connectorSlug);
+
+    const importPackageMutation = useMutation({
+        mutationFn: ({ kind, slug }: { kind: TabKey; slug: string }) =>
+            importWorkspacePackage({ kind: kind === "agents" ? "agent_template" : kind.replace(/s$/, ""), marketplace_slug: slug }),
+        onSuccess: () => {
+            showToast({ message: "Imported to private workspace catalog.", severity: "success" });
+            queryClient.invalidateQueries({ queryKey: ["workforce", "marketplace", "workspace-packages"] });
+            setTab("workspace");
+        },
+        onError: (err: Error) => showToast({ message: err.message, severity: "error" }),
+    });
+
+    const installPackageMutation = useMutation({
+        mutationFn: ({ packageId, versionId, accept }: { packageId: string; versionId: string; accept: boolean }) =>
+            installWorkspacePackage(packageId, { version_id: versionId, accept_permission_changes: accept }),
+        onSuccess: (result) => {
+            showToast({ message: `Package ${result.status}`, severity: "success" });
+            queryClient.invalidateQueries({ queryKey: ["workforce", "marketplace", "workspace-packages"] });
+        },
+        onError: (err: Error) => showToast({ message: err.message, severity: "error" }),
     });
 
     const installMutation = useMutation({
@@ -107,10 +156,7 @@ export default function MarketplacePage() {
                 name: connectorName,
                 connector_slug: connectorSlug,
                 company_id: company?.id,
-                config_json: {
-                    base_url: baseUrl,
-                    ...(authToken ? { auth_token: authToken } : {}),
-                },
+                config_json: connectorConfig,
             }),
         onSuccess: () => {
             showToast({ message: "Connector installed", severity: "success" });
@@ -133,11 +179,18 @@ export default function MarketplacePage() {
     });
 
     const summary = useMemo(() => catalog?.summary, [catalog]);
+    const flagshipWorkflow = useMemo(
+        () => findFlagshipWorkflow(catalog?.workflows ?? []),
+        [catalog?.workflows],
+    );
+    const flagshipPack = flagshipWorkflow?.template_pack as EmailApprovalTemplatePack | undefined;
 
     const items = useMemo(() => {
         if (!catalog) return [];
         if (tab === "skills") return catalog.skills;
-        if (tab === "workflows") return catalog.workflows;
+        if (tab === "workflows") {
+            return catalog.workflows.filter((item) => item.slug !== EMAIL_APPROVAL_FLAGSHIP_SLUG);
+        }
         if (tab === "departments") return catalog.departments;
         if (tab === "agents") return catalog.agent_templates;
         return [];
@@ -156,6 +209,12 @@ export default function MarketplacePage() {
                 }
             />
             <Stack spacing={2}>
+                {catalog?.policy && !catalog.policy.public_marketplace_enabled ? (
+                    <Alert severity="info">
+                        Public marketplace publishing is deferred. Import templates into your private workspace catalog
+                        with signed versions and review permission changes before upgrading.
+                    </Alert>
+                ) : null}
                 {error ? <Alert severity="error">{(error as Error).message}</Alert> : null}
                 {summary ? (
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -176,6 +235,7 @@ export default function MarketplacePage() {
                     <Tab value="workflows" label="Workflows" />
                     <Tab value="departments" label="Departments" />
                     <Tab value="agents" label="Agent templates" />
+                    <Tab value="workspace" label="Workspace packages" />
                     <Tab value="connectors" label="Connectors" />
                 </Tabs>
 
@@ -191,7 +251,53 @@ export default function MarketplacePage() {
                     </Box>
                 ) : null}
 
-                {tab === "connectors" ? (
+                {tab === "workspace" ? (
+                    <Stack spacing={2}>
+                        {workspaceLoading ? <CircularProgress size={28} /> : null}
+                        {!workspaceLoading && workspacePackages.length === 0 ? (
+                            <Typography color="text.secondary">
+                                No private workspace packages yet. Use &quot;Save to workspace&quot; on a catalog item.
+                            </Typography>
+                        ) : null}
+                        {workspacePackages.map((pkg: WorkspacePackageSummary) => (
+                            <Paper key={pkg.id} variant="outlined" sx={{ p: 2 }}>
+                                <Stack spacing={1}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                                        <Box>
+                                            <Typography variant="subtitle2">{pkg.name}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {pkg.kind} · v{pkg.latest_version_label ?? "?"} · {pkg.source_marketplace_slug}
+                                            </Typography>
+                                        </Box>
+                                        <Stack direction="row" spacing={0.5}>
+                                            <Chip size="small" label="private" variant="outlined" />
+                                            {pkg.trust_level ? (
+                                                <Chip size="small" color="success" label={pkg.trust_level} variant="outlined" />
+                                            ) : null}
+                                        </Stack>
+                                    </Stack>
+                                    <Typography variant="body2" color="text.secondary">{pkg.description}</Typography>
+                                    {pkg.latest_version_id ? (
+                                        <Button
+                                            size="small"
+                                            variant="contained"
+                                            disabled={installPackageMutation.isPending}
+                                            onClick={() =>
+                                                installPackageMutation.mutate({
+                                                    packageId: pkg.id,
+                                                    versionId: pkg.latest_version_id!,
+                                                    accept: pkg.installed_version_id !== null,
+                                                })
+                                            }
+                                        >
+                                            {pkg.installed_version_id ? "Upgrade (accept permissions)" : "Install"}
+                                        </Button>
+                                    ) : null}
+                                </Stack>
+                            </Paper>
+                        ))}
+                    </Stack>
+                ) : tab === "connectors" ? (
                     <Stack spacing={2}>
                         <Paper variant="outlined" sx={{ p: 2 }}>
                             <Stack spacing={1.5}>
@@ -200,7 +306,10 @@ export default function MarketplacePage() {
                                     select
                                     label="Connector type"
                                     value={connectorSlug}
-                                    onChange={(e) => setConnectorSlug(e.target.value)}
+                                    onChange={(e) => {
+                                        setConnectorSlug(e.target.value);
+                                        setConnectorConfig({});
+                                    }}
                                     size="small"
                                 >
                                     {(definitions.length
@@ -221,23 +330,15 @@ export default function MarketplacePage() {
                                     value={connectorName}
                                     onChange={(e) => setConnectorName(e.target.value)}
                                 />
-                                <TextField
-                                    label="Base URL"
-                                    size="small"
-                                    value={baseUrl}
-                                    onChange={(e) => setBaseUrl(e.target.value)}
-                                />
-                                <TextField
-                                    label="Auth token (optional)"
-                                    size="small"
-                                    type="password"
-                                    value={authToken}
-                                    onChange={(e) => setAuthToken(e.target.value)}
+                                <ConnectorSetupForm
+                                    manifest={selectedManifest}
+                                    values={connectorConfig}
+                                    onChange={(key, value) => setConnectorConfig((current) => ({ ...current, [key]: value }))}
                                 />
                                 <Button
                                     variant="contained"
                                     onClick={() => connectorInstallMutation.mutate()}
-                                    disabled={connectorInstallMutation.isPending || !baseUrl}
+                                    disabled={connectorInstallMutation.isPending || (selectedManifest?.auth.type !== "oauth2" && !String(connectorConfig.base_url ?? connectorConfig.bot_token ?? "").trim())}
                                 >
                                     Install connector
                                 </Button>
@@ -271,14 +372,50 @@ export default function MarketplacePage() {
                 ) : isLoading ? (
                     <CircularProgress size={28} />
                 ) : (
-                    <Box
-                        sx={{
-                            display: "grid",
-                            gap: 2,
-                            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                        }}
-                    >
-                        {items.map((item) => {
+                    <Stack spacing={2}>
+                        {tab === "workflows" && flagshipPack ? (
+                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                                <Stack spacing={2}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
+                                        <Box>
+                                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                <Typography variant="h6">{flagshipPack.title}</Typography>
+                                                <Chip size="small" color="primary" label="Flagship" />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                                                Recommended first automation — governed Gmail replies with exact-effect approval.
+                                            </Typography>
+                                        </Box>
+                                        <Stack direction="row" spacing={1}>
+                                            <Button component={RouterLink} to="/templates/email-approval" variant="contained">
+                                                Guided install
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                disabled={installMutation.isPending}
+                                                onClick={() =>
+                                                    installMutation.mutate({
+                                                        kind: "workflows",
+                                                        slug: EMAIL_APPROVAL_FLAGSHIP_SLUG,
+                                                    })
+                                                }
+                                            >
+                                                Quick install
+                                            </Button>
+                                        </Stack>
+                                    </Stack>
+                                    <GovernanceStepLegend pack={flagshipPack} compact />
+                                </Stack>
+                            </Paper>
+                        ) : null}
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gap: 2,
+                                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                            }}
+                        >
+                            {items.map((item) => {
                             const slug = String(item.slug || "");
                             const name = String(item.name || slug);
                             const description = String(item.description || "");
@@ -295,10 +432,23 @@ export default function MarketplacePage() {
                                         disabled: installMutation.isPending,
                                         onClick: () => installMutation.mutate({ kind: tab, slug }),
                                     }}
+                                    secondaryAction={
+                                        tab !== "workspace" ? (
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                disabled={importPackageMutation.isPending}
+                                                onClick={() => importPackageMutation.mutate({ kind: tab, slug })}
+                                            >
+                                                Save to workspace
+                                            </Button>
+                                        ) : undefined
+                                    }
                                 />
                             );
                         })}
-                    </Box>
+                        </Box>
+                    </Stack>
                 )}
             </Stack>
         </PageShell>

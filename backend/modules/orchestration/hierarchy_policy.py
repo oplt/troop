@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-
 HIERARCHY_EDGE_TYPES = {
     "delegates_to",
     "reviews",
@@ -48,7 +47,10 @@ def normalize_hierarchy_policy(value: dict[str, Any] | None = None) -> dict[str,
         target = str(item.get("target_agent_id") or item.get("target") or "").strip()
         edge_data = item.get("data") if isinstance(item.get("data"), dict) else {}
         relationship = str(
-            item.get("relationship") or item.get("semantic") or edge_data.get("semantic") or "delegates_to"
+            item.get("relationship")
+            or item.get("semantic")
+            or edge_data.get("semantic")
+            or "delegates_to"
         ).strip()
         if source and target and relationship in HIERARCHY_EDGE_TYPES and source != target:
             edge = {
@@ -129,7 +131,9 @@ def policy_from_execution(execution: dict[str, Any] | None) -> dict[str, Any]:
     return policy
 
 
-def apply_policy_to_execution(execution: dict[str, Any], value: dict[str, Any] | None) -> dict[str, Any]:
+def apply_policy_to_execution(
+    execution: dict[str, Any], value: dict[str, Any] | None
+) -> dict[str, Any]:
     policy = normalize_hierarchy_policy(value)
     execution = dict(execution)
     execution["hierarchy_policy"] = policy
@@ -159,8 +163,10 @@ def validate_hierarchy_policy(
         errors.append("manager_agent_id must reference a manager or team lead")
 
     reviewer_ids = normalized["reviewer_agent_ids"]
-    if member_ids and roles and not any(
-        roles.get(member_id) == "reviewer" for member_id in member_ids
+    if (
+        member_ids
+        and roles
+        and not any(roles.get(member_id) == "reviewer" for member_id in member_ids)
     ):
         errors.append("Project must include at least one reviewer role")
     if member_ids and not reviewer_ids:
@@ -168,9 +174,13 @@ def validate_hierarchy_policy(
     missing_reviewers = [item for item in reviewer_ids if item not in member_ids]
     if missing_reviewers:
         errors.append(f"reviewer_agent_ids contain non-members: {', '.join(missing_reviewers)}")
-    invalid_reviewers = [item for item in reviewer_ids if roles.get(item) not in {"reviewer", "manager", "team_lead"}]
+    invalid_reviewers = [
+        item for item in reviewer_ids if roles.get(item) not in {"reviewer", "manager", "team_lead"}
+    ]
     if invalid_reviewers:
-        errors.append(f"reviewer chain contains non-reviewer agents: {', '.join(invalid_reviewers)}")
+        errors.append(
+            f"reviewer chain contains non-reviewer agents: {', '.join(invalid_reviewers)}"
+        )
 
     adjacency: dict[str, list[str]] = defaultdict(list)
     for edge in normalized["edges"]:
@@ -205,13 +215,17 @@ def validate_hierarchy_policy(
             errors.append(f"delegation rule source is not a project member: {source}")
         missing = [target for target in targets if target not in member_ids]
         if missing:
-            errors.append(f"delegation rule for {source} contains non-members: {', '.join(missing)}")
+            errors.append(
+                f"delegation rule for {source} contains non-members: {', '.join(missing)}"
+            )
     for source, targets in normalized["brainstorm_rules"].items():
         if source not in member_ids:
             errors.append(f"brainstorm rule source is not a project member: {source}")
         missing = [target for target in targets if target not in member_ids]
         if missing:
-            errors.append(f"brainstorm rule for {source} contains non-members: {', '.join(missing)}")
+            errors.append(
+                f"brainstorm rule for {source} contains non-members: {', '.join(missing)}"
+            )
 
     blocked_target = normalized["blocked_handoff"].get("target_agent_id")
     if blocked_target and blocked_target not in member_ids:

@@ -19,7 +19,12 @@ class AiPromptTemplate(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     active_version_id: Mapped[str | None] = mapped_column(
-        ForeignKey("ai_prompt_versions.id", ondelete="SET NULL", use_alter=True, name="fk_template_active_version"),
+        ForeignKey(
+            "ai_prompt_versions.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_template_active_version",
+        ),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -235,6 +240,16 @@ class AiEvaluationCase(Base):
     expected_output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     expected_output_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("task_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    source_trace_span_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    input_snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    expected_assertions_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    correction_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -257,6 +272,15 @@ class AiEvaluationRun(Base):
     total_cases: Mapped[int] = mapped_column(Integer, default=0)
     passed_cases: Mapped[int] = mapped_column(Integer, default=0)
     average_score: Mapped[float] = mapped_column(Float, default=0.0)
+    baseline_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ai_evaluation_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    candidate_config_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    scorecard_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    judge_version_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -282,3 +306,4 @@ class AiEvaluationRunItem(Base):
     score: Mapped[float] = mapped_column(Float, default=0.0)
     passed: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)

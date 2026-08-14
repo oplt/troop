@@ -55,3 +55,18 @@ export function humanizeKey(value: string) {
         .trim()
         .replace(/\b\w/g, (match) => match.toUpperCase());
 }
+
+export function formatDurationSeconds(totalSeconds: number) {
+    const seconds = Math.max(0, Math.round(totalSeconds));
+    if (seconds < 60) {
+        return `${seconds}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    if (minutes < 60) {
+        return remainder > 0 ? `${minutes}m ${remainder}s` : `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const minuteRemainder = minutes % 60;
+    return minuteRemainder > 0 ? `${hours}h ${minuteRemainder}m` : `${hours}h`;
+}

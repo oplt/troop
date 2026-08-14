@@ -3,12 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
 from backend.modules.orchestration.schemas.common import *  # noqa: F403
+
 
 class ApprovalDecision(RequestModel):
     status: Literal["approved", "rejected"]
@@ -29,6 +28,19 @@ class ApprovalResponse(BaseModel):
     status: str
     reason: str | None
     payload: dict[str, Any]
+    effect_hash: str | None = None
+    effect_version: int = 1
+    precondition_fingerprint: str | None = None
+    expires_at: datetime | None = None
+    proposed_effect: dict[str, Any] | None = None
+    workspace_id: str | None = None
+    eligible_approvers: list[dict[str, Any]] = Field(default_factory=list)
+    routing_snapshot: dict[str, Any] = Field(default_factory=dict)
+    decided_eligibility_reason: str | None = None
+    due_at: datetime | None = None
+    sla_policy: dict[str, Any] = Field(default_factory=dict)
+    delegations: list[dict[str, Any]] = Field(default_factory=list)
+    escalation_state: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     resolved_at: datetime | None
 
@@ -41,5 +53,3 @@ class HITLAuditLogResponse(BaseModel):
     resource_id: str | None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
-
-

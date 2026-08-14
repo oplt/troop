@@ -29,11 +29,15 @@ class RetrievalEvalResult:
         return self.recall >= self.min_recall and not self.unexpected_chunk_ids
 
 
-def evaluate_retrieval_case(case: RetrievalEvalCase, matches: list[RagChunkMatch]) -> RetrievalEvalResult:
+def evaluate_retrieval_case(
+    case: RetrievalEvalCase, matches: list[RagChunkMatch]
+) -> RetrievalEvalResult:
     returned = tuple(match.chunk_id for match in matches)
     returned_set = set(returned)
     expected_set = set(case.expected_chunk_ids)
-    missing = tuple(chunk_id for chunk_id in case.expected_chunk_ids if chunk_id not in returned_set)
+    missing = tuple(
+        chunk_id for chunk_id in case.expected_chunk_ids if chunk_id not in returned_set
+    )
     unexpected = tuple(chunk_id for chunk_id in case.negative_chunk_ids if chunk_id in returned_set)
     recall = len(expected_set & returned_set) / max(len(expected_set), 1)
     return RetrievalEvalResult(
@@ -53,5 +57,7 @@ def answer_is_grounded(answer: RagAnswer) -> bool:
     cited_ids = {citation.chunk_id for citation in answer.citations}
     if not cited_ids:
         return False
-    citation_markers = set(re.findall(r"\[(?:source|citation):([^\]]+)\]", answer.answer, flags=re.IGNORECASE))
+    citation_markers = set(
+        re.findall(r"\[(?:source|citation):([^\]]+)\]", answer.answer, flags=re.IGNORECASE)
+    )
     return not citation_markers or citation_markers.issubset(cited_ids)

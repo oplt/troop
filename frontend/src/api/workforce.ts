@@ -299,6 +299,120 @@ export type WorkflowDefinition = {
     stages?: Array<Record<string, unknown>>;
     required_skills?: string[];
     created_at?: string;
+    owner_id?: string;
+    current_version_id?: string | null;
+    draft_version_id?: string | null;
+    published_version_id?: string | null;
+};
+
+export type WorkflowDraftGraph = {
+    nodes: Array<Record<string, unknown>>;
+    edges: Array<Record<string, unknown>>;
+    entry_node_id: string | null;
+};
+
+export type WorkflowDetail = WorkflowDefinition & {
+    draft: WorkflowDraftGraph | null;
+};
+
+export type WorkflowValidationResponse = {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    infos: string[];
+    external_write_nodes: Array<{ node_id: string; tool_slug: string; type?: string }>;
+};
+
+export type WorkflowDiffResponse = {
+    nodes_added: string[];
+    nodes_removed: string[];
+    nodes_changed: Array<{ id: string; changed_fields: string[] }>;
+    edges_added: Array<Record<string, unknown>>;
+    edges_removed: Array<Record<string, unknown>>;
+    entry_node_changed: boolean;
+    entry_node_before: string | null;
+    entry_node_after: string | null;
+    graph_hash_before: string | null;
+    graph_hash_after: string | null;
+    graph_changed: boolean;
+    summary: Record<string, number>;
+};
+
+export type WorkflowVersionSummary = {
+    id: string;
+    version_number: number;
+    graph_hash: string | null;
+    entry_node_id: string | null;
+    created_at: string | null;
+};
+
+export type WorkflowRunResponse = {
+    id: string;
+    workflow_id: string;
+    workflow_version_id: string;
+    status: string;
+    current_node_id: string | null;
+    context_json: Record<string, unknown>;
+    result_json: Record<string, unknown>;
+};
+
+export type WorkflowScaffoldGap = {
+    kind: "missing_connection" | "missing_scope" | "missing_approval_step" | "unavailable_operation" | "missing_agent";
+    node_id: string | null;
+    provider_slug: string | null;
+    operation_slug: string | null;
+    message: string;
+    remediation: string | null;
+};
+
+export type WorkflowGenerateResponse = {
+    workflow_id: string;
+    name: string;
+    slug: string;
+    summary: string;
+    draft: WorkflowDraftGraph;
+    validation: WorkflowValidationResponse;
+    gaps: WorkflowScaffoldGap[];
+    provenance: {
+        source: string;
+        prompt: string;
+        model: string | null;
+        generated_at: string;
+        catalog_snapshot_hash: string;
+        generation_mode: string;
+    };
+    published: boolean;
+};
+
+export type WorkflowEnvironmentSummary = {
+    environment: string;
+    deployed: boolean;
+    deployment_id: string | null;
+    workflow_version_id: string | null;
+    version_number: number | null;
+    graph_hash: string | null;
+    deployed_at: string | null;
+    connection_bindings: Record<string, Record<string, string>>;
+};
+
+export type WorkflowEnvironmentHistoryEvent = {
+    id: string;
+    action: string;
+    workflow_version_id: string;
+    connection_bindings: Record<string, Record<string, string>>;
+    previous_version_id: string | null;
+    actor_user_id: string | null;
+    created_at: string;
+};
+
+export type WorkflowEnvironmentDiffResponse = WorkflowDiffResponse & {
+    environment: string;
+    current_version_id: string | null;
+    candidate_version_id: string;
+    bindings_added: string[];
+    bindings_removed: string[];
+    bindings_changed: Array<{ node_id: string; before: unknown; after: unknown }>;
+    bindings_changed_count: number;
 };
 
 // ─── Department API ──────────────────────────────────────────
@@ -816,8 +930,68 @@ export async function listWorkforceWorkflows(): Promise<WorkflowDefinition[]> {
     return apiFetch("/workforce/workflows");
 }
 
+export async function getWorkforceWorkflow(workflowId: string): Promise<WorkflowDetail> {
+    return apiFetch(`/workforce/workflows/${workflowId}`);
+}
+
+export async function updateWorkforceWorkflowDraft(
+    workflowId: string,
+    payload: Record<string, unknown>,
+): Promise<WorkflowDefinition> {
+    return apiFetch(`/workforce/workflows/${workflowId}/draft`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function validateWorkforceWorkflow(workflowId: string): Promise<WorkflowValidationResponse> {
+    return apiFetch(`/workforce/workflows/${workflowId}/validate`);
+}
+
+export async function diffWorkforceWorkflow(workflowId: string): Promise<WorkflowDiffResponse> {
+    return apiFetch(`/workforce/workflows/${workflowId}/diff`);
+}
+
+export async function listWorkforceWorkflowVersions(workflowId: string): Promise<WorkflowVersionSummary[]> {
+    return apiFetch(`/workforce/workflows/${workflowId}/versions`);
+}
+
+export async function rollbackWorkforceWorkflow(
+    workflowId: string,
+    versionId: string,
+): Promise<WorkflowDefinition> {
+    return apiFetch(`/workforce/workflows/${workflowId}/rollback`, {
+        method: "POST",
+        body: JSON.stringify({ version_id: versionId }),
+    });
+}
+
+export async function startWorkforceWorkflowTestRun(
+    workflowId: string,
+    payload: Record<string, unknown> = {},
+): Promise<WorkflowRunResponse> {
+    return apiFetch(`/workforce/workflows/${workflowId}/test-runs`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
 export async function createWorkforceWorkflow(payload: Record<string, unknown>): Promise<WorkflowDefinition> {
     return apiFetch("/workforce/workflows", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function generateWorkforceWorkflowDraft(payload: {
+    prompt: string;
+    workflow_id?: string | null;
+    name?: string;
+    slug?: string;
+    company_id?: string | null;
+    deterministic?: boolean;
+}): Promise<WorkflowGenerateResponse> {
+    return apiFetch("/workforce/workflows/generate", {
         method: "POST",
         body: JSON.stringify(payload),
     });
@@ -831,6 +1005,50 @@ export async function publishWorkforceWorkflow(
         method: "POST",
         body: JSON.stringify(payload),
     });
+}
+
+export async function listWorkforceWorkflowEnvironments(
+    workflowId: string,
+): Promise<WorkflowEnvironmentSummary[]> {
+    return apiFetch(`/workforce/workflows/${workflowId}/environments`);
+}
+
+export async function promoteWorkforceWorkflowEnvironment(
+    workflowId: string,
+    environment: string,
+    payload: { version_id: string; connection_bindings?: Record<string, Record<string, string>> },
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/workforce/workflows/${workflowId}/environments/${environment}/promote`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function rollbackWorkforceWorkflowEnvironment(
+    workflowId: string,
+    environment: string,
+): Promise<Record<string, unknown>> {
+    return apiFetch(`/workforce/workflows/${workflowId}/environments/${environment}/rollback`, {
+        method: "POST",
+    });
+}
+
+export async function diffWorkforceWorkflowEnvironment(
+    workflowId: string,
+    environment: string,
+    payload: { version_id: string; connection_bindings?: Record<string, Record<string, string>> },
+): Promise<WorkflowEnvironmentDiffResponse> {
+    return apiFetch(`/workforce/workflows/${workflowId}/environments/${environment}/diff`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function listWorkforceWorkflowEnvironmentHistory(
+    workflowId: string,
+    environment: string,
+): Promise<WorkflowEnvironmentHistoryEvent[]> {
+    return apiFetch(`/workforce/workflows/${workflowId}/environments/${environment}/history`);
 }
 
 export async function startWorkforceWorkflowRun(
@@ -872,6 +1090,36 @@ export type MarketplaceCatalog = {
         departments: number;
         agent_templates: number;
     };
+    policy?: MarketplacePolicy;
+};
+
+export type MarketplacePolicy = {
+    public_marketplace_enabled: boolean;
+    private_workspace_packages_enabled: boolean;
+    requires_signed_versions: boolean;
+    requires_permission_diff_on_upgrade: boolean;
+    deferred: string[];
+};
+
+export type WorkspacePackageSummary = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    kind: string;
+    visibility: string;
+    source_marketplace_slug: string | null;
+    installed_version_id: string | null;
+    latest_version_id: string | null;
+    latest_version_label: string | null;
+    trust_level: string | null;
+};
+
+export type PermissionDiff = {
+    added: Record<string, string[]>;
+    removed: Record<string, string[]>;
+    has_escalation: boolean;
+    requires_explicit_acceptance: boolean;
 };
 
 export type MarketplaceInstallResult = {
@@ -909,6 +1157,41 @@ export async function getMarketplaceCatalog(): Promise<MarketplaceCatalog> {
     return apiFetch("/workforce/marketplace");
 }
 
+export async function listWorkspacePackages(): Promise<WorkspacePackageSummary[]> {
+    return apiFetch("/workforce/marketplace/workspace-packages");
+}
+
+export async function importWorkspacePackage(payload: {
+    kind: string;
+    marketplace_slug: string;
+    changelog?: string;
+}): Promise<{ package: WorkspacePackageSummary; version: Record<string, unknown> }> {
+    return apiFetch("/workforce/marketplace/workspace-packages/import", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function installWorkspacePackage(
+    packageId: string,
+    payload: { version_id: string; accept_permission_changes?: boolean },
+): Promise<{ status: string; permission_diff: PermissionDiff }> {
+    return apiFetch(`/workforce/marketplace/workspace-packages/${packageId}/install`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function getWorkspacePackagePermissionDiff(
+    packageId: string,
+    toVersionId: string,
+    fromVersionId?: string,
+): Promise<{ diff: PermissionDiff }> {
+    const params = new URLSearchParams({ to_version_id: toVersionId });
+    if (fromVersionId) params.set("from_version_id", fromVersionId);
+    return apiFetch(`/workforce/marketplace/workspace-packages/${packageId}/permission-diff?${params.toString()}`);
+}
+
 export async function installMarketplaceSkill(payload: {
     slug: string;
     company_id?: string | null;
@@ -924,8 +1207,38 @@ export async function installMarketplaceWorkflow(payload: {
     slug: string;
     company_id?: string | null;
     publish?: boolean;
+    connector_installation_ids?: Record<string, string>;
+    agent_id?: string | null;
+    project_id?: string | null;
+    task_id?: string | null;
 }): Promise<MarketplaceInstallResult> {
     return apiFetch("/workforce/marketplace/workflows/install", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function bootstrapEmailApprovalTemplate(payload: {
+    company_id?: string | null;
+    gmail_installation_id: string;
+    telegram_installation_id?: string | null;
+    approval_channel?: "in_app" | "telegram";
+    publish?: boolean;
+    project_id?: string | null;
+    task_id?: string | null;
+    agent_id?: string | null;
+}): Promise<
+    MarketplaceInstallResult & {
+        project_id: string;
+        task_id: string;
+        agent_id: string;
+        approval_channel: string;
+        published: boolean;
+        configuration_required: string[];
+        template_pack?: Record<string, unknown>;
+    }
+> {
+    return apiFetch("/workforce/marketplace/workflows/email-approval/bootstrap", {
         method: "POST",
         body: JSON.stringify(payload),
     });

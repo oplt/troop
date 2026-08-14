@@ -5,6 +5,7 @@ import hashlib
 import json
 import random
 import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, Protocol, TypeVar
@@ -96,9 +97,21 @@ class AsyncSingleFlight:
     """Process-local coalescing for expensive, safe-to-share cache fills."""
 
     def __init__(self, *, max_keys: int = 1024):
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
         self._guard = asyncio.Lock()
-        self._max_keys = max_keys
+        self._max_keys = max(1, int(max_keys))
+
+    def _evict_unlocked(self) -> None:
+        """Drop oldest idle locks until the map is within bounds."""
+        while len(self._locks) > self._max_keys:
+            victim: str | None = None
+            for name, lock in self._locks.items():
+                if not lock.locked():
+                    victim = name
+                    break
+            if victim is None:
+                return
+            del self._locks[victim]
 
     async def run(self, key: str, loader: Callable[[], Awaitable[T]]) -> T:
         async with self._guard:
@@ -106,10 +119,14 @@ class AsyncSingleFlight:
             if lock is None:
                 lock = asyncio.Lock()
                 self._locks[key] = lock
-            elif len(self._locks) > self._max_keys:
-                self._locks = {name: item for name, item in self._locks.items() if item.locked()}
+            self._locks.move_to_end(key)
+            self._evict_unlocked()
         async with lock:
-            return await loader()
+            try:
+                return await loader()
+            finally:
+                async with self._guard:
+                    self._evict_unlocked()
 
 
 singleflight = AsyncSingleFlight()
@@ -164,8 +181,10 @@ def rag_retrieval_cache_key(
     source_kind: str | None,
     include_decisions: bool,
     limit: int,
+    actor_email: str | None = None,
 ) -> str:
     q_hash = hashlib.sha256(query.strip().encode("utf-8")).hexdigest()[:32]
+    email_key = hashlib.sha256((actor_email or "-").lower().encode("utf-8")).hexdigest()[:16]
     return ":".join(
         [
             "cache:rag:retrieve",
@@ -175,6 +194,7 @@ def rag_retrieval_cache_key(
             source_kind or "-",
             "1" if include_decisions else "0",
             str(limit),
+            email_key,
         ]
     )
 
@@ -481,9 +501,7 @@ async def invalidate_project_memory_settings_cache(project_id: str) -> None:
     await cache_delete(memory_settings_cache_key(project_id))
 
 
-async def get_cached_memory_context(
-    project_id: str, fingerprint: str
-) -> dict[str, str] | None:
+async def get_cached_memory_context(project_id: str, fingerprint: str) -> dict[str, str] | None:
     if not cache_enabled():
         return None
     key = memory_context_cache_key(project_id, fingerprint)
@@ -516,9 +534,7 @@ async def set_cached_memory_context(
         logger.warning("memory context cache write failed error=%s", exc)
 
 
-async def get_or_set_portfolio_summary(
-    owner_id: str, loader: Callable[[], Awaitable[Any]]
-) -> Any:
+async def get_or_set_portfolio_summary(owner_id: str, loader: Callable[[], Awaitable[Any]]) -> Any:
     return await cache_get_or_set_json(
         portfolio_summary_cache_key(owner_id),
         loader,

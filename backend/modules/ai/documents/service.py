@@ -45,8 +45,7 @@ class AiDocumentsMixin(AiDocumentIngestionMixin):
             raise HTTPException(
                 status_code=413,
                 detail=(
-                    f"Document exceeds the maximum size of"
-                    f" {settings.AI_DOCUMENT_MAX_BYTES} bytes"
+                    f"Document exceeds the maximum size of {settings.AI_DOCUMENT_MAX_BYTES} bytes"
                 ),
             )
         try:

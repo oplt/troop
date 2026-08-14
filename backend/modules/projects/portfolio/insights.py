@@ -83,7 +83,8 @@ class PortfolioInsightsMixin:
                 )
             if run.task_id:
                 task_row = by_task.setdefault(
-                    run.task_id, new_insights_rollup(run.task_id, task_names.get(run.task_id, "Task"))
+                    run.task_id,
+                    new_insights_rollup(run.task_id, task_names.get(run.task_id, "Task")),
                 )
                 add_run_to_rollup(
                     task_row,
@@ -110,9 +111,11 @@ class PortfolioInsightsMixin:
 
         sync_events = await self.repo.list_sync_events_for_owner_since(user.id, since)
         brainstorms = await self.repo.list_brainstorms(user.id)
-        discussion_rounds, discussion_loop_score, discussion_loop_detected = summarize_discussion_signals(
-            brainstorms,
-            since,
+        discussion_rounds, discussion_loop_score, discussion_loop_detected = (
+            summarize_discussion_signals(
+                brainstorms,
+                since,
+            )
         )
         evaluation_records = await self.repo.count_eval_records_for_owner_since(user.id, since)
         return build_execution_insights_payload(

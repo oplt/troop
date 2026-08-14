@@ -14,8 +14,12 @@ class AuditRepository:
     @staticmethod
     def _merge_request_context(metadata: dict | None) -> dict:
         merged = dict(metadata or {})
-        for key, value in get_request_context().as_log_fields().items():
+        ctx = get_request_context()
+        for key, value in ctx.as_log_fields().items():
             merged.setdefault(key, value)
+        workspace_id = getattr(ctx, "workspace_id", None)
+        if workspace_id:
+            merged.setdefault("workspace_id", workspace_id)
         return merged
 
     async def log(
@@ -28,7 +32,10 @@ class AuditRepository:
         ip_address: str | None = None,
         user_agent: str | None = None,
         metadata: dict | None = None,
+        workspace_id: str | None = None,
     ) -> AuditLog:
+        merged = self._merge_request_context(metadata)
+        resolved_workspace = workspace_id or merged.pop("workspace_id", None)
         entry = AuditLog(
             action=action,
             user_id=user_id,
@@ -36,7 +43,8 @@ class AuditRepository:
             resource_id=resource_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            metadata_json=json.dumps(self._merge_request_context(metadata)),
+            workspace_id=str(resolved_workspace) if resolved_workspace else None,
+            metadata_json=json.dumps(merged),
         )
         self.db.add(entry)
         await self.db.flush()

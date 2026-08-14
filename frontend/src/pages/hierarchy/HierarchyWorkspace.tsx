@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -117,6 +116,7 @@ import {
     buildAgentTemplatePayloadFromForm,
 } from "../../features/agentTemplates/formState";
 import { useHierarchyLiveState } from "../../features/hierarchy/live/useHierarchyLiveState";
+import { resolveHierarchyActiveTab, resolveHierarchyBuilderTab } from "../../features/hierarchy/routing";
 import { buildHierarchyValidationIssues } from "../../features/hierarchy/validation";
 import { formatDateTime } from "../../utils/formatters";
 
@@ -198,9 +198,7 @@ export default function AgentLibraryPage() {
     const navigate = useNavigate();
     const theme = useTheme();
     const canvas = getCanvasTheme(theme);
-    const routeTab: BuilderTab = location.pathname === "/agent-hierarchy" || location.pathname === "/hierarchy-builder" || location.pathname === "/hierarchy"
-        ? "hierarchy"
-        : "library";
+    const routeTab: BuilderTab = resolveHierarchyBuilderTab(location.pathname);
     const isCompact = useMediaQuery("(max-width:1199px)");
     const isWideHierarchyLayout = useMediaQuery("(min-width:1200px)");
     const queryClient = useQueryClient();
@@ -382,7 +380,7 @@ export default function AgentLibraryPage() {
         persistSelectedHierarchyProjectId(selectedHierarchyProjectId);
     }, [selectedHierarchyProjectId]);
 
-    const activeTab = manualTab ?? routeTab;
+    const activeTab = resolveHierarchyActiveTab(routeTab, manualTab);
     const agentRoleGuidance = AGENT_ROLE_GUIDANCE[form.role as keyof typeof AGENT_ROLE_GUIDANCE] ?? AGENT_ROLE_GUIDANCE.specialist;
     const selectedTeamAgentTemplates = useMemo(
         () => teamTemplateForm.agent_template_slugs

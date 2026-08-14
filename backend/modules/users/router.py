@@ -91,8 +91,7 @@ async def list_sessions(
     service = UsersService(db)
     sessions = await service.list_sessions(current_user)
     return [
-        SessionResponse(id=s.id, created_at=s.created_at, expires_at=s.expires_at)
-        for s in sessions
+        SessionResponse(id=s.id, created_at=s.created_at, expires_at=s.expires_at) for s in sessions
     ]
 
 

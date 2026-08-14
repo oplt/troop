@@ -89,9 +89,9 @@ def merge_working_memory_patch(
         if key not in ALLOWED_PATCH_KEYS:
             continue
         if key == "artifact_refs":
-            merged[key] = normalize_working_memory(
-                {**merged, "artifact_refs": value}
-            )["artifact_refs"]
+            merged[key] = normalize_working_memory({**merged, "artifact_refs": value})[
+                "artifact_refs"
+            ]
         elif isinstance(value, str):
             merged[key] = _clip(value, FIELD_LIMITS[key])
         elif value is None:

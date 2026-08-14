@@ -37,9 +37,7 @@ class AiRunsMixin:
                 status_code=422,
                 detail="prompt_template_key or prompt_version_id is required",
             )
-        template = await self.repo.get_prompt_template_by_key_for_user(
-            user.id, prompt_template_key
-        )
+        template = await self.repo.get_prompt_template_by_key_for_user(user.id, prompt_template_key)
         if not template:
             raise HTTPException(status_code=404, detail="Prompt template not found")
         versions = await self.repo.list_prompt_versions(template.id)
@@ -70,6 +68,7 @@ class AiRunsMixin:
         evaluation_dataset_id: str | None = None,
         evaluation_case_id: str | None = None,
         queue_async: bool = False,
+        model_name: str | None = None,
     ):
         template, version = await self._resolve_prompt_version(
             user,
@@ -102,7 +101,7 @@ class AiRunsMixin:
             evaluation_dataset_id=evaluation_dataset_id,
             evaluation_case_id=evaluation_case_id,
             provider_key=version.provider_key,
-            model_name=version.model_name,
+            model_name=model_name or version.model_name,
             status="queued" if queue_async else "running",
             response_format=version.response_format,
             variables_json=variables,
@@ -132,6 +131,7 @@ class AiRunsMixin:
             rendered_system_prompt=rendered_system_prompt,
             rendered_user_prompt=rendered_user_prompt,
             review_required=review_required,
+            model_name=model_name,
         )
 
     async def execute_queued_ai_run(self, run_id: str):
@@ -140,7 +140,11 @@ class AiRunsMixin:
             raise HTTPException(status_code=404, detail="AI run not found")
         if run.status not in {"queued", "running"}:
             return run
-        version = await self.repo.get_prompt_version(run.prompt_version_id) if run.prompt_version_id else None
+        version = (
+            await self.repo.get_prompt_version(run.prompt_version_id)
+            if run.prompt_version_id
+            else None
+        )
         if version is None:
             run.status = "failed"
             run.error_message = "Prompt version missing for queued AI run."
@@ -164,6 +168,7 @@ class AiRunsMixin:
             rendered_system_prompt=str(system_prompt or ""),
             rendered_user_prompt=str(user_prompt or ""),
             review_required=run.review_status == "pending",
+            model_name=run.model_name,
         )
 
     async def _complete_ai_run(
@@ -176,12 +181,14 @@ class AiRunsMixin:
         rendered_system_prompt: str,
         rendered_user_prompt: str,
         review_required: bool,
+        model_name: str | None = None,
     ):
         started = perf_counter()
+        effective_model = model_name or version.model_name
         try:
             result = await provider.generate(
                 ProviderGenerateRequest(
-                    model=version.model_name,
+                    model=effective_model,
                     system_prompt=rendered_system_prompt,
                     user_prompt=rendered_user_prompt,
                     response_format=version.response_format,
@@ -196,9 +203,8 @@ class AiRunsMixin:
             run.input_tokens = result.input_tokens
             run.output_tokens = result.output_tokens
             run.total_tokens = result.total_tokens
-            run.estimated_cost_micros = (
-                (result.input_tokens * version.input_cost_per_million)
-                + (result.output_tokens * version.output_cost_per_million)
+            run.estimated_cost_micros = (result.input_tokens * version.input_cost_per_million) + (
+                result.output_tokens * version.output_cost_per_million
             )
             run.completed_at = datetime.now(UTC)
         except HTTPException as exc:

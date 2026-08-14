@@ -10,12 +10,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.identity_access.models import User
 from backend.modules.workforce.catalog import (
     AGENT_TEMPLATE_CATALOG,
     MARKETPLACE_DEPARTMENTS,
     MARKETPLACE_SKILLS,
     MARKETPLACE_WORKFLOWS,
 )
+from backend.modules.workforce.email_approval_template import EMAIL_APPROVAL_FLAGSHIP_SLUG
 from backend.modules.workforce.models import WorkflowDefinition, WorkflowVersion
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.services.department_service import DepartmentService
@@ -101,7 +103,7 @@ class MarketplaceService:
     ) -> dict[str, Any]:
         item = self._find_skill(slug)
         existing = await self.repo.find_skill_by_slug(owner_id, slug)
-        if existing and slug != "email-reply-telegram-approval":
+        if existing and slug != EMAIL_APPROVAL_FLAGSHIP_SLUG:
             return {
                 "status": "already_installed",
                 "kind": "skill",
@@ -179,10 +181,11 @@ class MarketplaceService:
         edges = list(item.get("edges") or [])
         entry = item.get("entry_node_id")
         configuration_required: list[str] = []
-        if slug == "email-reply-telegram-approval":
+        if slug == EMAIL_APPROVAL_FLAGSHIP_SLUG:
             bindings = dict(connector_installation_ids or {})
             gmail_id = str(bindings.get("gmail") or "")
             telegram_id = str(bindings.get("telegram") or "")
+            approval_channel = str(bindings.get("approval_channel") or "in_app")
             skill_result = await self.install_skill(
                 owner_id,
                 "email-response-drafter",
@@ -192,7 +195,7 @@ class MarketplaceService:
             skill_id = str(skill_result.get("skill_id") or "")
             if not gmail_id:
                 configuration_required.append("connector_installation_ids.gmail")
-            if not telegram_id:
+            if approval_channel == "telegram" and not telegram_id:
                 configuration_required.append("connector_installation_ids.telegram")
             if not agent_id:
                 configuration_required.append("agent_id")
@@ -226,7 +229,12 @@ class MarketplaceService:
                 elif node.get("id") == "draft_agent":
                     config["agent_id"] = agent_id
                 elif node.get("id") == "send_draft":
-                    config["approval_connector_installation_id"] = telegram_id
+                    if approval_channel == "telegram" and telegram_id:
+                        config["approval_delivery_channel"] = "telegram"
+                        config["approval_connector_installation_id"] = telegram_id
+                    else:
+                        config["approval_delivery_channel"] = "in_app"
+                        config["approval_connector_installation_id"] = ""
                 node["config"] = config
             if configuration_required:
                 publish = False
@@ -235,6 +243,11 @@ class MarketplaceService:
         if nodes and errors:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"errors": errors})
 
+        from backend.modules.workforce.services.workflow_version_service import (
+            WorkflowVersionService,
+        )
+
+        version_service = WorkflowVersionService(self.db)
         if existing is None:
             definition = WorkflowDefinition(
                 id=str(uuid4()),
@@ -249,53 +262,36 @@ class MarketplaceService:
             )
             self.db.add(definition)
             await self.db.flush()
-            version = WorkflowVersion(
-                id=str(uuid4()),
-                workflow_id=definition.id,
-                version_number=1,
-                nodes_json=nodes,
-                edges_json=edges,
-                entry_node_id=entry,
-                metadata_json={"marketplace_slug": slug},
-                is_published=False,
+            version = await version_service.ensure_draft(
+                definition,
                 created_by=owner_id,
+                nodes=nodes,
+                edges=edges,
+                entry_node_id=entry,
             )
-            self.db.add(version)
-            await self.db.flush()
-            definition.current_version_id = version.id
+            version.metadata_json = {"marketplace_slug": slug}
         else:
             definition = existing
-            current = (
-                await self.db.get(WorkflowVersion, definition.current_version_id)
-                if definition.current_version_id
-                else None
+            version = await version_service.update_draft(
+                definition,
+                nodes=nodes,
+                edges=edges,
+                entry_node_id=entry,
+                actor_user_id=owner_id,
             )
-            if current is not None and not current.is_published:
-                version = current
-                version.nodes_json = nodes
-                version.edges_json = edges
-                version.entry_node_id = entry
-            else:
-                version = WorkflowVersion(
-                    id=str(uuid4()),
-                    workflow_id=definition.id,
-                    version_number=(current.version_number + 1 if current else 1),
-                    nodes_json=nodes,
-                    edges_json=edges,
-                    entry_node_id=entry,
-                    metadata_json={"marketplace_slug": slug},
-                    is_published=False,
-                    created_by=owner_id,
-                )
-                self.db.add(version)
-                await self.db.flush()
-                definition.current_version_id = version.id
+            version.metadata_json = {**(version.metadata_json or {}), "marketplace_slug": slug}
             definition.company_id = company_id or definition.company_id
             definition.status = "draft"
 
+        published_version = version
         if publish:
-            version.is_published = True
-            definition.status = "active"
+            published_version = await version_service.publish_draft(
+                definition,
+                actor_user_id=owner_id,
+                nodes=nodes,
+                edges=edges,
+                entry_node_id=entry,
+            )
             from backend.modules.workforce.integrations.events import (
                 TriggerSubscriptionService,
             )
@@ -303,7 +299,12 @@ class MarketplaceService:
             await TriggerSubscriptionService(self.db).register_published_gmail_triggers(
                 owner_id=owner_id,
                 definition=definition,
-                version=version,
+                version=published_version,
+            )
+            await TriggerSubscriptionService(self.db).register_published_outlook_triggers(
+                owner_id=owner_id,
+                definition=definition,
+                version=published_version,
             )
 
         await self.db.commit()
@@ -315,6 +316,133 @@ class MarketplaceService:
             "workflow_id": definition.id,
             "published": bool(publish),
             "configuration_required": configuration_required,
+        }
+
+    async def bootstrap_email_approval(
+        self,
+        user: User,
+        *,
+        company_id: str | None,
+        gmail_installation_id: str,
+        telegram_installation_id: str | None = None,
+        approval_channel: str = "in_app",
+        publish: bool = False,
+        project_id: str | None = None,
+        task_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Guided install: project + task + agent + flagship workflow wiring."""
+        from backend.modules.orchestration.repository import OrchestrationRepository
+        from backend.modules.team.service import TeamService
+
+        owner_id = user.id
+        orch_repo = OrchestrationRepository(self.db)
+        team = TeamService(self.db)
+
+        if not gmail_installation_id.strip():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="gmail_installation_id required")
+
+        channel = str(approval_channel or "in_app").strip().lower()
+        if channel not in {"in_app", "telegram"}:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid approval_channel")
+
+        if not agent_id:
+            existing_agent = await team.repo.get_agent_by_slug(owner_id, "email-inbox-agent")
+            if existing_agent is not None:
+                agent_id = existing_agent.id
+            else:
+                agent = await team.create_agent(
+                    user,
+                    {
+                        "name": "Email Inbox Agent",
+                        "slug": "email-inbox-agent",
+                        "role": "worker",
+                        "description": "Triages inbound email and drafts grounded replies for approval.",
+                        "system_prompt": (
+                            "You triage inbound email, classify intent, and draft concise grounded replies. "
+                            "Never send email without human approval."
+                        ),
+                        "capabilities": ["email_triage", "email_drafting", "knowledge_retrieval"],
+                        "allowed_tools": [
+                            "knowledge_search",
+                            "gmail.get_thread",
+                            "gmail.create_draft",
+                        ],
+                        "is_active": True,
+                        "tags": ["customer_success", "email", "flagship"],
+                        "metadata": {"flagship_template": EMAIL_APPROVAL_FLAGSHIP_SLUG},
+                    },
+                )
+                agent_id = agent.id
+
+        if not project_id:
+            suffix = uuid4().hex[:8]
+            project = await orch_repo.create_project(
+                owner_id=owner_id,
+                company_id=company_id,
+                name="Email automation",
+                slug=f"email-automation-{suffix}",
+                description="Flagship Gmail triage → draft → approval → send workflow.",
+                status="active",
+                metadata_json={"flagship_template": EMAIL_APPROVAL_FLAGSHIP_SLUG},
+            )
+            project_id = project.id
+        else:
+            project = await orch_repo.get_project(owner_id, project_id)
+            if project is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="project not found")
+
+        if not task_id:
+            task = await orch_repo.create_task(
+                project_id=project_id,
+                created_by_user_id=owner_id,
+                assigned_agent_id=agent_id,
+                title="Inbound email triage",
+                description="Workflow task anchor for Gmail trigger events.",
+                source="template",
+                task_type="automation",
+                status="queued",
+                metadata_json={"flagship_template": EMAIL_APPROVAL_FLAGSHIP_SLUG},
+            )
+            task_id = task.id
+        else:
+            task = await orch_repo.get_task(project_id, task_id)
+            if task is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
+
+        connector_bindings: dict[str, str] = {
+            "gmail": gmail_installation_id.strip(),
+            "approval_channel": channel,
+        }
+        if channel == "telegram" and telegram_installation_id:
+            connector_bindings["telegram"] = telegram_installation_id.strip()
+
+        install_result = await self.install_workflow(
+            owner_id,
+            EMAIL_APPROVAL_FLAGSHIP_SLUG,
+            company_id=company_id or project.company_id,
+            publish=publish,
+            connector_installation_ids=connector_bindings,
+            agent_id=agent_id,
+            project_id=project_id,
+            task_id=task_id,
+        )
+
+        await self.db.commit()
+        return {
+            **install_result,
+            "project_id": project_id,
+            "task_id": task_id,
+            "agent_id": agent_id,
+            "approval_channel": channel,
+            "template_pack": next(
+                (
+                    item.get("template_pack")
+                    for item in MARKETPLACE_WORKFLOWS
+                    if item.get("slug") == EMAIL_APPROVAL_FLAGSHIP_SLUG
+                ),
+                None,
+            ),
         }
 
     async def install_department(

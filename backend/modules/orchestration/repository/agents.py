@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 
-from backend.modules.orchestration.models import AgentProfile, AgentProfileVersion, AgentTemplateCatalog, SkillPack
+from backend.modules.orchestration.models import (
+    AgentProfile,
+    AgentProfileVersion,
+    AgentTemplateCatalog,
+    SkillPack,
+)
 
 
 class OrchestrationAgentsRepositoryMixin:

@@ -270,7 +270,9 @@ class Query:
         return _snapshot(snapshot)
 
     @strawberry.field
-    async def model_profiles(self, info: Info, project_id: str | None = None) -> list[ModelProfileType]:
+    async def model_profiles(
+        self, info: Info, project_id: str | None = None
+    ) -> list[ModelProfileType]:
         service = HierarchyControlPlaneService(info.context["db"])
         rows = await service.list_model_profiles(info.context["current_user"], project_id)
         return [_model_profile(item) for item in rows if item]
@@ -294,15 +296,23 @@ class Mutation:
     async def create_team_member(self, info: Info, input: TeamMemberInput) -> MemberType:
         service = HierarchyControlPlaneService(info.context["db"])
         agent = await service.create_team_member(info.context["current_user"], input.__dict__)
-        snapshot = await service.get_hierarchy_snapshot(info.context["current_user"], input.project_id)
+        snapshot = await service.get_hierarchy_snapshot(
+            info.context["current_user"], input.project_id
+        )
         member = next(item for item in snapshot["members"] if item["id"] == agent.id)
         return _member(member)
 
     @strawberry.mutation
-    async def update_team_member(self, info: Info, member_id: str, input: TeamMemberInput) -> MemberType:
+    async def update_team_member(
+        self, info: Info, member_id: str, input: TeamMemberInput
+    ) -> MemberType:
         service = HierarchyControlPlaneService(info.context["db"])
-        agent = await service.update_team_member(info.context["current_user"], member_id, input.__dict__)
-        snapshot = await service.get_hierarchy_snapshot(info.context["current_user"], input.project_id)
+        agent = await service.update_team_member(
+            info.context["current_user"], member_id, input.__dict__
+        )
+        snapshot = await service.get_hierarchy_snapshot(
+            info.context["current_user"], input.project_id
+        )
         member = next(item for item in snapshot["members"] if item["id"] == agent.id)
         return _member(member)
 
@@ -318,21 +328,33 @@ class Mutation:
         return _task(service.serialize_task(task))
 
     @strawberry.mutation
-    async def assign_task(self, info: Info, project_id: str, task_id: str, member_id: str) -> TaskType:
+    async def assign_task(
+        self, info: Info, project_id: str, task_id: str, member_id: str
+    ) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
-        task = await service.assign_task(info.context["current_user"], project_id, task_id, member_id)
+        task = await service.assign_task(
+            info.context["current_user"], project_id, task_id, member_id
+        )
         return _task(service.serialize_task(task))
 
     @strawberry.mutation
-    async def update_task_status(self, info: Info, project_id: str, task_id: str, status: str) -> TaskType:
+    async def update_task_status(
+        self, info: Info, project_id: str, task_id: str, status: str
+    ) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
-        task = await service.update_task_status(info.context["current_user"], project_id, task_id, status)
+        task = await service.update_task_status(
+            info.context["current_user"], project_id, task_id, status
+        )
         return _task(service.serialize_task(task))
 
     @strawberry.mutation
-    async def request_task_revision(self, info: Info, project_id: str, task_id: str, notes: str) -> TaskType:
+    async def request_task_revision(
+        self, info: Info, project_id: str, task_id: str, notes: str
+    ) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
-        task = await service.request_task_revision(info.context["current_user"], project_id, task_id, notes)
+        task = await service.request_task_revision(
+            info.context["current_user"], project_id, task_id, notes
+        )
         return _task(service.serialize_task(task))
 
     @strawberry.mutation
@@ -344,13 +366,19 @@ class Mutation:
         summary: str | None = None,
     ) -> TaskType:
         service = HierarchyControlPlaneService(info.context["db"])
-        task = await service.approve_task_output(info.context["current_user"], project_id, task_id, summary)
+        task = await service.approve_task_output(
+            info.context["current_user"], project_id, task_id, summary
+        )
         return _task(service.serialize_task(task))
 
     @strawberry.mutation
-    async def launch_task_run(self, info: Info, project_id: str, task_id: str, member_id: str | None = None) -> RunType:
+    async def launch_task_run(
+        self, info: Info, project_id: str, task_id: str, member_id: str | None = None
+    ) -> RunType:
         service = HierarchyControlPlaneService(info.context["db"])
-        run = await service.launch_task_run(info.context["current_user"], project_id, task_id, member_id)
+        run = await service.launch_task_run(
+            info.context["current_user"], project_id, task_id, member_id
+        )
         return _run(service.serialize_run(run))
 
     @strawberry.mutation
@@ -376,7 +404,9 @@ class Mutation:
 @strawberry.type
 class Subscription:
     @strawberry.subscription
-    async def control_plane_updates(self, project_id: str | None = None) -> AsyncGenerator[ControlPlaneEventType, None]:
+    async def control_plane_updates(
+        self, project_id: str | None = None
+    ) -> AsyncGenerator[ControlPlaneEventType, None]:
         async for event in control_plane_pubsub.subscribe():
             if project_id and event.project_id != project_id:
                 continue

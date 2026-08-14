@@ -11,10 +11,15 @@ import { HitlAuditTable } from "./audit/HitlAuditTable";
 import { useApprovals } from "./hooks/useApprovals";
 import { useAuditLog } from "./hooks/useAuditLog";
 import { RunLedgerPanel } from "./ledger/RunLedgerPanel";
+import type { MainTab } from "./hooks/useApprovals";
 
-export function ActivityAuditContent() {
+type ActivityAuditContentProps = {
+    initialTab?: MainTab;
+};
+
+export function ActivityAuditContent({ initialTab = "approvals" }: ActivityAuditContentProps) {
     const navigate = useNavigate();
-    const approvals = useApprovals();
+    const approvals = useApprovals({ initialTab });
     const audit = useAuditLog({
         dateFrom: approvals.dateFrom,
         dateTo: approvals.dateTo,

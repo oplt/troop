@@ -2,22 +2,34 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select, text, tuple_
+from sqlalchemy import and_, delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.pagination import (
+    apply_asc_position_time_id_cursor,
+    apply_asc_time_id_cursor,
+    apply_desc_time_id_cursor,
+    fetch_limit,
+)
 from backend.modules.audit.models import AuditLog
 from backend.modules.github.repository import GithubRepositoryMixin
 from backend.modules.memory.repository import MemoryRepositoryMixin
+from backend.modules.orchestration.list_load_options import (
+    approval_list_load,
+    notification_list_load,
+    project_list_load,
+    run_event_list_load,
+    task_list_load,
+    task_run_list_load,
+)
 from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.orchestration.models import (
     AgentMemoryEntry,
     AgentProfile,
-    AgentProfileVersion,
-    AgentTemplateCatalog,
     ApprovalRequest,
     Brainstorm,
     BrainstormMessage,
@@ -44,7 +56,6 @@ from backend.modules.orchestration.models import (
     RunEvent,
     SemanticMemoryEntry,
     SemanticMemoryLink,
-    SkillPack,
     TaskArtifact,
     TaskComment,
     TaskDependency,
@@ -71,6 +82,7 @@ class OrchestrationRepository(
             select(OrchestratorProject)
             .where(OrchestratorProject.owner_id == owner_id)
             .order_by(OrchestratorProject.updated_at.desc())
+            .options(project_list_load())
         )
         return list(result.scalars().all())
 
@@ -321,30 +333,48 @@ class OrchestrationRepository(
         return list(result.scalars().all())
 
     async def list_tasks_with_dependencies(
-        self, project_id: str, *, limit: int | None = None
+        self,
+        project_id: str,
+        *,
+        limit: int | None = None,
+        cursor_position: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> tuple[list[OrchestratorTask], dict[str, list[str]]]:
         """Load a bounded task page and all of its dependencies in one SQL read.
 
         The limited task-id subquery is important: applying ``LIMIT`` after an
         outer join would truncate dependency rows and return incomplete graphs.
         """
-        task_ids = (
-            select(OrchestratorTask.id)
-            .where(OrchestratorTask.project_id == project_id)
-            .order_by(OrchestratorTask.position.asc(), OrchestratorTask.created_at.asc())
+        task_ids = select(OrchestratorTask.id).where(OrchestratorTask.project_id == project_id)
+        task_ids = apply_asc_position_time_id_cursor(
+            task_ids,
+            OrchestratorTask,
+            cursor_position=cursor_position,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
         )
+        task_ids = task_ids.order_by(
+            OrchestratorTask.position.asc(),
+            OrchestratorTask.created_at.asc(),
+            OrchestratorTask.id.asc(),
+        ).options(task_list_load())
         cap = resolve_query_limit(
             limit,
             default=settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
             maximum=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
         )
-        if cap is not None:
-            task_ids = task_ids.limit(cap)
+        task_ids = task_ids.limit(fetch_limit(cap))
+
+        id_rows = await self.db.execute(task_ids)
+        ordered_task_ids = [str(row[0]) for row in id_rows.all()]
+        if not ordered_task_ids:
+            return [], {}
 
         result = await self.db.execute(
             select(OrchestratorTask, TaskDependency)
             .outerjoin(TaskDependency, TaskDependency.task_id == OrchestratorTask.id)
-            .where(OrchestratorTask.id.in_(task_ids))
+            .where(OrchestratorTask.id.in_(ordered_task_ids))
             .order_by(
                 OrchestratorTask.position.asc(),
                 OrchestratorTask.created_at.asc(),
@@ -357,7 +387,8 @@ class OrchestrationRepository(
             tasks_by_id.setdefault(task.id, task)
             if dependency is not None:
                 dependencies.setdefault(task.id, []).append(dependency.depends_on_task_id)
-        return list(tasks_by_id.values()), dependencies
+        tasks = [tasks_by_id[task_id] for task_id in ordered_task_ids if task_id in tasks_by_id]
+        return tasks, dependencies
 
     async def get_task(self, project_id: str, task_id: str) -> OrchestratorTask | None:
         result = await self.db.execute(
@@ -479,20 +510,19 @@ class OrchestrationRepository(
         )
         if project_id:
             stmt = stmt.where(TaskRun.project_id == project_id)
-        if cursor_created_at is not None and cursor_id:
-            stmt = stmt.where(
-                tuple_(TaskRun.created_at, TaskRun.id) < tuple_(cursor_created_at, cursor_id)
-            )
-        elif cursor_created_at is not None:
-            stmt = stmt.where(TaskRun.created_at < cursor_created_at)
-        stmt = stmt.order_by(TaskRun.created_at.desc(), TaskRun.id.desc())
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            TaskRun,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
+        stmt = stmt.order_by(TaskRun.created_at.desc(), TaskRun.id.desc()).options(task_run_list_load())
         cap = resolve_query_limit(
             limit,
             default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
             maximum=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
         )
-        if cap is not None:
-            stmt = stmt.limit(cap)
+        stmt = stmt.limit(fetch_limit(cap))
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -620,21 +650,36 @@ class OrchestrationRepository(
         limit: int | None = None,
         offset: int = 0,
         descending: bool = False,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[RunEvent]:
-        cap = settings.RUN_EVENTS_DEFAULT_LIMIT if limit is None else limit
-        cap = min(max(int(cap), 1), settings.RUN_EVENTS_MAX_LIMIT)
-        offset = max(int(offset), 0)
-        order_cols = (
-            (RunEvent.created_at.desc(), RunEvent.id.desc())
-            if descending
-            else (RunEvent.created_at.asc(), RunEvent.id.asc())
+        cap = resolve_query_limit(
+            limit,
+            default=settings.RUN_EVENTS_DEFAULT_LIMIT,
+            maximum=settings.RUN_EVENTS_MAX_LIMIT,
         )
+        offset = max(int(offset), 0)
+        stmt = select(RunEvent).where(RunEvent.run_id == run_id)
+        if descending:
+            stmt = apply_desc_time_id_cursor(
+                stmt,
+                RunEvent,
+                cursor_created_at=cursor_created_at,
+                cursor_id=cursor_id,
+            )
+            order_cols = (RunEvent.created_at.desc(), RunEvent.id.desc())
+        else:
+            stmt = apply_asc_time_id_cursor(
+                stmt,
+                RunEvent,
+                cursor_created_at=cursor_created_at,
+                cursor_id=cursor_id,
+            )
+            order_cols = (RunEvent.created_at.asc(), RunEvent.id.asc())
+        if cursor_created_at is None and cursor_id is None and offset:
+            stmt = stmt.offset(offset)
         result = await self.db.execute(
-            select(RunEvent)
-            .where(RunEvent.run_id == run_id)
-            .order_by(*order_cols)
-            .offset(offset)
-            .limit(cap)
+            stmt.order_by(*order_cols).limit(fetch_limit(cap)).options(run_event_list_load())
         )
         events = list(result.scalars().all())
         if descending:
@@ -681,7 +726,9 @@ class OrchestrationRepository(
         )
         return result.scalar_one_or_none()
 
-    async def list_stale_in_progress_runs(self, older_than: datetime, *, limit: int = 100) -> list[TaskRun]:
+    async def list_stale_in_progress_runs(
+        self, older_than: datetime, *, limit: int = 100
+    ) -> list[TaskRun]:
         result = await self.db.execute(
             select(TaskRun)
             .where(
@@ -1483,9 +1530,14 @@ class OrchestrationRepository(
         return merged
 
     async def create_approval(self, **kwargs) -> ApprovalRequest:
+        from backend.modules.orchestration.execution.hitl.approver_resolver import (
+            snapshot_routing_on_approval,
+        )
+
         item = ApprovalRequest(**kwargs)
         self.db.add(item)
         await self.db.flush()
+        await snapshot_routing_on_approval(self.db, item)
         self.db.add(
             AuditLog(
                 user_id=kwargs.get("requested_by_user_id"),
@@ -1519,8 +1571,20 @@ class OrchestrationRepository(
         )
 
     async def list_approvals(
-        self, owner_id: str, status: str | None = None
+        self,
+        owner_id: str,
+        status: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[ApprovalRequest]:
+        from backend.modules.identity_access.workspace_permissions import (
+            PERM_APPROVAL_DECIDE,
+            role_has_permission,
+        )
+        from backend.modules.identity_access.workspace_repository import WorkspaceRepository
+
         stmt = (
             select(ApprovalRequest)
             .join(
@@ -1532,42 +1596,99 @@ class OrchestrationRepository(
         )
         if status:
             stmt = stmt.where(ApprovalRequest.status == status)
-        result = await self.db.execute(stmt.order_by(ApprovalRequest.created_at.desc()))
-        return list(result.scalars().all())
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            ApprovalRequest,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
+        cap = resolve_query_limit(
+            limit,
+            default=settings.APPROVALS_LIST_DEFAULT_LIMIT,
+            maximum=settings.APPROVALS_LIST_MAX_LIMIT,
+        )
+        result = await self.db.execute(
+            stmt.order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc())
+            .limit(fetch_limit(cap))
+            .options(approval_list_load())
+        )
+        owner_rows = list(result.scalars().all())
+
+        ws_repo = WorkspaceRepository(self.db)
+        memberships = await ws_repo.list_memberships_for_user(owner_id)
+        workspace_ids = [
+            workspace.id
+            for workspace, membership in memberships
+            if role_has_permission(membership.role, PERM_APPROVAL_DECIDE)
+        ]
+        if not workspace_ids:
+            return owner_rows[:cap]
+
+        approver_stmt = select(ApprovalRequest).where(
+            ApprovalRequest.workspace_id.in_(workspace_ids)
+        )
+        if status:
+            approver_stmt = approver_stmt.where(ApprovalRequest.status == status)
+        approver_stmt = apply_desc_time_id_cursor(
+            approver_stmt,
+            ApprovalRequest,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
+        approver_result = await self.db.execute(
+            approver_stmt.order_by(
+                ApprovalRequest.created_at.desc(),
+                ApprovalRequest.id.desc(),
+            )
+            .limit(fetch_limit(cap))
+            .options(approval_list_load())
+        )
+        approver_rows = list(approver_result.scalars().all())
+
+        seen = {row.id for row in owner_rows}
+        merged = list(owner_rows)
+        for row in approver_rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            merged.append(row)
+        merged.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+        return merged[:cap]
 
     async def get_approval(self, owner_id: str, approval_id: str) -> ApprovalRequest | None:
-        result = await self.db.execute(
-            select(ApprovalRequest)
-            .join(
-                OrchestratorProject,
-                ApprovalRequest.project_id == OrchestratorProject.id,
-                isouter=True,
-            )
-            .where(
-                ApprovalRequest.id == approval_id,
-                self._approval_owner_clause(owner_id),
-            )
+        from backend.modules.orchestration.execution.hitl.approver_resolver import (
+            user_can_access_approval,
         )
-        return result.scalar_one_or_none()
+
+        result = await self.db.execute(
+            select(ApprovalRequest).where(ApprovalRequest.id == approval_id)
+        )
+        approval = result.scalar_one_or_none()
+        if approval is None:
+            return None
+        if not await user_can_access_approval(self.db, owner_id, approval):
+            return None
+        return approval
 
     async def get_approval_for_update(
         self, owner_id: str, approval_id: str
     ) -> ApprovalRequest | None:
         """Lock a pending approval row for decide (prevents double side effects)."""
+        from backend.modules.orchestration.execution.hitl.approver_resolver import (
+            user_can_access_approval,
+        )
+
         result = await self.db.execute(
             select(ApprovalRequest)
-            .join(
-                OrchestratorProject,
-                ApprovalRequest.project_id == OrchestratorProject.id,
-                isouter=True,
-            )
-            .where(
-                ApprovalRequest.id == approval_id,
-                self._approval_owner_clause(owner_id),
-            )
+            .where(ApprovalRequest.id == approval_id)
             .with_for_update()
         )
-        return result.scalar_one_or_none()
+        approval = result.scalar_one_or_none()
+        if approval is None:
+            return None
+        if not await user_can_access_approval(self.db, owner_id, approval):
+            return None
+        return approval
 
     async def list_eval_records(self, project_id: str) -> list[EvalRecord]:
         result = await self.db.execute(
@@ -1959,8 +2080,7 @@ class OrchestrationRepository(
             .subquery()
         )
         latest_result = await self.db.execute(
-            select(TaskRun)
-            .join(
+            select(TaskRun).join(
                 latest_subq,
                 and_(
                     TaskRun.project_id == latest_subq.c.project_id,
@@ -2498,6 +2618,18 @@ class OrchestrationRepository(
         )
         return list(res.scalars().all())
 
+    async def get_episodic_archive_manifest(
+        self, owner_id: str, project_id: str, archive_id: str
+    ) -> EpisodicArchiveManifest | None:
+        res = await self.db.execute(
+            select(EpisodicArchiveManifest).where(
+                EpisodicArchiveManifest.id == archive_id,
+                EpisodicArchiveManifest.owner_id == owner_id,
+                EpisodicArchiveManifest.project_id == project_id,
+            )
+        )
+        return res.scalar_one_or_none()
+
     async def list_episodic_index_rows_for_sources(
         self, project_id: str, source_kind: str, source_ids: Sequence[str]
     ) -> list[EpisodicSearchIndex]:
@@ -2665,3 +2797,109 @@ class OrchestrationRepository(
             await self.db.execute(
                 sa_update(MemoryIngestJob).where(MemoryIngestJob.id == job_id).values(**vals)
             )
+
+    async def collect_durable_engine_evidence(
+        self, owner_id: str, since: datetime
+    ) -> dict[str, Any]:
+        """Owner-scoped production signals for durable-engine migration review (ARCH-001)."""
+        from datetime import UTC
+
+        now = datetime.now(UTC)
+        window = now - since
+        total_result = await self.db.execute(
+            select(func.count(TaskRun.id))
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id, TaskRun.created_at >= since)
+        )
+        total_runs = int(total_result.scalar() or 0)
+
+        duration = func.coalesce(TaskRun.completed_at, now) - func.coalesce(
+            TaskRun.started_at, TaskRun.created_at
+        )
+        base_stmt = (
+            select(func.count())
+            .select_from(TaskRun)
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id, TaskRun.created_at >= since)
+        )
+        over_48h = int(
+            (
+                await self.db.execute(base_stmt.where(duration > timedelta(hours=48)))
+            ).scalar()
+            or 0
+        )
+        over_7d = int(
+            (
+                await self.db.execute(base_stmt.where(duration > timedelta(days=7)))
+            ).scalar()
+            or 0
+        )
+
+        event_counts = dict(
+            await self.aggregate_run_events_by_type_for_owner(owner_id, since)
+        )
+        workflow_recovery_events = int(event_counts.get("workflow_recovery") or 0)
+        workflow_signal_events = int(event_counts.get("workflow_signal_queued") or 0)
+
+        wf_key = "durable_workflow_v1"
+        from sqlalchemy import Integer, cast
+
+        resume_json = TaskRun.checkpoint_json[wf_key]["resume_count"].astext
+        recovery_json = TaskRun.checkpoint_json[wf_key]["recovery_count"].astext
+        runs_high_resume = int(
+            (
+                await self.db.execute(
+                    base_stmt.where(cast(resume_json, Integer) >= 2)
+                )
+            ).scalar()
+            or 0
+        )
+        runs_high_recovery = int(
+            (
+                await self.db.execute(
+                    base_stmt.where(cast(recovery_json, Integer) >= 2)
+                )
+            ).scalar()
+            or 0
+        )
+
+        queue_failure_runs = int(
+            (
+                await self.db.execute(
+                    base_stmt.where(
+                        or_(
+                            TaskRun.error_message.ilike("%celery%"),
+                            TaskRun.error_message.ilike("%broker%"),
+                            TaskRun.error_message.ilike("%redis%"),
+                            TaskRun.error_message.ilike("%queue%"),
+                        )
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+
+        stale_recovery_events = 0
+        for _run_id, _task_id, event_type, payload in await self.list_observability_events_for_owner(
+            owner_id, since
+        ):
+            if event_type != "workflow_recovery":
+                continue
+            if isinstance(payload, dict) and payload.get("stale_after_seconds") is not None:
+                stale_recovery_events += 1
+
+        return {
+            "window_start": since.isoformat(),
+            "window_end": now.isoformat(),
+            "window_days": max(1, int(window.total_seconds() // 86400)),
+            "total_runs": total_runs,
+            "runs_over_48h": over_48h,
+            "runs_over_7d": over_7d,
+            "workflow_recovery_events": workflow_recovery_events,
+            "workflow_signal_events": workflow_signal_events,
+            "runs_high_resume_count": runs_high_resume,
+            "runs_high_recovery_count": runs_high_recovery,
+            "stale_in_progress_recoveries": stale_recovery_events,
+            "queue_failure_runs": queue_failure_runs,
+            "manual_cross_language_requirement": 0,
+        }

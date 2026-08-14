@@ -10,6 +10,7 @@ from backend.modules.orchestration.models import ProviderConfig
 _PURPOSE_REQUIREMENTS: dict[str, dict[str, bool]] = {
     "task_analysis": {"require_structured": True, "require_tools": False},
     "skill_generation": {"require_structured": True, "require_tools": False},
+    "workflow_generation": {"require_structured": True, "require_tools": False},
     "project_analysis": {"require_structured": True, "require_tools": False},
     "default": {"require_structured": False, "require_tools": False},
 }

@@ -16,16 +16,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from backend.modules.orchestration.models import ApprovalRequest, TaskRun
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
-
-# Low-risk tools that may optionally fail-open when TOOL_POLICY_FAIL_OPEN=1
-# and may accept approvals without arguments_hash (still consume once).
-_LOW_RISK_TOOLS = {
-    "web_search",
-    "web_fetch",
-    "knowledge_search",
-    "repo_search",
-    "fs_read",
-}
+from backend.modules.workforce.services.tool_governance import is_low_risk_tool
 
 
 @dataclass(frozen=True)
@@ -80,14 +71,6 @@ class ToolExecutionContext:
 
 def policy_fail_open_enabled() -> bool:
     return os.getenv("TOOL_POLICY_FAIL_OPEN", "").lower() in {"1", "true", "yes"}
-
-
-def is_low_risk_tool(tool_name: str) -> bool:
-    if tool_name.startswith("mcp.") or tool_name.startswith("a2a."):
-        return False
-    if tool_name.startswith("github_"):
-        return False
-    return tool_name in _LOW_RISK_TOOLS
 
 
 def arguments_hash(arguments: dict[str, Any] | None) -> str:

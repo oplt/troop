@@ -10,6 +10,8 @@
 
 ## Release Checks
 
+See [CI.md](./CI.md) for the full Quality workflow, security audits, container smoke, and `main` branch protection setup.
+
 Run these before deploy:
 
 ```bash

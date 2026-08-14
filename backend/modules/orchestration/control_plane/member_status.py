@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from backend.modules.orchestration.models import AgentProfile, ApprovalRequest, OrchestratorTask, TaskRun
+from backend.modules.orchestration.models import (
+    AgentProfile,
+    ApprovalRequest,
+    OrchestratorTask,
+    TaskRun,
+)
 
 
 class ControlPlaneMemberStatusMixin:

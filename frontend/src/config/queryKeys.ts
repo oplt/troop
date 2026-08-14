@@ -9,6 +9,7 @@ export const queryKeys = {
     },
     notifications: {
         root: ["notifications"] as const,
+        unreadCount: ["notifications", "unread-count"] as const,
         preferences: ["notification-preferences"] as const,
     },
     companies: {
@@ -41,6 +42,14 @@ export const queryKeys = {
     admin: {
         users: (page: number, search: string) => ["admin", "users", page, search] as const,
     },
+    workforce: {
+        workflow: (workflowId: string) => ["workforce", "workflows", workflowId] as const,
+        workflowValidate: (workflowId: string) => ["workforce", "workflows", workflowId, "validate"] as const,
+        workflowDiff: (workflowId: string) => ["workforce", "workflows", workflowId, "diff"] as const,
+        workflowVersions: (workflowId: string) => ["workforce", "workflows", workflowId, "versions"] as const,
+        workflowRun: (runId: string) => ["workforce", "workflow-runs", runId] as const,
+        workflowRunSteps: (runId: string) => ["workforce", "workflow-runs", runId, "steps"] as const,
+    },
     agentRuns: {
         detail: (runId: string) => ["agent-run", runId] as const,
         steps: (runId: string) => ["agent-run", runId, "steps"] as const,
@@ -53,6 +62,7 @@ export const queryKeys = {
         executionState: (runId: string) => ["orchestration", "run", runId, "execution-state"] as const,
         explanation: (runId: string) => ["orchestration", "run", runId, "explanation"] as const,
         workingMemory: (runId: string) => ["orchestration", "run", runId, "working-memory"] as const,
+        trace: (runId: string) => ["orchestration", "run", runId, "trace"] as const,
     },
     orchestration: {
         projects: ["orchestration", "projects"] as const,
@@ -62,6 +72,7 @@ export const queryKeys = {
         teamProfiles: ["orchestration", "team-profiles"] as const,
         hierarchyAgents: (projectId: string) => ["orchestration", "hierarchy", "agents", projectId] as const,
         overview: ["orchestration", "overview"] as const,
+        activation: ["orchestration", "activation"] as const,
         runsRoot: ["orchestration", "runs"] as const,
         executionInsights: (days: number) => ["orchestration", "execution-insights", days] as const,
         project: (projectId: string) => ["orchestration", "project", projectId] as const,

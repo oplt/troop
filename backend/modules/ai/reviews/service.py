@@ -52,8 +52,12 @@ class AiReviewsMixin:
         return review
 
     async def add_feedback(
-        self, user: User, run_id: str, rating: int,
-        comment: str | None, corrected_output: str | None,
+        self,
+        user: User,
+        run_id: str,
+        rating: int,
+        comment: str | None,
+        corrected_output: str | None,
     ):
         run = await self.repo.get_run_for_user(user.id, run_id)
         if not run:

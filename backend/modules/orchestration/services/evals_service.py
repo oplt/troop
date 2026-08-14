@@ -43,11 +43,15 @@ class OrchestrationEvalsServiceMixin:
             "findings": findings or ["No blocking findings in lightweight assistant review."],
         }
 
-    async def list_custom_workflow_templates(self, user: User, project_id: str) -> list[dict[str, Any]]:
+    async def list_custom_workflow_templates(
+        self, user: User, project_id: str
+    ) -> list[dict[str, Any]]:
         project = await self.get_project(user, project_id)
         return list((project.settings_json or {}).get("custom_workflow_templates") or [])
 
-    async def save_custom_workflow_template(self, user: User, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def save_custom_workflow_template(
+        self, user: User, project_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         settings = dict(project.settings_json or {})
         current = list(settings.get("custom_workflow_templates") or [])
@@ -73,13 +77,17 @@ class OrchestrationEvalsServiceMixin:
     ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         requested_id = str(template_id or "").strip()
-        template = next((item for item in BUILTIN_WORKFLOW_TEMPLATES if item["id"] == requested_id), None)
+        template = next(
+            (item for item in BUILTIN_WORKFLOW_TEMPLATES if item["id"] == requested_id), None
+        )
         if template is None and requested_id.startswith("custom:"):
             custom_id = requested_id.removeprefix("custom:")
             custom = next(
                 (
                     item
-                    for item in list((project.settings_json or {}).get("custom_workflow_templates") or [])
+                    for item in list(
+                        (project.settings_json or {}).get("custom_workflow_templates") or []
+                    )
                     if str(item.get("id")) == custom_id
                 ),
                 None,
@@ -122,9 +130,13 @@ class OrchestrationEvalsServiceMixin:
 
     async def list_agent_schedules(self, user: User, project_id: str) -> list[dict[str, Any]]:
         project = await self.get_project(user, project_id)
-        return list(((project.settings_json or {}).get("execution") or {}).get("agent_schedules") or [])
+        return list(
+            ((project.settings_json or {}).get("execution") or {}).get("agent_schedules") or []
+        )
 
-    async def save_agent_schedule(self, user: User, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def save_agent_schedule(
+        self, user: User, project_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         settings = dict(project.settings_json or {})
         execution = dict(settings.get("execution") or {})
@@ -149,7 +161,9 @@ class OrchestrationEvalsServiceMixin:
         await self.get_project(user, project_id)
         return await self.repo.list_eval_records(project_id)
 
-    async def create_eval_record(self, user: User, project_id: str, payload: dict[str, Any]) -> EvalRecord:
+    async def create_eval_record(
+        self, user: User, project_id: str, payload: dict[str, Any]
+    ) -> EvalRecord:
         await self.get_project(user, project_id)
         if payload.get("task_id"):
             await self.get_task(user, project_id, payload["task_id"])
@@ -170,7 +184,9 @@ class OrchestrationEvalsServiceMixin:
         await self.db.refresh(record)
         return record
 
-    async def update_eval_record(self, user: User, project_id: str, eval_id: str, payload: dict[str, Any]) -> EvalRecord:
+    async def update_eval_record(
+        self, user: User, project_id: str, eval_id: str, payload: dict[str, Any]
+    ) -> EvalRecord:
         await self.get_project(user, project_id)
         record = await self.repo.get_eval_record(project_id, eval_id)
         if not record:
@@ -321,7 +337,9 @@ class OrchestrationEvalsServiceMixin:
                     "avg_latency_ms": round(float(row["lat_sum"]) / max(int(row["lat_n"]), 1), 2),
                 }
             )
-        result.sort(key=lambda item: (item["win_rate"], item["wins"], item["avg_score"]), reverse=True)
+        result.sort(
+            key=lambda item: (item["win_rate"], item["wins"], item["avg_score"]), reverse=True
+        )
         return result
 
     async def benchmark_historical_issues(
@@ -342,8 +360,11 @@ class OrchestrationEvalsServiceMixin:
         tasks = await self.repo.list_tasks(project_id, limit=0)
         since = datetime.now(UTC) - timedelta(days=max(1, min(days, 3650)))
         candidate_tasks = [
-            t for t in tasks
-            if t.github_issue_link_id and t.created_at >= since and t.status in {"completed", "approved", "synced_to_github", "archived"}
+            t
+            for t in tasks
+            if t.github_issue_link_id
+            and t.created_at >= since
+            and t.status in {"completed", "approved", "synced_to_github", "archived"}
         ][: max(1, min(limit, 50))]
         created: list[dict[str, Any]] = []
         for task in candidate_tasks:
@@ -360,7 +381,9 @@ class OrchestrationEvalsServiceMixin:
                 },
             )
             launched = await self.start_benchmark(user, project_id, record.id)
-            created.append({"eval_id": record.id, "task_id": task.id, "runs": launched.get("runs", [])})
+            created.append(
+                {"eval_id": record.id, "task_id": task.id, "runs": launched.get("runs", [])}
+            )
         return {"created": created, "count": len(created)}
 
     async def start_benchmark(self, user: User, project_id: str, eval_id: str) -> dict[str, Any]:
@@ -371,7 +394,10 @@ class OrchestrationEvalsServiceMixin:
         if not record.task_id:
             raise HTTPException(status_code=400, detail="Eval record needs a task_id to benchmark")
         if not record.agent_a_id or not record.agent_b_id:
-            raise HTTPException(status_code=400, detail="Both agent_a_id and agent_b_id are required to start a benchmark")
+            raise HTTPException(
+                status_code=400,
+                detail="Both agent_a_id and agent_b_id are required to start a benchmark",
+            )
         source = await self.get_task(user, project_id, record.task_id)
         meta = {
             **(source.metadata_json or {}),
@@ -456,7 +482,9 @@ class OrchestrationEvalsServiceMixin:
             provider = await self.db.get(ProviderConfig, agent.provider_config_id)
         else:
             providers = await self.repo.list_providers(user.id, agent.project_id)
-            provider = next((p for p in providers if p.is_default), None) or (providers[0] if providers else None)
+            provider = next((p for p in providers if p.is_default), None) or (
+                providers[0] if providers else None
+            )
 
         model_name = payload.get("model_name") or (provider.default_model if provider else None)
         task_prompt_parts = [f"Task title: {payload.get('task_title', 'Test task')}"]
@@ -467,11 +495,17 @@ class OrchestrationEvalsServiceMixin:
         if payload.get("task_labels"):
             task_prompt_parts.append(f"Task labels: {payload['task_labels']}")
         if payload.get("task_metadata"):
-            task_prompt_parts.append(f"Task metadata: {json.dumps(payload['task_metadata'], indent=2)}")
+            task_prompt_parts.append(
+                f"Task metadata: {json.dumps(payload['task_metadata'], indent=2)}"
+            )
         base_prompt = "\n\n".join(task_prompt_parts)
 
         trace: list[dict[str, Any]] = [
-            {"step": "build_prompt", "message": "Built dry-run task prompt.", "payload": {"chars": len(base_prompt)}},
+            {
+                "step": "build_prompt",
+                "message": "Built dry-run task prompt.",
+                "payload": {"chars": len(base_prompt)},
+            },
         ]
         tool_calls = (payload.get("task_metadata") or {}).get("tool_calls", [])
         simulated_tool_results = [
@@ -495,7 +529,9 @@ class OrchestrationEvalsServiceMixin:
             [
                 base_prompt,
                 "This is a dry-run test. Do not perform external side effects.",
-                f"Simulated tool results:\n{json.dumps(simulated_tool_results, indent=2)}" if simulated_tool_results else "",
+                f"Simulated tool results:\n{json.dumps(simulated_tool_results, indent=2)}"
+                if simulated_tool_results
+                else "",
             ]
         )
         trace.append(
@@ -509,7 +545,9 @@ class OrchestrationEvalsServiceMixin:
             None,
             provider=provider,
             agent=agent,
-            system_prompt=inheritance["effective"].get("system_prompt") or agent.system_prompt or "You are a helpful software agent.",
+            system_prompt=inheritance["effective"].get("system_prompt")
+            or agent.system_prompt
+            or "You are a helpful software agent.",
             user_prompt=final_prompt,
             purpose="agent dry-run",
             append_metrics=False,
@@ -537,9 +575,12 @@ class OrchestrationEvalsServiceMixin:
                 }
             )
 
-        cost_usd = self._estimate_cost_micros(
-            provider, result.input_tokens, result.output_tokens, model_name=result.model_name
-        ) / 1_000_000
+        cost_usd = (
+            self._estimate_cost_micros(
+                provider, result.input_tokens, result.output_tokens, model_name=result.model_name
+            )
+            / 1_000_000
+        )
 
         return {
             "agent_id": agent.id,

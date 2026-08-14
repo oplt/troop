@@ -9,7 +9,10 @@ BUILTIN_WORKFLOW_TEMPLATES: list[dict[str, Any]] = [
         "id": "feature_delivery",
         "name": "Feature delivery lane",
         "description": "Backlog → implementation → review → merge, with optional brainstorm gate before coding.",
-        "suggested_execution": {"autonomy_level": "semi-autonomous", "routing_mode": "capability_based"},
+        "suggested_execution": {
+            "autonomy_level": "semi-autonomous",
+            "routing_mode": "capability_based",
+        },
     },
     {
         "id": "incident_response",

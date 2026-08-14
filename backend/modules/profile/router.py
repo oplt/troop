@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.core.config import settings
-from backend.core.storage import ObjectStorageError, StorageNotConfiguredError, object_storage
+from backend.core.storage import (
+    ObjectStorageError,
+    StorageAssetClass,
+    StorageNotConfiguredError,
+    object_storage,
+)
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.profile.schemas import ProfileResponse, ProfileUpdate
@@ -16,11 +21,17 @@ from backend.modules.profile.service import ProfileService
 router = APIRouter()
 
 
-def _to_response(profile) -> ProfileResponse:
+async def _to_response(profile) -> ProfileResponse:
+    avatar_url = profile.avatar_url
+    if profile.avatar_storage_key:
+        avatar_url = await object_storage.resolve_access_url(
+            profile.avatar_storage_key,
+            asset_class=StorageAssetClass.PUBLIC_ASSET,
+        )
     return ProfileResponse(
         user_id=profile.user_id,
         bio=profile.bio,
-        avatar_url=profile.avatar_url,
+        avatar_url=avatar_url,
         location=profile.location,
         website=profile.website,
     )
@@ -40,7 +51,7 @@ async def get_profile(
 ):
     service = ProfileService(db)
     profile = await service.get_profile(current_user.id)
-    return _to_response(profile)
+    return await _to_response(profile)
 
 
 @router.put("", response_model=ProfileResponse)
@@ -53,7 +64,7 @@ async def update_profile(
     profile = await service.update_profile(
         current_user.id, payload.bio, payload.location, payload.website
     )
-    return _to_response(profile)
+    return await _to_response(profile)
 
 
 @router.post("/avatar", response_model=ProfileResponse)
@@ -76,10 +87,11 @@ async def upload_avatar(
 
     object_key = _build_avatar_object_key(current_user.id, file.filename, file.content_type)
     try:
-        avatar_url = await object_storage.upload_bytes(
+        stored = await object_storage.upload_bytes(
             object_key=object_key,
             body=payload,
             content_type=file.content_type,
+            asset_class=StorageAssetClass.PUBLIC_ASSET,
         )
     except StorageNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -90,16 +102,16 @@ async def upload_avatar(
     try:
         profile, previous_key = await service.replace_avatar(
             current_user.id,
-            avatar_url=avatar_url,
+            avatar_url=stored.access_url,
             storage_key=object_key,
         )
     except Exception:
-        await object_storage.delete_object(object_key)
+        await object_storage.delete_object(object_key, bucket=stored.bucket)
         raise
 
     if previous_key and previous_key != object_key:
         await object_storage.delete_object(previous_key)
-    return _to_response(profile)
+    return await _to_response(profile)
 
 
 @router.delete("/avatar", status_code=204)
@@ -110,3 +122,4 @@ async def delete_avatar(
     service = ProfileService(db)
     previous_key = await service.clear_avatar(current_user.id)
     await object_storage.delete_object(previous_key)
+    return None

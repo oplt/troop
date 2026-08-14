@@ -69,9 +69,15 @@ class AiProviderRegistry:
 
         results: list[list[float] | None] = list(cached)
         missing_texts = [texts[index] for index in missing_indices]
-        batch_key = "embedding-fill:" + hashlib.sha256(
-            json.dumps({"model": model_name, "keys": [keys[index] for index in missing_indices]}, sort_keys=True).encode()
-        ).hexdigest()
+        batch_key = (
+            "embedding-fill:"
+            + hashlib.sha256(
+                json.dumps(
+                    {"model": model_name, "keys": [keys[index] for index in missing_indices]},
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest()
+        )
         try:
             fresh_vectors = await cache_singleflight(
                 batch_key,

@@ -6,9 +6,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
+from backend.modules.orchestration.schemas.common import RunMode, TaskPriority, TaskStatus
 
-from backend.modules.orchestration.schemas.common import *  # noqa: F403
 
 class TaskCreate(RequestModel):
     title: str = Field(min_length=2, max_length=255)
@@ -241,5 +240,3 @@ class TaskResponse(BaseModel):
     dependency_ids: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-
-

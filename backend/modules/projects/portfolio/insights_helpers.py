@@ -36,7 +36,9 @@ def new_insights_rollup(identifier: str | None, name: str) -> dict[str, Any]:
 
 def index_events_by_run(
     event_projection: list[tuple[str, str | None, str, dict[str, Any]]],
-) -> tuple[dict[str, list[tuple[str, dict[str, Any]]]], Counter[str], Counter[str], Counter[str], int]:
+) -> tuple[
+    dict[str, list[tuple[str, dict[str, Any]]]], Counter[str], Counter[str], Counter[str], int
+]:
     tool_counts: Counter[str] = Counter()
     events_by_run: dict[str, list[tuple[str, dict[str, Any]]]] = {}
     validation_failures_by_run: Counter[str] = Counter()
@@ -159,9 +161,7 @@ def build_execution_insights_payload(
         {"tool": tool, "count": count} for tool, count in tool_counts.most_common(25)
     ]
     latencies = sorted(int(run.latency_ms) for run in runs if run.latency_ms is not None)
-    p95_index = (
-        max(0, min(len(latencies) - 1, int(len(latencies) * 0.95) - 1)) if latencies else 0
-    )
+    p95_index = max(0, min(len(latencies) - 1, int(len(latencies) * 0.95) - 1)) if latencies else 0
     review_runs = [run for run in runs if run.run_mode == "review"]
     accepted_after_review = sum(1 for run in review_runs if run.status == "completed")
 

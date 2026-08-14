@@ -47,10 +47,7 @@ def execute_code_job(
         }
     if docker_available():
         return execute_code_job_docker(shell_cmd=shell_cmd, cwd=cwd_path, timeout=timeout)
-    if use_shell_wrap:
-        args = ["bash", "-lc", shell_cmd]
-    else:
-        args = shlex.split(shell_cmd)
+    args = ["bash", "-lc", shell_cmd] if use_shell_wrap else shlex.split(shell_cmd)
     result = subprocess.run(
         args,
         cwd=str(cwd_path),

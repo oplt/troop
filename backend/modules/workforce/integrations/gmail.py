@@ -15,16 +15,22 @@ from uuid import uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
 from backend.modules.audit.repository import AuditRepository
-from backend.modules.orchestration.models import ApprovalRequest
+from backend.modules.orchestration.execution.hitl.commit_authorization import (
+    CommitAuthorizationError,
+    authorize_and_claim_execution,
+    build_idempotency_key,
+    mark_execution_failed,
+    mark_execution_sending,
+    mark_execution_stale,
+    mark_execution_succeeded,
+)
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
-from backend.modules.orchestration.tool_execution_context import arguments_hash
 from backend.modules.workforce.integrations.email import (
     email_action_arguments_hash,
     thread_fingerprint,
@@ -158,9 +164,7 @@ class GmailOAuthService:
         )
         return {"authorization_url": f"{GOOGLE_AUTHORIZE_URL}?{query}", "scopes": requested}
 
-    async def complete(
-        self, *, code: str, state: str
-    ) -> tuple[ConnectorInstallation, str | None]:
+    async def complete(self, *, code: str, state: str) -> tuple[ConnectorInstallation, str | None]:
         state_hash = _hash_secret(state)
         result = await self.db.execute(
             select(ConnectorOAuthState)
@@ -242,6 +246,18 @@ class GmailOAuthService:
         )
         await self.db.commit()
         await self.db.refresh(installation)
+        from backend.modules.platform.activation_hooks import record_activation_for_owner
+
+        await record_activation_for_owner(
+            self.db,
+            installation.owner_id,
+            "first_connected_integration",
+            at=installation.created_at,
+            resource_type="connector_installation",
+            resource_id=installation.id,
+            metadata={"provider": "gmail"},
+        )
+        await self.db.commit()
         return installation, oauth_state.redirect_after
 
     async def _gmail_definition(self) -> ConnectorDefinition:
@@ -426,6 +442,27 @@ class GmailAdapter:
             return await self.send_draft_exactly_once(arguments)
         raise GmailAPIError(f"Unsupported Gmail operation: {operation}")
 
+    async def _reconcile_ambiguous_gmail_send(
+        self,
+        existing: ExternalActionExecution,
+        draft_id: str,
+    ) -> None:
+        """Avoid duplicate provider POST when a prior attempt may have already sent."""
+        try:
+            await self.request("GET", f"/users/me/drafts/{draft_id}")
+        except GmailAPIError as exc:
+            if exc.status_code == 404:
+                existing.status = "outcome_unknown"
+                existing.error = (
+                    "Draft disappeared after an ambiguous send; manual reconciliation "
+                    "is required before retry"
+                )
+                await self.db.flush()
+                raise GmailAPIError(existing.error) from exc
+            raise
+        if existing.status == "sending":
+            raise GmailAPIError("Email send is already in progress", retryable=True)
+
     async def send_draft_exactly_once(self, arguments: dict[str, Any]) -> dict[str, Any]:
         owner_id = self.installation.owner_id
         workflow_run_id = str(arguments.get("workflow_run_id") or "")
@@ -436,65 +473,35 @@ class GmailAdapter:
                 "gmail.send_draft requires workflow_run_id, approval_request_id, and gmail_draft_id"
             )
         args_hash = email_action_arguments_hash(arguments)
-        approval = await self.db.get(ApprovalRequest, approval_id)
-        approval_payload = dict(approval.payload_json or {}) if approval else {}
-        approved_arguments = dict(approval_payload.get("draft_arguments") or {})
-        if (
-            approval is None
-            or approval.status != "approved"
-            or str(approval_payload.get("owner_id") or approval.requested_by_user_id or "")
-            != owner_id
-            or str(approval_payload.get("workflow_run_id") or "") != workflow_run_id
-            or not (approval_payload.get("_consumed_at") or approval_payload.get("consumed_at"))
-            or str(approval_payload.get("arguments_hash") or "")
-            != arguments_hash(approved_arguments)
-            or email_action_arguments_hash(approved_arguments) != args_hash
-        ):
-            raise GmailAPIError("Canonical consumed approval does not match this exact send")
-        key = _hash_secret(f"{workflow_run_id}:{approval_id}:{draft_id}:gmail.send_draft")
-        result = await self.db.execute(
-            select(ExternalActionExecution).where(ExternalActionExecution.idempotency_key == key)
-        )
-        existing = result.scalar_one_or_none()
-        if existing is not None:
-            if existing.arguments_hash != args_hash:
-                raise GmailAPIError("Idempotency key was reused with different email content")
-            if existing.status == "succeeded":
-                return dict(existing.result_json or {})
-            if existing.status in {"claimed", "sending"}:
-                raise GmailAPIError("Email send is already in progress", retryable=True)
-            if existing.status == "retryable_failure":
-                try:
-                    await self.request("GET", f"/users/me/drafts/{draft_id}")
-                except GmailAPIError as exc:
-                    if exc.status_code == 404:
-                        existing.status = "outcome_unknown"
-                        existing.error = (
-                            "Draft disappeared after an ambiguous send; manual reconciliation "
-                            "is required before retry"
-                        )
-                        await self.db.flush()
-                        raise GmailAPIError(existing.error) from exc
-                    raise
-        else:
-            existing = ExternalActionExecution(
+        try:
+            claim = await authorize_and_claim_execution(
+                self.db,
                 owner_id=owner_id,
+                action_key="gmail.send_draft",
+                raw_arguments=arguments,
+                approval_id=approval_id,
+                idempotency_key=build_idempotency_key(
+                    workflow_run_id, approval_id, draft_id, "gmail.send_draft"
+                ),
+                arguments_hash=args_hash,
                 connector_installation_id=self.installation.id,
                 workflow_run_id=workflow_run_id,
-                approval_request_id=approval_id,
-                action_key="gmail.send_draft",
-                idempotency_key=key,
-                arguments_hash=args_hash,
-                status="claimed",
+                require_consumed=True,
             )
-            self.db.add(existing)
-            try:
-                await self.db.flush()
-            except IntegrityError as exc:
-                await self.db.rollback()
-                raise GmailAPIError(
-                    "Concurrent duplicate email send blocked", retryable=True
-                ) from exc
+        except CommitAuthorizationError as exc:
+            message = str(exc)
+            retryable = "Concurrent duplicate" in message
+            if message == "Concurrent duplicate external action blocked":
+                message = "Concurrent duplicate email send blocked"
+            raise GmailAPIError(message, retryable=retryable) from exc
+
+        existing = claim.execution
+        approval = claim.approval
+        if claim.replayed:
+            return dict(existing.result_json or {})
+
+        if existing.status in {"sending", "retryable_failure"}:
+            await self._reconcile_ambiguous_gmail_send(existing, draft_id)
 
         metadata_result = await self.db.execute(
             select(DraftExecutionMetadata).where(
@@ -505,69 +512,64 @@ class GmailAdapter:
         )
         metadata = metadata_result.scalar_one_or_none()
         if metadata is None or metadata.content_hash != args_hash:
-            existing.status = "failed"
-            existing.error = "Draft content does not match approval fingerprint"
-            await self.db.flush()
-            raise GmailAPIError(existing.error)
+            await mark_execution_failed(
+                self.db,
+                existing,
+                owner_id=owner_id,
+                error="Draft content does not match approval fingerprint",
+            )
+            raise GmailAPIError("Draft content does not match approval fingerprint")
         if metadata.thread_id:
             thread = await self.execute(
                 "gmail.get_thread", {"thread_id": metadata.thread_id, "format": "minimal"}
             )
             if thread_fingerprint(thread) != metadata.thread_fingerprint:
                 metadata.status = "stale"
-                existing.status = "stale"
-                existing.error = "Gmail thread changed while approval was pending"
-                approval.status = "stale"
-                approval.reason = existing.error
-                await self.db.flush()
-                raise GmailAPIError(existing.error)
-        existing.status = "sending"
-        await AuditRepository(self.db).log(
-            "connector.gmail.send_attempted",
-            user_id=owner_id,
-            resource_type="external_action_execution",
-            resource_id=existing.id,
-            metadata={
+                stale_error = "Gmail thread changed while approval was pending"
+                await mark_execution_stale(
+                    self.db, existing, approval, error=stale_error
+                )
+                raise GmailAPIError(stale_error)
+        await mark_execution_sending(
+            self.db,
+            existing,
+            owner_id=owner_id,
+            audit_action="connector.gmail.send_attempted",
+            audit_metadata={
                 "workflow_run_id": workflow_run_id,
                 "approval_request_id": approval_id,
                 "draft_id": draft_id,
                 "arguments_hash": args_hash,
             },
         )
-        await self.db.flush()
         try:
             sent = await self.request(
                 "POST", "/users/me/drafts/send", json_payload={"id": draft_id}
             )
         except GmailAPIError as exc:
-            existing.status = "retryable_failure" if exc.retryable else "failed"
-            existing.error = str(exc)
-            await AuditRepository(self.db).log(
-                "connector.gmail.send_failed",
-                user_id=owner_id,
-                resource_type="external_action_execution",
-                resource_id=existing.id,
-                metadata={
+            await mark_execution_failed(
+                self.db,
+                existing,
+                owner_id=owner_id,
+                error=str(exc),
+                retryable=exc.retryable,
+                audit_action="connector.gmail.send_failed",
+                audit_metadata={
                     "retryable": exc.retryable,
                     "status_code": exc.status_code,
                 },
             )
-            await self.db.flush()
             raise
         metadata.status = "sent"
-        existing.status = "succeeded"
-        existing.external_result_id = str(sent.get("id") or "")
-        existing.result_json = sent
-        existing.error = None
-        await AuditRepository(self.db).log(
-            "connector.gmail.send_succeeded",
-            user_id=owner_id,
-            resource_type="external_action_execution",
-            resource_id=existing.id,
-            metadata={"external_message_id": existing.external_result_id},
+        return await mark_execution_succeeded(
+            self.db,
+            existing,
+            owner_id=owner_id,
+            result_json=sent,
+            external_result_id=str(sent.get("id") or ""),
+            audit_action="connector.gmail.send_succeeded",
+            audit_metadata={"external_message_id": str(sent.get("id") or "")},
         )
-        await self.db.flush()
-        return sent
 
     async def register_watch(self, subscription: TriggerSubscription) -> dict[str, Any]:
         watch = await self.request(

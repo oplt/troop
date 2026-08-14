@@ -264,8 +264,42 @@ MEMORY_RETRIEVALS = "troop_memory_retrievals_total"
 MEMORY_RETRIEVAL_DURATION = "troop_memory_retrieval_duration_seconds"
 DISTRIBUTED_LOCKS = "troop_distributed_lock_attempts_total"
 LLM_ATTEMPTS = "troop_llm_attempts_total"
+ACTIVATION_MILESTONES = "troop_activation_milestones_total"
 LLM_COST_MICROS = "troop_llm_cost_micros_total"
 EMBED_TOKENS = "troop_embed_tokens_total"
+EXTERNAL_HTTP_CLIENTS = "troop_external_http_clients"
+EXTERNAL_HTTP_CLIENTS_CREATED = "troop_external_http_clients_created_total"
+EXTERNAL_HTTP_CLIENTS_CLOSED = "troop_external_http_clients_closed_total"
+EXTERNAL_HTTP_CLIENT_CAPACITY_REJECTIONS = "troop_external_http_client_capacity_rejections_total"
+
+
+def record_external_http_pool_state(
+    *,
+    client_count: int,
+    clients_created: int,
+    clients_closed: int,
+    capacity_rejections: int,
+) -> None:
+    metrics_registry.set_gauge(
+        EXTERNAL_HTTP_CLIENTS,
+        float(client_count),
+        help_text="Current pooled external HTTP clients.",
+    )
+    metrics_registry.set_gauge(
+        EXTERNAL_HTTP_CLIENTS_CREATED,
+        float(clients_created),
+        help_text="External HTTP clients created since process start.",
+    )
+    metrics_registry.set_gauge(
+        EXTERNAL_HTTP_CLIENTS_CLOSED,
+        float(clients_closed),
+        help_text="External HTTP clients closed since process start.",
+    )
+    metrics_registry.set_gauge(
+        EXTERNAL_HTTP_CLIENT_CAPACITY_REJECTIONS,
+        float(capacity_rejections),
+        help_text="External HTTP client pool capacity rejections since process start.",
+    )
 
 
 def record_http_request(method: str, route: str, status_code: int, duration_seconds: float) -> None:
@@ -529,6 +563,22 @@ def record_llm_attempt(*, purpose: str, provider: str, result: str) -> None:
     )
 
 
+def record_activation_milestone(milestone: str) -> None:
+    allowed = {
+        "first_connected_integration",
+        "first_test_run",
+        "first_published_workflow",
+        "first_external_effect",
+    }
+    if milestone not in allowed:
+        return
+    metrics_registry.increment(
+        ACTIVATION_MILESTONES,
+        help_text="Workspace activation milestones reached.",
+        labels={"milestone": milestone},
+    )
+
+
 def record_llm_cost_micros(*, purpose: str, provider: str, micros: int) -> None:
     """Accumulate estimated LLM spend in micro-dollars."""
     if micros <= 0:
@@ -568,6 +618,10 @@ __all__ = [
     "DB_POOL_SIZE",
     "DISTRIBUTED_LOCKS",
     "EMBED_TOKENS",
+    "EXTERNAL_HTTP_CLIENTS",
+    "EXTERNAL_HTTP_CLIENTS_CLOSED",
+    "EXTERNAL_HTTP_CLIENTS_CREATED",
+    "EXTERNAL_HTTP_CLIENT_CAPACITY_REJECTIONS",
     "LLM_ATTEMPTS",
     "LLM_COST_MICROS",
     "MEMORY_RETRIEVALS",
@@ -603,7 +657,9 @@ __all__ = [
     "record_cache_operation",
     "record_distributed_lock",
     "record_embed_tokens",
+    "record_external_http_pool_state",
     "record_llm_attempt",
+    "record_activation_milestone",
     "record_llm_cost_micros",
     "record_sse_event",
     "record_http_request",

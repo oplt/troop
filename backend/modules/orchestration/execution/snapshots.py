@@ -15,7 +15,6 @@ from backend.modules.orchestration.execution.execution_state import (
     extract_execution_metadata_views,
 )
 from backend.modules.orchestration.execution.result_contracts import EXTERNAL_ACTION_STEP_ID
-from backend.modules.orchestration.models import TaskRun
 from backend.modules.projects.orchestration_models import OrchestratorTask
 
 
@@ -122,7 +121,6 @@ class ExecutionSnapshotsMixin:
             or {},
         }
 
-
     async def get_run_execution_snapshot(self, user: User, run_id: str) -> dict[str, Any]:
         """Run-scoped execution snapshot (relational reads only)."""
         run = await self.get_run(user, run_id)
@@ -197,11 +195,9 @@ class ExecutionSnapshotsMixin:
             "resumable": self._run_is_resumable(run),
         }
 
-
     async def get_run_durable_workflow(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
         return self._durable_workflow_payload(run)
-
 
     async def explain_run(self, user: User, run_id: str) -> dict[str, Any]:
         run = await self.get_run(user, run_id)
@@ -237,4 +233,3 @@ class ExecutionSnapshotsMixin:
             "approvals_pending": len(approvals),
             "approvals_pending_types": [a.approval_type for a in approvals],
         }
-

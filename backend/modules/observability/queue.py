@@ -67,6 +67,7 @@ async def refresh_queue_metrics(redis_client: Any) -> None:
     await asyncio.gather(*(refresh_depth(queue) for queue in queue_names))
 
     if default_queue_depth_available:
+
         async def durable_queue_state() -> None:
             async with SessionLocal() as db:
                 row = (

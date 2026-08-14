@@ -15,6 +15,8 @@ from backend.core.cache import (
     set_cached_project_acl,
 )
 from backend.modules.identity_access.models import User
+from backend.modules.identity_access.workspace_authorization import WorkspaceAuthorizationService
+from backend.modules.identity_access.workspace_context import get_active_workspace_id
 from backend.modules.orchestration.hierarchy_policy import (
     apply_policy_to_execution,
     policy_from_execution,
@@ -31,13 +33,11 @@ class ProjectCrudMixin:
     async def list_projects(self, user: User):
         return await self.repo.list_projects(user.id)
 
-
     async def _resolve_default_company_id(self, owner_id: str) -> str:
         from backend.modules.companies.service import CompanyService
 
         company = await CompanyService(self.db).get_or_create_default(owner_id)
         return company.id
-
 
     async def _ensure_company_id_for_project(self, project: OrchestratorProject) -> str:
         if getattr(project, "company_id", None):
@@ -45,7 +45,6 @@ class ProjectCrudMixin:
         company_id = await self._resolve_default_company_id(project.owner_id)
         project.company_id = company_id
         return company_id
-
 
     async def create_project(self, user: User, payload: dict[str, Any]):
         policy_defaults = await self.get_portfolio_execution_policy(user)
@@ -103,19 +102,25 @@ class ProjectCrudMixin:
             await self.db.refresh(project)
         return project
 
-
     async def get_project(self, user: User, project_id: str):
+        auth = WorkspaceAuthorizationService(self.db)
+        ctx = await auth.resolve_active_workspace(user, workspace_id=get_active_workspace_id())
+
         cached_acl = await get_cached_project_acl(user.id, project_id)
         if cached_acl is False:
             raise HTTPException(status_code=404, detail="Project not found")
-        project = await self.repo.get_project(user.id, project_id)
+        project = await self.repo.get_project_by_id(project_id)
         if not project:
             await set_cached_project_acl(user.id, project_id, allowed=False)
             raise HTTPException(status_code=404, detail="Project not found")
+        try:
+            auth.authorize_project_read(ctx, project_owner_id=project.owner_id)
+        except HTTPException:
+            await set_cached_project_acl(user.id, project_id, allowed=False)
+            raise HTTPException(status_code=404, detail="Project not found") from None
         if cached_acl is not True:
             await set_cached_project_acl(user.id, project_id, allowed=True)
         return project
-
 
     async def update_project(self, user: User, project_id: str, updates: dict[str, Any]):
         project = await self.get_project(user, project_id)
@@ -165,7 +170,6 @@ class ProjectCrudMixin:
             await invalidate_project_memory_settings_cache(project.id)
         return project
 
-
     async def delete_project(self, user: User, project_id: str) -> None:
         project = await self.get_project(user, project_id)
         await self.db.delete(project)
@@ -180,11 +184,9 @@ class ProjectCrudMixin:
         await invalidate_project_memory_settings_cache(project_id)
         await invalidate_portfolio_summary_cache(user.id)
 
-
     async def list_milestones(self, user: User, project_id: str) -> list[ProjectMilestone]:
         await self.get_project(user, project_id)
         return await self.repo.list_project_milestones(project_id)
-
 
     async def create_milestone(
         self,
@@ -209,7 +211,6 @@ class ProjectCrudMixin:
         await self.db.refresh(item)
         return item
 
-
     async def update_milestone(
         self, user: User, project_id: str, milestone_id: str, updates: dict[str, Any]
     ) -> ProjectMilestone:
@@ -224,11 +225,9 @@ class ProjectCrudMixin:
         await self.db.refresh(item)
         return item
 
-
     async def list_decisions(self, user: User, project_id: str) -> list[ProjectDecision]:
         await self.get_project(user, project_id)
         return await self.repo.list_project_decisions(project_id)
-
 
     async def create_decision(
         self,
@@ -262,11 +261,9 @@ class ProjectCrudMixin:
             await maybe_promote(user, project, item)
         return item
 
-
     async def project_live_snapshot(self, user: User, project_id: str) -> dict[str, Any]:
         await self.get_project(user, project_id)
         return await self.repo.get_project_live_snapshot(user.id, project_id)
-
 
     async def bootstrap_project_from_text(self, user: User, prompt: str) -> dict[str, Any]:
         del user
@@ -318,7 +315,6 @@ class ProjectCrudMixin:
             },
         }
 
-
     async def apply_bootstrap_project(
         self, user: User, payload: dict[str, Any]
     ) -> OrchestratorProject:
@@ -359,4 +355,3 @@ class ProjectCrudMixin:
                 },
             )
         return project
-

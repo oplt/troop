@@ -120,8 +120,19 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
     });
 
     const runEvaluationMutation = useMutation({
-        mutationFn: ({ datasetId, promptVersionId }: { datasetId: string; promptVersionId: string }) =>
-            runAiEvaluation(datasetId, promptVersionId),
+        mutationFn: ({
+            datasetId,
+            promptVersionId,
+            baselineRunId,
+        }: {
+            datasetId: string;
+            promptVersionId: string;
+            baselineRunId?: string | null;
+        }) =>
+            runAiEvaluation(datasetId, {
+                prompt_version_id: promptVersionId,
+                baseline_run_id: baselineRunId ?? null,
+            }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["ai", "evaluation-runs"] });
             await queryClient.invalidateQueries({ queryKey: ["ai"] });

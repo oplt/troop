@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,12 +10,14 @@ from backend.modules.ai.schemas import (
     AiDocumentIngestResponse,
     AiDocumentResponse,
     AiEvaluationCaseCreate,
+    AiEvaluationCaseFromTraceCreate,
     AiEvaluationCaseResponse,
     AiEvaluationDatasetCreate,
     AiEvaluationDatasetResponse,
     AiEvaluationDatasetUpdate,
     AiEvaluationRunRequest,
     AiEvaluationRunResponse,
+    AiEvaluationScorecardResponse,
     AiFeedbackCreate,
     AiFeedbackResponse,
     AiModuleOverviewResponse,
@@ -126,8 +128,45 @@ def _dataset_case_to_response(case) -> AiEvaluationCaseResponse:
         input_variables=case.input_variables_json,
         expected_output_text=case.expected_output_text,
         expected_output_json=case.expected_output_json,
+        expected_assertions=case.expected_assertions_json,
         notes=case.notes,
+        source_run_id=case.source_run_id,
+        source_trace_span_id=case.source_trace_span_id,
+        provenance=case.provenance_json or {},
+        input_snapshot=case.input_snapshot_json or {},
+        correction=case.correction_json,
         created_at=case.created_at,
+    )
+
+
+async def _evaluation_run_to_response(service: AiService, run) -> AiEvaluationRunResponse:
+    items = await service.repo.list_evaluation_run_items(run.id)
+    return AiEvaluationRunResponse(
+        id=run.id,
+        dataset_id=run.dataset_id,
+        prompt_version_id=run.prompt_version_id,
+        status=run.status,
+        total_cases=run.total_cases,
+        passed_cases=run.passed_cases,
+        average_score=run.average_score,
+        baseline_run_id=run.baseline_run_id,
+        candidate_config=run.candidate_config_json or {},
+        metrics=run.metrics_json or {},
+        scorecard=run.scorecard_json or {},
+        judge_version_id=run.judge_version_id,
+        created_at=run.created_at,
+        completed_at=run.completed_at,
+        items=[
+            {
+                "evaluation_case_id": item.evaluation_case_id,
+                "ai_run_id": item.ai_run_id,
+                "score": item.score,
+                "passed": item.passed,
+                "notes": item.notes,
+                "metrics": item.metrics_json or {},
+            }
+            for item in items
+        ],
     )
 
 
@@ -241,7 +280,9 @@ async def update_prompt_version(
     return _prompt_version_to_response(version)
 
 
-def _document_ingest_response(document, *, ingest_job_id: str | None = None) -> AiDocumentIngestResponse:
+def _document_ingest_response(
+    document, *, ingest_job_id: str | None = None
+) -> AiDocumentIngestResponse:
     return AiDocumentIngestResponse(
         document=_document_to_response(document),
         ingest_job_id=ingest_job_id,
@@ -498,6 +539,26 @@ async def create_dataset_case(
     return _dataset_case_to_response(case)
 
 
+@router.post(
+    "/evaluation-datasets/{dataset_id}/cases/from-trace",
+    response_model=AiEvaluationCaseResponse,
+    status_code=201,
+)
+async def create_dataset_case_from_trace(
+    dataset_id: str,
+    payload: AiEvaluationCaseFromTraceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AiService(db)
+    case = await service.create_case_from_trace(
+        current_user,
+        dataset_id,
+        payload.model_dump(),
+    )
+    return _dataset_case_to_response(case)
+
+
 @router.get("/evaluation-runs", response_model=list[AiEvaluationRunResponse])
 async def list_evaluation_runs(
     db: AsyncSession = Depends(get_db),
@@ -505,7 +566,32 @@ async def list_evaluation_runs(
 ):
     service = AiService(db)
     runs = await service.list_evaluation_runs(current_user)
-    return [AiEvaluationRunResponse.model_validate(run) for run in runs]
+    return [await _evaluation_run_to_response(service, run) for run in runs]
+
+
+@router.get("/evaluation-runs/{evaluation_run_id}", response_model=AiEvaluationRunResponse)
+async def get_evaluation_run(
+    evaluation_run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AiService(db)
+    run = await service.get_evaluation_run(current_user, evaluation_run_id)
+    return await _evaluation_run_to_response(service, run)
+
+
+@router.get(
+    "/evaluation-runs/{evaluation_run_id}/scorecard",
+    response_model=AiEvaluationScorecardResponse,
+)
+async def get_evaluation_scorecard(
+    evaluation_run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AiService(db)
+    scorecard = await service.get_evaluation_scorecard(current_user, evaluation_run_id)
+    return AiEvaluationScorecardResponse.model_validate(scorecard)
 
 
 @router.post(
@@ -521,6 +607,6 @@ async def run_evaluation(
 ):
     service = AiService(db)
     evaluation_run = await service.run_evaluation(
-        current_user, dataset_id, payload.prompt_version_id
+        current_user, dataset_id, payload.model_dump()
     )
-    return AiEvaluationRunResponse.model_validate(evaluation_run)
+    return await _evaluation_run_to_response(service, evaluation_run)

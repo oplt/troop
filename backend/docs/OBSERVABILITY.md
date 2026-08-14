@@ -110,7 +110,8 @@ Example — pool exhaustion pressure:
 troop_db_pool_checked_out / troop_db_pool_size > 0.9
 ```
 
-Checkout wait histogram is recorded on API `get_db()` session acquisition.
+Checkout wait histogram is recorded when SQLAlchemy checks out a pooled connection
+(`pool._do_get`), including worker `SessionLocal()` usage — not at lazy session construction.
 
 ## Local scrape (operational)
 

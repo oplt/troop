@@ -25,7 +25,9 @@ def estimate_cost_micros(
 ) -> int:
     # Ollama and built-in local heuristic are not metered like cloud APIs; using generic defaults
     # ($/1k from capability fallbacks) falsely trips expensive-model approval for models like qwen3:4b.
-    if provider is not None and str(getattr(provider, "provider_type", None) or "").strip().lower() in {
+    if provider is not None and str(
+        getattr(provider, "provider_type", None) or ""
+    ).strip().lower() in {
         "ollama",
         "local",
     }:

@@ -28,4 +28,3 @@ class ExecutionArtifactsEvidenceMixin:
             metadata_json=metadata or {},
         )
         await self.db.commit()
-

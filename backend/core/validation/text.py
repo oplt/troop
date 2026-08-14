@@ -14,11 +14,7 @@ def jaccard_similarity(set1: set[str], set2: set[str]) -> float:
 
 
 def tokenize_words(text: str) -> set[str]:
-    return {
-        part.lower()
-        for part in text.replace("/", " ").replace("-", " ").split()
-        if part
-    }
+    return {part.lower() for part in text.replace("/", " ").replace("-", " ").split() if part}
 
 
 def token_jaccard(text_a: str, text_b: str) -> float:

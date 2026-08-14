@@ -16,7 +16,8 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { forgotPassword, signIn, signUp } from "../api/auth";
+import { useQuery } from "@tanstack/react-query";
+import { forgotPassword, listSsoProviders, signIn, signUp, startSsoLogin } from "../api/auth";
 import { AuthMarketingPanel } from "../components/auth/AuthMarketingPanel";
 import { AuthShell } from "../components/auth/AuthShell";
 import { useAuth } from "../hooks/useAuth";
@@ -260,6 +261,11 @@ function SignUpForm({ onSuccess }: { onSuccess: (email: string) => void }) {
 
 export default function AuthHomePage() {
     const { data: platformMetadata } = usePlatformMetadata();
+    const { data: ssoProviders = [] } = useQuery({
+        queryKey: ["auth", "sso-providers"],
+        queryFn: () => listSsoProviders(),
+        retry: false,
+    });
     const [mode, setMode] = useState<Mode>("signIn");
     const [successMsg, setSuccessMsg] = useState("");
 
@@ -334,7 +340,26 @@ export default function AuthHomePage() {
                 {successMsg && <Alert severity="success">{successMsg}</Alert>}
 
                 {mode === "signIn" ? (
-                    <SignInForm onSuccess={() => undefined} mfaEnabled={platformMetadata?.mfa_enabled ?? false} />
+                    <>
+                        {ssoProviders.length > 0 && (
+                            <Stack spacing={1}>
+                                {ssoProviders.map((provider) => (
+                                    <Button
+                                        key={provider.slug}
+                                        variant="outlined"
+                                        fullWidth
+                                        onClick={() => startSsoLogin(provider.slug, window.location.origin + "/dashboard")}
+                                    >
+                                        Continue with {provider.name}
+                                    </Button>
+                                ))}
+                                <Typography variant="caption" color="text.secondary" align="center">
+                                    or sign in with email
+                                </Typography>
+                            </Stack>
+                        )}
+                        <SignInForm onSuccess={() => undefined} mfaEnabled={platformMetadata?.mfa_enabled ?? false} />
+                    </>
                 ) : (
                     <SignUpForm
                         onSuccess={(email) => {

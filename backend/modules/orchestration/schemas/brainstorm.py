@@ -3,12 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
+from backend.modules.orchestration.schemas.common import BrainstormMode, BrainstormOutputType
 
-from backend.modules.orchestration.schemas.common import *  # noqa: F403
 
 class BrainstormCreate(RequestModel):
     project_id: str
@@ -89,5 +88,3 @@ class BrainstormMessageResponse(BaseModel):
     content: str
     metadata: dict[str, Any]
     created_at: datetime
-
-

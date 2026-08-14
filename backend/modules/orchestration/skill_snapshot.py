@@ -39,7 +39,9 @@ async def freeze_skill_version_snapshot(
                     caps.append(str(cap))
         snapshot = {
             "agent_id": agent_id,
-            "skill_version_ids": [str(p["skill_version_id"]) for p in payloads if p.get("skill_version_id")],
+            "skill_version_ids": [
+                str(p["skill_version_id"]) for p in payloads if p.get("skill_version_id")
+            ],
             "skills": [
                 {
                     "skill_id": p.get("skill_id"),

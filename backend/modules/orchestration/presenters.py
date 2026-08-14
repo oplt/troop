@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.modules.notifications.schemas import NotificationListItem
 from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.schemas import (
     ActiveRunSummary,
@@ -16,18 +17,24 @@ from backend.modules.orchestration.schemas import (
     AgentLintSummary,
     AgentResolvedProfile,
     AgentResponse,
+    ApprovalListItem,
     ExecutionSnapshotMeta,
     PendingApprovalSummary,
     PendingGithubSyncSummary,
+    ProjectListItem,
     ProjectResponse,
+    RunEventListItem,
     RunEventResponse,
     RunEventTailItem,
     RunExecutionSnapshotResponse,
     RunTraceStep,
     TaskExecutionSnapshotResponse,
+    TaskListItem,
     TaskResponse,
+    TaskRunListItem,
     TaskRunResponse,
 )
+from backend.modules.orchestration.schemas.list_items import truncate_list_text
 
 
 def to_project_response(item: Any) -> ProjectResponse:
@@ -100,6 +107,125 @@ def to_agent_response(item: Any) -> AgentResponse:
         version=item.version,
         created_at=item.created_at,
         updated_at=item.updated_at,
+    )
+
+
+def to_project_list_item(item: Any) -> ProjectListItem:
+    return ProjectListItem(
+        id=item.id,
+        name=item.name,
+        slug=item.slug,
+        description=truncate_list_text(item.description, max_chars=280),
+        status=item.status,
+        memory_scope=item.memory_scope,
+        company_id=getattr(item, "company_id", None),
+        department_id=getattr(item, "department_id", None),
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def to_task_list_item(
+    item: Any,
+    dependency_ids: list[str] | None = None,
+    github_summary: dict[str, Any] | None = None,
+) -> TaskListItem:
+    gh_num = gh_url = gh_repo = None
+    if github_summary:
+        raw_number = github_summary.get("issue_number")
+        gh_num = int(raw_number) if raw_number is not None else None
+        issue_url = github_summary.get("issue_url")
+        gh_url = str(issue_url) if issue_url else None
+        repository_name = github_summary.get("repository_full_name")
+        gh_repo = str(repository_name) if repository_name else None
+    return TaskListItem(
+        id=item.id,
+        project_id=item.project_id,
+        title=item.title,
+        status=item.status,
+        priority=item.priority,
+        task_type=item.task_type,
+        position=item.position,
+        assigned_agent_id=item.assigned_agent_id,
+        human_assignee_id=getattr(item, "human_assignee_id", None),
+        parent_task_id=item.parent_task_id,
+        github_issue_number=gh_num,
+        github_issue_url=gh_url,
+        github_repository_full_name=gh_repo,
+        due_date=item.due_date,
+        labels=list(item.labels_json or []),
+        dependency_ids=list(dependency_ids or []),
+        has_result=bool(getattr(item, "result_summary", None)),
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def to_run_list_item(item: Any) -> TaskRunListItem:
+    return TaskRunListItem(
+        id=item.id,
+        parent_run_id=getattr(item, "parent_run_id", None),
+        project_id=item.project_id,
+        task_id=item.task_id,
+        run_mode=item.run_mode,
+        status=item.status,
+        model_name=item.model_name,
+        attempt_number=item.attempt_number,
+        token_input=item.token_input,
+        token_output=item.token_output,
+        token_total=item.token_total,
+        estimated_cost_micros=item.estimated_cost_micros,
+        latency_ms=item.latency_ms,
+        error_message=truncate_list_text(item.error_message),
+        retry_count=item.retry_count,
+        created_at=item.created_at,
+        started_at=item.started_at,
+        completed_at=item.completed_at,
+        cancelled_at=item.cancelled_at,
+    )
+
+
+def to_event_list_item(item: Any) -> RunEventListItem:
+    return RunEventListItem(
+        id=item.id,
+        run_id=item.run_id,
+        task_id=item.task_id,
+        level=item.level,
+        event_type=item.event_type,
+        message=truncate_list_text(item.message or "") or "",
+        input_tokens=item.input_tokens,
+        output_tokens=item.output_tokens,
+        cost_usd_micros=item.cost_usd_micros,
+        created_at=item.created_at,
+    )
+
+
+def to_approval_list_item(item: Any) -> ApprovalListItem:
+    return ApprovalListItem(
+        id=item.id,
+        project_id=item.project_id,
+        task_id=item.task_id,
+        run_id=item.run_id,
+        issue_link_id=item.issue_link_id,
+        approval_type=item.approval_type,
+        status=item.status,
+        reason=truncate_list_text(item.reason, max_chars=500),
+        effect_hash=item.effect_hash,
+        effect_version=item.effect_version or 1,
+        expires_at=item.expires_at,
+        created_at=item.created_at,
+        resolved_at=item.resolved_at,
+    )
+
+
+def to_notification_list_item(item: Any) -> NotificationListItem:
+    return NotificationListItem(
+        id=item.id,
+        type=item.type,
+        title=item.title,
+        body_preview=truncate_list_text(item.body, max_chars=160),
+        is_read=item.is_read,
+        created_at=item.created_at,
     )
 
 
@@ -257,9 +383,15 @@ def to_run_execution_snapshot(raw: dict[str, Any]) -> RunExecutionSnapshotRespon
 
 __all__ = [
     "to_agent_response",
+    "to_approval_list_item",
+    "to_event_list_item",
     "to_event_response",
+    "to_notification_list_item",
+    "to_project_list_item",
     "to_run_execution_snapshot",
+    "to_run_list_item",
     "to_run_response",
     "to_task_execution_snapshot",
+    "to_task_list_item",
     "to_task_response",
 ]

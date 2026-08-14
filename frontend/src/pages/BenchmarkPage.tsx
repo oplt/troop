@@ -22,15 +22,23 @@ import {
     FolderOpen as ProjectsIcon,
 } from "@mui/icons-material";
 import {
+    applyAgentPattern,
+    benchmarkAgentPattern,
     createEvalRecord,
+    enableAgentPattern,
     getEvalLeaderboard,
+    listAgentPatterns,
     listAgents,
     listEvalRecords,
     listOrchestrationTasks,
+    listProjectAgentPatterns,
+    scoreAgentPatternEval,
     scoreEvalRecord,
     startBenchmark,
     startHistoricalBenchmarks,
     updateEvalRecord,
+    type AgentPattern,
+    type AgentPatternStatus,
     type EvalRecord,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
@@ -223,6 +231,208 @@ function EvalCard({ eval: ev, projectId }: { eval: EvalRecord; projectId: string
     );
 }
 
+function patternStatusLabel(status: AgentPatternStatus["status"], evalReady: boolean): string {
+    if (status === "released") return "Enabled";
+    if (evalReady) return "Ready to enable";
+    if (status === "eval_pending") return "Eval pending";
+    return "Disabled";
+}
+
+function patternStatusColor(
+    status: AgentPatternStatus["status"],
+    evalReady: boolean,
+): "success" | "warning" | "info" | "default" {
+    if (status === "released") return "success";
+    if (evalReady) return "info";
+    if (status === "eval_pending") return "warning";
+    return "default";
+}
+
+function AgentPatternsPanel({
+    projectId,
+    patterns,
+    statuses,
+    tasks,
+    agents,
+}: {
+    projectId: string;
+    patterns: AgentPattern[];
+    statuses: AgentPatternStatus[];
+    tasks: Array<{ id: string; title: string }>;
+    agents: Array<{ id: string; name: string }>;
+}) {
+    const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
+    const [benchForm, setBenchForm] = useState<Record<string, { task_id: string; agent_id: string }>>({});
+
+    const statusById = Object.fromEntries(statuses.map((s) => [s.pattern_id, s]));
+
+    const invalidate = () => {
+        queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "agent-patterns"] });
+        queryClient.invalidateQueries({ queryKey: ["orchestration", "project", projectId, "evals"] });
+    };
+
+    const applyMutation = useMutation({
+        mutationFn: (patternId: string) => applyAgentPattern(projectId, patternId),
+        onSuccess: () => {
+            invalidate();
+            showToast({ message: "Pattern applied — run a benchmark before enabling.", severity: "success" });
+        },
+    });
+
+    const benchmarkMutation = useMutation({
+        mutationFn: ({ patternId, taskId, agentId }: { patternId: string; taskId: string; agentId: string }) =>
+            benchmarkAgentPattern(projectId, patternId, { task_id: taskId, agent_id: agentId }),
+        onSuccess: (result) => {
+            invalidate();
+            showToast({ message: `Pattern benchmark launched (${result.runs.length} runs).`, severity: "success" });
+        },
+    });
+
+    const scoreMutation = useMutation({
+        mutationFn: ({ evalId }: { evalId: string }) => scoreAgentPatternEval(projectId, evalId),
+        onSuccess: (result) => {
+            invalidate();
+            const released = Boolean(result.advantage?.released);
+            showToast({
+                message: released
+                    ? "Pattern passed eval gate — you can enable it."
+                    : "Pattern did not beat baseline on quality/latency/cost.",
+                severity: released ? "success" : "warning",
+            });
+        },
+    });
+
+    const enableMutation = useMutation({
+        mutationFn: (patternId: string) => enableAgentPattern(projectId, patternId),
+        onSuccess: () => {
+            invalidate();
+            showToast({ message: "Pattern enabled for this project.", severity: "success" });
+        },
+    });
+
+    return (
+        <SectionCard
+            title="Multi-agent patterns"
+            description="Curated patterns release only after evals show quality/latency/cost advantage vs single-agent baseline."
+        >
+            <Stack spacing={2}>
+                {patterns.map((pattern) => {
+                    const status = statusById[pattern.id];
+                    const form = benchForm[pattern.id] ?? { task_id: "", agent_id: "" };
+                    return (
+                        <Paper key={pattern.id} sx={{ p: 2, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                            <Stack spacing={1.5}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                                    <Box>
+                                        <Typography variant="subtitle2">{pattern.name}</Typography>
+                                        <Typography variant="body2" color="text.secondary">{pattern.description}</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {pattern.baseline_run_mode} → {pattern.pattern_run_mode}
+                                        </Typography>
+                                    </Box>
+                                    <Chip
+                                        size="small"
+                                        label={patternStatusLabel(status?.status ?? "disabled", Boolean(status?.eval_ready))}
+                                        color={patternStatusColor(status?.status ?? "disabled", Boolean(status?.eval_ready))}
+                                        variant="outlined"
+                                    />
+                                </Stack>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Task"
+                                        value={form.task_id}
+                                        onChange={(e) =>
+                                            setBenchForm((prev) => ({
+                                                ...prev,
+                                                [pattern.id]: { ...form, task_id: e.target.value },
+                                            }))
+                                        }
+                                        sx={{ minWidth: 180, flex: 1 }}
+                                    >
+                                        <MenuItem value="">Select task</MenuItem>
+                                        {tasks.map((t) => (
+                                            <MenuItem key={t.id} value={t.id}>{t.title}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Agent"
+                                        value={form.agent_id}
+                                        onChange={(e) =>
+                                            setBenchForm((prev) => ({
+                                                ...prev,
+                                                [pattern.id]: { ...form, agent_id: e.target.value },
+                                            }))
+                                        }
+                                        sx={{ minWidth: 160, flex: 1 }}
+                                    >
+                                        <MenuItem value="">Select agent</MenuItem>
+                                        {agents.map((a) => (
+                                            <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Stack>
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        disabled={applyMutation.isPending}
+                                        onClick={() => applyMutation.mutate(pattern.id)}
+                                    >
+                                        Apply
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        startIcon={<RunIcon />}
+                                        disabled={
+                                            !form.task_id ||
+                                            !form.agent_id ||
+                                            benchmarkMutation.isPending
+                                        }
+                                        onClick={() =>
+                                            benchmarkMutation.mutate({
+                                                patternId: pattern.id,
+                                                taskId: form.task_id,
+                                                agentId: form.agent_id,
+                                            })
+                                        }
+                                    >
+                                        Benchmark vs baseline
+                                    </Button>
+                                    {status?.last_eval_id && (
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            disabled={scoreMutation.isPending}
+                                            onClick={() => scoreMutation.mutate({ evalId: status.last_eval_id! })}
+                                        >
+                                            Score eval
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="success"
+                                        disabled={!status?.eval_ready || enableMutation.isPending}
+                                        onClick={() => enableMutation.mutate(pattern.id)}
+                                    >
+                                        Enable
+                                    </Button>
+                                </Stack>
+                            </Stack>
+                        </Paper>
+                    );
+                })}
+            </Stack>
+        </SectionCard>
+    );
+}
+
 export default function BenchmarkPage() {
     const { projectId } = useParams<{ projectId: string }>();
     const queryClient = useQueryClient();
@@ -245,6 +455,15 @@ export default function BenchmarkPage() {
     const { data: leaderboard = [] } = useQuery({
         queryKey: ["orchestration", "project", projectId, "evals", "leaderboard"],
         queryFn: () => getEvalLeaderboard(projectId!),
+        enabled: Boolean(projectId),
+    });
+    const { data: agentPatterns = [] } = useQuery({
+        queryKey: ["orchestration", "agent-patterns"],
+        queryFn: () => listAgentPatterns(),
+    });
+    const { data: patternStatuses } = useQuery({
+        queryKey: ["orchestration", "project", projectId, "agent-patterns"],
+        queryFn: () => listProjectAgentPatterns(projectId!),
         enabled: Boolean(projectId),
     });
 
@@ -431,6 +650,16 @@ export default function BenchmarkPage() {
                     ))}
                 </Stack>
             </Box>
+
+            {projectId && agentPatterns.length > 0 && (
+                <AgentPatternsPanel
+                    projectId={projectId}
+                    patterns={agentPatterns}
+                    statuses={patternStatuses?.patterns ?? []}
+                    tasks={tasks}
+                    agents={agents}
+                />
+            )}
         </PageShell>
     );
 }

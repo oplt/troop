@@ -44,7 +44,9 @@ class ControlPlaneTasksMixin:
         )
         return task
 
-    async def assign_task(self, user: User, project_id: str, task_id: str, member_id: str) -> OrchestratorTask:
+    async def assign_task(
+        self, user: User, project_id: str, task_id: str, member_id: str
+    ) -> OrchestratorTask:
         task = await self.service.update_task(
             user,
             project_id,
@@ -65,7 +67,9 @@ class ControlPlaneTasksMixin:
         )
         return task
 
-    async def update_task_status(self, user: User, project_id: str, task_id: str, status: str) -> OrchestratorTask:
+    async def update_task_status(
+        self, user: User, project_id: str, task_id: str, status: str
+    ) -> OrchestratorTask:
         task = await self.service.update_task(user, project_id, task_id, {"status": status})
         await control_plane_pubsub.publish(
             ControlPlaneEvent(
@@ -191,6 +195,8 @@ class ControlPlaneTasksMixin:
         )
         return {"brainstorm": brainstorm, "run": run}
 
-    async def list_task_artifacts(self, user: User, project_id: str, task_id: str) -> list[TaskArtifact]:
+    async def list_task_artifacts(
+        self, user: User, project_id: str, task_id: str
+    ) -> list[TaskArtifact]:
         await self.service.get_task(user, project_id, task_id)
         return await self.repo.list_task_artifacts(task_id)

@@ -25,7 +25,9 @@ class GithubConnection(Base):
     repository_selection: Mapped[str | None] = mapped_column(String(32), nullable=True)
     install_permissions_json: Mapped[dict] = mapped_column(JSON, default=dict)
     install_events_json: Mapped[list] = mapped_column(JSON, default=list)
-    install_last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    install_last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     webhook_secret_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -144,7 +146,9 @@ class GithubEntityMapping(Base):
 
 class GithubOutboundDedup(Base):
     __tablename__ = "github_outbound_dedup"
-    __table_args__ = (UniqueConstraint("owner_id", "dedup_key", name="uq_github_outbound_dedup_owner_key"),)
+    __table_args__ = (
+        UniqueConstraint("owner_id", "dedup_key", name="uq_github_outbound_dedup_owner_key"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -152,5 +156,7 @@ class GithubOutboundDedup(Base):
     issue_link_id: Mapped[str | None] = mapped_column(
         ForeignKey("github_issue_links.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    approval_id: Mapped[str] = mapped_column(ForeignKey("approval_requests.id", ondelete="CASCADE"), index=True)
+    approval_id: Mapped[str] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="CASCADE"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

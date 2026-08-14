@@ -25,8 +25,7 @@ class AiDocumentIngestionMixin:
             raise HTTPException(
                 status_code=413,
                 detail=(
-                    f"Document exceeds the maximum size of"
-                    f" {settings.AI_DOCUMENT_MAX_BYTES} bytes"
+                    f"Document exceeds the maximum size of {settings.AI_DOCUMENT_MAX_BYTES} bytes"
                 ),
             )
 
@@ -100,9 +99,7 @@ class AiDocumentIngestionMixin:
         queue_async: bool | None = None,
     ) -> tuple[Any, str | None]:
         self._validate_document_content(content)
-        use_async = (
-            settings.AI_DOCUMENT_INGEST_ASYNC if queue_async is None else bool(queue_async)
-        )
+        use_async = settings.AI_DOCUMENT_INGEST_ASYNC if queue_async is None else bool(queue_async)
         document = await self.repo.create_document(
             user_id=user.id,
             title=title,

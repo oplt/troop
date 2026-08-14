@@ -19,6 +19,10 @@ export async function getNotifications(): Promise<Notification[]> {
     return apiFetch("/notifications");
 }
 
+export async function getUnreadNotificationsCount(): Promise<{ count: number }> {
+    return apiFetch("/notifications/unread-count");
+}
+
 export async function markRead(id: string): Promise<void> {
     return apiFetch(`/notifications/${id}/read`, { method: "PATCH" });
 }

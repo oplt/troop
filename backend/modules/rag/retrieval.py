@@ -31,6 +31,9 @@ from backend.modules.rag.parsing import DocumentParser, detect_source_type
 from backend.modules.rag.prompt_builder import RagPromptBuilder
 from backend.modules.rag.reranker import RerankerService
 from backend.modules.rag.schemas import RagAnswer, RagChunkMatch, RagSearchFilters
+from backend.modules.workforce.integrations.drive_acl import actor_can_read_acl
+
+_DRIVE_SOURCE_KINDS = frozenset({"google_drive", "microsoft_drive"})
 from backend.modules.rag.vector_store import PgVectorStoreRepository
 
 logger = get_logger(__name__)
@@ -75,6 +78,7 @@ class RetrieverService:
             source_kind=filters.source_kind,
             include_decisions=filters.include_decisions,
             limit=cap,
+            actor_email=filters.actor_email,
         )
         cached_payload = await get_cached_rag_retrieval(cache_key)
         if cached_payload is not None:
@@ -122,6 +126,7 @@ class RetrieverService:
 
             threshold = self._config.effective_score_threshold()
             matches = [m for m in matches if m.score >= threshold]
+            matches = self._filter_drive_acl_matches(matches, actor_email=filters.actor_email)
             matches = self._reranker.rerank(query, matches)[:cap]
             await set_cached_rag_retrieval(cache_key, matches)
             return matches
@@ -164,6 +169,25 @@ class RetrieverService:
             )
         return out
 
+    @staticmethod
+    def _filter_drive_acl_matches(
+        matches: list[RagChunkMatch],
+        *,
+        actor_email: str | None,
+    ) -> list[RagChunkMatch]:
+        filtered: list[RagChunkMatch] = []
+        for match in matches:
+            source_kind = str(match.metadata.get("source_kind") or "")
+            if source_kind not in _DRIVE_SOURCE_KINDS:
+                filtered.append(match)
+                continue
+            if not actor_email:
+                continue
+            acl_snapshot = match.metadata.get("acl_snapshot")
+            if actor_can_read_acl(acl_snapshot, actor_email=actor_email):
+                filtered.append(match)
+        return filtered
+
     async def _fallback_search(
         self,
         project_id: str,
@@ -198,7 +222,7 @@ class RetrieverService:
                 )
             )
         matches.sort(key=lambda item: item.score, reverse=True)
-        return matches[:cap]
+        return self._filter_drive_acl_matches(matches[:cap], actor_email=filters.actor_email)
 
     async def _merge_decisions(
         self,

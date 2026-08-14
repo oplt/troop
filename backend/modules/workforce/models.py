@@ -311,6 +311,12 @@ class ToolDefinition(Base):
     schema_json: Mapped[dict] = mapped_column(JSON, default=dict)
     risk_level: Mapped[str] = mapped_column(String(32), default="low")
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    side_effect: Mapped[str] = mapped_column(String(32), default="read")
+    reversibility: Mapped[str] = mapped_column(String(32), default="none")
+    data_sensitivity: Mapped[str] = mapped_column(String(32), default="internal")
+    parallel_safe: Mapped[bool] = mapped_column(Boolean, default=False)
+    idempotency_strategy: Mapped[str] = mapped_column(String(64), default="none")
+    commit_check_strategy: Mapped[str] = mapped_column(String(64), default="none")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -343,6 +349,7 @@ class ConnectorInstallation(Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), default="active")
+    environment: Mapped[str] = mapped_column(String(32), default="dev", index=True)
     config_json: Mapped[dict] = mapped_column(JSON, default=dict)
     # Secrets never returned to frontend; encrypted at rest by settings layer when present.
     secrets_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -478,6 +485,64 @@ class ExternalEvent(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class ExternalKnowledgeSource(Base):
+    __tablename__ = "external_knowledge_sources"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "connector_installation_id",
+            "provider",
+            name="uq_external_knowledge_sources_project_installation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("orchestrator_projects.id", ondelete="CASCADE"), index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    root_config_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    sync_cursor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ExternalDocumentSyncState(Base):
+    __tablename__ = "external_document_sync_states"
+    __table_args__ = (
+        UniqueConstraint("source_id", "external_file_id", name="uq_external_document_sync_source_file"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    source_id: Mapped[str] = mapped_column(
+        ForeignKey("external_knowledge_sources.id", ondelete="CASCADE"), index=True
+    )
+    external_file_id: Mapped[str] = mapped_column(String(512))
+    external_path: Mapped[str] = mapped_column(String(1024), default="")
+    etag: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    project_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("project_documents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    acl_snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    sync_status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class ApprovalDelivery(Base):
     __tablename__ = "approval_deliveries"
     __table_args__ = (
@@ -538,6 +603,76 @@ class TelegramIdentityBinding(Base):
     telegram_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     telegram_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    link_token_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class SlackIdentityBinding(Base):
+    __tablename__ = "slack_identity_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_installation_id",
+            "slack_user_id",
+            name="uq_slack_bindings_installation_user",
+        ),
+        UniqueConstraint("link_token_hash", name="uq_slack_bindings_link_token_hash"),
+        Index("ix_slack_bindings_owner_status", "owner_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    slack_team_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    slack_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    slack_channel_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    slack_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    link_token_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class TeamsIdentityBinding(Base):
+    __tablename__ = "teams_identity_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_installation_id",
+            "teams_user_id",
+            name="uq_teams_bindings_installation_user",
+        ),
+        UniqueConstraint("link_token_hash", name="uq_teams_bindings_link_token_hash"),
+        Index("ix_teams_bindings_owner_status", "owner_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    connector_installation_id: Mapped[str] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    )
+    teams_tenant_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    teams_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    conversation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    teams_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     link_token_hash: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
@@ -627,8 +762,8 @@ class ExternalActionExecution(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    connector_installation_id: Mapped[str] = mapped_column(
-        ForeignKey("connector_installations.id", ondelete="CASCADE"), index=True
+    connector_installation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("connector_installations.id", ondelete="CASCADE"), nullable=True, index=True
     )
     workflow_run_id: Mapped[str | None] = mapped_column(
         ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
@@ -703,6 +838,8 @@ class WorkflowDefinition(Base):
     category: Mapped[str] = mapped_column(String(64), default="general")
     status: Mapped[str] = mapped_column(String(32), default="draft")
     current_version_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    draft_version_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    published_version_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     is_template: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -727,11 +864,69 @@ class WorkflowVersion(Base):
     edges_json: Mapped[list] = mapped_column(JSON, default=list)
     entry_node_id: Mapped[str | None] = mapped_column(String, nullable=True)
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    graph_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorkflowEnvironmentDeployment(Base):
+    """Active immutable version + connection bindings for one workflow environment."""
+
+    __tablename__ = "workflow_environment_deployments"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_id",
+            "environment",
+            name="uq_workflow_environment_deployments_workflow_env",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_definitions.id", ondelete="CASCADE"), index=True
+    )
+    environment: Mapped[str] = mapped_column(String(32), index=True)
+    workflow_version_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_versions.id", ondelete="CASCADE")
+    )
+    connection_bindings_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    deployed_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    deployed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class WorkflowEnvironmentDeploymentEvent(Base):
+    """Audit trail for environment promotions and rollbacks."""
+
+    __tablename__ = "workflow_environment_deployment_events"
+    __table_args__ = (
+        Index("ix_workflow_environment_deployment_events_workflow_env", "workflow_id", "environment"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_definitions.id", ondelete="CASCADE"), index=True
+    )
+    environment: Mapped[str] = mapped_column(String(32))
+    action: Mapped[str] = mapped_column(String(32))
+    workflow_version_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_versions.id", ondelete="CASCADE")
+    )
+    connection_bindings_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    previous_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    previous_bindings_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    actor_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class WorkflowRun(Base):
@@ -836,6 +1031,90 @@ class ProjectAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class WorkspacePackage(Base):
+    """Private workspace-scoped package catalog entry (MKT-001)."""
+
+    __tablename__ = "workspace_packages"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "slug", name="uq_workspace_packages_workspace_slug"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    owner_user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    slug: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(32))
+    visibility: Mapped[str] = mapped_column(String(32), default="private")
+    source_marketplace_slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class WorkspacePackageVersion(Base):
+    __tablename__ = "workspace_package_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "package_id",
+            "version_number",
+            name="uq_workspace_package_versions_package_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    package_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_packages.id", ondelete="CASCADE"), index=True
+    )
+    version_label: Mapped[str] = mapped_column(String(64))
+    version_number: Mapped[int] = mapped_column(Integer)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    permission_manifest_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    trust_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    changelog: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorkspacePackageInstallation(Base):
+    __tablename__ = "workspace_package_installations"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "package_id",
+            name="uq_workspace_package_installations_workspace_package",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    package_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_packages.id", ondelete="CASCADE"), index=True
+    )
+    installed_version_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_package_versions.id", ondelete="CASCADE")
+    )
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    installed_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    installed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 __all__ = [
     "Department",
     "Skill",
@@ -853,8 +1132,12 @@ __all__ = [
     "ConnectorOAuthState",
     "TriggerSubscription",
     "ExternalEvent",
+    "ExternalKnowledgeSource",
+    "ExternalDocumentSyncState",
     "ApprovalDelivery",
     "TelegramIdentityBinding",
+    "SlackIdentityBinding",
+    "TeamsIdentityBinding",
     "ApprovalInteraction",
     "DraftExecutionMetadata",
     "ExternalActionExecution",
@@ -865,5 +1148,8 @@ __all__ = [
     "WorkflowRun",
     "WorkflowStepRun",
     "WorkflowChildExecution",
+    "WorkspacePackage",
+    "WorkspacePackageVersion",
+    "WorkspacePackageInstallation",
     "ProjectAnalysis",
 ]

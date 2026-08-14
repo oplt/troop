@@ -41,6 +41,7 @@ const MyTasksPage = lazy(() => import("../pages/MyTasksPage"));
 const WorkforceWorkflowsPage = lazy(() => import("../pages/WorkforceWorkflowsPage"));
 const MarketplacePage = lazy(() => import("../pages/MarketplacePage"));
 const IntegrationsPage = lazy(() => import("../pages/IntegrationsPage"));
+const EmailApprovalTemplatePage = lazy(() => import("../pages/EmailApprovalTemplatePage"));
 
 function PageLoader({ variant = "browse" }: { variant?: PageSkeletonVariant }) {
     return <PageSkeleton variant={variant} />;
@@ -105,6 +106,7 @@ export function AppRouter() {
                     <Route path="/portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
                     <Route path="/agent-portfolio" element={<Navigate to="/portfolio" replace />} />
                     <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
+                    <Route path="/templates/email-approval" element={<SuspensePage><EmailApprovalTemplatePage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
                     <Route path="/projects" element={<SuspensePage><OrchestrationProjectsPage /></SuspensePage>} />
@@ -127,7 +129,8 @@ export function AppRouter() {
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />
                     <Route path="/approvals" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
-                    <Route path="/activity" element={<Navigate to="/approvals" replace />} />
+                    <Route path="/activity" element={<SuspensePage><ActivityAuditPage initialTab="ledger" /></SuspensePage>} />
+                    <Route path="/audit" element={<SuspensePage><ActivityAuditPage initialTab="audit" /></SuspensePage>} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />
                     <Route path="/analytics/execution" element={<SuspensePage><ExecutionInsightsPage /></SuspensePage>} />
                     <Route

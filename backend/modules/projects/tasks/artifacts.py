@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from backend.modules.identity_access.models import User
 from backend.modules.projects.orchestration_models import TaskArtifact
 

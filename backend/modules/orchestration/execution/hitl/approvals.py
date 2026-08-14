@@ -63,7 +63,6 @@ class ExecutionHitlApprovalsMixin:
             task, "blocked", run=run, reason="conflicting agent outputs require resolution"
         )
 
-
     async def _advance_task_reviewer_chain(
         self,
         task: OrchestratorTask,
@@ -91,7 +90,6 @@ class ExecutionHitlApprovalsMixin:
         if hasattr(task, "_sa_instance_state"):
             orm_attributes.flag_modified(task, "metadata_json")
         return True
-
 
     async def _apply_project_escalation_rules(
         self,
@@ -175,7 +173,6 @@ class ExecutionHitlApprovalsMixin:
                     )
         await self.db.commit()
 
-
     async def _escalate_blocker(
         self,
         run: TaskRun,
@@ -199,4 +196,3 @@ class ExecutionHitlApprovalsMixin:
             },
         )
         await self.db.commit()
-

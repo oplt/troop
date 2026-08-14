@@ -122,7 +122,6 @@ class ProjectTeamMixin:
             if is_default_manager:
                 manager_assigned = True
 
-
     async def add_project_agent(self, user: User, project_id: str, payload: dict[str, Any]):
         project = await self.get_project(user, project_id)
         agent = await self.repo.get_agent(user.id, payload["agent_id"])
@@ -139,12 +138,10 @@ class ProjectTeamMixin:
         await self.db.refresh(membership)
         return membership
 
-
     async def list_project_agents(self, user: User, project_id: str):
         await self.get_project(user, project_id)
         await self._purge_orphan_template_agents(user.id)
         return await self.repo.list_project_memberships(project_id)
-
 
     async def update_project_agent(
         self, user: User, project_id: str, membership_id: str, updates: dict[str, Any]
@@ -171,7 +168,6 @@ class ProjectTeamMixin:
         await self.db.refresh(membership)
         return membership
 
-
     async def remove_project_agent(self, user: User, project_id: str, membership_id: str) -> None:
         project = await self.get_project(user, project_id)
         membership = await self.repo.get_project_membership_by_id(project.id, membership_id)
@@ -182,4 +178,3 @@ class ProjectTeamMixin:
         )
         await self.db.delete(membership)
         await self.db.commit()
-

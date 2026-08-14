@@ -60,3 +60,13 @@ class PortfolioOverviewMixin:
             },
             "latest_run_id": latest_run_id,
         }
+
+    async def workspace_shell_snapshot(self, user: User) -> dict[str, Any]:
+        from backend.modules.notifications.repository import NotificationsRepository
+
+        pending_approvals = len(await self.repo.list_approvals(user.id, status="pending"))
+        unread_notifications = await NotificationsRepository(self.db).count_unread_for_user(user.id)
+        return {
+            "pending_approvals": pending_approvals,
+            "unread_notifications": unread_notifications,
+        }

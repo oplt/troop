@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from backend.modules.github.models import (
     GithubConnection,
@@ -62,7 +62,9 @@ class GithubRepositoryMixin:
         )
         return list(result.scalars().all())
 
-    async def get_github_connection(self, owner_id: str, connection_id: str) -> GithubConnection | None:
+    async def get_github_connection(
+        self, owner_id: str, connection_id: str
+    ) -> GithubConnection | None:
         result = await self.db.execute(
             select(GithubConnection).where(
                 GithubConnection.owner_id == owner_id,
@@ -83,7 +85,8 @@ class GithubRepositoryMixin:
                 GithubConnection.owner_id == owner_id,
                 or_(
                     GithubConnection.github_installation_id == installation_id,
-                    GithubConnection.metadata_json["installation_id"].as_integer() == installation_id,
+                    GithubConnection.metadata_json["installation_id"].as_integer()
+                    == installation_id,
                 ),
             )
         )
@@ -205,7 +208,9 @@ class GithubRepositoryMixin:
         )
         return list(result.scalars().all())
 
-    async def get_github_repository(self, owner_id: str, repository_id: str) -> GithubRepository | None:
+    async def get_github_repository(
+        self, owner_id: str, repository_id: str
+    ) -> GithubRepository | None:
         result = await self.db.execute(
             select(GithubRepository)
             .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
@@ -214,6 +219,62 @@ class GithubRepositoryMixin:
                 GithubConnection.owner_id == owner_id,
             )
         )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    def _github_repository_project_scope(project_id: str | None):
+        if project_id is None:
+            return True
+        return or_(
+            GithubRepository.project_id.is_(None),
+            GithubRepository.project_id == project_id,
+        )
+
+    async def resolve_authorized_repository(
+        self,
+        owner_id: str,
+        *,
+        project_id: str | None = None,
+        repository_id: str | None = None,
+        full_name: str | None = None,
+    ) -> GithubRepository | None:
+        """Resolve a GitHub repository only when its connection belongs to owner_id."""
+        if not repository_id and not full_name:
+            return None
+        stmt = (
+            select(GithubRepository)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(GithubConnection.owner_id == owner_id)
+        )
+        if repository_id:
+            stmt = stmt.where(GithubRepository.id == repository_id)
+        else:
+            stmt = stmt.where(GithubRepository.full_name == full_name)
+        if project_id is not None:
+            stmt = stmt.where(self._github_repository_project_scope(project_id))
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def resolve_authorized_issue_link(
+        self,
+        owner_id: str,
+        issue_link_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> GithubIssueLink | None:
+        """Resolve an issue link only when repository connection belongs to owner_id."""
+        stmt = (
+            select(GithubIssueLink)
+            .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(
+                GithubIssueLink.id == issue_link_id,
+                GithubConnection.owner_id == owner_id,
+            )
+        )
+        if project_id is not None:
+            stmt = stmt.where(self._github_repository_project_scope(project_id))
+        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_github_repository_by_full_name(self, full_name: str) -> GithubRepository | None:
@@ -262,7 +323,9 @@ class GithubRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def list_issue_links(self, owner_id: str, project_id: str | None = None) -> list[GithubIssueLink]:
+    async def list_issue_links(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[GithubIssueLink]:
         stmt = (
             select(GithubIssueLink)
             .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
@@ -274,14 +337,19 @@ class GithubRepositoryMixin:
         result = await self.db.execute(stmt.order_by(GithubIssueLink.updated_at.desc()))
         return list(result.scalars().all())
 
-    async def list_issue_links_stale(self, *, older_than: datetime, limit: int = 40) -> list[GithubIssueLink]:
+    async def list_issue_links_stale(
+        self, *, older_than: datetime, limit: int = 40
+    ) -> list[GithubIssueLink]:
         stmt = (
             select(GithubIssueLink)
             .join(GithubRepository, GithubIssueLink.repository_id == GithubRepository.id)
             .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
             .where(
                 GithubConnection.is_active.is_(True),
-                or_(GithubIssueLink.last_synced_at.is_(None), GithubIssueLink.last_synced_at < older_than),
+                or_(
+                    GithubIssueLink.last_synced_at.is_(None),
+                    GithubIssueLink.last_synced_at < older_than,
+                ),
             )
             .order_by(GithubIssueLink.last_synced_at.asc().nullsfirst())
             .limit(limit)
@@ -310,11 +378,19 @@ class GithubRepositoryMixin:
         )
         return result.scalar_one_or_none()
 
-    async def list_sync_events(self, owner_id: str, project_id: str | None = None) -> list[GithubSyncEvent]:
+    async def list_sync_events(
+        self, owner_id: str, project_id: str | None = None
+    ) -> list[GithubSyncEvent]:
         stmt = (
             select(GithubSyncEvent)
-            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id, isouter=True)
-            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id, isouter=True)
+            .join(
+                GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id, isouter=True
+            )
+            .join(
+                GithubConnection,
+                GithubRepository.connection_id == GithubConnection.id,
+                isouter=True,
+            )
             .where(GithubConnection.owner_id == owner_id)
         )
         if project_id:

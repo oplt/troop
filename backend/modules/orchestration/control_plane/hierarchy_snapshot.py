@@ -32,7 +32,7 @@ class ControlPlaneHierarchyMixin:
         for agent in scoped_agents:
             assigned_by_agent[agent.id] = await load_assigned_skill_versions(self.db, agent.id)
 
-        agents_by_id = {item.id: item for item in scoped_agents}
+        {item.id: item for item in scoped_agents}
         memberships_by_agent = {item.agent_id: item for item in memberships}
         providers_by_id = {item.id: item for item in providers}
         task_groups: dict[str, list[OrchestratorTask]] = defaultdict(list)
@@ -69,7 +69,9 @@ class ControlPlaneHierarchyMixin:
                 reverse=True,
             )
             pending_reviews = [
-                item for item in approvals if item.project_id == project_id and item.status == "pending"
+                item
+                for item in approvals
+                if item.project_id == project_id and item.status == "pending"
             ]
             status = self._derive_member_status(agent, agent_runs, agent_tasks, pending_reviews)
             runtime = build_agent_runtime_profile(
@@ -82,11 +84,15 @@ class ControlPlaneHierarchyMixin:
             members.append(
                 {
                     "id": agent.id,
-                    "parent_id": None if agent.id == manager_id else (agent.parent_agent_id or manager_id),
+                    "parent_id": None
+                    if agent.id == manager_id
+                    else (agent.parent_agent_id or manager_id),
                     "membership_id": membership.id if membership else None,
                     "name": agent.name,
                     "role": agent.role,
-                    "objective": metadata.get("objective") or agent.description or agent.mission_markdown,
+                    "objective": metadata.get("objective")
+                    or agent.description
+                    or agent.mission_markdown,
                     "skills": list(agent.skills_json or []),
                     "instructions": agent.system_prompt,
                     "tool_access": list(agent.allowed_tools_json or []),
@@ -98,7 +104,9 @@ class ControlPlaneHierarchyMixin:
                     "approval_policy": metadata.get("approval_policy") or "manager_review",
                     "current_status": status,
                     "workload_count": sum(1 for item in agent_tasks if task_is_active(item.status)),
-                    "active_task_count": sum(1 for item in agent_tasks if task_is_active(item.status)),
+                    "active_task_count": sum(
+                        1 for item in agent_tasks if task_is_active(item.status)
+                    ),
                     "is_active": agent.is_active,
                     "model_profile": self._serialize_model_profile(
                         agent,
@@ -113,7 +121,10 @@ class ControlPlaneHierarchyMixin:
                     "routing_policy": dict((agent.model_policy_json or {}).get("routes", {}))
                     if isinstance((agent.model_policy_json or {}).get("routes", {}), dict)
                     else {"routes": (agent.model_policy_json or {}).get("routes", [])},
-                    "tasks": [self._serialize_task(item, approvals_by_task.get(item.id, [])) for item in agent_tasks],
+                    "tasks": [
+                        self._serialize_task(item, approvals_by_task.get(item.id, []))
+                        for item in agent_tasks
+                    ],
                     "runs": [self._serialize_run(item) for item in agent_runs[:8]],
                     "runtime_profile": runtime.model_dump(),
                 }
@@ -131,7 +142,10 @@ class ControlPlaneHierarchyMixin:
             },
             "manager_id": manager_id,
             "members": members,
-            "pending_approvals": [self._serialize_approval(item) for item in approvals if item.project_id == project_id],
+            "pending_approvals": [
+                self._serialize_approval(item)
+                for item in approvals
+                if item.project_id == project_id
+            ],
             "brainstorms": [self._serialize_brainstorm(item) for item in brainstorms],
         }
-

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     AppBar,
@@ -11,12 +11,16 @@ import {
     Collapse,
     Divider,
     Drawer,
+    FormControl,
     IconButton,
+    InputLabel,
     Link,
     List,
     ListItemButton,
     ListItemIcon,
     ListItemText,
+    MenuItem,
+    Select,
     Stack,
     Toolbar,
     Tooltip,
@@ -37,6 +41,8 @@ import {
     ExpandLess as ExpandLessIcon,
     ExpandMore as ExpandMoreIcon,
     Forum as BrainstormsIcon,
+    Gavel as PoliciesIcon,
+    History as ActivityIcon,
     Hub as ProjectsIcon,
     Insights as ExecutionIcon,
     LibraryBooks as WorkflowTemplatesIcon,
@@ -47,6 +53,8 @@ import {
     AccountCircle as ProfileIcon,
     AccountTree as HierarchyIcon,
     AttachMoney as CostAnalyticsIcon,
+    FactCheck as AuditIcon,
+    Group as PeopleIcon,
     PendingActions as ApprovalsIcon,
     Psychology as SkillsIcon,
     Schema as WorkflowsIcon,
@@ -59,29 +67,29 @@ import {
     ViewModule as PortfolioNavIcon,
 } from "@mui/icons-material";
 import { alpha, useTheme } from "@mui/material/styles";
-import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
-import { getPendingApprovalsCount, getOrchestrationProject, listApprovals, listRuns, listAgents } from "../../api/orchestration";
-import { listSkills } from "../../api/workforce";
-import { getNotifications } from "../../api/notifications";
 import { useCanonicalUser } from "../../hooks/useCanonicalUser";
 import { useAuth } from "../../hooks/useAuth";
-import { queryKeys, defaultQueryStaleTimeMs } from "../../config/queryKeys";
-import { queryPolicies } from "../../config/queryPolicies";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
-import { getInitials, humanizeKey } from "../../utils/formatters";
-import { CommandPalette, type CommandPaletteItem } from "./CommandPalette";
+import { useNavBadges } from "../../hooks/useNavBadges";
+import { useNavPersona } from "../../hooks/useNavPersona";
+import { useCommandPalette } from "../../hooks/useCommandPalette";
+import { useAppBreadcrumbs, type AppNavItem } from "../../hooks/useAppBreadcrumbs";
+import { getInitials } from "../../utils/formatters";
+import { CommandPalette } from "./CommandPalette";
 import {
     NAV_GROUPS,
     NAV_ITEM_DEFS,
+    navItemPathname,
     pathMatchesNavItem,
     readExpandedNavGroups,
     writeExpandedNavGroups,
     type NavGroupId,
     type NavIconId,
     type NavItemDef,
+    type NavPersona,
 } from "./navConfig";
-import { commandShortcutLabel, readRecentProjects, recordRecentProject } from "./recentProjects";
+import { NAV_PERSONA_LABELS, partitionNavItemsForPersona } from "./navPersona";
 
 const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
@@ -93,6 +101,7 @@ const NAV_ICONS: Record<NavIconId, ReactNode> = {
     projects: <ProjectsIcon />,
     myTasks: <MyTasksIcon />,
     approvals: <ApprovalsIcon />,
+    activity: <ActivityIcon />,
     agents: <AgentsIcon />,
     skills: <SkillsIcon />,
     marketplace: <MarketplaceIcon />,
@@ -107,7 +116,10 @@ const NAV_ICONS: Record<NavIconId, ReactNode> = {
     aiStudio: <AiStudioIcon />,
     departments: <DepartmentsIcon />,
     companies: <CompaniesIcon />,
+    people: <PeopleIcon />,
     modelSettings: <ModelSettingsIcon />,
+    policies: <PoliciesIcon />,
+    audit: <AuditIcon />,
     settings: <SettingsIcon />,
 };
 
@@ -124,12 +136,12 @@ type NavItem = {
 
 function navItemFromDef(
     def: NavItemDef,
-    extras?: { badge?: number; subtitle?: string },
+    extras?: { badge?: number; subtitle?: string; group?: NavGroupId },
 ): NavItem {
     return {
         label: def.label,
         path: def.path,
-        group: def.group,
+        group: extras?.group ?? def.group,
         adminOnly: def.adminOnly,
         icon: NAV_ICONS[def.icon],
         badge: extras?.badge,
@@ -137,50 +149,25 @@ function navItemFromDef(
     };
 }
 
-type BreadcrumbItem = {
-    label: string;
-    path: string;
-};
-
-function formatPathSegment(segment: string) {
-    if (!segment) return "";
-    const decoded = decodeURIComponent(segment);
-    const looksLikeId = /^[0-9a-f]{8,}$/i.test(decoded) || decoded.length > 24;
-    if (looksLikeId) {
-        return "Details";
-    }
-    return decoded
-        .replace(/[-_]+/g, " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function buildBreadcrumbs(
-    pathname: string,
-    navItems: NavItem[],
-    resolveSegmentLabel?: (segment: string, index: number, segments: string[]) => string | undefined,
-): BreadcrumbItem[] {
-    const exact = navItems.find((item) => item.path === pathname);
-    if (exact) {
-        return [{ label: exact.label, path: exact.path }];
-    }
-    const root = [...navItems]
-        .sort((left, right) => right.path.length - left.path.length)
-        .find((item) => pathname.startsWith(item.path));
-    if (!root) {
-        return [{ label: "Workspace", path: pathname }];
-    }
-    const breadcrumbs: BreadcrumbItem[] = [{ label: root.label, path: root.path }];
-    const rootSegments = root.path.split("/").filter(Boolean);
-    const pathSegments = pathname.split("/").filter(Boolean);
-    for (let index = rootSegments.length; index < pathSegments.length; index += 1) {
-        const segment = pathSegments[index];
-        const nextPath = `/${pathSegments.slice(0, index + 1).join("/")}`;
-        breadcrumbs.push({
-            label: resolveSegmentLabel?.(segment, index, pathSegments) ?? formatPathSegment(segment),
-            path: nextPath,
-        });
-    }
-    return breadcrumbs;
+function buildNavItemsFromDefs(
+    defs: NavItemDef[],
+    extras?: { pendingCount?: number; advancedGroup?: NavGroupId },
+): NavItem[] {
+    return defs.map((def) => {
+        const group = extras?.advancedGroup && def.group !== "advanced" ? extras.advancedGroup : def.group;
+        if (def.id === "approvals" && extras?.pendingCount) {
+            const pendingCount = extras.pendingCount;
+            return navItemFromDef(def, {
+                group,
+                badge: pendingCount || undefined,
+                subtitle:
+                    pendingCount > 0
+                        ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
+                        : undefined,
+            });
+        }
+        return navItemFromDef(def, { group });
+    });
 }
 
 export function ThemeToggle() {
@@ -369,7 +356,6 @@ function NavGroupBlock({
 
 export function AppLayout() {
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<NavGroupId[]>(readExpandedNavGroups);
     const { logout, isAdmin, isAuthenticated, isReady } = useAuth();
@@ -381,88 +367,65 @@ export function AppLayout() {
 
     const authReady = isReady && isAuthenticated;
     const { user: currentUser, profile } = useCanonicalUser({ profileEnabled: authReady });
-    const { data: pendingApprovals } = useQuery({
-        queryKey: queryKeys.orchestration.approvalsPendingCount,
-        queryFn: getPendingApprovalsCount,
-        ...queryPolicies.operational,
-        refetchInterval: 30_000,
-        enabled: authReady,
-        retry: false,
-    });
-    const { data: notifications } = useQuery({
-        queryKey: queryKeys.notifications.root,
-        queryFn: getNotifications,
-        ...queryPolicies.operational,
-        refetchInterval: 60_000,
-        enabled: authReady,
-        retry: false,
-    });
-    const pendingCount = pendingApprovals?.count ?? 0;
-    const unreadNotifications = notifications?.filter((item) => !item.is_read).length ?? 0;
-
-    const { data: paletteApprovals = [] } = useQuery({
-        queryKey: queryKeys.orchestration.approvals,
-        queryFn: listApprovals,
-        ...queryPolicies.operational,
-        enabled: authReady && commandPaletteOpen,
-        retry: false,
-    });
-    const { data: paletteRuns = [] } = useQuery({
-        queryKey: ["orchestration", "runs", "command-palette"],
-        queryFn: () => listRuns(),
-        ...queryPolicies.operational,
-        enabled: authReady && commandPaletteOpen,
-        retry: false,
-    });
-    const { data: paletteAgents = [] } = useQuery({
-        queryKey: queryKeys.orchestration.agents(),
-        queryFn: () => listAgents(),
-        ...queryPolicies.operational,
-        enabled: authReady && commandPaletteOpen,
-        staleTime: defaultQueryStaleTimeMs,
-        retry: false,
-    });
-    const { data: paletteSkills = [] } = useQuery({
-        queryKey: ["workforce", "skills", "command-palette"],
-        queryFn: listSkills,
-        ...queryPolicies.operational,
-        enabled: authReady && commandPaletteOpen,
-        staleTime: defaultQueryStaleTimeMs,
-        retry: false,
+    const { pendingCount, unreadNotifications } = useNavBadges({ enabled: authReady });
+    const { persona, derivedPersona, setPersona, resetPersona, isOverridden } = useNavPersona({
+        isAdmin,
+        workspaceRole: currentUser?.active_workspace?.role ?? null,
     });
 
     const appName = platformMetadata?.app_name ?? "Troop";
-    const shortcutLabel = useMemo(() => commandShortcutLabel(), []);
     const hasAiModule =
         platformMetadata?.module_catalog.some((item) => item.key === "ai" && item.enabled) ?? false;
     const drawerCollapsed = !isMobile && desktopNavCollapsed;
     const desktopDrawerWidth = drawerCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH;
 
-    const navItems = useMemo<NavItem[]>(
+    const accessibleNavDefs = useMemo(
         () =>
-            NAV_ITEM_DEFS.filter((def) => !def.requiresAiModule || hasAiModule).map((def) => {
-                if (def.id === "approvals") {
-                    return navItemFromDef(def, {
-                        badge: pendingCount || undefined,
-                        subtitle:
-                            pendingCount > 0
-                                ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
-                                : undefined,
-                    });
-                }
-                return navItemFromDef(def);
-            }),
-        [hasAiModule, pendingCount],
+            NAV_ITEM_DEFS.filter(
+                (def) => (!def.requiresAiModule || hasAiModule) && (!def.adminOnly || isAdmin),
+            ),
+        [hasAiModule, isAdmin],
     );
 
-    const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+    const { primary: primaryNavDefs, advanced: advancedNavDefs } = useMemo(
+        () => partitionNavItemsForPersona(accessibleNavDefs, persona),
+        [accessibleNavDefs, persona],
+    );
+
+    const sidebarNavDefs = useMemo(
+        () => [...primaryNavDefs, ...advancedNavDefs.map((def) => ({ ...def, group: "advanced" as const }))],
+        [primaryNavDefs, advancedNavDefs],
+    );
+
+    const sidebarNavItems = useMemo<NavItem[]>(
+        () => buildNavItemsFromDefs(sidebarNavDefs, { pendingCount }),
+        [sidebarNavDefs, pendingCount],
+    );
+
+    const catalogNavItems = useMemo<NavItem[]>(
+        () => buildNavItemsFromDefs(accessibleNavDefs, { pendingCount }),
+        [accessibleNavDefs, pendingCount],
+    );
+
+    const visibleNavItemsForBreadcrumbs = useMemo<AppNavItem[]>(
+        () => catalogNavItems.map(({ label, path, adminOnly, group }) => ({ label, path, adminOnly, group })),
+        [catalogNavItems],
+    );
+
+    const { breadcrumbs, canGoBack } = useAppBreadcrumbs(visibleNavItemsForBreadcrumbs);
+    const commandPalette = useCommandPalette({
+        authReady,
+        pendingCount,
+        unreadNotifications,
+        visibleNavItems: visibleNavItemsForBreadcrumbs,
+    });
 
     const activeGroupId = useMemo(() => {
-        const match = [...visibleNavItems]
-            .sort((left, right) => right.path.length - left.path.length)
+        const match = [...sidebarNavItems]
+            .sort((left, right) => navItemPathname(right.path).length - navItemPathname(left.path).length)
             .find((item) => pathMatchesNavItem(location.pathname, item.path));
         return match?.group;
-    }, [location.pathname, visibleNavItems]);
+    }, [location.pathname, sidebarNavItems]);
 
     const [trackedActiveGroup, setTrackedActiveGroup] = useState<NavGroupId | undefined>(activeGroupId);
     if (activeGroupId !== trackedActiveGroup) {
@@ -484,184 +447,12 @@ export function AppLayout() {
         });
     }, []);
 
-    const commandItems = useMemo<CommandPaletteItem[]>(() => {
-        const suggested: CommandPaletteItem[] = [
-            {
-                id: "suggested-approvals",
-                label: pendingCount > 0 ? `Review approvals (${pendingCount})` : "Review approvals",
-                path: "/approvals",
-                group: "suggested",
-                secondary: "Clear the approval queue",
-            },
-            {
-                id: "suggested-tasks",
-                label: "My tasks",
-                path: "/my-tasks",
-                group: "suggested",
-                secondary: "Personal work queue",
-            },
-            {
-                id: "suggested-projects",
-                label: "Projects",
-                path: "/projects",
-                group: "suggested",
-                secondary: "Browse orchestration projects",
-            },
-        ];
-        if (unreadNotifications > 0) {
-            suggested.unshift({
-                id: "suggested-notifications",
-                label: `Notifications (${unreadNotifications} unread)`,
-                path: "/notifications",
-                group: "suggested",
-                secondary: "Alerts and account events",
-            });
-        }
-        const recent: CommandPaletteItem[] = readRecentProjects().map((project) => ({
-            id: `recent-${project.id}`,
-            label: project.name,
-            path: `/projects/${project.id}`,
-            group: "recent",
-            secondary: "Recent project",
-        }));
-        const actions: CommandPaletteItem[] = [
-            {
-                id: "action-create-project",
-                label: "Create project",
-                path: "/projects?create=1",
-                group: "actions",
-                secondary: "Open new project drawer",
-            },
-            {
-                id: "action-approvals",
-                label: "Open approvals",
-                path: "/approvals",
-                group: "actions",
-                secondary: pendingCount > 0 ? `${pendingCount} pending` : "Approval queue",
-            },
-            {
-                id: "action-create-task",
-                label: "Go to my tasks",
-                path: "/my-tasks",
-                group: "actions",
-                secondary: "Personal work queue",
-            },
-        ];
-        const pages: CommandPaletteItem[] = visibleNavItems.map((item) => ({
-            id: `page-${item.path}`,
-            label: item.label,
-            path: item.path,
-            group: "pages",
-            secondary: item.label,
-        }));
-        const approvals: CommandPaletteItem[] = paletteApprovals
-            .filter((item) => item.status === "pending")
-            .slice(0, 8)
-            .map((item) => ({
-                id: `approval-${item.id}`,
-                label: humanizeKey(item.approval_type || "approval"),
-                path: "/approvals",
-                group: "approvals" as const,
-                secondary: item.reason?.trim() || (item.run_id ? `Run ${item.run_id.slice(0, 8)}…` : "Pending approval"),
-            }));
-        const ACTIVE_RUN = new Set(["queued", "in_progress", "running", "waiting", "blocked"]);
-        const STUCK_RUN = new Set(["failed", "error", "cancelled", "timed_out"]);
-        const runs: CommandPaletteItem[] = paletteRuns
-            .filter((run) => ACTIVE_RUN.has(run.status) || STUCK_RUN.has(run.status))
-            .slice(0, 8)
-            .map((run) => ({
-                id: `run-item-${run.id}`,
-                label: `${humanizeKey(run.status)} · ${run.id.slice(0, 8)}…`,
-                path: `/runs/${run.id}`,
-                group: "runs" as const,
-                secondary: run.model_name || run.run_mode || "Open run inspector",
-            }));
-        const agents: CommandPaletteItem[] = paletteAgents.slice(0, 8).map((agent) => ({
-            id: `agent-${agent.id}`,
-            label: agent.name,
-            path: "/agents",
-            group: "agents" as const,
-            secondary: agent.role ? humanizeKey(agent.role) : agent.slug,
-        }));
-        const skills: CommandPaletteItem[] = paletteSkills.slice(0, 8).map((skill) => ({
-            id: `skill-${skill.id}`,
-            label: skill.name,
-            path: "/skills",
-            group: "skills" as const,
-            secondary: skill.slug || skill.purpose?.slice(0, 72) || "Skill",
-        }));
-        return [
-            ...suggested,
-            ...recent,
-            ...approvals,
-            ...runs,
-            ...agents,
-            ...skills,
-            ...actions,
-            ...pages,
-        ];
-    }, [
-        pendingCount,
-        unreadNotifications,
-        visibleNavItems,
-        paletteApprovals,
-        paletteRuns,
-        paletteAgents,
-        paletteSkills,
-    ]);
-
-    useEffect(() => {
-        function onKeyDown(e: KeyboardEvent) {
-            const isModK = (e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K");
-            if (!isModK) {
-                return;
-            }
-            e.preventDefault();
-            setCommandPaletteOpen((open) => !open);
-        }
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, []);
-
-    const currentItem = visibleNavItems.find((item) => pathMatchesNavItem(location.pathname, item.path));
-    const projectIdFromPath = useMemo(() => {
-        const match = location.pathname.match(/^\/(?:projects|agent-projects)\/([^/]+)/);
-        return match?.[1] ?? null;
-    }, [location.pathname]);
-    const { data: breadcrumbProject } = useQuery({
-        queryKey: queryKeys.orchestration.project(projectIdFromPath ?? ""),
-        queryFn: () => getOrchestrationProject(projectIdFromPath!),
-        enabled: Boolean(projectIdFromPath),
-        staleTime: defaultQueryStaleTimeMs,
-    });
-
-    useEffect(() => {
-        if (breadcrumbProject?.id && breadcrumbProject.name) {
-            recordRecentProject({ id: breadcrumbProject.id, name: breadcrumbProject.name });
-        }
-    }, [breadcrumbProject?.id, breadcrumbProject?.name]);
-
-    const breadcrumbs = useMemo(
-        () =>
-            buildBreadcrumbs(location.pathname, visibleNavItems, (segment, index, segments) => {
-                if (index > 0 && (segments[index - 1] === "agent-projects" || segments[index - 1] === "projects")) {
-                    if (segment === projectIdFromPath && breadcrumbProject?.name) {
-                        return breadcrumbProject.name;
-                    }
-                }
-                if (segment === "memory") return "Memory";
-                if (segment === "benchmark") return "Benchmark";
-                return undefined;
-            }),
-        [location.pathname, visibleNavItems, breadcrumbProject, projectIdFromPath],
-    );
-    const canGoBack = breadcrumbs.length > 1 || location.pathname !== (currentItem?.path ?? "/dashboard");
-    const avatarLabel = getInitials(currentUser?.full_name, currentUser?.email);
-
     function handleNavigate(path: string) {
         navigate(path);
         setDrawerOpen(false);
     }
+
+    const avatarLabel = getInitials(currentUser?.full_name, currentUser?.email);
 
     async function handleSignOut() {
         await logout();
@@ -711,8 +502,11 @@ export function AppLayout() {
                 sx={{ overflowY: "auto", flexGrow: 1, minHeight: 0 }}
             >
                 {NAV_GROUPS.map((group) => {
-                    const items = visibleNavItems.filter((item) => item.group === group.id);
+                    const items = sidebarNavItems.filter((item) => item.group === group.id);
                     if (items.length === 0) {
+                        return null;
+                    }
+                    if (group.id === "advanced" && primaryNavDefs.length === accessibleNavDefs.length) {
                         return null;
                     }
                     if (drawerCollapsed && group.id === "admin") {
@@ -747,6 +541,32 @@ export function AppLayout() {
                     );
                 })}
             </Stack>
+
+            {!drawerCollapsed && (
+                <Box sx={{ mt: 1.5, px: 0.5 }}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="nav-persona-label">Navigation view</InputLabel>
+                        <Select
+                            labelId="nav-persona-label"
+                            label="Navigation view"
+                            value={persona}
+                            onChange={(event) => setPersona(event.target.value as NavPersona)}
+                        >
+                            {(Object.keys(NAV_PERSONA_LABELS) as NavPersona[]).map((key) => (
+                                <MenuItem key={key} value={key}>
+                                    {NAV_PERSONA_LABELS[key]}
+                                    {key === derivedPersona ? " (default)" : ""}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    {isOverridden && (
+                        <Button size="small" sx={{ mt: 0.75 }} onClick={resetPersona}>
+                            Reset to {NAV_PERSONA_LABELS[derivedPersona]}
+                        </Button>
+                    )}
+                </Box>
+            )}
 
             <Box
                 sx={(theme) => ({
@@ -961,14 +781,14 @@ export function AppLayout() {
                         </Stack>
                     </Box>
                     <Stack direction="row" spacing={0.5} alignItems="center">
-                        <Tooltip title={`Command palette (${shortcutLabel})`}>
+                        <Tooltip title={`Command palette (${commandPalette.shortcutLabel})`}>
                             <Button
                                 size="small"
                                 variant="text"
                                 color="inherit"
-                                onClick={() => setCommandPaletteOpen(true)}
+                                onClick={() => commandPalette.setOpen(true)}
                                 startIcon={<SearchIcon fontSize="small" />}
-                                aria-label={`Open command palette (${shortcutLabel})`}
+                                aria-label={`Open command palette (${commandPalette.shortcutLabel})`}
                                 sx={{
                                     display: { xs: "none", sm: "inline-flex" },
                                     minHeight: 40,
@@ -977,17 +797,17 @@ export function AppLayout() {
                                 }}
                             >
                                 <Chip
-                                    label={shortcutLabel}
+                                    label={commandPalette.shortcutLabel}
                                     size="small"
                                     variant="outlined"
                                     sx={{ height: 22, borderRadius: 1, "& .MuiChip-label": { px: 0.75 } }}
                                 />
                             </Button>
                         </Tooltip>
-                        <Tooltip title={`Command palette (${shortcutLabel})`}>
+                        <Tooltip title={`Command palette (${commandPalette.shortcutLabel})`}>
                             <IconButton
-                                aria-label={`Open command palette (${shortcutLabel})`}
-                                onClick={() => setCommandPaletteOpen(true)}
+                                aria-label={`Open command palette (${commandPalette.shortcutLabel})`}
+                                onClick={() => commandPalette.setOpen(true)}
                                 sx={{ display: { xs: "inline-flex", sm: "none" }, borderRadius: 1, minWidth: 40, minHeight: 40 }}
                             >
                                 <SearchIcon />
@@ -1077,9 +897,9 @@ export function AppLayout() {
             </Box>
 
             <CommandPalette
-                open={commandPaletteOpen}
-                onClose={() => setCommandPaletteOpen(false)}
-                items={commandItems}
+                open={commandPalette.open}
+                onClose={() => commandPalette.setOpen(false)}
+                items={commandPalette.items}
                 onNavigate={handleNavigate}
             />
         </Box>

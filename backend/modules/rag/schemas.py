@@ -28,6 +28,7 @@ class RagSearchFilters:
     source_kind: str | None = None
     document_ids: list[str] = field(default_factory=list)
     include_decisions: bool = False
+    actor_email: str | None = None
 
 
 @dataclass(slots=True)

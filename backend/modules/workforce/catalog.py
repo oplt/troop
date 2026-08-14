@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.modules.workforce.email_approval_template import (
+    EMAIL_APPROVAL_FLAGSHIP_SLUG,
+    flagship_email_approval_workflow,
+)
+
 MARKETPLACE_SKILLS: list[dict[str, Any]] = [
     {
         "slug": "email-response-drafter",
@@ -139,96 +144,7 @@ MARKETPLACE_SKILLS: list[dict[str, Any]] = [
 ]
 
 MARKETPLACE_WORKFLOWS: list[dict[str, Any]] = [
-    {
-        "slug": "email-reply-telegram-approval",
-        "name": "Email Reply with Telegram Approval",
-        "category": "customer_success",
-        "description": "Gmail event → thread/context → AI draft → exact approval → Gmail send.",
-        "nodes": [
-            {
-                "id": "gmail_trigger",
-                "type": "trigger",
-                "label": "Gmail: new message",
-                "config": {
-                    "trigger_type": "gmail_new_message",
-                    "connector_installation_id": "",
-                },
-            },
-            {
-                "id": "get_thread",
-                "type": "tool",
-                "label": "Fetch Gmail thread",
-                "config": {
-                    "tool_slug": "gmail.get_thread",
-                    "params": {
-                        "connector_installation_id": "$.email.connector_installation_id",
-                        "thread_id": "$.email.thread_id",
-                    },
-                },
-            },
-            {
-                "id": "draft_skill",
-                "type": "skill",
-                "label": "Email Response Drafter",
-                "config": {"skill_slug": "email-response-drafter"},
-            },
-            {"id": "draft_agent", "type": "agent", "label": "Draft response", "config": {}},
-            {
-                "id": "should_reply",
-                "type": "condition",
-                "label": "Reply required?",
-                "config": {
-                    "field": "should_reply",
-                    "operator": "equals",
-                    "value": True,
-                },
-            },
-            {
-                "id": "create_draft",
-                "type": "tool",
-                "label": "Create Gmail draft",
-                "config": {
-                    "tool_slug": "gmail.create_draft",
-                    "params": {
-                        "connector_installation_id": "$.email.connector_installation_id",
-                        "thread_id": "$.email.thread_id",
-                        "in_reply_to": "$.email.headers.message-id",
-                        "to": {"$path": "email.from", "wrap_list": True},
-                        "subject": "$.subject",
-                        "body": "$.body_text",
-                    },
-                },
-            },
-            {
-                "id": "send_draft",
-                "type": "tool",
-                "label": "Approve and send",
-                "config": {
-                    "tool_slug": "gmail.send_draft",
-                    "params": {
-                        "connector_installation_id": "$.email.connector_installation_id",
-                        "gmail_draft_id": "$.tool_result_create_draft.output.id",
-                        "thread_id": "$.email.thread_id",
-                        "in_reply_to": "$.email.headers.message-id",
-                        "to": {"$path": "email.from", "wrap_list": True},
-                        "subject": "$.subject",
-                        "body": "$.body_text",
-                    },
-                    "approval_delivery_channel": "telegram",
-                    "approval_connector_installation_id": "",
-                },
-            },
-        ],
-        "edges": [
-            {"from": "gmail_trigger", "to": "get_thread"},
-            {"from": "get_thread", "to": "draft_skill"},
-            {"from": "draft_skill", "to": "draft_agent"},
-            {"from": "draft_agent", "to": "should_reply"},
-            {"from": "should_reply", "to": "create_draft", "when": True},
-            {"from": "create_draft", "to": "send_draft"},
-        ],
-        "entry_node_id": "gmail_trigger",
-    },
+    flagship_email_approval_workflow(),
     {
         "slug": "research-then-review",
         "name": "Research → Review",
@@ -365,6 +281,69 @@ CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "config_schema_json": {"type": "object", "properties": {}},
     },
     {
+        "slug": "outlook",
+        "name": "Outlook Mail",
+        "description": "Native Outlook Mail OAuth, draft, send, and inbox notification connector.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "google_calendar",
+        "name": "Google Calendar",
+        "description": "Read availability and manage approved Google Calendar events.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "microsoft_calendar",
+        "name": "Microsoft Calendar",
+        "description": "Read availability and manage approved Microsoft Calendar events.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "google_drive",
+        "name": "Google Drive",
+        "description": "Read-only Google Drive connector for permission-aware RAG sync.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "microsoft_drive",
+        "name": "Microsoft Drive",
+        "description": "Read-only OneDrive/SharePoint connector for permission-aware RAG sync.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "jira",
+        "name": "Jira",
+        "description": "Search and manage Jira issues with approval-gated writes.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "linear",
+        "name": "Linear",
+        "description": "Search and manage Linear issues with approval-gated writes.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "hubspot",
+        "name": "HubSpot",
+        "description": "Read and enrich HubSpot CRM records with approval-gated writes.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "salesforce",
+        "name": "Salesforce",
+        "description": "Read and enrich Salesforce CRM records with approval-gated writes.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
         "slug": "telegram",
         "name": "Telegram Bot",
         "description": "Telegram Bot API approval delivery connector.",
@@ -374,6 +353,20 @@ CONNECTOR_CATALOG: list[dict[str, Any]] = [
             "properties": {"bot_token": {"type": "string"}},
             "required": ["bot_token"],
         },
+    },
+    {
+        "slug": "slack",
+        "name": "Slack",
+        "description": "Slack workspace connector for search, threads, posts, and approval delivery.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
+    },
+    {
+        "slug": "teams",
+        "name": "Microsoft Teams",
+        "description": "Teams connector for search, threads, posts, and approval delivery.",
+        "provider_type": "native",
+        "config_schema_json": {"type": "object", "properties": {}},
     },
     {
         "slug": "mcp-http",
@@ -667,6 +660,17 @@ MARKETPLACE_WORKFLOWS.extend(
 )
 
 AGENT_TEMPLATE_CATALOG: list[dict[str, Any]] = [
+    {
+        "slug": "email-inbox-agent",
+        "name": "Email Inbox Agent",
+        "role": "worker",
+        "department": "Customer Success",
+        "description": "Triages inbound email and drafts grounded replies for human approval.",
+        "capabilities": ["email_triage", "email_drafting", "knowledge_retrieval"],
+        "allowed_tools": ["knowledge_search", "gmail.get_thread", "gmail.create_draft"],
+        "skills": ["email-response-drafter"],
+        "tags": ["customer_success", "email", "flagship"],
+    },
     {
         "slug": "sales-researcher",
         "name": "Sales Researcher",

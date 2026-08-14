@@ -53,9 +53,7 @@ def should_skip_agent_plan(
     is_manager_plan = "manager" in purpose.lower() or "delegation" in purpose.lower()
     if mode == "off":
         return True
-    if not is_manager_plan and (not allowed_tools or not tool_calling_allowed):
-        return True
-    return False
+    return bool(not is_manager_plan and (not allowed_tools or not tool_calling_allowed))
 
 
 __all__ = [

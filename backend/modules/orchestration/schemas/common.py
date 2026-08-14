@@ -1,12 +1,4 @@
-from datetime import datetime
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import (
-    GithubSyncEventResponse,
-)
+from typing import Literal
 
 TaskStatus = Literal[
     "backlog",

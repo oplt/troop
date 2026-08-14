@@ -2,6 +2,48 @@ import { apiFetch } from "./client";
 
 export type ConnectorOperationType = "trigger" | "search" | "read" | "action";
 
+export type ConnectorScopeManifest = {
+    scope: string;
+    label: string;
+    description: string;
+    required_for: string[];
+};
+
+export type ConnectorOperationManifest = {
+    slug: string;
+    name: string;
+    description: string;
+    operation_kind: string;
+    input_schema: Record<string, unknown>;
+    output_schema: Record<string, unknown>;
+    risk_level: string;
+    requires_approval: boolean;
+    required_scopes: string[];
+    parallel_safe: boolean;
+    idempotency_strategy: string;
+};
+
+export type ConnectorManifest = {
+    provider_slug: string;
+    version: string;
+    name: string;
+    description: string;
+    provider_type: string;
+    auth: {
+        type: string;
+        scopes: ConnectorScopeManifest[];
+        config_schema: Record<string, unknown>;
+        reauthorization: string;
+        pkce_required: boolean;
+    };
+    triggers: ConnectorOperationManifest[];
+    actions: ConnectorOperationManifest[];
+    webhook: Record<string, unknown> | null;
+    health: Record<string, unknown> | null;
+    rate_limits: Record<string, unknown> | null;
+    metadata: Record<string, unknown>;
+};
+
 export type ConnectorDefinition = {
     id: string;
     slug: string;
@@ -19,6 +61,7 @@ export type ConnectorInstallation = {
     company_id: string | null;
     name: string;
     status: string;
+    environment: string;
     config_json: Record<string, unknown>;
     metadata_json: Record<string, unknown>;
     created_at: string | null;
@@ -41,7 +84,7 @@ export type ConnectorOperation = {
 };
 
 export type ConnectorStatus = {
-    provider: "gmail" | "telegram";
+    provider: "gmail" | "outlook" | "google_calendar" | "microsoft_calendar" | "google_drive" | "microsoft_drive" | "jira" | "linear" | "hubspot" | "salesforce" | "telegram" | "slack" | "teams";
     status: string;
     installation_id: string | null;
     account_label: string | null;
@@ -128,6 +171,59 @@ function unwrapList(value: unknown): UnknownRecord[] {
     return [];
 }
 
+function normalizeScopeManifest(value: unknown): ConnectorScopeManifest {
+    const raw = record(value);
+    return {
+        scope: String(raw.scope ?? ""),
+        label: String(raw.label ?? raw.scope ?? ""),
+        description: String(raw.description ?? ""),
+        required_for: strings(raw.required_for),
+    };
+}
+
+function normalizeOperationManifest(value: unknown): ConnectorOperationManifest {
+    const raw = record(value);
+    const governance = record(raw.governance);
+    return {
+        slug: String(raw.slug ?? ""),
+        name: String(raw.name ?? raw.slug ?? ""),
+        description: String(raw.description ?? ""),
+        operation_kind: String(raw.operation_kind ?? raw.operation_type ?? "action"),
+        input_schema: record(raw.input_schema ?? raw.input_schema_json),
+        output_schema: record(raw.output_schema ?? raw.output_schema_json),
+        risk_level: String(raw.risk_level ?? "low"),
+        requires_approval: Boolean(raw.requires_approval),
+        required_scopes: strings(raw.required_scopes ?? raw.required_scopes_json),
+        parallel_safe: Boolean(raw.parallel_safe ?? governance.parallel_safe),
+        idempotency_strategy: String(raw.idempotency_strategy ?? governance.idempotency_strategy ?? "none"),
+    };
+}
+
+export function normalizeConnectorManifest(value: unknown): ConnectorManifest {
+    const raw = record(value);
+    const auth = record(raw.auth);
+    return {
+        provider_slug: String(raw.provider_slug ?? raw.slug ?? ""),
+        version: String(raw.version ?? "1.0.0"),
+        name: String(raw.name ?? raw.provider_slug ?? ""),
+        description: String(raw.description ?? ""),
+        provider_type: String(raw.provider_type ?? "native"),
+        auth: {
+            type: String(auth.type ?? "none"),
+            scopes: Array.isArray(auth.scopes) ? auth.scopes.map(normalizeScopeManifest) : [],
+            config_schema: record(auth.config_schema ?? auth.config_schema_json),
+            reauthorization: String(auth.reauthorization ?? "manual"),
+            pkce_required: Boolean(auth.pkce_required),
+        },
+        triggers: Array.isArray(raw.triggers) ? raw.triggers.map(normalizeOperationManifest) : [],
+        actions: Array.isArray(raw.actions) ? raw.actions.map(normalizeOperationManifest) : [],
+        webhook: raw.webhook && typeof raw.webhook === "object" ? record(raw.webhook) : null,
+        health: raw.health && typeof raw.health === "object" ? record(raw.health) : null,
+        rate_limits: raw.rate_limits && typeof raw.rate_limits === "object" ? record(raw.rate_limits) : null,
+        metadata: record(raw.metadata ?? raw.metadata_json),
+    };
+}
+
 export function normalizeConnectorDefinition(value: unknown): ConnectorDefinition {
     const raw = record(value);
     return {
@@ -150,6 +246,7 @@ export function normalizeConnectorInstallation(value: unknown): ConnectorInstall
         company_id: nullableString(raw.company_id),
         name: String(raw.name ?? raw.account_label ?? "Connection"),
         status: String(raw.status ?? "disconnected"),
+        environment: String(raw.environment ?? "dev"),
         // The API must redact secrets. These objects are only used for safe display metadata.
         config_json: record(raw.config_json ?? raw.config),
         metadata_json: record(raw.metadata_json ?? raw.metadata),
@@ -178,7 +275,10 @@ export function normalizeConnectorOperation(value: unknown): ConnectorOperation 
     };
 }
 
-export function normalizeConnectorStatus(provider: "gmail" | "telegram", value: unknown): ConnectorStatus {
+export function normalizeConnectorStatus(
+    provider: "gmail" | "outlook" | "google_calendar" | "microsoft_calendar" | "google_drive" | "microsoft_drive" | "jira" | "linear" | "telegram" | "slack" | "teams",
+    value: unknown,
+): ConnectorStatus {
     const raw = record(value);
     const installation = record(raw.installation);
     return {
@@ -193,6 +293,17 @@ export function normalizeConnectorStatus(provider: "gmail" | "telegram", value: 
         error: nullableString(raw.error ?? raw.last_error),
         metadata: record(raw.metadata),
     };
+}
+
+export async function listConnectorManifests(): Promise<ConnectorManifest[]> {
+    return unwrapList(await apiFetch<unknown>("/workforce/connectors/manifests"))
+        .map(normalizeConnectorManifest);
+}
+
+export async function getConnectorManifest(providerSlug: string): Promise<ConnectorManifest> {
+    return normalizeConnectorManifest(
+        await apiFetch<unknown>(`/workforce/connectors/manifests/${encodeURIComponent(providerSlug)}`),
+    );
 }
 
 export async function listConnectorDefinitions(): Promise<ConnectorDefinition[]> {
@@ -237,6 +348,204 @@ export async function getGmailStatus(): Promise<ConnectorStatus> {
     );
 }
 
+export async function getOutlookAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/outlook/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getOutlookStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "outlook",
+        await apiFetch<unknown>("/workforce/connectors/outlook/status"),
+    );
+}
+
+export async function disconnectOutlook(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/outlook/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getGoogleCalendarAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/google_calendar/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getGoogleCalendarStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "google_calendar",
+        await apiFetch<unknown>("/workforce/connectors/google_calendar/status"),
+    );
+}
+
+export async function disconnectGoogleCalendar(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/google_calendar/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getMicrosoftCalendarAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/microsoft_calendar/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getMicrosoftCalendarStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "microsoft_calendar",
+        await apiFetch<unknown>("/workforce/connectors/microsoft_calendar/status"),
+    );
+}
+
+export async function disconnectMicrosoftCalendar(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/microsoft_calendar/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getGoogleDriveAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/google_drive/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getGoogleDriveStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "google_drive",
+        await apiFetch<unknown>("/workforce/connectors/google_drive/status"),
+    );
+}
+
+export async function disconnectGoogleDrive(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/google_drive/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getMicrosoftDriveAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/microsoft_drive/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getMicrosoftDriveStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "microsoft_drive",
+        await apiFetch<unknown>("/workforce/connectors/microsoft_drive/status"),
+    );
+}
+
+export async function disconnectMicrosoftDrive(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/microsoft_drive/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getJiraAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/jira/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getJiraStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "jira",
+        await apiFetch<unknown>("/workforce/connectors/jira/status"),
+    );
+}
+
+export async function disconnectJira(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/jira/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getLinearAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/linear/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getLinearStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "linear",
+        await apiFetch<unknown>("/workforce/connectors/linear/status"),
+    );
+}
+
+export async function disconnectLinear(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/linear/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getHubSpotAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/hubspot/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getHubSpotStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "hubspot",
+        await apiFetch<unknown>("/workforce/connectors/hubspot/status"),
+    );
+}
+
+export async function disconnectHubSpot(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/hubspot/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
+export async function getSalesforceAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/salesforce/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function getSalesforceStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "salesforce",
+        await apiFetch<unknown>("/workforce/connectors/salesforce/status"),
+    );
+}
+
+export async function disconnectSalesforce(id: string): Promise<void> {
+    return apiFetch(`/workforce/connectors/salesforce/${encodeURIComponent(id)}/disconnect`, {
+        method: "POST",
+    });
+}
+
 export async function getTelegramStatus(): Promise<ConnectorStatus> {
     return normalizeConnectorStatus(
         "telegram",
@@ -249,6 +558,66 @@ export async function createTelegramLink(connectorInstallationId: string): Promi
         method: "POST",
         body: JSON.stringify({ connector_installation_id: connectorInstallationId }),
     });
+}
+
+export async function getSlackStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "slack",
+        await apiFetch<unknown>("/workforce/connectors/slack/status"),
+    );
+}
+
+export async function getSlackAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/slack/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function createSlackLink(connectorInstallationId: string): Promise<TelegramLink> {
+    return apiFetch("/workforce/connectors/slack/link", {
+        method: "POST",
+        body: JSON.stringify({ connector_installation_id: connectorInstallationId }),
+    });
+}
+
+export async function unlinkSlack(bindingId: string): Promise<void> {
+    return apiFetch(
+        `/workforce/connectors/slack/bindings/${encodeURIComponent(bindingId)}`,
+        { method: "DELETE" },
+    );
+}
+
+export async function getTeamsStatus(): Promise<ConnectorStatus> {
+    return normalizeConnectorStatus(
+        "teams",
+        await apiFetch<unknown>("/workforce/connectors/teams/status"),
+    );
+}
+
+export async function getTeamsAuthorizeUrl(
+    redirectAfter = "/integrations",
+): Promise<{ authorization_url: string }> {
+    return apiFetch("/workforce/connectors/teams/authorize", {
+        method: "POST",
+        body: JSON.stringify({ redirect_after: redirectAfter }),
+    });
+}
+
+export async function createTeamsLink(connectorInstallationId: string): Promise<TelegramLink> {
+    return apiFetch("/workforce/connectors/teams/link", {
+        method: "POST",
+        body: JSON.stringify({ connector_installation_id: connectorInstallationId }),
+    });
+}
+
+export async function unlinkTeams(bindingId: string): Promise<void> {
+    return apiFetch(
+        `/workforce/connectors/teams/bindings/${encodeURIComponent(bindingId)}`,
+        { method: "DELETE" },
+    );
 }
 
 export async function configureTelegramWebhook(

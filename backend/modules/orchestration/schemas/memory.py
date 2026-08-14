@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.schemas import RequestModel
-from backend.modules.github.schemas import GithubSyncEventResponse
-
 from backend.modules.orchestration.schemas.common import *  # noqa: F403
+
 
 class WorkingMemoryResponse(BaseModel):
     """Run-scoped structured working set (Layer 2); persisted in ``checkpoint_json``."""
@@ -274,5 +273,3 @@ class TaskMemoryCoordinationPatch(RequestModel):
 class SemanticConflictGroupResponse(BaseModel):
     group_key: str
     entries: list[dict[str, Any]]
-
-

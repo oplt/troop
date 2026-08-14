@@ -56,9 +56,7 @@ def acceptance_evidence_excerpt(item: str, output_text: str) -> str:
 
 
 def acceptance_item_check(item: str, output_text: str) -> dict[str, Any]:
-    required_tokens = [
-        token for token in re.findall(r"[a-z0-9]+", item.lower()) if len(token) > 2
-    ]
+    required_tokens = [token for token in re.findall(r"[a-z0-9]+", item.lower()) if len(token) > 2]
     if not required_tokens:
         return {"item": item, "passed": True, "evidence_excerpt": ""}
     output_tokens = set(re.findall(r"[a-z0-9]+", output_text.lower()))

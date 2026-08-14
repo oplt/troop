@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from sqlalchemy import or_, select
 
 from backend.core.logging import get_logger
-
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.markdown import parse_agent_markdown
 from backend.modules.projects.orchestration_models import OrchestratorTask
@@ -18,7 +17,6 @@ from backend.modules.team.models import (
     TeamProfile,
     TeamTemplateCatalog,
 )
-
 
 logger = get_logger(__name__)
 
@@ -58,7 +56,9 @@ class TeamServiceMixin:
             await self._attach_orchestration_skills(agent)
         return agents
 
-    async def _collect_agents_linked_to_template_slug(self, template_slug: str) -> list[AgentProfile]:
+    async def _collect_agents_linked_to_template_slug(
+        self, template_slug: str
+    ) -> list[AgentProfile]:
         linked_agents = await self.db.execute(
             select(AgentProfile).where(AgentProfile.parent_template_slug == template_slug)
         )
@@ -83,10 +83,14 @@ class TeamServiceMixin:
                 "Ignoring skills_json on agent create; use AgentSkillAssignment instead",
                 extra={"owner_id": user.id, "skill_count": len(requested_skills)},
             )
-        payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
+        payload = await self._validate_and_normalize_agent_payload(
+            user, payload, existing_agent_id=None
+        )
         await self._validate_reporting_line(user, payload.get("project_id"), None, payload)
         payload["is_active"] = bool(payload.get("is_active", False))
-        agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
+        agent = await self.repo.create_agent(
+            owner_id=user.id, **self._agent_payload_to_model(payload)
+        )
         if requested_skills:
             await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
@@ -166,7 +170,9 @@ class TeamServiceMixin:
         await self._attach_orchestration_skills(agent)
         return agent
 
-    async def update_agent(self, user: User, agent_id: str, updates: dict[str, Any]) -> AgentProfile:
+    async def update_agent(
+        self, user: User, agent_id: str, updates: dict[str, Any]
+    ) -> AgentProfile:
         await self._ensure_catalog_seeded()
         agent = await self.get_agent(user, agent_id)
         requested_skills = self._normalize_skill_refs(updates.get("skills") or [])
@@ -185,8 +191,12 @@ class TeamServiceMixin:
                 raise HTTPException(status_code=422, detail={"errors": errors})
             updates = {**normalized, **updates}
             updates.pop("skills", None)
-        updates = await self._validate_and_normalize_agent_payload(user, updates, existing_agent_id=agent.id)
-        await self._validate_reporting_line(user, updates.get("project_id", agent.project_id), agent, updates)
+        updates = await self._validate_and_normalize_agent_payload(
+            user, updates, existing_agent_id=agent.id
+        )
+        await self._validate_reporting_line(
+            user, updates.get("project_id", agent.project_id), agent, updates
+        )
         self._apply_agent_updates(agent, updates)
         agent.version += 1
         if requested_skills:
@@ -216,13 +226,18 @@ class TeamServiceMixin:
             if related is None:
                 raise HTTPException(status_code=422, detail=f"{label} agent was not found.")
             if project_id and related.project_id and related.project_id != project_id:
-                raise HTTPException(status_code=422, detail=f"{label} agent must belong to the same project.")
+                raise HTTPException(
+                    status_code=422, detail=f"{label} agent must belong to the same project."
+                )
             return related
 
         parent = await load_related(parent_id, "Parent")
         reviewer = await load_related(reviewer_id, "Reviewer")
         if reviewer is not None and reviewer.role not in {"reviewer", "manager", "team_lead"}:
-            raise HTTPException(status_code=422, detail="Reviewer relationship must target a reviewer, manager, or team lead.")
+            raise HTTPException(
+                status_code=422,
+                detail="Reviewer relationship must target a reviewer, manager, or team lead.",
+            )
 
         if parent is None or agent is None:
             return
@@ -230,7 +245,9 @@ class TeamServiceMixin:
         cursor = parent
         while cursor is not None:
             if cursor.id in seen:
-                raise HTTPException(status_code=422, detail="Reporting lines cannot contain cycles.")
+                raise HTTPException(
+                    status_code=422, detail="Reporting lines cannot contain cycles."
+                )
             seen.add(cursor.id)
             if not cursor.parent_agent_id:
                 break
@@ -268,7 +285,9 @@ class TeamServiceMixin:
         await self._attach_orchestration_skills(copy)
         return copy
 
-    async def set_agent_active_state(self, user: User, agent_id: str, is_active: bool) -> AgentProfile:
+    async def set_agent_active_state(
+        self, user: User, agent_id: str, is_active: bool
+    ) -> AgentProfile:
         agent = await self.get_agent(user, agent_id)
         if is_active:
             lint = await self.summarize_agent_lint(user, agent)
@@ -290,7 +309,9 @@ class TeamServiceMixin:
         await self.get_agent(user, agent_id)
         return await self.repo.list_agent_versions(agent_id)
 
-    async def pin_agent_skills(self, user: User, agent_id: str, payload: dict[str, Any]) -> AgentProfile:
+    async def pin_agent_skills(
+        self, user: User, agent_id: str, payload: dict[str, Any]
+    ) -> AgentProfile:
         """Pin skills via AgentSkillAssignment(version_policy=pinned).
 
         Does not write metadata_json["skill_pins"]. Legacy metadata pins are migrated
@@ -366,7 +387,11 @@ class TeamServiceMixin:
                 AgentProfile.parent_template_slug.is_not(None),
             )
         )
-        orphans = [agent for agent in result.scalars().all() if agent.parent_template_slug not in live_slugs]
+        orphans = [
+            agent
+            for agent in result.scalars().all()
+            if agent.parent_template_slug not in live_slugs
+        ]
         if not orphans:
             return
         for agent in orphans:
@@ -502,7 +527,9 @@ class TeamServiceMixin:
         linked_agent_ids = [agent.id for agent in linked_agents]
         if linked_agent_ids:
             memberships = await self.db.execute(
-                select(ProjectAgentMembership).where(ProjectAgentMembership.agent_id.in_(linked_agent_ids))
+                select(ProjectAgentMembership).where(
+                    ProjectAgentMembership.agent_id.in_(linked_agent_ids)
+                )
             )
             membership_hits = list(memberships.scalars().all())
             tasks = await self.db.execute(
@@ -569,17 +596,23 @@ class TeamServiceMixin:
         return payloads
 
     async def create_skill_pack(self, payload: dict[str, Any]) -> dict[str, Any]:
-        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+        from backend.modules.workforce.services.skillpack_retirement import (
+            assert_no_skillpack_writes,
+        )
 
         assert_no_skillpack_writes()
 
     async def update_skill_pack(self, slug: str, payload: dict[str, Any]) -> dict[str, Any]:
-        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+        from backend.modules.workforce.services.skillpack_retirement import (
+            assert_no_skillpack_writes,
+        )
 
         assert_no_skillpack_writes()
 
     async def delete_skill_pack(self, slug: str) -> None:
-        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+        from backend.modules.workforce.services.skillpack_retirement import (
+            assert_no_skillpack_writes,
+        )
 
         assert_no_skillpack_writes()
 
@@ -611,7 +644,10 @@ class TeamServiceMixin:
         requested_name = str((payload or {}).get("name") or "").strip()
         requested_slug = str((payload or {}).get("slug") or "").strip()
         base_name = requested_name or template.name or "Team profile"
-        base_slug = _slugify(requested_slug or base_name or template.slug or "team-profile") or "team-profile"
+        base_slug = (
+            _slugify(requested_slug or base_name or template.slug or "team-profile")
+            or "team-profile"
+        )
         next_slug = base_slug
         index = 2
         while next_slug in taken_slugs:
@@ -657,7 +693,9 @@ class TeamServiceMixin:
         await self.db.refresh(item)
         return self._team_template_model_to_payload(item)
 
-    async def update_team_template(self, template_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def update_team_template(
+        self, template_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         await self._ensure_team_template_catalog_seeded()
         item = await self.repo.get_team_template(template_id)
         if item is None:
@@ -709,10 +747,14 @@ class TeamServiceMixin:
         }
         requested_skills = self._normalize_skill_refs(payload.get("skills") or [])
         payload["skills"] = []
-        payload = await self._validate_and_normalize_agent_payload(user, payload, existing_agent_id=None)
+        payload = await self._validate_and_normalize_agent_payload(
+            user, payload, existing_agent_id=None
+        )
         payload["is_active"] = bool(payload.get("is_active", False))
         await self._ensure_unique_agent_slug(user.id, payload["slug"], None)
-        agent = await self.repo.create_agent(owner_id=user.id, **self._agent_payload_to_model(payload))
+        agent = await self.repo.create_agent(
+            owner_id=user.id, **self._agent_payload_to_model(payload)
+        )
         if requested_skills:
             await self._assign_skills_from_legacy_payload(user.id, agent.id, requested_skills)
         await self._snapshot_agent(agent, user.id)
@@ -891,7 +933,9 @@ class TeamServiceMixin:
         agent.__orchestration_skills__ = await self._skill_slugs_for_agent(agent.id)
         return agent
 
-    async def _copy_agent_skill_assignments(self, source_agent_id: str, target_agent_id: str) -> None:
+    async def _copy_agent_skill_assignments(
+        self, source_agent_id: str, target_agent_id: str
+    ) -> None:
         from backend.modules.workforce.repository import WorkforceRepository
 
         repo = WorkforceRepository(self.db)
@@ -1055,7 +1099,10 @@ class TeamServiceMixin:
                 errors.append(f"Skill '{skill_ref}' is not defined.")
 
         parent_template_slug = payload.get("parent_template_slug")
-        if parent_template_slug and await self.repo.get_agent_template_by_slug(parent_template_slug) is None:
+        if (
+            parent_template_slug
+            and await self.repo.get_agent_template_by_slug(parent_template_slug) is None
+        ):
             errors.append(f"Parent template '{parent_template_slug}' does not exist.")
 
         model_policy = payload.get("model_policy") or {}
@@ -1069,23 +1116,33 @@ class TeamServiceMixin:
                 errors.append("Selected provider_config_id does not exist.")
         else:
             providers = await self.repo.list_providers(user.id, payload.get("project_id"))
-            provider = next((item for item in providers if item.is_default), None) or (providers[0] if providers else None)
+            provider = next((item for item in providers if item.is_default), None) or (
+                providers[0] if providers else None
+            )
         if model_name and provider and not await self._provider_model_exists(provider, model_name):
             errors.append(
                 f"Primary model '{model_name}' is not available on the selected/default provider."
             )
-        if fallback_model and provider and not await self._provider_model_exists(provider, fallback_model):
+        if (
+            fallback_model
+            and provider
+            and not await self._provider_model_exists(provider, fallback_model)
+        ):
             errors.append(
                 f"Fallback model '{fallback_model}' is not available on the selected/default provider."
             )
         if model_name and provider:
             capability = await self._model_capability(model_name, provider.provider_type)
             if capability is None and provider.provider_type != "ollama":
-                errors.append(f"Primary model '{model_name}' is missing from the capability matrix.")
+                errors.append(
+                    f"Primary model '{model_name}' is missing from the capability matrix."
+                )
         if fallback_model and provider:
             capability = await self._model_capability(fallback_model, provider.provider_type)
             if capability is None and provider.provider_type != "ollama":
-                errors.append(f"Fallback model '{fallback_model}' is missing from the capability matrix.")
+                errors.append(
+                    f"Fallback model '{fallback_model}' is missing from the capability matrix."
+                )
 
         linked_to_catalog_template = bool(str(parent_template_slug or "").strip()) or bool(
             str((payload.get("metadata") or {}).get("from_template") or "").strip()
@@ -1104,19 +1161,31 @@ class TeamServiceMixin:
         token_budget = budget.get("token_budget")
         time_budget = budget.get("time_budget_seconds")
         retry_budget = budget.get("retry_budget")
-        if token_budget is not None and (not isinstance(token_budget, (int, float)) or token_budget <= 0 or token_budget > 1_000_000):
+        if token_budget is not None and (
+            not isinstance(token_budget, (int, float))
+            or token_budget <= 0
+            or token_budget > 1_000_000
+        ):
             errors.append("budget.token_budget must be between 1 and 1,000,000.")
-        if time_budget is not None and (not isinstance(time_budget, (int, float)) or time_budget < 10 or time_budget > 86_400):
+        if time_budget is not None and (
+            not isinstance(time_budget, (int, float)) or time_budget < 10 or time_budget > 86_400
+        ):
             errors.append("budget.time_budget_seconds must be between 10 and 86400.")
-        if retry_budget is not None and (not isinstance(retry_budget, (int, float)) or retry_budget < 0 or retry_budget > 20):
+        if retry_budget is not None and (
+            not isinstance(retry_budget, (int, float)) or retry_budget < 0 or retry_budget > 20
+        ):
             errors.append("budget.retry_budget must be between 0 and 20.")
         cost_cap = budget.get("cost_cap_usd")
         if cost_cap is not None and (
-            not isinstance(cost_cap, (int, float)) or float(cost_cap) <= 0 or float(cost_cap) > 50_000
+            not isinstance(cost_cap, (int, float))
+            or float(cost_cap) <= 0
+            or float(cost_cap) > 50_000
         ):
             errors.append("budget.cost_cap_usd must be between 0 and 50000 (USD, rolling window).")
 
-        task_filters = payload.get("task_filters") or payload.get("metadata", {}).get("task_filters", [])
+        task_filters = payload.get("task_filters") or payload.get("metadata", {}).get(
+            "task_filters", []
+        )
         for value in task_filters:
             text = str(value).strip()
             if not text:
@@ -1132,14 +1201,27 @@ class TeamServiceMixin:
             errors.append("memory_policy.scope must be one of: none, project-only, long-term.")
 
         output_format = (payload.get("output_schema") or {}).get("format")
-        if output_format and output_format not in {"checklist", "json", "patch_proposal", "issue_reply", "adr"}:
+        if output_format and output_format not in {
+            "checklist",
+            "json",
+            "patch_proposal",
+            "issue_reply",
+            "adr",
+        }:
             errors.append("output_schema.format is not supported.")
 
         permission_level = payload.get("permissions")
         if permission_level is None:
             permission_level = (payload.get("model_policy") or {}).get("permissions")
-        if isinstance(permission_level, str) and permission_level not in {"read-only", "comment-only", "code-write", "merge-blocked"}:
-            errors.append("permissions must be one of: read-only, comment-only, code-write, merge-blocked.")
+        if isinstance(permission_level, str) and permission_level not in {
+            "read-only",
+            "comment-only",
+            "code-write",
+            "merge-blocked",
+        }:
+            errors.append(
+                "permissions must be one of: read-only, comment-only, code-write, merge-blocked."
+            )
         if not str(payload.get("description") or "").strip():
             warnings.append("Description is missing.")
         if not str(payload.get("mission_markdown") or "").strip():
@@ -1166,7 +1248,9 @@ class TeamServiceMixin:
             warnings.append("Task filters are empty.")
         if not output_format:
             warnings.append("Output schema format is not configured.")
-        if not payload.get("escalation_path") and not (payload.get("model_policy") or {}).get("escalation_path"):
+        if not payload.get("escalation_path") and not (payload.get("model_policy") or {}).get(
+            "escalation_path"
+        ):
             warnings.append("Escalation path is not configured.")
         return {
             "errors": errors,
@@ -1207,9 +1291,7 @@ class TeamServiceMixin:
             str(item).strip() for item in normalized.get("skills", []) if str(item).strip()
         ]
         normalized["capabilities"] = [
-            str(item).strip()
-            for item in normalized.get("capabilities", [])
-            if str(item).strip()
+            str(item).strip() for item in normalized.get("capabilities", []) if str(item).strip()
         ]
         normalized["allowed_tools"] = [
             LEGACY_TOOL_ALIASES.get(str(item).strip(), str(item).strip())
@@ -1240,13 +1322,13 @@ class TeamServiceMixin:
         if "task_filters" in normalized or "metadata" in normalized:
             metadata = normalized.get("metadata") or {}
             normalized["task_filters"] = list(
-                normalized.get("task_filters")
-                or metadata.get("task_filters")
-                or []
+                normalized.get("task_filters") or metadata.get("task_filters") or []
             )
         return normalized
 
-    async def _resolve_template_effective_profile(self, template: AgentTemplateCatalog) -> dict[str, Any]:
+    async def _resolve_template_effective_profile(
+        self, template: AgentTemplateCatalog
+    ) -> dict[str, Any]:
         inherited: dict[str, Any] = {}
         if template.parent_template_slug:
             parent = await self.repo.get_agent_template_by_slug(template.parent_template_slug)
@@ -1257,9 +1339,12 @@ class TeamServiceMixin:
             "system_prompt": template.system_prompt or inherited.get("system_prompt", ""),
             "mission_markdown": template.mission_markdown or inherited.get("mission_markdown", ""),
             "rules_markdown": "\n".join(
-                chunk for chunk in [inherited.get("rules_markdown", ""), template.rules_markdown or ""] if chunk
+                chunk
+                for chunk in [inherited.get("rules_markdown", ""), template.rules_markdown or ""]
+                if chunk
             ),
-            "output_contract_markdown": template.output_contract_markdown or inherited.get("output_contract_markdown", ""),
+            "output_contract_markdown": template.output_contract_markdown
+            or inherited.get("output_contract_markdown", ""),
             "capabilities": self._merge_unique_lists(
                 inherited.get("capabilities", []),
                 template.capabilities_json or [],
@@ -1271,9 +1356,18 @@ class TeamServiceMixin:
             "skills": self._merge_unique_lists(inherited.get("skills", []), current_skills),
             "tags": self._merge_unique_lists(inherited.get("tags", []), template.tags_json or []),
             "budget": {**inherited.get("budget", {}), **(template.budget_json or {})},
-            "memory_policy": {**inherited.get("memory_policy", {}), **(template.memory_policy_json or {})},
-            "output_schema": {**inherited.get("output_schema", {}), **(template.output_schema_json or {})},
-            "model_policy": {**inherited.get("model_policy", {}), **(template.model_policy_json or {})},
+            "memory_policy": {
+                **inherited.get("memory_policy", {}),
+                **(template.memory_policy_json or {}),
+            },
+            "output_schema": {
+                **inherited.get("output_schema", {}),
+                **(template.output_schema_json or {}),
+            },
+            "model_policy": {
+                **inherited.get("model_policy", {}),
+                **(template.model_policy_json or {}),
+            },
             "metadata": {**inherited.get("metadata", {}), **(template.metadata_json or {})},
         }
         effective["permissions"] = effective["model_policy"].get("permissions")
@@ -1295,23 +1389,38 @@ class TeamServiceMixin:
             "system_prompt": agent.system_prompt or inherited.get("system_prompt", ""),
             "mission_markdown": agent.mission_markdown or inherited.get("mission_markdown", ""),
             "rules_markdown": "\n".join(
-                chunk for chunk in [inherited.get("rules_markdown", ""), agent.rules_markdown or ""] if chunk
+                chunk
+                for chunk in [inherited.get("rules_markdown", ""), agent.rules_markdown or ""]
+                if chunk
             ),
-            "output_contract_markdown": agent.output_contract_markdown or inherited.get("output_contract_markdown", ""),
-            "capabilities": self._merge_unique_lists(inherited.get("capabilities", []), agent.capabilities_json or []),
-            "allowed_tools": self._merge_unique_lists(inherited.get("allowed_tools", []), agent.allowed_tools_json or []),
+            "output_contract_markdown": agent.output_contract_markdown
+            or inherited.get("output_contract_markdown", ""),
+            "capabilities": self._merge_unique_lists(
+                inherited.get("capabilities", []), agent.capabilities_json or []
+            ),
+            "allowed_tools": self._merge_unique_lists(
+                inherited.get("allowed_tools", []), agent.allowed_tools_json or []
+            ),
             "skills": self._merge_unique_lists(inherited.get("skills", []), skills),
             "tags": self._merge_unique_lists(inherited.get("tags", []), agent.tags_json or []),
             "budget": {**inherited.get("budget", {}), **(agent.budget_json or {})},
-            "memory_policy": {**inherited.get("memory_policy", {}), **(agent.memory_policy_json or {})},
-            "output_schema": {**inherited.get("output_schema", {}), **(agent.output_schema_json or {})},
-            "model_policy": {**inherited.get("model_policy", {}), **(agent.model_policy_json or {})},
+            "memory_policy": {
+                **inherited.get("memory_policy", {}),
+                **(agent.memory_policy_json or {}),
+            },
+            "output_schema": {
+                **inherited.get("output_schema", {}),
+                **(agent.output_schema_json or {}),
+            },
+            "model_policy": {
+                **inherited.get("model_policy", {}),
+                **(agent.model_policy_json or {}),
+            },
         }
         effective["permissions"] = effective["model_policy"].get("permissions")
         effective["escalation_path"] = effective["model_policy"].get("escalation_path")
         effective["task_filters"] = list(
-            (agent.metadata_json or {}).get("task_filters")
-            or inherited.get("task_filters", [])
+            (agent.metadata_json or {}).get("task_filters") or inherited.get("task_filters", [])
         )
         return effective
 

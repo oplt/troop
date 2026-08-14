@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 
 from backend.modules.orchestration.models import TaskRun
-from backend.modules.projects.orchestration_models import OrchestratorTask
+from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 
 
 class ManagerWorkerReviewMixin:

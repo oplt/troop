@@ -35,7 +35,7 @@ def durable_backend_status() -> dict[str, object]:
     }
 
 
-def submit_orchestration_run(run_id: str) -> None:
+def submit_orchestration_run(run_id: str, *, expected_owner_id: str | None = None) -> None:
     """Submit a task run to the configured durable queue.
 
     Fail closed for unsupported backends instead of silently queueing to Celery when an operator
@@ -51,5 +51,5 @@ def submit_orchestration_run(run_id: str) -> None:
     logger.info(f"[SUBMIT] Submitting orchestration run {run_id}")
     from backend.workers.orchestration import queue_orchestration_run
 
-    queue_orchestration_run(run_id)
+    queue_orchestration_run(run_id, expected_owner_id=expected_owner_id)
     logger.info(f"[SUBMIT] Queued run {run_id}")

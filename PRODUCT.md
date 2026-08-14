@@ -71,18 +71,20 @@ Fallback stack after the primary family: `-apple-system, BlinkMacSystemFont, Ari
 
 Grouped destinations (not a flat list):
 
-1. **Work** — Dashboard, Projects, My tasks, Approvals  
-2. **Agents** — Agents, Skills, Marketplace, Hierarchy  
+1. **Work** — Dashboard, Projects, My tasks, Approvals (`/approvals`)  
+2. **Agents** — Agents, Skills, Marketplace, Hierarchy (`/hierarchy`)  
 3. **Automate** — Workflows, Workflow templates, Integrations  
-4. **Insight** — Portfolio, Cost & usage, Execution insights, Brainstorms (+ AI Studio when enabled)  
+4. **Insight** — Portfolio (`/portfolio`), Cost & usage, Execution insights, Brainstorms (+ AI Studio when enabled)  
 5. **Org** — Departments, Companies, Model settings  
 6. **Admin** — Settings (admin only)
 
-Default: only **Work** expanded. Group expand/collapse persists locally.
+Default: only **Work** expanded. Insight and Org stay collapsed until the operator opens them or lands on a route in that group. Group expand/collapse persists locally.
+
+Legacy bookmarks still work: `/activity` → `/approvals`, `/agent-portfolio` → `/portfolio`, `/hierarchy-builder` → `/hierarchy`.
 
 ### Shell shortcuts
 
-- **Command palette:** Ctrl+K / ⌘K only (bare `K` disabled). Suggested actions, recent projects, pages; type a run id to jump to `/runs/:id`.
+- **Command palette:** Ctrl+K / ⌘K only (bare `K` disabled). Suggested actions, recent projects, pending approvals, runs, agents, skills, and pages; type a run id to jump to `/runs/:id`. Palette rows show product names — not raw UUID crumbs.
 - **Notifications:** AppBar badge → `/notifications`.
 - **Skip link:** “Skip to main content” focuses `#main-content`.
 - **Module pack:** configured under Admin → Platform (not in drawer chrome).

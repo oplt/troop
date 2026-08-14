@@ -34,7 +34,7 @@ import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { SectionError } from "../components/ui/SectionError";
 import { StatCard } from "../components/ui/StatCard";
-import { formatDateTime, humanizeKey } from "../utils/formatters";
+import { humanizeKey } from "../utils/formatters";
 
 function RollupTable({ title, rows, emptyLabel }: { title: string; rows: ExecutionRollup[]; emptyLabel: string }) {
     return (
@@ -103,7 +103,7 @@ export default function ExecutionInsightsPage() {
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
                         <DateRangeControl value={days} onChange={setDays} />
                         <Button variant="outlined" onClick={() => navigate("/analytics/cost")}>Cost</Button>
-                        <Button variant="outlined" onClick={() => navigate("/activity")}>Approvals / ledger</Button>
+                        <Button variant="outlined" onClick={() => navigate("/approvals")}>Approvals / ledger</Button>
                     </Stack>
                 }
             />

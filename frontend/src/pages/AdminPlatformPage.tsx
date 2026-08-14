@@ -38,6 +38,8 @@ import {
 } from "../api/platform";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 
@@ -272,6 +274,11 @@ function AdminPlatformContent({
 
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                title="Platform"
+                description="Module packs, plans, and commercial overrides for this deployment."
+            />
+            <DensePageMobileNotice surface="Admin platform" />
 
             <Box
                 sx={{

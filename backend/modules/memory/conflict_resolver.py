@@ -16,6 +16,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from backend.core.validation.text import token_jaccard_alnum
 from backend.modules.memory.models import SemanticMemoryEntry
 
 ConflictKind = Literal["duplicate", "contradicts", "unique"]
@@ -120,7 +121,7 @@ def detect(
         sim = _cosine(candidate_embedding, row.embedding_vector)
         # If embeddings missing on either side, fall back to token-set ratio.
         if sim <= 0.0:
-            sim = _token_jaccard(cand_txt, row_txt)
+            sim = token_jaccard_alnum(cand_txt, row_txt)
         if sim >= _DUP_THRESHOLD:
             report.duplicates.append(
                 ConflictHit(
@@ -143,18 +144,6 @@ def detect(
                     )
                 )
     return report
-
-
-def _token_jaccard(a: str, b: str) -> float:
-    ta = set(re.findall(r"[a-z0-9]+", a))
-    tb = set(re.findall(r"[a-z0-9]+", b))
-    if not ta or not tb:
-        return 0.0
-    inter = ta & tb
-    union = ta | tb
-    if not union:
-        return 0.0
-    return len(inter) / len(union)
 
 
 def summarize(report: ConflictReport) -> dict[str, Any]:

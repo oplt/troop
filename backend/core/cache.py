@@ -22,6 +22,7 @@ redis_client = redis.from_url(
     decode_responses=True,
     socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
     socket_timeout=settings.REDIS_SOCKET_TIMEOUT_SECONDS,
+    max_connections=max(1, int(settings.REDIS_MAX_CONNECTIONS)),
 )
 
 T = TypeVar("T")
@@ -129,6 +130,10 @@ _CACHE_POLICIES = {
         "platform_metadata", settings.CACHE_PLATFORM_METADATA_TTL_SECONDS
     ),
     "memory_settings": CachePolicy("memory_settings", settings.CACHE_MEMORY_SETTINGS_TTL_SECONDS),
+    "memory_context": CachePolicy("memory_context", settings.CACHE_MEMORY_CONTEXT_TTL_SECONDS),
+    "portfolio_summary": CachePolicy(
+        "portfolio_summary", settings.CACHE_PORTFOLIO_SUMMARY_TTL_SECONDS, jitter_ratio=0.05
+    ),
 }
 
 
@@ -192,6 +197,15 @@ def memory_settings_cache_key(project_id: str) -> str:
 
 def memory_context_cache_pattern(project_id: str) -> str:
     return f"cache:memory-context:{project_id}:*"
+
+
+def memory_context_cache_key(project_id: str, fingerprint: str) -> str:
+    digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:32]
+    return f"cache:memory-context:{project_id}:{digest}"
+
+
+def portfolio_summary_cache_key(owner_id: str) -> str:
+    return f"cache:portfolio:summary:{owner_id}"
 
 
 def cache_namespace_generation_key(namespace: str) -> str:
@@ -465,6 +479,56 @@ async def set_cached_memory_settings(project_id: str, settings_payload: dict[str
 
 async def invalidate_project_memory_settings_cache(project_id: str) -> None:
     await cache_delete(memory_settings_cache_key(project_id))
+
+
+async def get_cached_memory_context(
+    project_id: str, fingerprint: str
+) -> dict[str, str] | None:
+    if not cache_enabled():
+        return None
+    key = memory_context_cache_key(project_id, fingerprint)
+    try:
+        effective = await _versioned_key(f"memory-context:{project_id}", key)
+        found, value = await _cache_get_json_state(effective, cache_name="memory_context")
+        if found and isinstance(value, dict):
+            return {str(k): str(v) for k, v in value.items()}
+    except Exception as exc:
+        logger.warning("memory context cache read failed error=%s", exc)
+    return None
+
+
+async def set_cached_memory_context(
+    project_id: str, fingerprint: str, sections: dict[str, str]
+) -> None:
+    if not cache_enabled():
+        return
+    key = memory_context_cache_key(project_id, fingerprint)
+    try:
+        effective = await _versioned_key(f"memory-context:{project_id}", key)
+        ttl = cache_policy("memory_context").ttl_for()
+        await _raw_set(
+            effective,
+            json.dumps(sections),
+            ttl,
+            cache_name="memory_context",
+        )
+    except Exception as exc:
+        logger.warning("memory context cache write failed error=%s", exc)
+
+
+async def get_or_set_portfolio_summary(
+    owner_id: str, loader: Callable[[], Awaitable[Any]]
+) -> Any:
+    return await cache_get_or_set_json(
+        portfolio_summary_cache_key(owner_id),
+        loader,
+        policy=cache_policy("portfolio_summary"),
+        namespace=f"portfolio-summary:{owner_id}",
+    )
+
+
+async def invalidate_portfolio_summary_cache(owner_id: str) -> None:
+    await _bump_namespace_generation(f"portfolio-summary:{owner_id}")
 
 
 async def invalidate_project_memory_context_cache(project_id: str) -> None:

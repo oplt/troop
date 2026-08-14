@@ -207,10 +207,10 @@ class RetrieverService:
         matches: list[RagChunkMatch],
         cap: int,
     ) -> list[RagChunkMatch]:
-        decisions = await self._repo.list_project_decisions(project_id)
+        decisions = await self._repo.list_project_decisions(project_id, query=query)
         q_tokens = {t for t in re.findall(r"[a-z0-9]{3,}", query.lower())}
         extra: list[RagChunkMatch] = []
-        for decision in decisions[:300]:
+        for decision in decisions:
             title = decision.title or ""
             body = decision.decision or ""
             blob = f"{title} {body}".lower()

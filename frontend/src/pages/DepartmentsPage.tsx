@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Box,
     Button,
     Chip,
     Dialog,
@@ -11,7 +10,6 @@ import {
     FormControl,
     IconButton,
     InputLabel,
-    LinearProgress,
     MenuItem,
     Paper,
     Select,
@@ -44,7 +42,11 @@ import { getDefaultCompany } from "../api/companies";
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
-import { SectionCard } from "../components/ui/SectionCard";
+import { PageHeader } from "../components/ui/PageHeader";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { QueryState } from "../components/ui/QueryState";
+import { FormFieldStack } from "../components/ui/FormFieldStack";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
 import { formatDateTime } from "../utils/formatters";
 
 type DepartmentFormData = {
@@ -189,16 +191,10 @@ export default function DepartmentsPage() {
 
     return (
         <PageShell maxWidth="lg">
-            <Stack spacing={3} sx={{ py: 4 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Box>
-                        <Typography variant="h4" gutterBottom>
-                            Departments
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Organize your workforce into departments and teams
-                        </Typography>
-                    </Box>
+            <PageHeader
+                title="Departments"
+                description="Organize your workforce into departments and teams."
+                actions={
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -207,21 +203,24 @@ export default function DepartmentsPage() {
                     >
                         Create Department
                     </Button>
-                </Stack>
-
-                {error && (
-                    <SectionCard>
-                        <Typography color="error">
-                            Error loading departments: {(error as Error).message}
-                        </Typography>
-                    </SectionCard>
-                )}
-
-                {isLoading ? (
-                    <SectionCard>
-                        <LinearProgress />
-                    </SectionCard>
-                ) : activeDepartments.length === 0 ? (
+                }
+            />
+            <FilterToolbar>
+                <Typography variant="body2" color="text.secondary">
+                    {activeDepartments.length} active department{activeDepartments.length === 1 ? "" : "s"}
+                </Typography>
+            </FilterToolbar>
+            <Stack spacing={3} sx={{ py: 1 }}>
+                <QueryState
+                    loading={isLoading}
+                    error={error}
+                    onRetry={() => {
+                        void queryClient.invalidateQueries({
+                            queryKey: ["workforce", "departments", defaultCompany?.id],
+                        });
+                    }}
+                >
+                    {activeDepartments.length === 0 ? (
                     <EmptyState
                         icon={<DepartmentIcon sx={{ fontSize: 64 }} />}
                         title="No departments yet"
@@ -237,88 +236,127 @@ export default function DepartmentsPage() {
                         }
                     />
                 ) : (
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Slug</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Parent</TableCell>
-                                    <TableCell>Created</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
+                    <ResponsiveTable
+                        table={
+                            <TableContainer component={Paper}>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Name</TableCell>
+                                            <TableCell>Slug</TableCell>
+                                            <TableCell>Description</TableCell>
+                                            <TableCell>Parent</TableCell>
+                                            <TableCell>Created</TableCell>
+                                            <TableCell align="right">Actions</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {activeDepartments.map((dept) => {
+                                            const parent = departments.find(
+                                                (d) => d.id === dept.parent_department_id,
+                                            );
+                                            return (
+                                                <TableRow key={dept.id} hover>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>
+                                                            {dept.name}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip label={dept.slug} size="small" variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {dept.description || "—"}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {parent ? (
+                                                            <Chip label={parent.name} size="small" />
+                                                        ) : (
+                                                            "—"
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {formatDateTime(dept.created_at)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                                            <Tooltip title="Edit">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleOpenEdit(dept)}
+                                                                >
+                                                                    <EditIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            <Tooltip title="Archive">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => archiveMutation.mutate(dept.id)}
+                                                                >
+                                                                    <ArchiveIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </Stack>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        }
+                        cards={
+                            <>
                                 {activeDepartments.map((dept) => {
                                     const parent = departments.find(
                                         (d) => d.id === dept.parent_department_id,
                                     );
                                     return (
-                                        <TableRow key={dept.id} hover>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={600}>
-                                                    {dept.name}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip label={dept.slug} size="small" variant="outlined" />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {dept.description || "—"}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                {parent ? (
-                                                    <Chip label={parent.name} size="small" />
-                                                ) : (
-                                                    "—"
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {formatDateTime(dept.created_at)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                                    <Tooltip title="Edit">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenEdit(dept)}
-                                                        >
-                                                            <EditIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Archive">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => archiveMutation.mutate(dept.id)}
-                                                        >
-                                                            <ArchiveIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
+                                        <ResponsiveRowCard
+                                            key={dept.id}
+                                            title={dept.name}
+                                            meta={dept.slug}
+                                            actions={
+                                                <Stack direction="row" spacing={0.5}>
+                                                    <IconButton size="small" onClick={() => handleOpenEdit(dept)} aria-label="Edit">
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton size="small" onClick={() => archiveMutation.mutate(dept.id)} aria-label="Archive">
+                                                        <ArchiveIcon fontSize="small" />
+                                                    </IconButton>
                                                 </Stack>
-                                            </TableCell>
-                                        </TableRow>
+                                            }
+                                        >
+                                            <Typography variant="body2" color="text.secondary">
+                                                {dept.description || "No description"}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {parent ? `Parent: ${parent.name}` : "Top-level"} · {formatDateTime(dept.created_at)}
+                                            </Typography>
+                                        </ResponsiveRowCard>
                                     );
                                 })}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                            </>
+                        }
+                    />
                 )}
+                </QueryState>
 
                 <Dialog open={createDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
                     <DialogTitle>
                         {editingDepartment ? "Edit Department" : "Create Department"}
                     </DialogTitle>
                     <DialogContent>
-                        <Stack spacing={2} sx={{ mt: 1 }}>
+                        <FormFieldStack sx={{ mt: 1 }}>
                             <TextField
                                 label="Name"
                                 fullWidth
                                 required
+                                size="small"
                                 value={formData.name}
                                 onChange={(e) =>
                                     setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -329,6 +367,7 @@ export default function DepartmentsPage() {
                                     label="Slug"
                                     fullWidth
                                     required
+                                    size="small"
                                     value={formData.slug}
                                     onChange={(e) =>
                                         setFormData((prev) => ({ ...prev, slug: e.target.value }))
@@ -370,7 +409,7 @@ export default function DepartmentsPage() {
                                         ))}
                                 </Select>
                             </FormControl>
-                        </Stack>
+                        </FormFieldStack>
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={handleCloseDialog}>Cancel</Button>

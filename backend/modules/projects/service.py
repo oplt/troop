@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-"""Legacy Project / ProjectTask service layer.
+"""Orchestration project, portfolio, and policy service mixin.
 
-DEPRECATED: OrchestratorProject / OrchestratorTask under orchestration is canonical.
-This module remains for migration compatibility until legacy tables are dropped.
+``OrchestratorProject`` / ``OrchestratorTask`` (``orchestration_models.py``) are canonical.
+Legacy ``projects`` / ``project_tasks`` tables remain for migration only — see ``LEGACY.md``.
 """
 
+import asyncio
 import io
 import re
 import tarfile
 from collections import Counter
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -20,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.cache import (
     get_cached_project_acl,
+    get_or_set_portfolio_summary,
+    invalidate_portfolio_summary_cache,
     invalidate_project_acl_cache_for_project,
     invalidate_project_memory_settings_cache,
     set_cached_project_acl,
@@ -27,7 +30,6 @@ from backend.core.cache import (
 from backend.core.logging import get_logger
 from backend.modules.identity_access.models import User
 from backend.modules.memory.settings import merge_memory_settings
-from backend.modules.notifications.repository import NotificationsRepository
 from backend.modules.orchestration.hierarchy_policy import (
     apply_policy_to_execution,
     normalize_hierarchy_policy,
@@ -43,14 +45,13 @@ from backend.modules.orchestration.hitl_policy import (
 )
 from backend.modules.orchestration.local_repo import (
     LocalRepoError,
-    build_context_pack,
-    create_isolated_worktree,
-    inspect_workspace,
+    build_context_pack_async,
+    create_isolated_worktree_async,
+    inspect_workspace_async,
     normalize_workspace,
-    read_repo_file,
-    run_safe_command,
+    read_repo_file_async,
+    run_safe_command_async,
 )
-from backend.modules.projects.models import Project, ProjectTask
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
     OrchestratorTask,
@@ -58,14 +59,7 @@ from backend.modules.projects.orchestration_models import (
     ProjectDecision,
     ProjectMilestone,
 )
-from backend.modules.projects.repository import ProjectsRepository
-from backend.modules.projects.schemas import (
-    ProjectTaskCreate,
-    ProjectTaskReorderRequest,
-    ProjectTaskUpdate,
-)
 from backend.modules.team.models import AgentProfile
-from backend.modules.users.repository import UsersRepository
 
 logger = get_logger(__name__)
 
@@ -76,273 +70,6 @@ DEFAULT_PORTFOLIO_EXECUTION_POLICY: dict[str, Any] = {
     "repo_indexing_cadence": "daily",
     "cost_cap_usd": 250.0,
 }
-
-
-def _warn_legacy_projects_usage(method: str) -> None:
-    logger.warning(
-        "Legacy ProjectsService.%s called; migrate to OrchestratorProject APIs",
-        method,
-    )
-
-
-class ProjectsService:
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.repo = ProjectsRepository(db)
-        self.users_repo = UsersRepository(db)
-        self.notifications_repo = NotificationsRepository(db)
-
-    async def create_project(self, owner_id: str, name: str, description: str | None) -> Project:
-        _warn_legacy_projects_usage("create_project")
-        project = await self.repo.create(owner_id, name, description)
-        await self.db.commit()
-        await self.db.refresh(project)
-        return project
-
-    async def list_projects(self, user_id: str) -> list[Project]:
-        _warn_legacy_projects_usage("list_projects")
-        return await self.repo.list_accessible_by_user(user_id)
-
-    async def get_project(self, user_id: str, project_id: str) -> Project:
-        _warn_legacy_projects_usage("get_project")
-        return await self._get_project_or_404(user_id, project_id)
-
-    async def list_tasks(
-        self, user_id: str, project_id: str, *, limit: int | None = None
-    ) -> list[tuple[ProjectTask, User | None]]:
-        _warn_legacy_projects_usage("list_tasks")
-        project = await self._get_project_or_404(user_id, project_id)
-        return await self.repo.list_tasks_with_assignees(project.id, limit=limit)
-
-    async def create_task(
-        self,
-        user_id: str,
-        actor: User,
-        project_id: str,
-        payload: ProjectTaskCreate,
-    ) -> tuple[ProjectTask, User | None]:
-        _warn_legacy_projects_usage("create_task")
-        project = await self._get_project_or_404(user_id, project_id)
-        assignee = await self._get_assignee_or_404(payload.assignee_id)
-        position = await self.repo.get_next_task_position(project.id, payload.status)
-        task = await self.repo.create_task(
-            project_id=project.id,
-            title=payload.title,
-            description=payload.description,
-            status=payload.status,
-            priority=payload.priority,
-            due_date=payload.due_date,
-            assignee_id=assignee.id if assignee else None,
-            position=position,
-        )
-
-        await self._notify_assignment(project, task, actor, None, assignee)
-        await self._notify_due_date_change(project, task, actor, None, assignee)
-
-        await self.db.commit()
-        task_row = await self.repo.get_task_with_assignee(project.id, task.id)
-        if not task_row:
-            raise HTTPException(status_code=500, detail="Failed to load created task")
-        return task_row
-
-    async def update_task(
-        self,
-        user_id: str,
-        actor: User,
-        project_id: str,
-        task_id: str,
-        payload: ProjectTaskUpdate,
-    ) -> tuple[ProjectTask, User | None]:
-        _warn_legacy_projects_usage("update_task")
-        project = await self._get_project_or_404(user_id, project_id)
-        task = await self.repo.get_task_by_id(project.id, task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-
-        fields_set = payload.model_fields_set
-        previous_status = task.status
-        previous_due_date = task.due_date
-        previous_assignee_id = task.assignee_id
-
-        if "title" in fields_set:
-            task.title = payload.title or task.title
-        if "description" in fields_set:
-            task.description = payload.description
-        if "priority" in fields_set and payload.priority is not None:
-            task.priority = payload.priority
-        if "due_date" in fields_set:
-            task.due_date = payload.due_date
-
-        assignee = None
-        if "assignee_id" in fields_set:
-            assignee = await self._get_assignee_or_404(payload.assignee_id)
-            task.assignee_id = assignee.id if assignee else None
-        elif task.assignee_id:
-            assignee = await self.users_repo.get_active_user_by_id(task.assignee_id)
-
-        if "status" in fields_set and payload.status is not None and payload.status != task.status:
-            task.status = payload.status
-            task.position = await self.repo.get_next_task_position(project.id, payload.status)
-
-        await self._normalize_positions(project.id)
-        await self._notify_assignment(project, task, actor, previous_assignee_id, assignee)
-        await self._notify_due_date_change(project, task, actor, previous_due_date, assignee)
-        await self._notify_status_change(project, task, actor, previous_status)
-
-        await self.db.commit()
-        task_row = await self.repo.get_task_with_assignee(project.id, task.id)
-        if not task_row:
-            raise HTTPException(status_code=500, detail="Failed to load updated task")
-        return task_row
-
-    async def delete_task(self, user_id: str, project_id: str, task_id: str) -> None:
-        _warn_legacy_projects_usage("delete_task")
-        project = await self._get_project_or_404(user_id, project_id)
-        task = await self.repo.get_task_by_id(project.id, task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-
-        await self.repo.delete_task(task)
-        await self._normalize_positions(project.id)
-        await self.db.commit()
-
-    async def reorder_tasks(
-        self,
-        user_id: str,
-        actor: User,
-        project_id: str,
-        payload: ProjectTaskReorderRequest,
-    ) -> list[tuple[ProjectTask, User | None]]:
-        _warn_legacy_projects_usage("reorder_tasks")
-        project = await self._get_project_or_404(user_id, project_id)
-        task_rows = await self.repo.list_tasks_with_assignees(project.id, limit=0)
-        tasks_by_id = {task.id: task for task, _ in task_rows}
-        previous_status_by_id = {task.id: task.status for task, _ in task_rows}
-
-        seen_ids: list[str] = []
-        for column in payload.columns:
-            for position, task_id in enumerate(column.task_ids):
-                task = tasks_by_id.get(task_id)
-                if not task:
-                    raise HTTPException(status_code=404, detail="Task not found in reorder payload")
-                task.status = column.status
-                task.position = position
-                seen_ids.append(task_id)
-
-        if len(seen_ids) != len(tasks_by_id) or set(seen_ids) != set(tasks_by_id):
-            raise HTTPException(
-                status_code=400,
-                detail="Reorder payload must include every task exactly once",
-            )
-
-        await self._normalize_positions(project.id)
-
-        for task, _ in task_rows:
-            await self._notify_status_change(project, task, actor, previous_status_by_id[task.id])
-
-        await self.db.commit()
-        return await self.repo.list_tasks_with_assignees(project.id, limit=0)
-
-    async def _get_project_or_404(self, user_id: str, project_id: str) -> Project:
-        project = await self.repo.get_by_id_for_user(project_id, user_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        return project
-
-    async def _get_assignee_or_404(self, assignee_id: str | None) -> User | None:
-        if not assignee_id:
-            return None
-        assignee = await self.users_repo.get_active_user_by_id(assignee_id)
-        if not assignee:
-            raise HTTPException(status_code=404, detail="Assignee not found")
-        return assignee
-
-    async def _normalize_positions(self, project_id: str) -> None:
-        rows = await self.repo.list_tasks_with_assignees(project_id, limit=0)
-        grouped: dict[str, list[ProjectTask]] = {}
-        for task, _ in rows:
-            grouped.setdefault(task.status, []).append(task)
-
-        for tasks in grouped.values():
-            for index, task in enumerate(tasks):
-                task.position = index
-
-        await self.db.flush()
-
-    async def _notify_assignment(
-        self,
-        project: Project,
-        task: ProjectTask,
-        actor: User,
-        previous_assignee_id: str | None,
-        assignee: User | None,
-    ) -> None:
-        if not assignee or assignee.id == previous_assignee_id or assignee.id == actor.id:
-            return
-
-        await self.notifications_repo.create(
-            user_id=assignee.id,
-            type="task_assigned",
-            title=f"Task assigned: {task.title}",
-            body=(
-                f"{self._actor_label(actor)} assigned you the task "
-                f'"{task.title}" in project "{project.name}".'
-            ),
-        )
-
-    async def _notify_due_date_change(
-        self,
-        project: Project,
-        task: ProjectTask,
-        actor: User,
-        previous_due_date: date | None,
-        assignee: User | None,
-    ) -> None:
-        if (
-            not assignee
-            or assignee.id == actor.id
-            or task.due_date is None
-            or task.due_date == previous_due_date
-        ):
-            return
-
-        await self.notifications_repo.create(
-            user_id=assignee.id,
-            type="task_due_date_updated",
-            title=f"Due date updated: {task.title}",
-            body=(
-                f'{self._actor_label(actor)} set the due date for "{task.title}" '
-                f'to {task.due_date.isoformat()} in project "{project.name}".'
-            ),
-        )
-
-    async def _notify_status_change(
-        self,
-        project: Project,
-        task: ProjectTask,
-        actor: User,
-        previous_status: str,
-    ) -> None:
-        if task.status == previous_status or project.owner_id == actor.id:
-            return
-
-        if task.status not in {"review", "done"}:
-            return
-
-        target_label = "review" if task.status == "review" else "done"
-        await self.notifications_repo.create(
-            user_id=project.owner_id,
-            type="task_status_changed",
-            title=f"Task moved to {target_label}: {task.title}",
-            body=(
-                f'{self._actor_label(actor)} moved "{task.title}" to {target_label} '
-                f'in project "{project.name}".'
-            ),
-        )
-
-    @staticmethod
-    def _actor_label(actor: User) -> str:
-        return actor.full_name or actor.email
 
 
 class OrchestrationProjectsServiceMixin:
@@ -499,6 +226,7 @@ class OrchestrationProjectsServiceMixin:
         )
         await self.db.commit()
         await self.db.refresh(project)
+        await invalidate_portfolio_summary_cache(user.id)
         execution_settings = (project.settings_json or {}).get("execution") or {}
         team_profile_id = str(execution_settings.get("team_profile_id") or "").strip()
         if team_profile_id:
@@ -640,7 +368,8 @@ class OrchestrationProjectsServiceMixin:
         if not project:
             await set_cached_project_acl(user.id, project_id, allowed=False)
             raise HTTPException(status_code=404, detail="Project not found")
-        await set_cached_project_acl(user.id, project_id, allowed=True)
+        if cached_acl is not True:
+            await set_cached_project_acl(user.id, project_id, allowed=True)
         return project
 
     async def update_project(self, user: User, project_id: str, updates: dict[str, Any]):
@@ -740,6 +469,7 @@ class OrchestrationProjectsServiceMixin:
         await self.db.commit()
         await invalidate_project_acl_cache_for_project(project_id)
         await invalidate_project_memory_settings_cache(project_id)
+        await invalidate_portfolio_summary_cache(user.id)
 
     async def get_gate_config(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
@@ -864,7 +594,7 @@ class OrchestrationProjectsServiceMixin:
         _ = user
         workspace = normalize_workspace(payload)
         try:
-            return inspect_workspace(workspace)
+            return await inspect_workspace_async(workspace)
         except LocalRepoError as exc:
             return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
 
@@ -877,7 +607,7 @@ class OrchestrationProjectsServiceMixin:
         project = await self.get_project(user, project_id)
         workspace = normalize_workspace(payload)
         try:
-            status = inspect_workspace(workspace)
+            status = await inspect_workspace_async(workspace)
         except LocalRepoError as exc:
             if workspace["enabled"]:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -892,7 +622,7 @@ class OrchestrationProjectsServiceMixin:
     async def inspect_local_repo_workspace(self, user: User, project_id: str) -> dict[str, Any]:
         workspace = await self.get_local_repo_workspace(user, project_id)
         try:
-            return inspect_workspace(workspace)
+            return await inspect_workspace_async(workspace)
         except LocalRepoError as exc:
             return {"valid": False, "blocked_reasons": [str(exc)], "workspace": workspace}
 
@@ -908,7 +638,9 @@ class OrchestrationProjectsServiceMixin:
             raise HTTPException(status_code=404, detail="Task not found")
         workspace = normalize_workspace((project.settings_json or {}).get("local_repo"))
         try:
-            worktree = create_isolated_worktree(workspace, task_id=task.id, title=task.title)
+            worktree = await create_isolated_worktree_async(
+                workspace, task_id=task.id, title=task.title
+            )
         except LocalRepoError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         metadata = dict(task.metadata_json or {})
@@ -937,7 +669,7 @@ class OrchestrationProjectsServiceMixin:
             raise HTTPException(status_code=404, detail="Task not found")
         issue_text = "\n\n".join(part for part in [task.title, task.description or ""] if part)
         try:
-            context = build_context_pack(
+            context = await build_context_pack_async(
                 (project.settings_json or {}).get("local_repo"),
                 issue_text=issue_text,
                 acceptance_criteria=task.acceptance_criteria,
@@ -968,7 +700,7 @@ class OrchestrationProjectsServiceMixin:
     ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         try:
-            result = run_safe_command(
+            result = await run_safe_command_async(
                 (project.settings_json or {}).get("local_repo"),
                 command=str(payload.get("command") or ""),
                 cwd=payload.get("cwd"),
@@ -994,7 +726,9 @@ class OrchestrationProjectsServiceMixin:
     ) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         try:
-            return read_repo_file((project.settings_json or {}).get("local_repo"), path)
+            return await read_repo_file_async(
+                (project.settings_json or {}).get("local_repo"), path
+            )
         except LocalRepoError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1283,54 +1017,62 @@ class OrchestrationProjectsServiceMixin:
         indexed = 0
         chunk_total = 0
         max_files = 200
-        with tarfile.open(fileobj=io.BytesIO(archive_response.content), mode="r:gz") as tf:
-            for member in tf.getmembers():
-                if indexed >= max_files:
-                    break
-                if not member.isfile():
-                    continue
-                raw_name = str(member.name or "")
-                _, _, path = raw_name.partition("/")
-                if not path or not any(path.endswith(suffix) for suffix in allowed_suffixes):
-                    continue
-                if path_prefixes and not any(path.startswith(prefix) for prefix in path_prefixes):
-                    continue
-                extracted = tf.extractfile(member)
-                if extracted is None:
-                    continue
-                file_payload = extracted.read()
-                if not file_payload:
-                    continue
-                try:
-                    content = file_payload.decode("utf-8")
-                except UnicodeDecodeError:
-                    continue
-                document = await self.repo.create_document(
-                    project_id=project.id,
-                    task_id=None,
-                    uploaded_by_user_id=requested_by_user_id or user.id,
-                    filename=path,
-                    content_type="text/plain",
-                    source_text=content,
-                    object_key=None,
-                    size_bytes=len(file_payload),
-                    summary_text=content[:500],
-                    ingestion_status="pending",
-                    chunk_count=0,
-                    ttl_days=None,
-                    expires_at=None,
-                    metadata_json={
-                        "source_kind": "repo_index",
-                        "repository_link_id": repository_link.id,
-                        "repository_full_name": github_repository.full_name,
-                        "branch": branch,
-                        "path": path,
-                        "index_mode": requested_mode,
-                    },
-                )
-                await index_document(document)
-                indexed += 1
-                chunk_total += document.chunk_count
+
+        def _extract_repo_files() -> list[tuple[str, str, int]]:
+            extracted_files: list[tuple[str, str, int]] = []
+            with tarfile.open(fileobj=io.BytesIO(archive_response.content), mode="r:gz") as tf:
+                for member in tf.getmembers():
+                    if len(extracted_files) >= max_files:
+                        break
+                    if not member.isfile():
+                        continue
+                    raw_name = str(member.name or "")
+                    _, _, path = raw_name.partition("/")
+                    if not path or not any(path.endswith(suffix) for suffix in allowed_suffixes):
+                        continue
+                    if path_prefixes and not any(path.startswith(prefix) for prefix in path_prefixes):
+                        continue
+                    extracted = tf.extractfile(member)
+                    if extracted is None:
+                        continue
+                    file_payload = extracted.read()
+                    if not file_payload:
+                        continue
+                    try:
+                        content = file_payload.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                    extracted_files.append((path, content, len(file_payload)))
+            return extracted_files
+
+        extracted_files = await asyncio.to_thread(_extract_repo_files)
+        for path, content, size_bytes in extracted_files:
+            document = await self.repo.create_document(
+                project_id=project.id,
+                task_id=None,
+                uploaded_by_user_id=requested_by_user_id or user.id,
+                filename=path,
+                content_type="text/plain",
+                source_text=content,
+                object_key=None,
+                size_bytes=size_bytes,
+                summary_text=content[:500],
+                ingestion_status="pending",
+                chunk_count=0,
+                ttl_days=None,
+                expires_at=None,
+                metadata_json={
+                    "source_kind": "repo_index",
+                    "repository_link_id": repository_link.id,
+                    "repository_full_name": github_repository.full_name,
+                    "branch": branch,
+                    "path": path,
+                    "index_mode": requested_mode,
+                },
+            )
+            await index_document(document)
+            indexed += 1
+            chunk_total += document.chunk_count
         return {
             "repository_link_id": repository_link.id,
             "repository_full_name": github_repository.full_name,
@@ -1419,13 +1161,29 @@ class OrchestrationProjectsServiceMixin:
         return item
 
     async def summarize_portfolio(self, user: User) -> list[dict[str, Any]]:
-        return await self.repo.summarize_portfolio_for_owner(user.id)
+        async def _load() -> list[dict[str, Any]]:
+            return await self.repo.summarize_portfolio_for_owner(user.id)
+
+        cached = await get_or_set_portfolio_summary(user.id, _load)
+        if isinstance(cached, list):
+            return cached
+        return await _load()
 
     async def portfolio_control_plane(self, user: User) -> dict[str, Any]:
         projects = await self.repo.list_projects(user.id)
         approvals = await self.repo.list_approvals(user.id)
         providers = await self.repo.list_providers(user.id)
         policy_defaults = await self.get_portfolio_execution_policy(user)
+        cost_since = datetime.now(UTC) - timedelta(days=30)
+        stuck_threshold = datetime.now(UTC) - timedelta(minutes=45)
+        project_ids = [project.id for project in projects]
+        bundle = await self.repo.load_portfolio_control_plane_bundle(
+            user.id,
+            project_ids,
+            cost_since=cost_since,
+            stuck_before=stuck_threshold,
+        )
+
         rows: list[dict[str, Any]] = []
         totals = {
             "projects": len(projects),
@@ -1435,51 +1193,26 @@ class OrchestrationProjectsServiceMixin:
             "queue_depth": 0,
             "cost_usd_30d": 0.0,
         }
-        cost_since = datetime.now(UTC) - timedelta(days=30)
-        all_runs: list[Any] = []
-        all_sync_events: list[Any] = []
-        all_ingest_jobs: list[Any] = []
+        approvals_by_project: dict[str, list[Any]] = {}
+        for item in approvals:
+            if item.status == "pending" and item.project_id:
+                approvals_by_project.setdefault(item.project_id, []).append(item)
 
         for project in projects:
-            memberships = await self.repo.list_project_memberships(project.id)
-            manager_membership = next(
-                (item for item in memberships if item.is_default_manager),
-                next((item for item in memberships if item.role == "manager"), None),
-            )
-            manager_agent = (
-                await self.db.get(AgentProfile, manager_membership.agent_id)
-                if manager_membership
-                else None
-            )
-            tasks = await self.repo.list_tasks(project.id, limit=0)
-            runs = await self.repo.list_runs(user.id, project.id, limit=0)
-            repositories = await self.repo.list_project_repositories(project.id)
-            sync_events = await self.repo.list_sync_events(user.id, project.id)
-            ingest_jobs = await self.repo.list_memory_ingest_jobs_for_project(
-                user.id,
-                project.id,
-                limit=80,
-            )
-            all_runs.extend(runs)
-            all_sync_events.extend(sync_events)
-            all_ingest_jobs.extend(ingest_jobs)
-            project_approvals = [
-                item
-                for item in approvals
-                if item.project_id == project.id and item.status == "pending"
-            ]
-
-            blocked_tasks = [task for task in tasks if task.status == "blocked"]
+            manager_agent = bundle["managers"].get(project.id)
+            task_counts = bundle["task_status_counts"].get(project.id, {})
+            run_counts = bundle["run_status_counts"].get(project.id, {})
+            blocked_tasks = bundle["blocked_tasks"].get(project.id, [])
+            blocked_count = int(task_counts.get("blocked", 0))
+            project_approvals = approvals_by_project.get(project.id, [])
             queue_depth = {
-                "queued_runs": sum(1 for run in runs if run.status == "queued"),
-                "active_runs": sum(1 for run in runs if run.status in {"in_progress", "blocked"}),
-                "queued_tasks": sum(1 for task in tasks if task.status in {"queued", "planned"}),
+                "queued_runs": int(run_counts.get("queued", 0)),
+                "active_runs": int(run_counts.get("in_progress", 0))
+                + int(run_counts.get("blocked", 0)),
+                "queued_tasks": int(task_counts.get("queued", 0))
+                + int(task_counts.get("planned", 0)),
             }
-            cost_usd_30d = sum(
-                float(run.estimated_cost_micros or 0) / 1_000_000
-                for run in runs
-                if run.created_at >= cost_since
-            )
+            cost_usd_30d = float(bundle["run_cost_30d"].get(project.id, 0.0))
             escalation_inbox = [
                 {
                     "approval_id": item.id,
@@ -1492,12 +1225,12 @@ class OrchestrationProjectsServiceMixin:
                 for item in project_approvals
                 if item.approval_type in {"rule_escalation", "task_escalation", "sla_escalation"}
             ][:8]
-            latest_run = runs[0] if runs else None
-            repo_failures = sum(1 for event in sync_events if event.status in {"failed", "error"})
-            ingest_failures = sum(1 for job in ingest_jobs if job.status == "failed")
+            latest_run = bundle["latest_runs"].get(project.id)
+            repo_failures = int(bundle["sync_failure_counts"].get(project.id, 0))
+            ingest_failures = int(bundle["ingest_failure_counts"].get(project.id, 0))
 
             health_score = 100
-            health_score -= min(len(blocked_tasks) * 10, 40)
+            health_score -= min(blocked_count * 10, 40)
             health_score -= min(repo_failures * 8, 24)
             health_score -= min(ingest_failures * 8, 16)
             health_score -= min(len(escalation_inbox) * 6, 18)
@@ -1519,15 +1252,13 @@ class OrchestrationProjectsServiceMixin:
                     "score": health_score,
                     "repository_failures": repo_failures,
                     "index_failures": ingest_failures,
-                    "open_blockers": len(blocked_tasks),
+                    "open_blockers": blocked_count,
                 },
                 "queue_depth": queue_depth,
                 "cost_rollup": {
                     "cost_usd_30d": round(cost_usd_30d, 4),
-                    "token_total_30d": sum(
-                        int(run.token_total or 0) for run in runs if run.created_at >= cost_since
-                    ),
-                    "repository_links": len(repositories),
+                    "token_total_30d": int(bundle["run_tokens_30d"].get(project.id, 0)),
+                    "repository_links": int(bundle["repo_link_counts"].get(project.id, 0)),
                 },
                 "blocked_work": [
                     {
@@ -1552,38 +1283,17 @@ class OrchestrationProjectsServiceMixin:
                 ),
             }
             totals["active_runs"] += queue_depth["active_runs"] + queue_depth["queued_runs"]
-            totals["blocked_tasks"] += len(blocked_tasks)
+            totals["blocked_tasks"] += blocked_count
             totals["pending_escalations"] += len(escalation_inbox)
             totals["queue_depth"] += sum(queue_depth.values())
             totals["cost_usd_30d"] += cost_usd_30d
             rows.append(row)
 
-        queued_runs = [run for run in all_runs if run.status == "queued"]
-        blocked_or_running_runs = [
-            run for run in all_runs if run.status in {"in_progress", "blocked"}
-        ]
-        stuck_threshold = datetime.now(UTC) - timedelta(minutes=45)
-        stuck_runs = [
-            run
-            for run in blocked_or_running_runs
-            if (run.started_at or run.created_at) <= stuck_threshold
-        ]
-        pending_webhooks = [
-            event for event in all_sync_events if event.status in {"queued", "pending"}
-        ]
-        replay_candidates = [
-            event
-            for event in all_sync_events
-            if (
-                ((event.payload_json or {}).get("_webhook_meta") or {}).get("replay_history")
-                or "replay" in str(event.action or "").lower()
-            )
-        ]
-        replay_backlog = [
-            event
-            for event in replay_candidates
-            if event.status in {"queued", "pending", "failed", "error"}
-        ]
+        queued_runs_count = int(bundle["queued_run_count"])
+        active_runs_count = int(bundle["active_run_count"])
+        stuck_runs = list(bundle["stuck_runs"])
+        pending_webhooks = list(bundle["pending_webhooks"])
+        replay_backlog = list(bundle["replay_backlog"])
         oldest_pending_webhook = min((event.created_at for event in pending_webhooks), default=None)
         webhook_lag_minutes = (
             round((datetime.now(UTC) - oldest_pending_webhook).total_seconds() / 60, 1)
@@ -1591,19 +1301,19 @@ class OrchestrationProjectsServiceMixin:
             else 0.0
         )
         provider_unhealthy = [provider for provider in providers if not provider.is_healthy]
-        index_running = [job for job in all_ingest_jobs if job.status == "running"]
-        index_failed = [job for job in all_ingest_jobs if job.status == "failed"]
+        index_running_count = int(bundle["ingest_running_count"])
+        index_failed_count = int(bundle["ingest_failed_count"])
 
         operator_dashboard = {
             "generated_at": datetime.now(UTC),
             "queue_health": {
-                "queued_runs": len(queued_runs),
-                "active_runs": len(blocked_or_running_runs),
+                "queued_runs": queued_runs_count,
+                "active_runs": active_runs_count,
                 "blocked_tasks": totals["blocked_tasks"],
                 "status": "critical"
-                if len(queued_runs) >= 20
+                if queued_runs_count >= 20
                 else "watch"
-                if len(queued_runs) >= 8
+                if queued_runs_count >= 8
                 else "healthy",
             },
             "webhook_lag": {
@@ -1644,17 +1354,17 @@ class OrchestrationProjectsServiceMixin:
                     "key": "runtime_queue",
                     "label": "Runtime queue",
                     "status": "critical"
-                    if len(queued_runs) >= 20
+                    if queued_runs_count >= 20
                     else "watch"
-                    if len(queued_runs) >= 8
+                    if queued_runs_count >= 8
                     else "healthy",
                     "summary": (
-                        f"{len(queued_runs)} queued run(s), "
-                        f"{len(blocked_or_running_runs)} active/blocking run(s)."
+                        f"{queued_runs_count} queued run(s), "
+                        f"{active_runs_count} active/blocking run(s)."
                     ),
                     "metrics": {
-                        "queued_runs": len(queued_runs),
-                        "active_runs": len(blocked_or_running_runs),
+                        "queued_runs": queued_runs_count,
+                        "active_runs": active_runs_count,
                     },
                 },
                 {
@@ -1678,14 +1388,17 @@ class OrchestrationProjectsServiceMixin:
                     "key": "repo_indexing",
                     "label": "Repo indexing",
                     "status": "critical"
-                    if index_failed
+                    if index_failed_count
                     else "watch"
-                    if index_running
+                    if index_running_count
                     else "healthy",
-                    "summary": f"{len(index_running)} indexing job(s) running, {len(index_failed)} failed.",
+                    "summary": (
+                        f"{index_running_count} indexing job(s) running, "
+                        f"{index_failed_count} failed."
+                    ),
                     "metrics": {
-                        "running_jobs": len(index_running),
-                        "failed_jobs": len(index_failed),
+                        "running_jobs": index_running_count,
+                        "failed_jobs": index_failed_count,
                     },
                 },
                 {
@@ -1745,16 +1458,20 @@ class OrchestrationProjectsServiceMixin:
 
     async def hierarchy_live_snapshot(self, user: User) -> dict[str, Any]:
         agents = await self.repo.list_agents(user.id, None)
-        runs = await self.repo.list_runs(user.id, None, limit=0)
+        run_counts = await self.repo.count_runs_by_status_for_owner(user.id)
+        latest_run_id = await self.repo.get_latest_run_id_for_owner(user.id)
+        active = (
+            int(run_counts.get("queued", 0))
+            + int(run_counts.get("in_progress", 0))
+            + int(run_counts.get("blocked", 0))
+        )
         return {
             "agents": len(agents),
             "runs": {
-                "active": sum(
-                    1 for run in runs if run.status in {"queued", "in_progress", "blocked"}
-                ),
-                "failed": sum(1 for run in runs if run.status == "failed"),
+                "active": active,
+                "failed": int(run_counts.get("failed", 0)),
             },
-            "latest_run_id": runs[0].id if runs else None,
+            "latest_run_id": latest_run_id,
         }
 
     async def execution_insights(self, user: User, days: int = 7) -> dict[str, Any]:
@@ -1762,11 +1479,7 @@ class OrchestrationProjectsServiceMixin:
         since = datetime.now(UTC) - timedelta(days=safe_days)
         rows = await self.repo.aggregate_run_events_by_type_for_owner(user.id, since)
         by_type = {event_type: count for event_type, count in rows}
-        runs = [
-            run
-            for run in await self.repo.list_runs(user.id, None, limit=0)
-            if run.created_at >= since
-        ]
+        runs = await self.repo.list_runs_for_owner_since(user.id, since, limit=2000)
         event_projection = await self.repo.list_observability_events_for_owner(user.id, since)
         tool_counts: Counter[str] = Counter()
         events_by_run: dict[str, list[tuple[str, dict[str, Any]]]] = {}

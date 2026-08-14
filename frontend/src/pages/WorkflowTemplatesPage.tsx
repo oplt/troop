@@ -96,6 +96,9 @@ export default function WorkflowTemplatesPage() {
                 description="Blueprints you reuse on a project. For live event→agent graphs you run, open Workforce workflows."
                 actions={
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Button component={RouterLink} to="/workforce-workflows" variant="contained">
+                            Open workflows builder
+                        </Button>
                         <Button component={RouterLink} to="/workforce-workflows" variant="outlined">
                             Workforce workflows
                         </Button>

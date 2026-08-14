@@ -160,12 +160,27 @@ class OrchestrationProjectsRepositoryMixin:
         await self.db.flush()
         return item
 
-    async def list_project_decisions(self, project_id: str) -> list[ProjectDecision]:
-        result = await self.db.execute(
-            select(ProjectDecision)
-            .where(ProjectDecision.project_id == project_id)
-            .order_by(ProjectDecision.created_at.desc())
-        )
+    async def list_project_decisions(
+        self, project_id: str, *, limit: int | None = None, query: str | None = None
+    ) -> list[ProjectDecision]:
+        from backend.core.config import settings
+        from sqlalchemy import or_
+
+        cap = max(1, min(int(limit or settings.PROJECT_DECISIONS_MERGE_LIMIT), 1000))
+        stmt = select(ProjectDecision).where(ProjectDecision.project_id == project_id)
+        if query and query.strip():
+            tokens = [t for t in query.lower().split() if len(t) >= 3][:8]
+            for token in tokens:
+                pattern = f"%{token}%"
+                stmt = stmt.where(
+                    or_(
+                        ProjectDecision.title.ilike(pattern),
+                        ProjectDecision.decision.ilike(pattern),
+                        ProjectDecision.rationale.ilike(pattern),
+                    )
+                )
+        stmt = stmt.order_by(ProjectDecision.created_at.desc()).limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def list_project_milestones(self, project_id: str) -> list[ProjectMilestone]:

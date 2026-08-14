@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from backend.modules.github.models import (
     GithubConnection,
@@ -233,6 +233,20 @@ class GithubRepositoryMixin:
         )
         return result.scalar_one_or_none()
 
+    async def map_issue_links_by_repo_and_numbers(
+        self, repository_id: str, issue_numbers: Sequence[int]
+    ) -> dict[int, GithubIssueLink]:
+        unique = [int(n) for n in dict.fromkeys(issue_numbers)]
+        if not unique:
+            return {}
+        result = await self.db.execute(
+            select(GithubIssueLink).where(
+                GithubIssueLink.repository_id == repository_id,
+                GithubIssueLink.issue_number.in_(unique),
+            )
+        )
+        return {int(link.issue_number): link for link in result.scalars().all()}
+
     async def get_issue_link_by_task(self, task_id: str) -> GithubIssueLink | None:
         result = await self.db.execute(
             select(GithubIssueLink)
@@ -301,7 +315,7 @@ class GithubRepositoryMixin:
             select(GithubSyncEvent)
             .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id, isouter=True)
             .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id, isouter=True)
-            .where(or_(GithubConnection.owner_id == owner_id, GithubSyncEvent.repository_id.is_(None)))
+            .where(GithubConnection.owner_id == owner_id)
         )
         if project_id:
             stmt = stmt.where(GithubRepository.project_id == project_id)

@@ -191,10 +191,18 @@ class ExternalEventService:
         return ingested
 
     async def process(self, event_id: str) -> ExternalEvent:
-        event = await self.db.get(ExternalEvent, event_id)
+        result = await self.db.execute(
+            select(ExternalEvent).where(ExternalEvent.id == event_id).with_for_update()
+        )
+        event = result.scalar_one_or_none()
         if event is None:
             raise ValueError("External event not found")
         if event.status == "processed":
+            return event
+        if event.status == "processing":
+            # Another worker holds the claim (or crashed mid-flight). Do not double-process.
+            return event
+        if event.status not in {"pending", "failed"}:
             return event
         event.status = "processing"
         await self.db.flush()

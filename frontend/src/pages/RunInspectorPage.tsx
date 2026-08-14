@@ -8,7 +8,6 @@ import {
     Chip,
     CircularProgress,
     Collapse,
-    Divider,
     IconButton,
     MenuItem,
     Paper,
@@ -53,16 +52,19 @@ import {
     ShallowKeyValueList,
 } from "../components/runInspector/RunInspectorDataViews";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusChip } from "../components/ui/StatusChip";
+import { useSnackbar } from "../app/snackbarContext";
+import { toastError, toastSuccess } from "../app/mutationToast";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { queryKeys } from "../config/queryKeys";
 import { useSseStream } from "../hooks/useSseStream";
 import { safeRunValue } from "../features/workflows/builderState";
 
 function RunStatusChip({ status }: { status: string }) {
-    return <StatusChip status={status} kind="run" variant="filled" />;
+    return <StatusChip status={status} kind="run" variant="filled" celebrate={status === "completed"} />;
 }
 
 function EventLevelColor(level: string) {
@@ -407,36 +409,35 @@ function RunMeta({ run, costSummary, selection }: { run: TaskRun; costSummary?: 
                 backdropFilter: "blur(10px)",
             })}
         >
-            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1.5 }}>
-                <Box>
-                    <Typography variant="h5">Run {run.id.slice(0, 8)}…</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Timeline-first inspector · status, cost, tools
-                    </Typography>
-                </Box>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => void navigator.clipboard?.writeText(run.id)}
-                    >
-                        Copy id
-                    </Button>
-                    {run.task_id && run.project_id ? (
+            <PageHeader
+                eyebrow="Work"
+                title={`Run ${run.id.slice(0, 8)}…`}
+                description="Timeline-first inspector · status, cost, tools"
+                actions={
+                    <>
                         <Button
                             size="small"
                             variant="outlined"
-                            component={RouterLink}
-                            to={`/projects/${run.project_id}?tab=board&task=${run.task_id}`}
+                            onClick={() => void navigator.clipboard?.writeText(run.id)}
                         >
-                            Related task
+                            Copy id
                         </Button>
-                    ) : null}
-                    <Button size="small" variant="text" component={RouterLink} to="/activity">
-                        Approvals
-                    </Button>
-                </Stack>
-            </Stack>
+                        {run.task_id && run.project_id ? (
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                component={RouterLink}
+                                to={`/projects/${run.project_id}?tab=board&task=${run.task_id}`}
+                            >
+                                Related task
+                            </Button>
+                        ) : null}
+                        <Button size="small" variant="text" component={RouterLink} to="/approvals">
+                            Approvals
+                        </Button>
+                    </>
+                }
+            />
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <RunStatusChip status={run.status} />
                 <Chip label={humanizeKey(run.run_mode)} variant="outlined" size="small" />
@@ -612,6 +613,7 @@ function WorkflowGraphView({ trace }: { trace: RunTraceStep[] }) {
 export default function RunInspectorPage() {
     const { runId } = useParams<{ runId: string }>();
     const queryClient = useQueryClient();
+    const { showToast } = useSnackbar();
     const [events, setEvents] = useState<RunEvent[]>([]);
     const [streamError, setStreamError] = useState<string | null>(null);
     const [tab, setTab] = useState<"timeline" | "trace" | "graph" | "conversation">("timeline");
@@ -667,7 +669,9 @@ export default function RunInspectorPage() {
             setWmDraft({});
             await queryClient.invalidateQueries({ queryKey: queryKeys.runs.workingMemory(runId ?? "") });
             await queryClient.invalidateQueries({ queryKey: queryKeys.runs.executionState(runId ?? "") });
+            toastSuccess(showToast, "Working memory saved.");
         },
+        onError: (error) => toastError(showToast, error, "Could not save working memory."),
     });
 
     const signalMutation = useMutation({
@@ -682,7 +686,9 @@ export default function RunInspectorPage() {
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.runs.executionState(runId ?? "") });
+            toastSuccess(showToast, "Workflow signal sent.");
         },
+        onError: (error) => toastError(showToast, error, "Signal failed."),
     });
 
     const liveStream = useSseStream<RunEvent & { event_type?: string }>(
@@ -821,7 +827,26 @@ export default function RunInspectorPage() {
                 </SectionCard>
             )}
 
-            <Button variant="text" onClick={() => setTechOpen((v) => !v)} sx={{ alignSelf: "flex-start" }}>
+            {run.output_payload && Object.keys(run.output_payload).length > 0 && (
+                <SectionCard
+                    title="Output"
+                    description="Plan, tool results, structured JSON, and final text. Raw JSON stays behind “View raw JSON” for debugging."
+                    sx={{ mt: 2 }}
+                >
+                    <Paper
+                        sx={(theme) => ({
+                            p: 2,
+                            borderRadius: 1,
+                            backgroundColor: alpha(theme.palette.background.default, 0.45),
+                            border: `1px solid ${theme.palette.divider}`,
+                        })}
+                    >
+                        <RunOutputFriendly output={run.output_payload as Record<string, unknown>} />
+                    </Paper>
+                </SectionCard>
+            )}
+
+            <Button variant="text" onClick={() => setTechOpen((v) => !v)} sx={{ alignSelf: "flex-start", mt: 1 }}>
                 {techOpen ? "Hide technical details" : "Technical details"}
             </Button>
             <Collapse in={techOpen}>
@@ -986,9 +1011,6 @@ export default function RunInspectorPage() {
                         <Button variant="outlined" disabled={signalMutation.isPending} onClick={() => signalMutation.mutate()}>
                             Queue workflow signal
                         </Button>
-                        {signalMutation.isError ? (
-                            <Alert severity="error">{signalMutation.error instanceof Error ? signalMutation.error.message : "Signal failed."}</Alert>
-                        ) : null}
                     </Stack>
                 </SectionCard>
             )}
@@ -1019,7 +1041,7 @@ export default function RunInspectorPage() {
                                             </Box>
                                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                                                 <Chip size="small" variant="outlined" label={child.run_mode} />
-                                                <Chip size="small" label={child.status} color={child.status === "completed" ? "success" : child.status === "blocked" ? "warning" : child.status === "failed" ? "error" : "default"} />
+                                                <StatusChip status={child.status} kind="run" size="small" />
                                                 <Chip size="small" variant="outlined" label={`${child.token_total} tokens`} />
                                                 {Array.isArray((child.input_payload?.subtask as Record<string, unknown> | undefined)?.dependency_ids) && ((child.input_payload?.subtask as Record<string, unknown> | undefined)?.dependency_ids as unknown[]).length > 0 ? (
                                                     <Chip
@@ -1058,7 +1080,11 @@ export default function RunInspectorPage() {
                                 <Typography variant="caption" color="text.secondary">Review state</Typography>
                                 <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1, mt: 0.75 }}>
                                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
-                                        <Chip size="small" label={String(execSnapshot.review_state?.decision || "pending")} color={execSnapshot.review_state?.decision === "approved" ? "success" : execSnapshot.review_state?.decision ? "warning" : "default"} />
+                                        <StatusChip
+                                            status={String(execSnapshot.review_state?.decision || "pending")}
+                                            kind="approval"
+                                            size="small"
+                                        />
                                         <Chip size="small" variant="outlined" label={`round ${String(execSnapshot.review_state?.round || 0)}`} />
                                     </Stack>
                                     <Typography variant="body2">{String(execSnapshot.review_state?.summary || "No review summary yet.")}</Typography>
@@ -1190,26 +1216,6 @@ export default function RunInspectorPage() {
 
                 </Stack>
             </Collapse>
-
-            <Divider />
-
-            {run.output_payload && Object.keys(run.output_payload).length > 0 && (
-                <SectionCard
-                    title="Output"
-                    description="Plan, tool results, structured JSON, and final text. Raw JSON stays behind “View raw JSON” for debugging."
-                >
-                    <Paper
-                        sx={(theme) => ({
-                            p: 2,
-                            borderRadius: 1,
-                            backgroundColor: alpha(theme.palette.background.default, 0.45),
-                            border: `1px solid ${theme.palette.divider}`,
-                        })}
-                    >
-                        <RunOutputFriendly output={run.output_payload as Record<string, unknown>} />
-                    </Paper>
-                </SectionCard>
-            )}
         </PageShell>
     );
 }

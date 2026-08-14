@@ -337,9 +337,20 @@ async def list_runs(
     return [_run_to_response(item) for item in await service.list_runs(current_user)]
 
 
+@router.get("/runs/{run_id}", response_model=AiRunResponse)
+async def get_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AiService(db)
+    return _run_to_response(await service.get_run(current_user, run_id))
+
+
 @router.post("/runs", response_model=AiRunResponse, status_code=201)
 async def create_run(
     payload: AiRunRequest,
+    queue_async: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -353,8 +364,12 @@ async def create_run(
         document_ids=payload.document_ids,
         top_k=payload.top_k,
         review_required=payload.review_required,
+        queue_async=queue_async,
     )
-    return _run_to_response(run)
+    body = _run_to_response(run)
+    if queue_async:
+        return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
+    return body
 
 
 @router.get("/reviews", response_model=list[AiReviewItemResponse])

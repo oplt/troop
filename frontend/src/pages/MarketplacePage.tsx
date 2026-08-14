@@ -31,37 +31,9 @@ import { getDefaultCompany } from "../api/companies";
 import { useSnackbar } from "../app/snackbarContext";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
+import { CatalogCard } from "../components/ui/CatalogCard";
 
 type TabKey = "skills" | "workflows" | "departments" | "agents" | "connectors";
-
-function CatalogCard({
-    title,
-    description,
-    meta,
-    onInstall,
-    installing,
-}: {
-    title: string;
-    description: string;
-    meta?: string;
-    onInstall: () => void;
-    installing: boolean;
-}) {
-    return (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-                <Typography variant="subtitle1">{title}</Typography>
-                {meta ? <Chip size="small" label={meta} sx={{ alignSelf: "flex-start" }} /> : null}
-                <Typography variant="body2" color="text.secondary">
-                    {description}
-                </Typography>
-                <Button size="small" variant="contained" onClick={onInstall} disabled={installing}>
-                    {installing ? "Installing…" : "Install"}
-                </Button>
-            </Stack>
-        </Paper>
-    );
-}
 
 export default function MarketplacePage() {
     const queryClient = useQueryClient();
@@ -317,8 +289,12 @@ export default function MarketplacePage() {
                                     title={name}
                                     description={description}
                                     meta={meta || undefined}
-                                    installing={installMutation.isPending}
-                                    onInstall={() => installMutation.mutate({ kind: tab, slug })}
+                                    primaryCta={{
+                                        label: "Install",
+                                        loadingLabel: "Installing…",
+                                        disabled: installMutation.isPending,
+                                        onClick: () => installMutation.mutate({ kind: tab, slug }),
+                                    }}
                                 />
                             );
                         })}

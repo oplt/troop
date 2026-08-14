@@ -24,7 +24,12 @@ class PublicRateLimitMiddleware(BaseHTTPMiddleware):
         if settings.PUBLIC_RATE_LIMIT_REQUESTS <= 0:
             return await call_next(request)
 
-        if not request.url.path.startswith("/api/") and not request.url.path.startswith("/health/"):
+        path = request.url.path
+        if not (
+            path.startswith("/api/")
+            or path.startswith("/health/")
+            or path.startswith("/webhooks/")
+        ):
             return await call_next(request)
 
         # Health probes must not be blocked by the Redis-backed public limiter;

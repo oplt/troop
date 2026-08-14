@@ -5,6 +5,11 @@ type InspectorSplitProps = {
     secondary?: React.ReactNode;
     /** Secondary column width on desktop. Default 360. */
     secondaryWidth?: number | string;
+    /**
+     * `detail-inspector` — wide primary + fixed secondary (default).
+     * `list-detail` — fixed primary (catalog) + wide secondary (editor).
+     */
+    variant?: "detail-inspector" | "list-detail";
     /** Hide secondary below md (mobile list-first). Default true. */
     hideSecondaryOnMobile?: boolean;
     sx?: SxProps<Theme>;
@@ -17,9 +22,18 @@ export function InspectorSplit({
     primary,
     secondary,
     secondaryWidth = 360,
+    variant = "detail-inspector",
     hideSecondaryOnMobile = true,
     sx,
 }: InspectorSplitProps) {
+    const rail =
+        typeof secondaryWidth === "number" ? `${secondaryWidth}px` : secondaryWidth;
+    const desktopColumns = !secondary
+        ? "1fr"
+        : variant === "list-detail"
+          ? `${rail} minmax(0, 1fr)`
+          : `minmax(0, 1fr) ${rail}`;
+
     return (
         <Box
             sx={[
@@ -29,9 +43,7 @@ export function InspectorSplit({
                     alignItems: "start",
                     gridTemplateColumns: {
                         xs: "1fr",
-                        md: secondary
-                            ? `minmax(0, 1fr) ${typeof secondaryWidth === "number" ? `${secondaryWidth}px` : secondaryWidth}`
-                            : "1fr",
+                        md: desktopColumns,
                     },
                 },
                 ...(Array.isArray(sx) ? sx : sx ? [sx] : []),

@@ -51,11 +51,13 @@ from backend.modules.orchestration.models import (
     TaskRun,
     normalize_embedding_for_vector,
 )
+from backend.modules.orchestration.repository.agents import OrchestrationAgentsRepositoryMixin
 from backend.modules.projects.orchestration_repository import OrchestrationProjectsRepositoryMixin
 from backend.modules.team.repository import TeamRepositoryMixin
 
 
 class OrchestrationRepository(
+    OrchestrationAgentsRepositoryMixin,
     TeamRepositoryMixin,
     OrchestrationProjectsRepositoryMixin,
     GithubRepositoryMixin,
@@ -63,96 +65,6 @@ class OrchestrationRepository(
 ):
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def list_agents(self, owner_id: str, project_id: str | None = None) -> list[AgentProfile]:
-        stmt = select(AgentProfile).where(AgentProfile.owner_id == owner_id)
-        if project_id is None:
-            stmt = stmt.where(AgentProfile.project_id.is_(None))
-        else:
-            stmt = stmt.where(
-                or_(AgentProfile.project_id == project_id, AgentProfile.project_id.is_(None))
-            )
-        result = await self.db.execute(stmt.order_by(AgentProfile.updated_at.desc()))
-        return list(result.scalars().all())
-
-    async def get_agent(self, owner_id: str, agent_id: str) -> AgentProfile | None:
-        result = await self.db.execute(
-            select(AgentProfile).where(
-                AgentProfile.id == agent_id,
-                AgentProfile.owner_id == owner_id,
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def get_agent_by_slug(self, owner_id: str, slug: str) -> AgentProfile | None:
-        result = await self.db.execute(
-            select(AgentProfile).where(
-                AgentProfile.owner_id == owner_id,
-                AgentProfile.slug == slug,
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def create_agent(self, **kwargs) -> AgentProfile:
-        item = AgentProfile(**kwargs)
-        self.db.add(item)
-        await self.db.flush()
-        return item
-
-    async def create_agent_version(self, **kwargs) -> AgentProfileVersion:
-        item = AgentProfileVersion(**kwargs)
-        self.db.add(item)
-        await self.db.flush()
-        return item
-
-    async def list_agent_versions(self, agent_id: str) -> list[AgentProfileVersion]:
-        result = await self.db.execute(
-            select(AgentProfileVersion)
-            .where(AgentProfileVersion.agent_profile_id == agent_id)
-            .order_by(AgentProfileVersion.version_number.desc())
-        )
-        return list(result.scalars().all())
-
-    async def list_skill_packs(self) -> list[SkillPack]:
-        result = await self.db.execute(select(SkillPack).order_by(SkillPack.name.asc()))
-        return list(result.scalars().all())
-
-    async def get_skill_pack_by_slug(self, slug: str) -> SkillPack | None:
-        result = await self.db.execute(select(SkillPack).where(SkillPack.slug == slug))
-        return result.scalar_one_or_none()
-
-    async def create_skill_pack(self, **kwargs) -> SkillPack:
-        item = SkillPack(**kwargs)
-        self.db.add(item)
-        await self.db.flush()
-        return item
-
-    async def list_agent_templates(self) -> list[AgentTemplateCatalog]:
-        result = await self.db.execute(
-            select(AgentTemplateCatalog).order_by(AgentTemplateCatalog.name.asc())
-        )
-        return list(result.scalars().all())
-
-    async def get_agent_template(self, template_id: str) -> AgentTemplateCatalog | None:
-        result = await self.db.execute(
-            select(AgentTemplateCatalog).where(AgentTemplateCatalog.id == template_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def get_agent_template_by_slug(self, slug: str) -> AgentTemplateCatalog | None:
-        result = await self.db.execute(
-            select(AgentTemplateCatalog)
-            .where(AgentTemplateCatalog.slug == slug)
-            .order_by(AgentTemplateCatalog.created_at.desc(), AgentTemplateCatalog.id.desc())
-            .limit(1)
-        )
-        return result.scalars().first()
-
-    async def create_agent_template(self, **kwargs) -> AgentTemplateCatalog:
-        item = AgentTemplateCatalog(**kwargs)
-        self.db.add(item)
-        await self.db.flush()
-        return item
 
     async def list_projects(self, owner_id: str) -> list[OrchestratorProject]:
         result = await self.db.execute(
@@ -584,6 +496,19 @@ class OrchestrationRepository(
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_runs_for_owner_since(
+        self, owner_id: str, since: datetime, *, limit: int = 2000
+    ) -> list[TaskRun]:
+        cap = max(1, min(limit, 5000))
+        result = await self.db.execute(
+            select(TaskRun)
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id, TaskRun.created_at >= since)
+            .order_by(TaskRun.created_at.desc(), TaskRun.id.desc())
+            .limit(cap)
+        )
+        return list(result.scalars().all())
+
     async def sum_token_usage_for_agent(self, owner_id: str, agent_id: str, since: datetime) -> int:
         stmt = (
             select(func.coalesce(func.sum(TaskRun.token_total), 0))
@@ -755,6 +680,19 @@ class OrchestrationRepository(
             select(TaskRun).where(TaskRun.id == run_id).with_for_update()
         )
         return result.scalar_one_or_none()
+
+    async def list_stale_in_progress_runs(self, older_than: datetime, *, limit: int = 100) -> list[TaskRun]:
+        result = await self.db.execute(
+            select(TaskRun)
+            .where(
+                TaskRun.status == "in_progress",
+                TaskRun.started_at.is_not(None),
+                TaskRun.started_at < older_than,
+            )
+            .order_by(TaskRun.started_at.asc())
+            .limit(max(1, min(limit, 500)))
+        )
+        return list(result.scalars().all())
 
     async def list_providers(
         self, owner_id: str, project_id: str | None = None
@@ -974,12 +912,24 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
-    async def list_project_decisions(self, project_id: str) -> list[ProjectDecision]:
-        result = await self.db.execute(
-            select(ProjectDecision)
-            .where(ProjectDecision.project_id == project_id)
-            .order_by(ProjectDecision.created_at.desc())
-        )
+    async def list_project_decisions(
+        self, project_id: str, *, limit: int | None = None, query: str | None = None
+    ) -> list[ProjectDecision]:
+        cap = max(1, min(int(limit or settings.PROJECT_DECISIONS_MERGE_LIMIT), 1000))
+        stmt = select(ProjectDecision).where(ProjectDecision.project_id == project_id)
+        if query and query.strip():
+            tokens = [t for t in query.lower().split() if len(t) >= 3][:8]
+            for token in tokens:
+                pattern = f"%{token}%"
+                stmt = stmt.where(
+                    or_(
+                        ProjectDecision.title.ilike(pattern),
+                        ProjectDecision.decision.ilike(pattern),
+                        ProjectDecision.rationale.ilike(pattern),
+                    )
+                )
+        stmt = stmt.order_by(ProjectDecision.created_at.desc()).limit(cap)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def list_project_milestones(self, project_id: str) -> list[ProjectMilestone]:
@@ -1171,9 +1121,7 @@ class OrchestrationRepository(
                 GithubRepository.connection_id == GithubConnection.id,
                 isouter=True,
             )
-            .where(
-                or_(GithubConnection.owner_id == owner_id, GithubSyncEvent.repository_id.is_(None))
-            )
+            .where(GithubConnection.owner_id == owner_id)
         )
         if project_id:
             stmt = stmt.where(GithubRepository.project_id == project_id)
@@ -1281,7 +1229,7 @@ class OrchestrationRepository(
                     chunk_index=chunk_index,
                     content=content,
                     token_count=token_count,
-                    embedding_json=embedding,
+                    embedding_json=embedding if settings.VECTOR_WRITE_EMBEDDING_JSON else [],
                     embedding_vector=ev,
                     metadata_json=metadata,
                 )
@@ -1559,6 +1507,17 @@ class OrchestrationRepository(
         await self.db.flush()
         return item
 
+    @staticmethod
+    def _approval_owner_clause(owner_id: str):
+        """Tenant ACL: project owner, or requester for unscoped (null project) rows only."""
+        return or_(
+            OrchestratorProject.owner_id == owner_id,
+            and_(
+                ApprovalRequest.project_id.is_(None),
+                ApprovalRequest.requested_by_user_id == owner_id,
+            ),
+        )
+
     async def list_approvals(
         self, owner_id: str, status: str | None = None
     ) -> list[ApprovalRequest]:
@@ -1569,9 +1528,7 @@ class OrchestrationRepository(
                 ApprovalRequest.project_id == OrchestratorProject.id,
                 isouter=True,
             )
-            .where(
-                or_(OrchestratorProject.owner_id == owner_id, ApprovalRequest.project_id.is_(None))
-            )
+            .where(self._approval_owner_clause(owner_id))
         )
         if status:
             stmt = stmt.where(ApprovalRequest.status == status)
@@ -1588,8 +1545,27 @@ class OrchestrationRepository(
             )
             .where(
                 ApprovalRequest.id == approval_id,
-                or_(OrchestratorProject.owner_id == owner_id, ApprovalRequest.project_id.is_(None)),
+                self._approval_owner_clause(owner_id),
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_approval_for_update(
+        self, owner_id: str, approval_id: str
+    ) -> ApprovalRequest | None:
+        """Lock a pending approval row for decide (prevents double side effects)."""
+        result = await self.db.execute(
+            select(ApprovalRequest)
+            .join(
+                OrchestratorProject,
+                ApprovalRequest.project_id == OrchestratorProject.id,
+                isouter=True,
+            )
+            .where(
+                ApprovalRequest.id == approval_id,
+                self._approval_owner_clause(owner_id),
+            )
+            .with_for_update()
         )
         return result.scalar_one_or_none()
 
@@ -1842,6 +1818,275 @@ class OrchestrationRepository(
             }
             for pid, name, slug in rows
         ]
+
+    async def count_runs_by_status_for_owner(self, owner_id: str) -> dict[str, int]:
+        result = await self.db.execute(
+            select(TaskRun.status, func.count())
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id)
+            .group_by(TaskRun.status)
+        )
+        return {str(status): int(count or 0) for status, count in result.all()}
+
+    async def get_latest_run_id_for_owner(self, owner_id: str) -> str | None:
+        result = await self.db.execute(
+            select(TaskRun.id)
+            .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
+            .where(OrchestratorProject.owner_id == owner_id)
+            .order_by(TaskRun.created_at.desc(), TaskRun.id.desc())
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return str(row) if row else None
+
+    async def load_portfolio_control_plane_bundle(
+        self,
+        owner_id: str,
+        project_ids: Sequence[str],
+        *,
+        cost_since: datetime,
+        stuck_before: datetime,
+    ) -> dict[str, Any]:
+        """Batched aggregates for portfolio control-plane (O(1) vs project count)."""
+        empty: dict[str, Any] = {
+            "managers": {},
+            "task_status_counts": {},
+            "blocked_tasks": {},
+            "run_status_counts": {},
+            "run_cost_30d": {},
+            "run_tokens_30d": {},
+            "latest_runs": {},
+            "repo_link_counts": {},
+            "sync_failure_counts": {},
+            "ingest_failure_counts": {},
+            "queued_run_count": 0,
+            "active_run_count": 0,
+            "stuck_runs": [],
+            "pending_webhooks": [],
+            "replay_backlog": [],
+            "ingest_running_count": 0,
+            "ingest_failed_count": 0,
+        }
+        if not project_ids:
+            return empty
+
+        memberships_result = await self.db.execute(
+            select(ProjectAgentMembership)
+            .where(ProjectAgentMembership.project_id.in_(project_ids))
+            .order_by(ProjectAgentMembership.created_at.asc())
+        )
+        memberships = list(memberships_result.scalars().all())
+        agent_ids = {m.agent_id for m in memberships if m.agent_id}
+        agents_by_id: dict[str, AgentProfile] = {}
+        if agent_ids:
+            agents_result = await self.db.execute(
+                select(AgentProfile).where(AgentProfile.id.in_(agent_ids))
+            )
+            agents_by_id = {a.id: a for a in agents_result.scalars().all()}
+        managers: dict[str, AgentProfile | None] = {pid: None for pid in project_ids}
+        memberships_by_project: dict[str, list[ProjectAgentMembership]] = {}
+        for membership in memberships:
+            memberships_by_project.setdefault(membership.project_id, []).append(membership)
+        for pid, items in memberships_by_project.items():
+            chosen = next(
+                (item for item in items if item.is_default_manager),
+                next((item for item in items if item.role == "manager"), None),
+            )
+            managers[pid] = agents_by_id.get(chosen.agent_id) if chosen else None
+
+        task_counts_result = await self.db.execute(
+            select(OrchestratorTask.project_id, OrchestratorTask.status, func.count())
+            .where(OrchestratorTask.project_id.in_(project_ids))
+            .group_by(OrchestratorTask.project_id, OrchestratorTask.status)
+        )
+        task_status_counts: dict[str, dict[str, int]] = {}
+        for pid, status, count in task_counts_result.all():
+            task_status_counts.setdefault(str(pid), {})[str(status)] = int(count or 0)
+
+        blocked_cap = max(6, min(6 * len(project_ids), 240))
+        blocked_result = await self.db.execute(
+            select(OrchestratorTask)
+            .where(
+                OrchestratorTask.project_id.in_(project_ids),
+                OrchestratorTask.status == "blocked",
+            )
+            .order_by(OrchestratorTask.updated_at.desc())
+            .limit(blocked_cap)
+        )
+        blocked_tasks: dict[str, list[OrchestratorTask]] = {}
+        for task in blocked_result.scalars().all():
+            bucket = blocked_tasks.setdefault(task.project_id, [])
+            if len(bucket) < 6:
+                bucket.append(task)
+
+        run_counts_result = await self.db.execute(
+            select(TaskRun.project_id, TaskRun.status, func.count())
+            .where(TaskRun.project_id.in_(project_ids))
+            .group_by(TaskRun.project_id, TaskRun.status)
+        )
+        run_status_counts: dict[str, dict[str, int]] = {}
+        queued_run_count = 0
+        active_run_count = 0
+        for pid, status, count in run_counts_result.all():
+            run_status_counts.setdefault(str(pid), {})[str(status)] = int(count or 0)
+            if status == "queued":
+                queued_run_count += int(count or 0)
+            elif status in {"in_progress", "blocked"}:
+                active_run_count += int(count or 0)
+
+        cost_result = await self.db.execute(
+            select(
+                TaskRun.project_id,
+                func.coalesce(func.sum(TaskRun.estimated_cost_micros), 0),
+                func.coalesce(func.sum(TaskRun.token_total), 0),
+            )
+            .where(TaskRun.project_id.in_(project_ids), TaskRun.created_at >= cost_since)
+            .group_by(TaskRun.project_id)
+        )
+        run_cost_30d: dict[str, float] = {}
+        run_tokens_30d: dict[str, int] = {}
+        for pid, cost_micros, tokens in cost_result.all():
+            run_cost_30d[str(pid)] = float(cost_micros or 0) / 1_000_000
+            run_tokens_30d[str(pid)] = int(tokens or 0)
+
+        latest_subq = (
+            select(
+                TaskRun.project_id.label("project_id"),
+                func.max(TaskRun.created_at).label("max_created"),
+            )
+            .where(TaskRun.project_id.in_(project_ids))
+            .group_by(TaskRun.project_id)
+            .subquery()
+        )
+        latest_result = await self.db.execute(
+            select(TaskRun)
+            .join(
+                latest_subq,
+                and_(
+                    TaskRun.project_id == latest_subq.c.project_id,
+                    TaskRun.created_at == latest_subq.c.max_created,
+                ),
+            )
+        )
+        latest_runs: dict[str, TaskRun] = {}
+        for run in latest_result.scalars().all():
+            latest_runs.setdefault(run.project_id, run)
+
+        repo_result = await self.db.execute(
+            select(ProjectRepositoryLink.project_id, func.count())
+            .where(ProjectRepositoryLink.project_id.in_(project_ids))
+            .group_by(ProjectRepositoryLink.project_id)
+        )
+        repo_link_counts = {str(pid): int(c or 0) for pid, c in repo_result.all()}
+
+        sync_fail_result = await self.db.execute(
+            select(GithubRepository.project_id, func.count())
+            .select_from(GithubSyncEvent)
+            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(
+                GithubConnection.owner_id == owner_id,
+                GithubRepository.project_id.in_(project_ids),
+                GithubSyncEvent.status.in_(["failed", "error"]),
+            )
+            .group_by(GithubRepository.project_id)
+        )
+        sync_failure_counts = {str(pid): int(c or 0) for pid, c in sync_fail_result.all()}
+
+        ingest_fail_result = await self.db.execute(
+            select(MemoryIngestJob.project_id, func.count())
+            .where(
+                MemoryIngestJob.owner_id == owner_id,
+                MemoryIngestJob.project_id.in_(project_ids),
+                MemoryIngestJob.status == "failed",
+            )
+            .group_by(MemoryIngestJob.project_id)
+        )
+        ingest_failure_counts = {str(pid): int(c or 0) for pid, c in ingest_fail_result.all()}
+
+        stuck_result = await self.db.execute(
+            select(TaskRun)
+            .where(
+                TaskRun.project_id.in_(project_ids),
+                TaskRun.status.in_(["in_progress", "blocked"]),
+                func.coalesce(TaskRun.started_at, TaskRun.created_at) <= stuck_before,
+            )
+            .order_by(func.coalesce(TaskRun.started_at, TaskRun.created_at).asc())
+            .limit(100)
+        )
+        stuck_runs = list(stuck_result.scalars().all())
+
+        pending_wh_result = await self.db.execute(
+            select(GithubSyncEvent)
+            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(
+                GithubConnection.owner_id == owner_id,
+                GithubRepository.project_id.in_(project_ids),
+                GithubSyncEvent.status.in_(["queued", "pending"]),
+            )
+            .order_by(GithubSyncEvent.created_at.asc())
+            .limit(200)
+        )
+        pending_webhooks = list(pending_wh_result.scalars().all())
+
+        candidate_result = await self.db.execute(
+            select(GithubSyncEvent)
+            .join(GithubRepository, GithubSyncEvent.repository_id == GithubRepository.id)
+            .join(GithubConnection, GithubRepository.connection_id == GithubConnection.id)
+            .where(
+                GithubConnection.owner_id == owner_id,
+                GithubRepository.project_id.in_(project_ids),
+                GithubSyncEvent.status.in_(["queued", "pending", "failed", "error"]),
+            )
+            .order_by(GithubSyncEvent.created_at.desc())
+            .limit(200)
+        )
+        replay_backlog = [
+            event
+            for event in candidate_result.scalars().all()
+            if (
+                ((event.payload_json or {}).get("_webhook_meta") or {}).get("replay_history")
+                or "replay" in str(event.action or "").lower()
+            )
+        ][:100]
+
+        ingest_status_result = await self.db.execute(
+            select(MemoryIngestJob.status, func.count())
+            .where(
+                MemoryIngestJob.owner_id == owner_id,
+                MemoryIngestJob.project_id.in_(project_ids),
+                MemoryIngestJob.status.in_(["running", "failed"]),
+            )
+            .group_by(MemoryIngestJob.status)
+        )
+        ingest_running_count = 0
+        ingest_failed_count = 0
+        for status, count in ingest_status_result.all():
+            if status == "running":
+                ingest_running_count = int(count or 0)
+            elif status == "failed":
+                ingest_failed_count = int(count or 0)
+
+        return {
+            "managers": managers,
+            "task_status_counts": task_status_counts,
+            "blocked_tasks": blocked_tasks,
+            "run_status_counts": run_status_counts,
+            "run_cost_30d": run_cost_30d,
+            "run_tokens_30d": run_tokens_30d,
+            "latest_runs": latest_runs,
+            "repo_link_counts": repo_link_counts,
+            "sync_failure_counts": sync_failure_counts,
+            "ingest_failure_counts": ingest_failure_counts,
+            "queued_run_count": queued_run_count,
+            "active_run_count": active_run_count,
+            "stuck_runs": stuck_runs,
+            "pending_webhooks": pending_webhooks,
+            "replay_backlog": replay_backlog,
+            "ingest_running_count": ingest_running_count,
+            "ingest_failed_count": ingest_failed_count,
+        }
 
     async def aggregate_run_events_by_type_for_owner(
         self, owner_id: str, since: datetime
@@ -2252,6 +2497,21 @@ class OrchestrationRepository(
             .limit(max(1, min(limit, 200)))
         )
         return list(res.scalars().all())
+
+    async def list_episodic_index_rows_for_sources(
+        self, project_id: str, source_kind: str, source_ids: Sequence[str]
+    ) -> list[EpisodicSearchIndex]:
+        unique = [item for item in dict.fromkeys(source_ids) if item]
+        if not unique:
+            return []
+        result = await self.db.execute(
+            select(EpisodicSearchIndex).where(
+                EpisodicSearchIndex.project_id == project_id,
+                EpisodicSearchIndex.source_kind == source_kind,
+                EpisodicSearchIndex.source_id.in_(unique),
+            )
+        )
+        return list(result.scalars().all())
 
     async def get_episodic_index_row(
         self, project_id: str, source_kind: str, source_id: str

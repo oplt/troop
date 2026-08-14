@@ -1,0 +1,15 @@
+/* Central XYFlow stylesheet entry — import once from canvas modules, not per page. */
+@import "@xyflow/react/dist/style.css";
+
+/* Tokenized dark/light overrides for controls + edges (palette-driven surfaces use canvasTheme.ts). */
+.react-flow__controls-button {
+  border-bottom-color: var(--mui-palette-divider, rgba(0 0 0 / 0.12));
+}
+
+.react-flow__edge-path {
+  stroke: var(--mui-palette-divider, rgba(0 0 0 / 0.38));
+}
+
+.react-flow__attribution {
+  display: none;
+}

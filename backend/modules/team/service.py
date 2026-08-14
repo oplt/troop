@@ -386,7 +386,7 @@ class TeamServiceMixin:
             await self.db.delete(template)
         await self.db.commit()
 
-    async def create_agent_template(self, payload: dict) -> dict:
+    async def create_agent_template(self, payload: dict, *, actor: User | None = None) -> dict:
         existing = await self.repo.get_agent_template_by_slug(payload["slug"])
         if existing is not None:
             raise HTTPException(status_code=409, detail="Template slug already exists")
@@ -421,11 +421,21 @@ class TeamServiceMixin:
             "metadata_json": metadata,
         }
         template = await self.repo.create_agent_template(**data)
+        if actor is not None:
+            await self.audit_repo.log(
+                action="orchestration.agent_template.created",
+                user_id=actor.id,
+                resource_type="agent_template",
+                resource_id=template.id,
+                metadata={"slug": template.slug},
+            )
         await self.db.commit()
         await self.db.refresh(template)
         return self._template_model_to_payload(template)
 
-    async def update_agent_template(self, template_id: str, payload: dict) -> dict:
+    async def update_agent_template(
+        self, template_id: str, payload: dict, *, actor: User | None = None
+    ) -> dict:
         template = await self.repo.get_agent_template(template_id)
         if not template:
             raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
@@ -472,11 +482,19 @@ class TeamServiceMixin:
             target = field_map.get(key)
             if target is not None:
                 setattr(template, target, value)
+        if actor is not None:
+            await self.audit_repo.log(
+                action="orchestration.agent_template.updated",
+                user_id=actor.id,
+                resource_type="agent_template",
+                resource_id=template.id,
+                metadata={"slug": template.slug},
+            )
         await self.db.commit()
         await self.db.refresh(template)
         return self._template_model_to_payload(template)
 
-    async def delete_agent_template(self, template_id: str) -> None:
+    async def delete_agent_template(self, template_id: str, *, actor: User | None = None) -> None:
         template = await self.repo.get_agent_template(template_id)
         if not template:
             raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
@@ -511,20 +529,30 @@ class TeamServiceMixin:
                 )
         for agent in linked_agents:
             await self.db.delete(agent)
+        if actor is not None:
+            await self.audit_repo.log(
+                action="orchestration.agent_template.deleted",
+                user_id=actor.id,
+                resource_type="agent_template",
+                resource_id=template.id,
+                metadata={"slug": template.slug},
+            )
         await self.db.delete(template)
         await self.db.commit()
 
-    async def update_agent_template_by_slug(self, slug: str, payload: dict) -> dict:
+    async def update_agent_template_by_slug(
+        self, slug: str, payload: dict, *, actor: User | None = None
+    ) -> dict:
         template = await self.repo.get_agent_template_by_slug(slug)
         if template is None:
             raise HTTPException(status_code=404, detail=f"Template '{slug}' not found")
-        return await self.update_agent_template(template.id, payload)
+        return await self.update_agent_template(template.id, payload, actor=actor)
 
-    async def delete_agent_template_by_slug(self, slug: str) -> None:
+    async def delete_agent_template_by_slug(self, slug: str, *, actor: User | None = None) -> None:
         template = await self.repo.get_agent_template_by_slug(slug)
         if template is None:
             raise HTTPException(status_code=404, detail=f"Template '{slug}' not found")
-        await self.delete_agent_template(template.id)
+        await self.delete_agent_template(template.id, actor=actor)
 
     async def list_skill_catalog(self, user: User) -> list[dict[str, Any]]:
         """List canonical workforce Skills (+ current version), SkillPackResponse-shaped."""
@@ -551,12 +579,9 @@ class TeamServiceMixin:
         assert_no_skillpack_writes()
 
     async def delete_skill_pack(self, slug: str) -> None:
-        await self._ensure_catalog_seeded()
-        skill = await self.repo.get_skill_pack_by_slug(slug)
-        if skill is None:
-            raise HTTPException(status_code=404, detail=f"Skill '{slug}' not found")
-        await self.db.delete(skill)
-        await self.db.commit()
+        from backend.modules.workforce.services.skillpack_retirement import assert_no_skillpack_writes
+
+        assert_no_skillpack_writes()
 
     async def list_team_templates(self) -> list[dict[str, Any]]:
         await self._ensure_team_template_catalog_seeded()

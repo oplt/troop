@@ -282,6 +282,40 @@ async def test_versioned_rag_invalidation_uses_generation_bump():
         assert await get_cached_rag_retrieval(key) is None
 
 
+@pytest.mark.asyncio
+async def test_memory_context_cache_roundtrip_and_generation_invalidate():
+    from backend.core.cache import (
+        get_cached_memory_context,
+        invalidate_project_memory_context_cache,
+        set_cached_memory_context,
+    )
+
+    stored: dict[str, str] = {}
+    generations: dict[str, int] = {}
+
+    async def _get(name):
+        if name.startswith("cache:generation:"):
+            return str(generations.get(name, 1))
+        return stored.get(name)
+
+    async def _setex(name, _ttl, value):
+        stored[name] = value
+
+    async def _incr(name):
+        generations[name] = generations.get(name, 1) + 1
+        return generations[name]
+
+    with (
+        patch("backend.core.cache.redis_client.get", side_effect=_get),
+        patch("backend.core.cache.redis_client.setex", side_effect=_setex),
+        patch("backend.core.cache.redis_client.incr", side_effect=_incr),
+    ):
+        await set_cached_memory_context("p1", "fp1", {"knowledge": "docs"})
+        assert await get_cached_memory_context("p1", "fp1") == {"knowledge": "docs"}
+        await invalidate_project_memory_context_cache("p1")
+        assert await get_cached_memory_context("p1", "fp1") is None
+
+
 def test_compute_documents_etag_changes_when_rows_change():
     from types import SimpleNamespace
 

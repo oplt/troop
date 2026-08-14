@@ -29,10 +29,17 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
+
+function prefersReducedMotion() {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 function BarRow({ label, value, max, color = "primary" }: { label: string; value: number; max: number; color?: string }) {
     const pct = max > 0 ? Math.max(2, (value / max) * 100) : 0;
+    const reduceMotion = prefersReducedMotion();
     return (
         <Stack direction="row" spacing={1.5} alignItems="center">
             <Typography variant="body2" sx={{ minWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -45,7 +52,7 @@ function BarRow({ label, value, max, color = "primary" }: { label: string; value
                         width: `${pct}%`,
                         borderRadius: 1,
                         bgcolor: color === "secondary" ? theme.palette.secondary.main : theme.palette.primary.main,
-                        transition: "width 0.4s ease",
+                        transition: reduceMotion ? "none" : "width 0.4s ease",
                     })}
                 />
             </Box>
@@ -198,64 +205,95 @@ export default function CostAnalyticsPage() {
                         ) : !data || data.most_expensive_runs.length === 0 ? (
                             <Typography variant="body2" color="text.secondary">No runs in this period.</Typography>
                         ) : (
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>#</TableCell>
-                                        <TableCell>Run ID</TableCell>
-                                        <TableCell>Model</TableCell>
-                                        <TableCell>Status</TableCell>
-                                        <TableCell align="right">Tokens</TableCell>
-                                        <TableCell align="right">Cost</TableCell>
-                                        <TableCell>Created</TableCell>
-                                        <TableCell />
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {data.most_expensive_runs.map((run, idx) => (
-                                        <TableRow
-                                            key={run.id}
-                                            hover
-                                            sx={(theme) => ({
-                                                bgcolor: idx === 0 ? alpha(theme.palette.warning.main, 0.06) : undefined,
-                                            })}
-                                        >
-                                            <TableCell>{idx + 1}</TableCell>
-                                            <TableCell sx={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
-                                                {run.id.slice(0, 8)}…
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="caption">{run.model_name ?? "—"}</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={humanizeKey(run.status)}
-                                                    size="small"
-                                                    color={run.status === "completed" ? "success" : run.status === "failed" ? "error" : "default"}
-                                                />
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="caption">{run.tokens.toLocaleString()}</Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                                                    ${run.cost_usd.toFixed(5)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {formatDateTime(run.created_at)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button size="small" variant="text" onClick={() => navigate(`/runs/${run.id}`)}>
-                                                    Inspect
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                            <ResponsiveTable
+                                table={
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>#</TableCell>
+                                                <TableCell>Run ID</TableCell>
+                                                <TableCell>Model</TableCell>
+                                                <TableCell>Status</TableCell>
+                                                <TableCell align="right">Tokens</TableCell>
+                                                <TableCell align="right">Cost</TableCell>
+                                                <TableCell>Created</TableCell>
+                                                <TableCell />
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {data.most_expensive_runs.map((run, idx) => (
+                                                <TableRow
+                                                    key={run.id}
+                                                    hover
+                                                    sx={(theme) => ({
+                                                        bgcolor: idx === 0 ? alpha(theme.palette.warning.main, 0.06) : undefined,
+                                                    })}
+                                                >
+                                                    <TableCell>{idx + 1}</TableCell>
+                                                    <TableCell sx={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
+                                                        {run.id.slice(0, 8)}…
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="caption">{run.model_name ?? "—"}</Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            label={humanizeKey(run.status)}
+                                                            size="small"
+                                                            color={run.status === "completed" ? "success" : run.status === "failed" ? "error" : "default"}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="caption">{run.tokens.toLocaleString()}</Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                                                            ${run.cost_usd.toFixed(5)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {formatDateTime(run.created_at)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button size="small" variant="text" onClick={() => navigate(`/runs/${run.id}`)}>
+                                                            Inspect
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                }
+                                cards={
+                                    <>
+                                        {data.most_expensive_runs.map((run, idx) => (
+                                            <ResponsiveRowCard
+                                                key={run.id}
+                                                title={`#${idx + 1} · ${run.id.slice(0, 8)}…`}
+                                                meta={`${run.model_name ?? "—"} · ${formatDateTime(run.created_at)}`}
+                                                actions={
+                                                    <Button size="small" variant="outlined" onClick={() => navigate(`/runs/${run.id}`)}>
+                                                        Inspect
+                                                    </Button>
+                                                }
+                                            >
+                                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                    <Chip
+                                                        label={humanizeKey(run.status)}
+                                                        size="small"
+                                                        color={run.status === "completed" ? "success" : run.status === "failed" ? "error" : "default"}
+                                                    />
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {run.tokens.toLocaleString()} tokens · ${run.cost_usd.toFixed(5)}
+                                                    </Typography>
+                                                </Stack>
+                                            </ResponsiveRowCard>
+                                        ))}
+                                    </>
+                                }
+                            />
                         )}
                     </SectionCard>
                 </>

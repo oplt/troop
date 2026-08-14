@@ -97,7 +97,7 @@ class MemoryRepositoryMixin:
                     chunk_index=chunk_index,
                     content=content,
                     token_count=token_count,
-                    embedding_json=embedding,
+                    embedding_json=embedding if settings.VECTOR_WRITE_EMBEDDING_JSON else [],
                     embedding_vector=ev,
                     metadata_json=metadata,
                 )

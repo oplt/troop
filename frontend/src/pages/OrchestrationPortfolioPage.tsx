@@ -222,9 +222,14 @@ export default function OrchestrationPortfolioPage() {
                         title="No projects in portfolio"
                         description="Create a project and run work to populate the supervisor grid."
                         action={
-                            <Button variant="contained" onClick={() => navigate("/projects?create=1")}>
-                                Create project
-                            </Button>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Button variant="contained" onClick={() => navigate("/projects")}>
+                                    Open projects
+                                </Button>
+                                <Button variant="outlined" onClick={() => navigate("/projects?create=1")}>
+                                    Create project
+                                </Button>
+                            </Stack>
                         }
                     />
                 ) : (

@@ -84,12 +84,11 @@ def test_apply_tool_catalog_filter_unifies_llm_paths() -> None:
 
 
 def test_jaccard_skill_match_scoring() -> None:
-    # Exercise pure helper via service module internals
-    from backend.modules.workforce.services.skill_matcher import _jaccard_similarity
+    from backend.core.validation.text import jaccard_similarity
 
-    assert _jaccard_similarity({"a", "b"}, {"a", "b"}) == 1.0
-    assert _jaccard_similarity({"a"}, {"b"}) == 0.0
-    assert 0 < _jaccard_similarity({"a", "b"}, {"a", "c"}) < 1
+    assert jaccard_similarity({"a", "b"}, {"a", "b"}) == 1.0
+    assert jaccard_similarity({"a"}, {"b"}) == 0.0
+    assert 0 < jaccard_similarity({"a", "b"}, {"a", "c"}) < 1
 
 
 def test_duplicate_detector_slug_collision() -> None:
@@ -126,11 +125,11 @@ def test_schema_compat_score_overlaps_keys_and_types() -> None:
 
 
 def test_token_jaccard_semantic_similarity() -> None:
-    from backend.modules.workforce.services.skill_matcher import _token_jaccard
+    from backend.core.validation.text import token_jaccard
 
     a = "greenhouse lead qualification research agriculture"
     b = "Qualify greenhouse operators for agriculture sales research"
-    assert _token_jaccard(a, b) > 0.3
+    assert token_jaccard(a, b) > 0.3
 
 
 def test_workflow_step_legacy_alias_normalization() -> None:

@@ -132,7 +132,7 @@ export default function DashboardPage() {
                 title: `${pendingApprovals.length} approval${pendingApprovals.length === 1 ? "" : "s"} waiting`,
                 detail: "Clear the queue so agents and teammates can continue.",
                 cta: "Review approvals",
-                path: "/activity",
+                path: "/approvals",
                 priority: 0,
             });
         }
@@ -286,18 +286,23 @@ export default function DashboardPage() {
 
                 <SectionCard title="Approvals" density="framed">
                     <Stack spacing={1.5}>
-                        <Typography variant="h4" sx={{ fontVariantNumeric: "tabular-nums" }}>
-                            {orchestrationLoading ? "…" : pendingApprovals.length}
-                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="h4" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                                {orchestrationLoading ? "…" : pendingApprovals.length}
+                            </Typography>
+                            {pendingApprovals.length > 0 ? (
+                                <StatusChip status="pending" kind="approval" celebrate={false} />
+                            ) : null}
+                        </Stack>
                         <Typography variant="body2" color="text.secondary">
                             Waiting for your decision.
                         </Typography>
                         <Button
                             variant={pendingApprovals.length > 0 ? "contained" : "outlined"}
                             startIcon={<ApprovalsIcon />}
-                            onClick={() => navigate("/activity")}
+                            onClick={() => navigate("/approvals")}
                         >
-                            {pendingApprovals.length > 0 ? "Review queue" : "Open approvals"}
+                            {pendingApprovals.length > 0 ? "Review approvals" : "Open approvals"}
                         </Button>
                     </Stack>
                 </SectionCard>

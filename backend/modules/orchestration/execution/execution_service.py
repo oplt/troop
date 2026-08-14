@@ -44,6 +44,7 @@ from backend.modules.orchestration.execution.execution_workflow import (
 from backend.modules.orchestration.execution.policies import (
     is_valid_task_transition,
     next_retry_numbers,
+    should_skip_agent_plan,
 )
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
 from backend.modules.orchestration.tools import OrchestrationToolbox, ToolExecutionError
@@ -818,7 +819,6 @@ class OrchestrationExecutionServiceMixin:
 
         return {
             "orchestration_provider_failover": settings.ORCHESTRATION_PROVIDER_FAILOVER,
-            "orchestration_use_langgraph": settings.ORCHESTRATION_USE_LANGGRAPH,
             "orchestration_durable_queue_backend": settings.ORCHESTRATION_DURABLE_QUEUE_BACKEND,
             "durable_signal_model": "checkpoint_signal_queue",
             "durable_query_model": "checkpoint_query_snapshot",
@@ -1219,7 +1219,7 @@ class OrchestrationExecutionServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(run.id)
+        submit_orchestration_run(run.id, expected_owner_id=project.owner_id)
         await self.db.refresh(run)
         return run, startup_warnings
 
@@ -1320,7 +1320,11 @@ class OrchestrationExecutionServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(run.id)
+        project = await self.db.get(OrchestratorProject, run.project_id)
+        submit_orchestration_run(
+            run.id,
+            expected_owner_id=project.owner_id if project else user.id,
+        )
         await self.db.refresh(run)
         return run
 
@@ -1413,7 +1417,7 @@ class OrchestrationExecutionServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(new_run.id)
+        submit_orchestration_run(new_run.id, expected_owner_id=old_project.owner_id)
         await self.db.refresh(new_run)
         return new_run
 
@@ -1787,7 +1791,7 @@ class OrchestrationExecutionServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(new_run.id)
+        submit_orchestration_run(new_run.id, expected_owner_id=project.owner_id)
         await self.db.refresh(new_run)
         return new_run
 
@@ -1802,7 +1806,38 @@ class OrchestrationExecutionServiceMixin:
         run = await self.get_run(user, run_id)
         return await self.repo.list_run_events(run.id, limit=limit, offset=offset)
 
-    async def execute_run(self, run_id: str) -> TaskRun:
+    async def recover_stale_in_progress_runs(self, *, limit: int = 100) -> int:
+        """Mark stuck in_progress runs as failed so they become claimable again.
+
+        Soft/hard worker kills can leave runs in ``in_progress`` after the early status commit.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        stale_after = max(60, int(settings.ORCHESTRATION_STALE_IN_PROGRESS_SECONDS))
+        cutoff = datetime.now(UTC) - timedelta(seconds=stale_after)
+        runs = await self.repo.list_stale_in_progress_runs(cutoff, limit=limit)
+        recovered = 0
+        for run in runs:
+            run.status = "failed"
+            run.error_message = (
+                run.error_message
+                or f"Recovered stale in_progress run (no heartbeat for >{stale_after}s)."
+            )
+            run.completed_at = datetime.now(UTC)
+            await self._emit_run_event(
+                run,
+                event_type="workflow_recovery",
+                level="warning",
+                message="Stale in_progress run marked failed for reclaim.",
+                payload={"stale_after_seconds": stale_after, "started_at": str(run.started_at)},
+            )
+            recovered += 1
+        if recovered:
+            await self.db.commit()
+            logger.warning("stale_in_progress_recovered count=%s cutoff=%s", recovered, cutoff.isoformat())
+        return recovered
+
+    async def execute_run(self, run_id: str, *, expected_owner_id: str | None = None) -> TaskRun:
         logger.info("execute_run_start run_id=%s", run_id)
         run = await self.repo.get_run_for_worker(run_id)
         if run is None:
@@ -1843,6 +1878,10 @@ class OrchestrationExecutionServiceMixin:
         project = await self.db.get(OrchestratorProject, run.project_id)
         if project is None:
             raise RuntimeError(f"Project {run.project_id} not found")
+        if expected_owner_id is not None and project.owner_id != expected_owner_id:
+            raise RuntimeError(
+                f"Run {run_id} owner mismatch: expected {expected_owner_id}, got {project.owner_id}"
+            )
         await self._enforce_agent_token_budget(
             owner_id=project.owner_id, agent_id=run.worker_agent_id
         )
@@ -1892,13 +1931,7 @@ class OrchestrationExecutionServiceMixin:
                 await self._transition_task_status(
                     task, "in_progress", run=run, reason="execution started"
                 )
-            if settings.ORCHESTRATION_USE_LANGGRAPH:
-                from backend.modules.orchestration.execution.langgraph_runner import (
-                    run_via_langgraph,
-                )
-
-                await run_via_langgraph(self, run)
-            elif run.run_mode == "brainstorm":
+            if run.run_mode == "brainstorm":
                 await self._execute_brainstorm_run(run)
             elif run.run_mode == "review":
                 await self._execute_review_run(run)
@@ -2435,21 +2468,17 @@ class OrchestrationExecutionServiceMixin:
                                 ),
                             )
                         )
-                    branch_results.extend(
-                        await asyncio.gather(
-                            *[
-                                self._execute_subtask_branch(
-                                    run,
-                                    child_run,
-                                    provider,
-                                    item,
-                                    project=project,
-                                    manager=manager,
-                                )
-                                for item, child_run in scheduled
-                            ]
+                    for item, child_run in scheduled:
+                        branch_results.append(
+                            await self._execute_subtask_branch(
+                                run,
+                                child_run,
+                                provider,
+                                item,
+                                project=project,
+                                manager=manager,
+                            )
                         )
-                    )
                 for item in sequential:
                     child_run = await self._create_child_run(
                         run,
@@ -2819,20 +2848,26 @@ class OrchestrationExecutionServiceMixin:
         input_tokens: int = 0,
         output_tokens: int = 0,
         cost_usd_micros: int = 0,
+        commit: bool = True,
     ) -> None:
+        from backend.modules.observability.tracing import enrich_with_trace_context
+
         await self.repo.create_run_event(
             run_id=run.id,
             task_id=run.task_id,
             event_type=event_type,
             level=level,
             message=message,
-            payload_json=payload or {},
+            payload_json=enrich_with_trace_context(payload),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd_micros=cost_usd_micros,
         )
         await self._refresh_run_scratchpad(run)
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
 
     async def _transition_task_status(
         self,
@@ -2894,6 +2929,22 @@ class OrchestrationExecutionServiceMixin:
                 "summary": "Using explicit input payload plan.",
                 "tool_calls": explicit or default_tool_calls or [],
                 "sub_tasks": explicit_subtasks or [],
+            }
+        plan_mode = str((run.input_payload_json or {}).get("plan_mode") or "auto").strip().lower()
+        allowed_tools = list(getattr(agent, "allowed_tools_json", None) or []) if agent else []
+        tool_calling = True
+        if hasattr(self, "_tool_calling_allowed"):
+            tool_calling = bool(self._tool_calling_allowed(agent))
+        if should_skip_agent_plan(
+            plan_mode=plan_mode,
+            allowed_tools=allowed_tools,
+            tool_calling_allowed=tool_calling,
+            purpose=purpose,
+        ):
+            return {
+                "summary": "Plan skipped (empty tools, tool calling disabled, or plan_mode=off).",
+                "tool_calls": default_tool_calls or [],
+                "sub_tasks": [],
             }
         _, planning_result = await self._execute_with_routing(
             run,
@@ -3149,22 +3200,26 @@ class OrchestrationExecutionServiceMixin:
         total_in = sum(item.input_tokens for item in results)
         total_out = sum(item.output_tokens for item in results)
         total_latency = sum(item.latency_ms for item in results)
+        call_micros = sum(
+            self._estimate_cost_micros(
+                provider,
+                item.input_tokens,
+                item.output_tokens,
+                model_name=getattr(item, "model_name", None) or run.model_name,
+            )
+            for item in results
+        )
         if append:
             run.token_input += total_in
             run.token_output += total_out
             run.latency_ms = (run.latency_ms or 0) + total_latency
+            run.estimated_cost_micros = (run.estimated_cost_micros or 0) + call_micros
         else:
             run.token_input = total_in
             run.token_output = total_out
             run.latency_ms = total_latency
+            run.estimated_cost_micros = call_micros
         run.token_total = run.token_input + run.token_output
-        model_name = results[-1].model_name if results else run.model_name
-        run.estimated_cost_micros = self._estimate_cost_micros(
-            provider,
-            run.token_input,
-            run.token_output,
-            model_name=model_name,
-        )
         token_budget = (agent.budget_json or {}).get("token_budget") if agent else None
         if token_budget and run.token_total > int(token_budget):
             await self._emit_run_event(

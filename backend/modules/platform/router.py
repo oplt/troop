@@ -233,14 +233,14 @@ async def create_webhook(
     current_user: User = Depends(get_current_user),
 ):
     service = PlatformService(db)
-    webhook = await service.create_webhook_for_user(
+    webhook, signing_secret = await service.create_webhook_for_user(
         current_user,
         target_url=str(payload.target_url),
         description=payload.description,
         events=payload.events,
     )
     response = _webhook_to_response(webhook)
-    return WebhookEndpointCreateResponse(**response.model_dump(), signing_secret=webhook.secret)
+    return WebhookEndpointCreateResponse(**response.model_dump(), signing_secret=signing_secret)
 
 
 @router.patch("/webhooks/{webhook_id}", response_model=WebhookEndpointResponse)

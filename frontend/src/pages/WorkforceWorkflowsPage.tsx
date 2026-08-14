@@ -10,7 +10,6 @@ import {
     useNodesState,
     type Connection,
 } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import {
     Alert,
     Box,
@@ -24,11 +23,17 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { Add, AutoAwesome, DeleteOutline, PlayArrow, Publish, Save } from "@mui/icons-material";
+import { useTheme } from "@mui/material/styles";
+import { getCanvasTheme } from "../features/canvas/canvasTheme";
+import { Add, AutoAwesome, DeleteOutline, PlayArrow, Publish, Save, AccountTree as WorkflowIcon } from "@mui/icons-material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
+import { EmptyState } from "../components/ui/EmptyState";
+import { InspectorSplit } from "../components/ui/InspectorSplit";
+import { CanvasChrome } from "../components/canvas/CanvasChrome";
 import {
     createWorkforceWorkflow,
     listSkills,
@@ -238,6 +243,8 @@ function StepTimeline({ steps }: { steps: WorkflowStepRun[] }) {
 }
 
 function WorkflowBuilder() {
+    const theme = useTheme();
+    const canvas = getCanvasTheme(theme);
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const [name, setName] = useState("Email Reply with Telegram Approval");
@@ -263,6 +270,12 @@ function WorkflowBuilder() {
 
     const selected = nodes.find((node) => node.id === selectedId) ?? null;
     const errors = useMemo(() => validateWorkflow(nodes, edges), [nodes, edges]);
+    const graphSignature = useMemo(
+        () => JSON.stringify({ name, slug, nodes: nodes.map((n) => ({ id: n.id, pos: n.position, data: n.data })), edges }),
+        [name, slug, nodes, edges],
+    );
+    const [savedSignature, setSavedSignature] = useState(graphSignature);
+    const graphDirty = graphSignature !== savedSignature;
     const definitionById = new Map((definitions.data ?? []).map((item) => [item.id, item]));
     const safeInstallations = (installations.data ?? []).map((item) => ({
         id: item.id,
@@ -282,6 +295,7 @@ function WorkflowBuilder() {
             });
         },
         onSuccess: async () => {
+            setSavedSignature(graphSignature);
             await queryClient.invalidateQueries({ queryKey: ["workforce", "workflows"] });
             showToast({ message: "Workflow draft saved.", severity: "success" });
         },
@@ -328,7 +342,7 @@ function WorkflowBuilder() {
 
     return (
         <PageShell maxWidth="xl">
-            <Stack spacing={3} sx={{ py: 3 }}>
+            <Stack spacing={2}>
                 <PageHeader
                     title="Workforce workflows"
                     description="Runnable event → agent → action graphs (instances). Blueprints live under Workflow templates."
@@ -343,8 +357,17 @@ function WorkflowBuilder() {
                         </Stack>
                     }
                 />
+                <DensePageMobileNotice surface="Workforce workflows" />
                 {errors.length > 0 ? (
-                    <Alert severity="error" role="alert">
+                    <Alert
+                        severity="error"
+                        role="alert"
+                        sx={{
+                            position: "sticky",
+                            top: { xs: 64, md: 72 },
+                            zIndex: 4,
+                        }}
+                    >
                         Validation: {errors.join(" · ")}
                     </Alert>
                 ) : null}
@@ -361,54 +384,70 @@ function WorkflowBuilder() {
                                 </Button>
                             ))}
                         </Stack>
-                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 360px" }, gap: 2 }}>
-                            <Box
-                                sx={{ height: { xs: 520, lg: 680 }, border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}
-                                aria-label="Workflow graph editor"
-                            >
-                                <ReactFlow
-                                    nodes={nodes.map((node) => ({
-                                        ...node,
-                                        style: {
-                                            border: selectedId === node.id ? "2px solid #2563eb" : "1px solid #94a3b8",
-                                            borderRadius: 8,
-                                            padding: 4,
-                                            width: 190,
-                                        },
-                                        data: { ...node.data, label: `${humanizeKey(node.data.nodeType)}\n${node.data.label}` },
-                                    }))}
-                                    edges={edges}
-                                    onNodesChange={onNodesChange}
-                                    onEdgesChange={onEdgesChange}
-                                    onConnect={(connection: Connection) => setEdges((current) => addEdge(connection, current))}
-                                    onNodeClick={(_, node) => setSelectedId(node.id)}
-                                    onPaneClick={() => setSelectedId(null)}
-                                    fitView
-                                    deleteKeyCode={["Backspace", "Delete"]}
-                                    nodesConnectable
-                                    elementsSelectable
+                        <InspectorSplit
+                            hideSecondaryOnMobile={false}
+                            secondaryWidth={360}
+                            primary={
+                                <CanvasChrome
+                                    dirty={graphDirty}
+                                    validationCount={errors.length}
+                                    height={{ xs: 520, lg: 680 }}
+                                    aria-label="Workflow graph editor"
                                 >
-                                    <Background />
-                                    <MiniMap pannable zoomable />
-                                    <Controls showInteractive />
-                                </ReactFlow>
-                            </Box>
-                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, minWidth: 0 }}>
-                                {selected ? (
-                                    <ConfigEditor
-                                        node={selected}
-                                        installations={safeInstallations}
-                                        operations={operations.data ?? []}
-                                        agents={agents.data ?? []}
-                                        skills={skills.data ?? []}
-                                        workflows={workflows.data ?? []}
-                                        onChange={updateSelected}
-                                        onDelete={deleteSelected}
-                                    />
-                                ) : <Alert severity="info">Select a node to edit its configuration. Drag from a node handle to create an edge.</Alert>}
-                            </Paper>
-                        </Box>
-                        {errors.length > 0 && <Alert severity="warning">{errors.join(" ")}</Alert>}
+                                    {({ showMiniMap }) => (
+                                        <ReactFlow
+                                            nodes={nodes.map((node) => ({
+                                                ...node,
+                                                style: {
+                                                    border: selectedId === node.id
+                                                        ? `2px solid ${canvas.selectionBorder}`
+                                                        : `1px solid ${canvas.nodeBorder}`,
+                                                    borderRadius: 8,
+                                                    padding: 4,
+                                                    width: 190,
+                                                },
+                                                data: { ...node.data, label: `${humanizeKey(node.data.nodeType)}\n${node.data.label}` },
+                                            }))}
+                                            edges={edges}
+                                            onNodesChange={onNodesChange}
+                                            onEdgesChange={onEdgesChange}
+                                            onConnect={(connection: Connection) => setEdges((current) => addEdge(connection, current))}
+                                            onNodeClick={(_, node) => setSelectedId(node.id)}
+                                            onPaneClick={() => setSelectedId(null)}
+                                            fitView
+                                            deleteKeyCode={["Backspace", "Delete"]}
+                                            nodesConnectable
+                                            elementsSelectable
+                                            proOptions={{ hideAttribution: true }}
+                                        >
+                                            <Background color={canvas.backgroundDot} />
+                                            {showMiniMap ? <MiniMap pannable zoomable /> : null}
+                                            <Controls showInteractive={false} />
+                                        </ReactFlow>
+                                    )}
+                                </CanvasChrome>
+                            }
+                            secondary={
+                                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, minWidth: 0 }}>
+                                    {selected ? (
+                                        <ConfigEditor
+                                            node={selected}
+                                            installations={safeInstallations}
+                                            operations={operations.data ?? []}
+                                            agents={agents.data ?? []}
+                                            skills={skills.data ?? []}
+                                            workflows={workflows.data ?? []}
+                                            onChange={updateSelected}
+                                            onDelete={deleteSelected}
+                                        />
+                                    ) : (
+                                        <Alert severity="info">
+                                            Select a node to edit its configuration. Drag from a node handle to create an edge.
+                                        </Alert>
+                                    )}
+                                </Paper>
+                            }
+                        />
                         {(installations.isError || operations.isError) && (
                             <Alert severity="info">Connector metadata is unavailable. You can design the graph now, but publishing requires valid explicit connections.</Alert>
                         )}
@@ -422,7 +461,18 @@ function WorkflowBuilder() {
                     <Divider sx={{ my: 2 }} />
                     {workflows.isLoading ? <CircularProgress size={24} /> : workflows.isError ? (
                         <Alert severity="error">Could not load workflow definitions.</Alert>
-                    ) : !workflows.data?.length ? <Alert severity="info">No workflows yet.</Alert> : (
+                    ) : !workflows.data?.length ? (
+                        <EmptyState
+                            icon={<WorkflowIcon />}
+                            title="No workflows yet"
+                            description="Save a draft from the canvas, or load the Email + Telegram starter to begin."
+                            action={
+                                <Button startIcon={<AutoAwesome />} variant="contained" onClick={useStarter}>
+                                    Email + Telegram starter
+                                </Button>
+                            }
+                        />
+                    ) : (
                         <Stack spacing={1}>
                             {workflows.data.map((workflow) => (
                                 <Paper key={workflow.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>

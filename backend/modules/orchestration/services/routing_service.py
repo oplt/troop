@@ -16,88 +16,26 @@ from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.execution.policies import RetryPolicy
 from backend.modules.orchestration.hierarchy_policy import policy_from_execution
 from backend.modules.orchestration.models import ProviderConfig, TaskRun
-from backend.modules.orchestration.providers import execute_prompt
+from backend.modules.orchestration.providers import _provider_metric_label, execute_prompt
+from backend.modules.observability.metrics import record_llm_attempt, record_llm_cost_micros
 from backend.modules.projects.orchestration_models import OrchestratorProject, OrchestratorTask
 from backend.modules.team.models import AgentProfile
 
 logger = get_logger(__name__)
 
 
-GLOBAL_POLICY_ROUTING_RULES: list[dict[str, Any]] = [
-    {
-        "field": "task.labels",
-        "operator": "contains",
-        "value": "triage",
-        "route_to": "cheap_model_slug",
-    },
-    {
-        "field": "task.task_type",
-        "operator": "equals",
-        "value": "architecture",
-        "route_to": "strong_model_slug",
-    },
-    {
-        "field": "project.is_sensitive",
-        "operator": "equals",
-        "value": True,
-        "route_to": "local_model_slug",
-    },
-]
-
-
-def _format_routing_attempt_error(exc: BaseException) -> str:
-    if isinstance(exc, HTTPException):
-        detail = exc.detail
-        if isinstance(detail, str) and detail.strip():
-            return detail.strip()
-        if detail is not None:
-            try:
-                dumped = json.dumps(detail) if not isinstance(detail, str) else detail
-            except (TypeError, ValueError):
-                dumped = repr(detail)
-            if str(dumped).strip():
-                return str(dumped).strip()
-        code = getattr(exc, "status_code", "") or ""
-        return f"HTTPException(status_code={code})"
-    exc_mod = getattr(type(exc), "__module__", "")
-    exc_type = type(exc).__name__
-    if exc_mod.startswith("httpx") and exc_type in {
-        "ReadTimeout",
-        "ConnectTimeout",
-        "WriteTimeout",
-        "PoolTimeout",
-    }:
-        raw = str(exc).strip()
-        if not raw:
-            raw = exc_type
-        return (
-            f"{raw}: HTTP client timed out waiting for the LLM provider response "
-            f"(raise timeout_seconds on the provider, use a faster model, or fix base_url if the API "
-            f"cannot reach Ollama — e.g. Docker vs localhost)."
-        )
-    if exc_mod.startswith("httpx") and exc_type == "ConnectError":
-        raw = str(exc).strip() or exc_type
-        return f"{raw}: could not connect to the LLM provider (wrong base_url, firewall, or service down)."
-    text = str(exc).strip()
-    if text:
-        return text
-    return repr(exc)
-
-
-def _summarize_provider_chain_for_error(chain: list[ProviderConfig | None]) -> str:
-    parts: list[str] = []
-    for item in chain:
-        if item is None:
-            parts.append("null→local-heuristic")
-        else:
-            short_id = (item.id or "")[:10]
-            ptype = str(item.provider_type or "").strip().lower()
-            base = getattr(item, "base_url", None) or ""
-            base_hint = f", base_url={base!r}" if base else ""
-            parts.append(f"{item.name!r}({ptype}:{short_id}{base_hint})")
-    return ", ".join(parts) if parts else "(empty)"
-
-
+from backend.modules.orchestration.services.routing.llm_invoke import (
+    GLOBAL_POLICY_ROUTING_RULES,
+    attempt_budget_exhausted,
+    build_model_candidates,
+    build_provider_failover_chain,
+    filter_model_candidates_by_policy,
+    filter_provider_chain_by_policy,
+    filter_provider_chain_offline_local,
+    format_routing_attempt_error,
+    llm_attempt_budget,
+    summarize_provider_chain_for_error,
+)
 class OrchestrationRoutingServiceMixin:
     def _global_policy_routing(self) -> dict[str, Any]:
         return {
@@ -276,27 +214,23 @@ class OrchestrationRoutingServiceMixin:
             effective_policy,
             agent.retry_limit if agent else 0,
         ).max_retries
-        model_candidates = []
-        for candidate in [target_model, fallback_model]:
-            if candidate and candidate not in model_candidates:
-                model_candidates.append(candidate)
-        if not model_candidates:
-            model_candidates = [None]
-        if offline_local_only_mode and not target_model:
-            model_candidates = [self._global_policy_routing().get("local_model_slug"), None]
-        if enforce_project_model_policy and allowed_model_slugs:
-            model_candidates = [
-                candidate
-                for candidate in model_candidates
-                if candidate is None or candidate in allowed_model_slugs
-            ]
-            if not model_candidates:
-                raise HTTPException(
-                    status_code=422,
-                    detail="No candidate model is allowed by execution.allowed_model_slugs.",
-                )
-        if not settings.ORCHESTRATION_PROVIDER_FAILOVER:
-            model_candidates = model_candidates[:1]
+        model_candidates = build_model_candidates(
+            target_model=target_model,
+            fallback_model=fallback_model,
+            offline_local_only=offline_local_only_mode,
+            local_model_slug=self._global_policy_routing().get("local_model_slug"),
+            provider_failover_enabled=settings.ORCHESTRATION_PROVIDER_FAILOVER,
+        )
+        model_candidates = filter_model_candidates_by_policy(
+            model_candidates,
+            allowed_model_slugs=allowed_model_slugs,
+            enforce=enforce_project_model_policy,
+        )
+        if enforce_project_model_policy and allowed_model_slugs and not model_candidates:
+            raise HTTPException(
+                status_code=422,
+                detail="No candidate model is allowed by execution.allowed_model_slugs.",
+            )
         if (
             run is not None
             and project is not None
@@ -350,41 +284,39 @@ class OrchestrationRoutingServiceMixin:
                 payload={"reason": policy_reason, "model_name": target_model},
             )
 
-        provider_chain: list[ProviderConfig | None] = [target_provider]
-        if (
-            settings.ORCHESTRATION_PROVIDER_FAILOVER
-            and project
-            and run
-            and target_provider is not None
-        ):
-            seen_ids = {target_provider.id}
-            for p in await self.repo.list_providers(project.owner_id, project.id):
-                if p.is_enabled and p.id not in seen_ids:
-                    seen_ids.add(p.id)
-                    provider_chain.append(p)
-        if offline_local_only_mode:
-            provider_chain = [
-                p for p in provider_chain if p is None or p.provider_type in {"ollama", "local"}
-            ]
-            if not provider_chain:
-                provider_chain = [None]
-        if enforce_project_model_policy and allowed_provider_types:
-            provider_chain = [
-                p
-                for p in provider_chain
-                if p is None or p.provider_type.lower() in allowed_provider_types
-            ]
-            if not provider_chain:
-                raise HTTPException(
-                    status_code=422,
-                    detail="No provider satisfies execution.allowed_provider_types policy.",
-                )
+        provider_chain = build_provider_failover_chain(
+            target_provider,
+            await self.repo.list_providers(project.owner_id, project.id)
+            if project and run
+            else [],
+            failover_enabled=bool(
+                settings.ORCHESTRATION_PROVIDER_FAILOVER and project and run and target_provider
+            ),
+        )
+        provider_chain = filter_provider_chain_offline_local(
+            provider_chain,
+            offline_local_only=offline_local_only_mode,
+        )
+        provider_chain = filter_provider_chain_by_policy(
+            provider_chain,
+            allowed_provider_types=allowed_provider_types,
+            enforce=enforce_project_model_policy,
+        )
+
+        if enforce_project_model_policy and allowed_provider_types and not provider_chain:
+            raise HTTPException(
+                status_code=422,
+                detail="No provider satisfies execution.allowed_provider_types policy.",
+            )
 
         outer_errors: list[str] = []
+        attempt_budget = llm_attempt_budget()
+        attempts_used = 0
 
         async def _attempt_llm(
             tp: ProviderConfig | None, cands: list[str | None]
         ) -> tuple[ProviderConfig | None, Any] | None:
+            nonlocal attempts_used
             errors: list[str] = []
             if not cands:
                 cands = [None]
@@ -405,6 +337,19 @@ class OrchestrationRoutingServiceMixin:
                     continue
                 result = None
                 for attempt in range(retry_count + 1):
+                    if attempt_budget_exhausted(attempts_used, attempt_budget):
+                        errors.append(
+                            f"LLM attempt budget exhausted ({attempt_budget}) for purpose={purpose!r}."
+                        )
+                        record_llm_attempt(
+                            purpose=purpose,
+                            provider=_provider_metric_label(tp),
+                            result="budget_exhausted",
+                        )
+                        outer_errors.extend(errors)
+                        return None
+                    attempts_used += 1
+                    provider_label = _provider_metric_label(tp)
                     try:
                         result = await execute_prompt(
                             tp,
@@ -413,9 +358,16 @@ class OrchestrationRoutingServiceMixin:
                             user_prompt=user_prompt,
                             response_format=response_format,
                             request_options=request_options,
+                            purpose=purpose,
+                            record_metrics=False,
                         )
                     except Exception as exc:
-                        error_text = _format_routing_attempt_error(exc)
+                        error_text = format_routing_attempt_error(exc)
+                        record_llm_attempt(
+                            purpose=purpose,
+                            provider=provider_label,
+                            result="error",
+                        )
                         errors.append(error_text)
                         if attempt < retry_count:
                             if run is not None:
@@ -448,6 +400,18 @@ class OrchestrationRoutingServiceMixin:
                         break
                 if result is None:
                     continue
+                record_llm_attempt(purpose=purpose, provider=provider_label, result="success")
+                micros = self._estimate_cost_micros(
+                    tp,
+                    result.input_tokens,
+                    result.output_tokens,
+                    model_name=result.model_name,
+                )
+                record_llm_cost_micros(
+                    purpose=purpose,
+                    provider=provider_label,
+                    micros=micros,
+                )
                 if run is not None:
                     run.model_name = result.model_name
                     run.provider_config_id = tp.id if tp else None
@@ -460,12 +424,6 @@ class OrchestrationRoutingServiceMixin:
                         append=True,
                     )
                 if run is not None:
-                    micros = self._estimate_cost_micros(
-                        tp,
-                        result.input_tokens,
-                        result.output_tokens,
-                        model_name=result.model_name,
-                    )
                     await self._emit_run_event(
                         run,
                         event_type="llm_response",
@@ -534,7 +492,7 @@ class OrchestrationRoutingServiceMixin:
                 )
 
         attempt_messages = [str(x).strip() for x in outer_errors if str(x).strip()]
-        chain_hint = _summarize_provider_chain_for_error(provider_chain)
+        chain_hint = summarize_provider_chain_for_error(provider_chain)
         chain_ctx = (
             f"providers=[{chain_hint}], model_candidates={model_candidates!r}, purpose={purpose!r}."
         )

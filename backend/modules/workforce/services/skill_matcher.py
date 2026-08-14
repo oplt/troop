@@ -8,27 +8,12 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.validation.text import jaccard_similarity, token_jaccard
 from backend.modules.workforce.models import Skill, SkillUsageStat, SkillVersion
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.schemas import SkillMatchResult
 
 _RISK_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-
-
-def _jaccard_similarity(set1: set[str], set2: set[str]) -> float:
-    if not set1 and not set2:
-        return 0.0
-    intersection = len(set1 & set2)
-    union = len(set1 | set2)
-    return intersection / union if union > 0 else 0.0
-
-
-def _tokenize(text: str) -> set[str]:
-    return {part.lower() for part in text.replace("/", " ").replace("-", " ").split() if part}
-
-
-def _token_jaccard(text_a: str, text_b: str) -> float:
-    return _jaccard_similarity(_tokenize(text_a), _tokenize(text_b))
 
 
 def _schema_type_hint(value: object) -> str:
@@ -59,7 +44,7 @@ def _schema_compat_score(
 
     req_keys = {str(k).lower() for k in req_props}
     skill_keys = {str(k).lower() for k in skill_props}
-    key_overlap = _jaccard_similarity(req_keys, skill_keys)
+    key_overlap = jaccard_similarity(req_keys, skill_keys)
     if not req_keys:
         return 0.5
 
@@ -218,7 +203,7 @@ class SkillMatcherService:
                     " ".join(str(c) for c in (version.capabilities_json or [])),
                 ]
             ).strip()
-            semantic_score = _token_jaccard(query, skill_text) if query and skill_text else 0.5
+            semantic_score = token_jaccard(query, skill_text) if query and skill_text else 0.5
             risk_score = _risk_compat_score(task_risk_level, version.risk_level or "low")
             history_score = _usage_success_score(usage_by_skill.get(skill.id))
 

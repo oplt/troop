@@ -14,7 +14,7 @@ Landmark / IA contracts live in `frontend/src/test/visualBaselines.ts` and are a
 | `/` | Auth brand + sign-in |
 | `/dashboard` | Do next + Projects |
 | Project detail | Overview tab workspace |
-| `/projects`, `/activity`, `/analytics/cost` | Declared in baselines list |
+| `/projects`, `/approvals`, `/portfolio`, `/hierarchy`, `/analytics/cost` | Declared in baselines list |
 
 ## Refresh
 
@@ -22,6 +22,6 @@ When shell IA changes intentionally:
 
 1. Update `visualBaselines.ts`
 2. Run `pnpm test` in `frontend/`
-3. Note the change in the PR Design QA checklist
+3. Tick the visualBaselines item in the PR Design QA checklist
 
 Full pixel screenshots are optional (Playwright not required in CI). Landmark contracts catch the high-cost IA regressions without adding browser binaries.

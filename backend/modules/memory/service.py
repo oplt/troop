@@ -12,8 +12,10 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import attributes as orm_attributes
 
 from backend.core.cache import (
+    get_cached_memory_context,
     get_cached_memory_settings,
     invalidate_project_knowledge_caches,
+    set_cached_memory_context,
     set_cached_memory_settings,
 )
 from backend.core.config import settings
@@ -44,10 +46,7 @@ from backend.modules.memory.coordination import (
     MEMORY_COORDINATION_KEY,
     extract_blackboard_sections,
 )
-from backend.modules.memory.episodic import (
-    build_episodic_archive_jsonl_gz,
-    episodic_object_key,
-)
+from backend.modules.memory.episodic_jobs import EpisodicJobsMixin
 from backend.modules.memory.layer.config import resolve_memory_config
 from backend.modules.memory.layer.schemas import MemoryFilters
 from backend.modules.memory.layer.service import MemoryService
@@ -132,7 +131,7 @@ from backend.modules.memory.namespaces import (
 SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
 
 
-class OrchestrationMemoryServiceMixin:
+class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
     def _memory_layer_service(
         self, project_settings_json: dict[str, Any] | None = None
     ) -> MemoryService:
@@ -850,6 +849,18 @@ class OrchestrationMemoryServiceMixin:
         entry.embedding_vector = normalize_embedding_for_vector(vec)
         entry.embedding_model = getattr(settings, "RAG_EMBEDDING_MODEL", "") or None
         entry.embedding_version = entry.embedding_version or "v1"
+        from backend.modules.ai.gateway.pricing import estimate_cost_micros, estimate_tokens
+
+        embed_tokens = estimate_tokens(text)
+        meta = dict(entry.metadata_json or {})
+        meta["embedding_input_tokens"] = embed_tokens
+        meta["embedding_cost_micros"] = estimate_cost_micros(
+            None,
+            embed_tokens,
+            0,
+            model_name=entry.embedding_model,
+        )
+        entry.metadata_json = meta
         await self.db.commit()
         increment_memory_metric("semantic_embeddings_completed")
 
@@ -1438,67 +1449,6 @@ class OrchestrationMemoryServiceMixin:
             "private": cur.get("private") or {},
         }
 
-    async def search_episodic_memory(
-        self,
-        user: User,
-        project_id: str,
-        *,
-        q: str | None = None,
-        vec_q: str | None = None,
-        limit: int = 45,
-        since: datetime | None = None,
-        until: datetime | None = None,
-        task_id: str | None = None,
-        kinds: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
-        project = await self.get_project(user, project_id)
-        ms = merge_memory_settings(project.settings_json)
-        base = await self.repo.search_episodic_for_project(
-            project_id,
-            query=q,
-            limit=limit,
-            since=since,
-            until=until,
-            task_id=task_id,
-            kinds=kinds,
-        )
-        if vec_q and str(vec_q).strip() and ms.get("enable_episodic_vector_search", True):
-            try:
-                qv = (await self.ai_providers.embed_texts([str(vec_q).strip()[:8000]]))[0]
-                idx_rows = await self.repo.search_episodic_index_by_vector(
-                    project.owner_id, project_id, qv, limit=min(limit, 40)
-                )
-                vec_hits: list[dict[str, Any]] = []
-                for r in idx_rows:
-                    vec_hits.append(
-                        {
-                            "kind": f"indexed_{r.source_kind}",
-                            "id": r.source_id,
-                            "snippet": (r.text_content or "")[:500],
-                            "created_at": r.created_at.isoformat(),
-                            "index_id": r.id,
-                        }
-                    )
-                seen: set[str] = set()
-                merged: list[dict[str, Any]] = []
-                for h in vec_hits + base:
-                    key = f"{h.get('kind')}:{h.get('id')}"
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    merged.append(h)
-                increment_memory_metric("episodic_vector_queries")
-                return merged[:limit]
-            except Exception as exc:
-                logger.warning("episodic vector search failed: %s", exc)
-        return base
-
-    async def list_episodic_archive_manifests_for_project(
-        self, user: User, project_id: str
-    ) -> list[Any]:
-        project = await self.get_project(user, project_id)
-        return await self.repo.list_episodic_archive_manifests(project.owner_id, project_id)
-
     async def merge_semantic_memory_entries_for_project(
         self,
         user: User,
@@ -1784,140 +1734,6 @@ class OrchestrationMemoryServiceMixin:
         if not ok:
             raise HTTPException(status_code=404, detail="Link not found")
         await self.db.commit()
-
-    async def run_episodic_retention_and_archive_job(self) -> dict[str, Any]:
-        """Archive old episodic sources to cold storage; trim search index (never deletes run_events)."""
-        from sqlalchemy import select
-
-        result = await self.db.execute(select(OrchestratorProject))
-        projects = list(result.scalars().all())
-        archived_projects = 0
-        archived_bytes = 0
-        index_rows_dropped = 0
-        for project in projects:
-            ms = merge_memory_settings(project.settings_json)
-            if not ms.get("episodic_archive_enabled", True):
-                continue
-            days = int(ms.get("episodic_retention_days") or 90)
-            cutoff = datetime.now(UTC) - timedelta(days=days)
-            events = await self.repo.list_run_events_for_project_before(
-                project.id, cutoff, limit=5000
-            )
-            if not events:
-                continue
-            records = [
-                {
-                    "kind": "run_event",
-                    "id": ev.id,
-                    "run_id": ev.run_id,
-                    "task_id": ev.task_id,
-                    "event_type": ev.event_type,
-                    "message": ev.message,
-                    "created_at": ev.created_at,
-                }
-                for ev in events
-            ]
-            try:
-                body = build_episodic_archive_jsonl_gz(records)
-            except Exception:
-                continue
-            tag = f"{cutoff.date().isoformat()}_{project.id[:8]}"
-            key = episodic_object_key(project.owner_id, project.id, tag)
-            try:
-                await object_storage.upload_bytes(
-                    object_key=key, body=body, content_type="application/gzip"
-                )
-            except StorageNotConfiguredError:
-                logger.warning("episodic archive skipped: storage not configured")
-                continue
-            except Exception as exc:
-                logger.warning("episodic archive upload failed: %s", exc)
-                continue
-            await self.repo.create_episodic_archive_manifest(
-                owner_id=project.owner_id,
-                project_id=project.id,
-                object_key=key,
-                period_start=events[0].created_at,
-                period_end=events[-1].created_at,
-                record_count=len(records),
-                byte_size=len(body),
-                stats_json={"kinds": {"run_event": len(records)}},
-            )
-            if ms.get("episodic_delete_index_after_archive", True):
-                dropped = await self.repo.delete_episodic_index_rows_before(project.id, cutoff)
-                index_rows_dropped += dropped
-            await self.db.commit()
-            archived_projects += 1
-            archived_bytes += len(body)
-        increment_memory_metric("episodic_retention_runs")
-        return {
-            "projects_touched": archived_projects,
-            "archived_bytes": archived_bytes,
-            "index_rows_dropped": index_rows_dropped,
-        }
-
-    async def backfill_episodic_search_index(
-        self, user: User, project_id: str, *, limit: int = 200
-    ) -> int:
-        """Index recent run events into episodic_search_index (snippets for vector search)."""
-        project = await self.get_project(user, project_id)
-        from sqlalchemy import select
-
-        res = await self.db.execute(
-            select(RunEvent)
-            .join(TaskRun, RunEvent.run_id == TaskRun.id)
-            .where(TaskRun.project_id == project_id)
-            .order_by(RunEvent.created_at.desc())
-            .limit(max(1, min(limit, 2000)))
-        )
-        events = list(res.scalars().all())
-        n = 0
-        for ev in events:
-            existing = await self.repo.get_episodic_index_row(project_id, "run_event", ev.id)
-            if existing:
-                continue
-            text = (ev.message or "")[:4000]
-            if not text.strip():
-                continue
-            row = await self.repo.create_episodic_search_index_row(
-                owner_id=project.owner_id,
-                project_id=project_id,
-                source_kind="run_event",
-                source_id=ev.id,
-                text_content=text,
-                created_at=ev.created_at,
-            )
-            await self.db.flush()
-            try:
-                vec = (await self.ai_providers.embed_texts([text[:8000]]))[0]
-                row.embedding_vector = normalize_embedding_for_vector(vec)
-            except Exception as exc:
-                logger.warning("episodic_index_embed_failed source_id=%s error=%s", ev.id, exc)
-            n += 1
-        await self.db.commit()
-        increment_memory_metric("episodic_index_backfills")
-        return n
-
-    async def process_episodic_index_embedding_batch(self, *, limit: int = 30) -> int:
-        """Embed episodic index rows missing vectors (global, for Celery)."""
-        from sqlalchemy import select
-
-        res = await self.db.execute(select(OrchestratorProject.id))
-        pids = [r[0] for r in res.all()]
-        done = 0
-        for pid in pids:
-            rows = await self.repo.list_episodic_index_missing_embedding(pid, limit=limit)
-            for row in rows:
-                try:
-                    vec = (await self.ai_providers.embed_texts([(row.text_content or "")[:8000]]))[
-                        0
-                    ]
-                    row.embedding_vector = normalize_embedding_for_vector(vec)
-                    done += 1
-                except Exception:
-                    continue
-            await self.db.commit()
-        return done
 
     async def _enqueue_classifier_job_for_task(
         self, project: OrchestratorProject, task: OrchestratorTask
@@ -2457,7 +2273,7 @@ class OrchestrationMemoryServiceMixin:
                 for row in vector_hits[:cap]
             ]
         else:
-            if settings.RAG_PYTHON_FALLBACK_ENABLED:
+            if settings.vector_python_fallback_enabled:
                 chunks = await self.repo.list_document_chunks(
                     project_id,
                     task_id=task_id,
@@ -2497,9 +2313,9 @@ class OrchestrationMemoryServiceMixin:
             merged = merged[:cap]
 
         if include_decisions:
-            decisions = await self.repo.list_project_decisions(project_id)
+            decisions = await self.repo.list_project_decisions(project_id, query=query)
             dec_hits: list[dict[str, Any]] = []
-            for d in decisions[:300]:
+            for d in decisions:
                 title = d.title or ""
                 body = d.decision or ""
                 sc = self._decision_text_relevance_score(query, title, body)
@@ -2948,6 +2764,20 @@ class OrchestrationMemoryServiceMixin:
         *,
         prefix: str | None = None,
     ) -> ContextPacket:
+        fingerprint = "|".join(
+            [
+                str(run.id),
+                str(getattr(agent, "id", "") or ""),
+                str(prefix or ""),
+                str(((run.checkpoint_json or {}).get("workflow") or {}).get("resume_count") or 0),
+                str(run.status or ""),
+            ]
+        )
+        if run.project_id:
+            cached_sections = await get_cached_memory_context(run.project_id, fingerprint)
+            if cached_sections:
+                return ContextPacket(sections=cached_sections)
+
         async def _none() -> None:
             return None
 
@@ -3095,6 +2925,8 @@ class OrchestrationMemoryServiceMixin:
         sections = dedupe_context_sections(sections)
         packet = ContextPacket(sections=sections)
         log_context_packet_telemetry(packet, run_id=run.id)
+        if run.project_id:
+            await set_cached_memory_context(run.project_id, fingerprint, dict(packet.sections))
         return packet
 
     async def _build_task_prompt(

@@ -38,10 +38,14 @@ import { useSnackbar } from "../app/snackbarContext";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { usePlatformMetadata } from "../hooks/usePlatformMetadata";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
 import { queryKeys } from "../config/queryKeys";
+import { QueryState } from "../components/ui/QueryState";
+import { InspectorSplit } from "../components/ui/InspectorSplit";
+import { Subsection } from "../components/ui/Subsection";
 
 export function PlatformPanel() {
     const queryClient = useQueryClient();
@@ -154,14 +158,17 @@ export function PlatformPanel() {
     });
 
     if (metadataLoading) {
-        return <Skeleton variant="rounded" width="100%" height={320} sx={{ borderRadius: 6 }} />;
+        return <QueryState loading empty={false}>{null}</QueryState>;
     }
 
     const visibleUserModules =
         metadata?.module_catalog.filter((item) => item.user_visible && item.enabled) ?? [];
 
     return (
+        <InspectorSplit
+            primary={
         <Stack spacing={2}>
+            <Subsection title="Overview" info="Modules exposed by the active pack for this account.">
             <Box
                 sx={{
                     display: "grid",
@@ -205,6 +212,7 @@ export function PlatformPanel() {
                     color="success"
                 />
             </Box>
+            </Subsection>
 
             {visibleUserModules.length === 0 && (
                 <Alert severity="info">
@@ -637,12 +645,26 @@ export function PlatformPanel() {
                 </CollapsibleSectionCard>
             )}
         </Stack>
+            }
+            secondary={
+                <Subsection title="Active pack" info="Resolved from Admin → Platform.">
+                    <Typography variant="body2" color="text.secondary">
+                        {metadata?.app_name ?? "Troop"} exposes {visibleUserModules.length} user-visible module
+                        {visibleUserModules.length === 1 ? "" : "s"} for this account.
+                    </Typography>
+                </Subsection>
+            }
+        />
     );
 }
 
 export default function PlatformPage() {
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                title="Developer platform"
+                description="API keys, webhooks, billing, and feature flags for this workspace."
+            />
             <PlatformPanel />
         </PageShell>
     );

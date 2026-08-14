@@ -19,10 +19,12 @@ from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
 from backend.core.logging import get_logger
+from backend.modules.ai.gateway.pricing import estimate_tokens
 from backend.modules.observability.decorators import (
     observe_provider_call,
     observe_provider_stream,
 )
+from backend.modules.observability.metrics import record_embed_tokens
 
 logger = get_logger(__name__)
 
@@ -383,9 +385,22 @@ class AiProviderRegistry:
         batch_key = "embedding-fill:" + hashlib.sha256(
             json.dumps({"model": model_name, "keys": [keys[index] for index in missing_indices]}, sort_keys=True).encode()
         ).hexdigest()
-        fresh_vectors = await cache_singleflight(
-            batch_key,
-            lambda: provider.embed_texts(missing_texts, model=model_name),
+        try:
+            fresh_vectors = await cache_singleflight(
+                batch_key,
+                lambda: provider.embed_texts(missing_texts, model=model_name),
+            )
+        except Exception:
+            record_embed_tokens(
+                provider=provider.key,
+                tokens=sum(estimate_tokens(text) for text in missing_texts),
+                outcome="error",
+            )
+            raise
+        record_embed_tokens(
+            provider=provider.key,
+            tokens=sum(estimate_tokens(text) for text in missing_texts),
+            outcome="success",
         )
         to_store: list[tuple[str, list[float]]] = []
         for index, vector in zip(missing_indices, fresh_vectors, strict=True):

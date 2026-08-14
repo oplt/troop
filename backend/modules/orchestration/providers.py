@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -12,8 +11,11 @@ from fastapi import HTTPException
 
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
+from backend.modules.ai.gateway.pricing import estimate_cost_micros, estimate_tokens
 from backend.modules.ai.providers import LocalHeuristicProvider
 from backend.modules.observability.decorators import observe_provider_call
+from backend.modules.observability.metrics import record_llm_attempt, record_llm_cost_micros
+from backend.modules.observability.tracing import llm_invoke_span, record_llm_span_result
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.security import decrypt_secret
 
@@ -30,10 +32,6 @@ class ProviderExecutionResult:
     @property
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
-
-
-def estimate_tokens(value: str) -> int:
-    return max(1, math.ceil(len(value) / 4))
 
 
 def _provider_base_url(provider: ProviderConfig) -> str:
@@ -249,7 +247,62 @@ def _fallback_configured_capabilities(
     ]
 
 
+def _provider_metric_label(provider: ProviderConfig | None) -> str:
+    if provider is None:
+        return "local-heuristic"
+    return str(provider.provider_type or "unknown").strip().lower() or "unknown"
+
+
 async def execute_prompt(
+    provider: ProviderConfig | None,
+    *,
+    model_name: str | None,
+    system_prompt: str,
+    user_prompt: str,
+    response_format: str = "text",
+    request_options: dict[str, Any] | None = None,
+    purpose: str = "direct",
+    record_metrics: bool = True,
+) -> ProviderExecutionResult:
+    provider_label = _provider_metric_label(provider)
+    model_label = str(model_name or "unknown")
+    with llm_invoke_span(purpose=purpose, provider=provider_label, model=model_label) as otel_span:
+        try:
+            result = await _execute_prompt_impl(
+                provider,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=response_format,
+                request_options=request_options,
+            )
+        except Exception:
+            if record_metrics:
+                record_llm_attempt(purpose=purpose, provider=provider_label, result="error")
+            record_llm_span_result(otel_span, input_tokens=0, output_tokens=0, result="error")
+            raise
+    if record_metrics:
+        record_llm_attempt(purpose=purpose, provider=provider_label, result="success")
+        record_llm_cost_micros(
+            purpose=purpose,
+            provider=provider_label,
+            micros=estimate_cost_micros(
+                provider,
+                result.input_tokens,
+                result.output_tokens,
+                model_name=result.model_name,
+            ),
+        )
+    record_llm_span_result(
+        otel_span,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        result="success",
+    )
+    return result
+
+
+async def _execute_prompt_impl(
     provider: ProviderConfig | None,
     *,
     model_name: str | None,

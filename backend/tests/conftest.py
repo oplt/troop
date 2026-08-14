@@ -88,6 +88,40 @@ async def verified_user(require_integration) -> AsyncIterator[tuple[User, str]]:
             await db.commit()
 
 
+async def _create_verified_user(*, label: str) -> User:
+    password = "IntegrationTestPass123!"
+    email = f"tenant-{label}-{uuid.uuid4().hex}@example.com"
+    async with SessionLocal() as db:
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            full_name=f"Tenant User {label.upper()}",
+            is_active=True,
+            is_verified=True,
+            is_admin=False,
+            mfa_enabled=False,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+
+@pytest.fixture
+async def tenant_pair(require_integration) -> AsyncIterator[tuple[User, User]]:
+    """Two isolated verified users for multi-tenant ACL regression tests."""
+    user_a = await _create_verified_user(label="a")
+    user_b = await _create_verified_user(label="b")
+    try:
+        yield user_a, user_b
+    finally:
+        async with SessionLocal() as db:
+            for user in (user_a, user_b):
+                await db.execute(delete(RefreshSession).where(RefreshSession.user_id == user.id))
+                await db.execute(delete(User).where(User.id == user.id))
+            await db.commit()
+
+
 @pytest.fixture
 async def auth_client(api_client: AsyncClient, verified_user: tuple[User, str]) -> AsyncClient:
     user, password = verified_user

@@ -13,8 +13,6 @@ const PlatformPage = lazy(() => import("../pages/PlatformPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
-const AdminUsersPage = lazy(() => import("../pages/AdminUsersPage"));
-const AdminPlatformPage = lazy(() => import("../pages/AdminPlatformPage"));
 const AdminSettingsPage = lazy(() => import("../pages/AdminSettingsPage"));
 const AiStudioPage = lazy(() => import("../pages/AiStudioPage"));
 const AgentProfilesPage = lazy(() => import("../pages/AgentProfilesPage"));
@@ -100,10 +98,12 @@ export function AppRouter() {
                     <Route path="/ai" element={<SuspensePage><AiStudioPage /></SuspensePage>} />
                     <Route path="/agents" element={<SuspensePage><AgentProfilesPage /></SuspensePage>} />
                     <Route path="/agent-runs/:runId" element={<SuspensePage variant="inspector"><AgentRunDetailPage /></SuspensePage>} />
-                    <Route path="/hierarchy" element={<Navigate to="/hierarchy-builder" replace />} />
-                    <Route path="/hierarchy-builder" element={<SuspensePage variant="canvas"><HierarchyPage /></SuspensePage>} />
+                    <Route path="/hierarchy" element={<SuspensePage variant="canvas"><HierarchyPage /></SuspensePage>} />
+                    <Route path="/hierarchy-builder" element={<Navigate to="/hierarchy" replace />} />
+                    <Route path="/agent-hierarchy" element={<Navigate to="/hierarchy" replace />} />
                     <Route path="/model-settings" element={<SuspensePage><ModelSettingsPage /></SuspensePage>} />
-                    <Route path="/agent-portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
+                    <Route path="/portfolio" element={<SuspensePage><OrchestrationPortfolioPage /></SuspensePage>} />
+                    <Route path="/agent-portfolio" element={<Navigate to="/portfolio" replace />} />
                     <Route path="/workflow-templates" element={<SuspensePage><WorkflowTemplatesPage /></SuspensePage>} />
                     <Route path="/companies" element={<SuspensePage><CompaniesPage /></SuspensePage>} />
                     <Route path="/companies/:companyId/memory" element={<SuspensePage><CompanyMemoryPage /></SuspensePage>} />
@@ -126,7 +126,8 @@ export function AppRouter() {
                     <Route path="/brainstorms" element={<SuspensePage><BrainstormsPage /></SuspensePage>} />
                     <Route path="/brainstorms/:brainstormId" element={<SuspensePage><BrainstormDetailPage /></SuspensePage>} />
                     <Route path="/orchestration-settings" element={<RedirectToAdminSettingsTab tab="ai" />} />
-                    <Route path="/activity" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
+                    <Route path="/approvals" element={<SuspensePage><ActivityAuditPage /></SuspensePage>} />
+                    <Route path="/activity" element={<Navigate to="/approvals" replace />} />
                     <Route path="/analytics/cost" element={<SuspensePage><CostAnalyticsPage /></SuspensePage>} />
                     <Route path="/analytics/execution" element={<SuspensePage><ExecutionInsightsPage /></SuspensePage>} />
                     <Route
@@ -149,7 +150,7 @@ export function AppRouter() {
                                 isAdmin={isAdmin}
                                 requireAdmin
                             >
-                                <SuspensePage><AdminUsersPage /></SuspensePage>
+                                <RedirectToAdminSettingsTab tab="users" />
                             </ProtectedRoute>
                         }
                     />
@@ -162,7 +163,7 @@ export function AppRouter() {
                                 isAdmin={isAdmin}
                                 requireAdmin
                             >
-                                <SuspensePage><AdminPlatformPage /></SuspensePage>
+                                <RedirectToAdminSettingsTab tab="platform" />
                             </ProtectedRoute>
                         }
                     />

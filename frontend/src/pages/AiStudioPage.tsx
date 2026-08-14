@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
     Alert,
     Box,
@@ -21,6 +22,7 @@ import {
     Dataset as DatasetIcon,
     Description as DocumentIcon,
     ErrorOutline as ErrorOutlineIcon,
+    FolderOpen as ProjectsIcon,
     PlayCircleOutline as RunIcon,
     PsychologyAlt as PromptIcon,
     Refresh as RefreshIcon,
@@ -46,8 +48,10 @@ import {
     uploadAiDocument,
 } from "../api/ai";
 import { useSnackbar } from "../app/snackbarContext";
+import { AnalyticsKpiStrip } from "../components/ui/AnalyticsKpiStrip";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatCurrency, formatDateTime } from "../utils/formatters";
@@ -68,7 +72,16 @@ function formatCostMicros(micros: number) {
     return formatCurrency(micros / 10000, "USD");
 }
 
-type AiSection = "prompts" | "playground" | "versions" | "documents" | "reviews";
+type AiSection = "prompts" | "playground" | "versions" | "documents" | "reviews" | "datasets";
+
+const AI_SECTIONS: AiSection[] = ["prompts", "playground", "versions", "documents", "reviews", "datasets"];
+
+function parseStudioSection(value: string | null): AiSection {
+    if (value && AI_SECTIONS.includes(value as AiSection)) {
+        return value as AiSection;
+    }
+    return "prompts";
+}
 
 function AiSectionPanel({ activeSection, value, children }: { activeSection: AiSection; value: AiSection; children: ReactNode }) {
     const panelId = `ai-panel-${value}`;
@@ -89,6 +102,13 @@ function AiSectionPanel({ activeSection, value, children }: { activeSection: AiS
 export default function AiStudioPage() {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeSection = parseStudioSection(searchParams.get("studio"));
+    const setActiveSection = (value: AiSection) => {
+        const next = new URLSearchParams(searchParams);
+        next.set("studio", value);
+        setSearchParams(next, { replace: true });
+    };
     const { data: overview, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ["ai", "overview"],
         queryFn: getAiOverview,
@@ -108,7 +128,6 @@ export default function AiStudioPage() {
         queryFn: listAiEvaluationRuns,
     });
 
-    const [activeSection, setActiveSection] = useState<AiSection>("prompts");
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [selectedDatasetId, setSelectedDatasetId] = useState("");
     const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -380,19 +399,17 @@ export default function AiStudioPage() {
 
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                title="AI Studio"
+                description="Prompt templates, playground runs, retrieval documents, and human reviews."
+            />
 
-            <Box
-                sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" },
-                }}
-            >
+            <AnalyticsKpiStrip columns={{ xs: 1, sm: 2, md: 4, lg: 4 }}>
                 <StatCard label="Prompt templates" value={promptTemplates.length} description="Reusable prompts with version history" icon={<PromptIcon />} />
                 <StatCard label="Documents" value={documents.length} description="Indexed retrieval sources" icon={<DocumentIcon />} color="secondary" />
                 <StatCard label="Pending reviews" value={reviews.filter((item) => item.status === "pending").length} description="Runs waiting for human review" icon={<ReviewIcon />} color="warning" />
                 <StatCard label="Datasets" value={datasets.length} description="Saved evaluation datasets" icon={<DatasetIcon />} color="success" />
-            </Box>
+            </AnalyticsKpiStrip>
 
             <Box sx={{ mt: 2 }}>
                 <Tabs
@@ -404,11 +421,12 @@ export default function AiStudioPage() {
                     aria-label="AI Studio sections"
                     sx={{ borderBottom: 1, borderColor: "divider" }}
                 >
-                    <Tab id="ai-tab-prompts" aria-controls="ai-panel-prompts" value="prompts" label="Prompt library" />
-                    <Tab id="ai-tab-playground" aria-controls="ai-panel-playground" value="playground" label="Run playground" />
-                    <Tab id="ai-tab-versions" aria-controls="ai-panel-versions" value="versions" label="Version builder" />
-                    <Tab id="ai-tab-documents" aria-controls="ai-panel-documents" value="documents" label="Retrieval documents" />
-                    <Tab id="ai-tab-reviews" aria-controls="ai-panel-reviews" value="reviews" label="Reviews & evaluations" />
+                    <Tab id="ai-tab-prompts" aria-controls="ai-panel-prompts" value="prompts" label="Prompt" />
+                    <Tab id="ai-tab-playground" aria-controls="ai-panel-playground" value="playground" label="Playground" />
+                    <Tab id="ai-tab-versions" aria-controls="ai-panel-versions" value="versions" label="Versions" />
+                    <Tab id="ai-tab-documents" aria-controls="ai-panel-documents" value="documents" label="Retrieval" />
+                    <Tab id="ai-tab-reviews" aria-controls="ai-panel-reviews" value="reviews" label="Reviews" />
+                    <Tab id="ai-tab-datasets" aria-controls="ai-panel-datasets" value="datasets" label="Datasets" />
                 </Tabs>
 
                 <Stack spacing={2}>
@@ -619,7 +637,16 @@ export default function AiStudioPage() {
                                     ))}
                                 </Stack>
                             ) : (
-                                <EmptyState icon={<AiIcon />} title="No AI runs yet" description="Run a prompt version to capture outputs, token usage, and review state." />
+                                <EmptyState
+                                    icon={<AiIcon />}
+                                    title="No AI runs yet"
+                                    description="Run a prompt version here, or open projects to generate work that feeds AI Studio."
+                                    action={
+                                        <Button component={RouterLink} to="/projects" variant="contained" size="small" startIcon={<ProjectsIcon />}>
+                                            Open projects
+                                        </Button>
+                                    }
+                                />
                             )}
                         </Stack>
                     </SectionCard>
@@ -799,7 +826,7 @@ export default function AiStudioPage() {
 
                     </AiSectionPanel>
                     <AiSectionPanel activeSection={activeSection} value="reviews">
-                    <SectionCard title="Reviews and evaluations" description="Route sensitive outputs through human approval and keep reusable benchmark datasets for prompt regression testing.">
+                    <SectionCard title="Reviews and evaluations" description="Route sensitive outputs through human approval.">
                         <Stack spacing={2} sx={{ "& > .MuiButton-root": { alignSelf: "flex-start" } }}>
                             <Stack spacing={1.25}>
                                 <Typography variant="subtitle2">Review queue</Typography>
@@ -845,7 +872,11 @@ export default function AiStudioPage() {
                                     <EmptyState icon={<ReviewIcon />} title="No reviews queued" description="Review requests created from runs will appear here." />
                                 )}
                             </Stack>
-
+                        </Stack>
+                    </SectionCard>
+                    </AiSectionPanel>
+                    <AiSectionPanel activeSection={activeSection} value="datasets">
+                    <SectionCard title="Evaluation datasets" description="Reusable benchmark datasets for prompt regression testing.">
                             <Stack spacing={1.5}>
                                 <Typography variant="subtitle2">Evaluation datasets</Typography>
                                 <TextField label="Dataset name" value={datasetForm.name} onChange={(event) => setDatasetForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
@@ -936,7 +967,6 @@ export default function AiStudioPage() {
                                     </Stack>
                                 )}
                             </Stack>
-                        </Stack>
                     </SectionCard>
                     </AiSectionPanel>
                 </Stack>

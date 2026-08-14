@@ -123,7 +123,7 @@ class AiRepository:
                     chunk_index=chunk_index,
                     content=content,
                     token_count=token_count,
-                    embedding_json=embedding,
+                    embedding_json=embedding if settings.VECTOR_WRITE_EMBEDDING_JSON else [],
                     embedding_vector=normalize_embedding_for_vector(embedding),
                 )
             )
@@ -188,6 +188,10 @@ class AiRepository:
         self.db.add(run)
         await self.db.flush()
         return run
+
+    async def get_run_by_id(self, run_id: str) -> AiRun | None:
+        result = await self.db.execute(select(AiRun).where(AiRun.id == run_id))
+        return result.scalar_one_or_none()
 
     async def get_run_for_user(self, user_id: str, run_id: str) -> AiRun | None:
         result = await self.db.execute(

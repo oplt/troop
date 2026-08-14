@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Alert,
     Box,
     Button,
     Chip,
@@ -47,7 +46,7 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
 
     const {
         data: analysis,
-        error: analysisError,
+        error: _analysisError,
     } = useQuery({
         queryKey: ["workforce", "task-analysis", taskId],
         queryFn: () => getTaskAnalysis(taskId),
@@ -58,7 +57,7 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: skillMatches,
         isLoading: isLoadingSkills,
-        error: skillsError,
+        error: _skillsError,
     } = useQuery<SkillMatch[]>({
         queryKey: ["workforce", "skill-matches", taskId],
         queryFn: () => findSkillMatches(taskId),
@@ -68,7 +67,7 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: generatedDrafts,
         isLoading: isLoadingGenerated,
-        error: generatedError,
+        error: _generatedError,
     } = useQuery<GeneratedSkillDraft[]>({
         queryKey: ["workforce", "generated-skills", taskId],
         queryFn: () => generateMissingSkills(taskId),
@@ -78,7 +77,7 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: agentMatches,
         isLoading: isLoadingAgents,
-        error: agentsError,
+        error: _agentsError,
     } = useQuery<AgentMatch[]>({
         queryKey: ["workforce", "agent-matches", taskId],
         queryFn: () => findAgentMatches(taskId),
@@ -228,12 +227,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
                         Create agent
                     </Button>
                 </Stack>
-
-                {analysisError && (
-                    <Alert severity="error">
-                        Analysis error: {(analysisError as Error).message}
-                    </Alert>
-                )}
 
                 {analysis && (
                     <>
@@ -402,12 +395,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
                     </>
                 )}
 
-                {skillsError && (
-                    <Alert severity="error">
-                        Skill matching error: {(skillsError as Error).message}
-                    </Alert>
-                )}
-
                 {generatedDrafts && generatedDrafts.length > 0 && (
                     <>
                         <Divider />
@@ -467,12 +454,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
                     </>
                 )}
 
-                {generatedError && (
-                    <Alert severity="error">
-                        Skill generation error: {(generatedError as Error).message}
-                    </Alert>
-                )}
-
                 {agentMatches && agentMatches.length > 0 && (
                     <>
                         <Divider />
@@ -522,12 +503,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
                             ))}
                         </Stack>
                     </>
-                )}
-
-                {agentsError && (
-                    <Alert severity="error">
-                        Agent matching error: {(agentsError as Error).message}
-                    </Alert>
                 )}
 
                 {!hasAnalysis && !hasSkillMatches && !hasGeneratedDrafts && !hasAgentMatches && (

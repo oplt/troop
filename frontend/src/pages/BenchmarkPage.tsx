@@ -17,6 +17,9 @@ import {
     Science as BenchmarkIcon,
     PlayArrow as RunIcon,
     CheckCircle as WinIcon,
+    EmojiEvents as LeaderboardIcon,
+    HourglassEmpty as PendingIcon,
+    FolderOpen as ProjectsIcon,
 } from "@mui/icons-material";
 import {
     createEvalRecord,
@@ -31,9 +34,12 @@ import {
     type EvalRecord,
 } from "../api/orchestration";
 import { useSnackbar } from "../app/snackbarContext";
+import { AnalyticsKpiStrip } from "../components/ui/AnalyticsKpiStrip";
 import { EmptyState } from "../components/ui/EmptyState";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StatCard } from "../components/ui/StatCard";
 import { formatDateTime } from "../utils/formatters";
 
 function winnerLabel(winner: string | null): string {
@@ -277,8 +283,22 @@ export default function BenchmarkPage() {
         },
     });
 
+    const pendingCount = evals.filter((ev) => !ev.winner).length;
+    const decidedCount = evals.filter((ev) => Boolean(ev.winner)).length;
+
     return (
-        <PageShell maxWidth="xl">
+        <PageShell maxWidth="xl" variant="browse">
+            <PageHeader
+                title="Benchmarks"
+                description="Compare agents and models on shared tasks, then rank winners on the leaderboard."
+            />
+
+            <AnalyticsKpiStrip columns={{ xs: 1, sm: 2, md: 4, lg: 4 }}>
+                <StatCard label="Benchmarks" value={evals.length} description="Eval records in this project" icon={<BenchmarkIcon />} loading={isLoading} />
+                <StatCard label="Pending" value={pendingCount} description="Awaiting a winner decision" icon={<PendingIcon />} color="warning" loading={isLoading} />
+                <StatCard label="Decided" value={decidedCount} description="A/B/tie outcomes saved" icon={<WinIcon />} color="success" loading={isLoading} />
+                <StatCard label="Leaderboard" value={leaderboard.length} description="Agents ranked by win rate" icon={<LeaderboardIcon />} color="secondary" loading={isLoading} />
+            </AnalyticsKpiStrip>
 
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "340px minmax(0, 1fr)" } }}>
                 {/* New eval form */}
@@ -398,10 +418,10 @@ export default function BenchmarkPage() {
                         <EmptyState
                             icon={<BenchmarkIcon />}
                             title="No benchmarks yet"
-                            description="Use New benchmark on the left, or open the project board and run a task first."
+                            description="Use New benchmark on the left, or open projects and run a task first."
                             action={
-                                <Button component={RouterLink} to={`/projects/${projectId}?tab=board`} variant="outlined" size="small">
-                                    Open project board
+                                <Button component={RouterLink} to="/projects" variant="contained" size="small" startIcon={<ProjectsIcon />}>
+                                    Open projects
                                 </Button>
                             }
                         />

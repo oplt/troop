@@ -50,6 +50,8 @@ import {
 } from "../api/orchestration";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
 import { useDebounce } from "../hooks/useDebounce";
@@ -57,6 +59,8 @@ import { queryKeys } from "../config/queryKeys";
 import { useSnackbar } from "../app/snackbarContext";
 import { extractApiErrorMessage } from "../utils/apiErrors";
 import { EmptyState } from "../components/ui/EmptyState";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
 import { ErrorOutline as ErrorOutlineIcon, Refresh as RefreshIcon } from "@mui/icons-material";
 
 const ENTRY_TYPES = ["note", "policy", "standard", "adr", "glossary", "convention", "preference", "routing"];
@@ -280,6 +284,11 @@ export default function SemanticMemoryPage() {
 
     return (
         <PageShell maxWidth="lg">
+            <PageHeader
+                title="Project memory"
+                description="Semantic entries, search, and approval-gated writes for this project."
+            />
+            <DensePageMobileNotice surface="Project memory" />
 
             {memoryLoadFailed && project && (
                 <Alert
@@ -303,10 +312,165 @@ export default function SemanticMemoryPage() {
                 </Alert>
             )}
 
+            <SectionCard
+                title="Semantic memory"
+                description="Searchable facts and decisions for this project (layer 2 of the memory stack). Use when agents need durable context beyond a single run."
+                action={
+                    <Button variant="contained" onClick={() => setOpen(true)}>
+                        New entry
+                    </Button>
+                }
+            >
+                <FilterToolbar>
+                    <TextField
+                        label="Search title/body"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        size="small"
+                        sx={{ flex: 1, minWidth: 200 }}
+                    />
+                    <TextField
+                        label="Vector query (optional)"
+                        value={vecQ}
+                        onChange={(e) => setVecQ(e.target.value)}
+                        size="small"
+                        sx={{ minWidth: 220, flex: 1 }}
+                        helperText="Uses embeddings when enabled in settings"
+                    />
+                </FilterToolbar>
+                {isLoading ? (
+                    <Typography color="text.secondary" sx={{ mt: 2 }}>Loading…</Typography>
+                ) : (
+                    <Box sx={{ mt: 2 }}>
+                    <ResponsiveTable
+                        isEmpty={entries.length === 0}
+                        empty={
+                            <EmptyState
+                                icon={<InfoOutlinedIcon />}
+                                title="No memory entries yet"
+                                description="Add a fact, decision, or note agents should reuse across runs."
+                                action={
+                                    <Button variant="contained" onClick={() => setOpen(true)}>
+                                        New entry
+                                    </Button>
+                                }
+                            />
+                        }
+                        table={
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Type</TableCell>
+                                <TableCell>Title</TableCell>
+                                <TableCell>Namespace</TableCell>
+                                <TableCell>Source</TableCell>
+                                <TableCell>Prov.</TableCell>
+                                <TableCell>Confidence</TableCell>
+                                <TableCell>Updated</TableCell>
+                                <TableCell>Retention</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {entries.map((row: SemanticMemoryEntry) => {
+                                const source = String(
+                                    (row.provenance as Record<string, unknown>)?.source ?? "api",
+                                );
+                                const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
+                                const confColor =
+                                    conf >= 0.75 ? "success.main" : conf >= 0.5 ? "warning.main" : "error.main";
+                                const expiryLabel = row.expires_at
+                                    ? `Expires ${formatDateTime(row.expires_at)}`
+                                    : "No expiry";
+                                return (
+                                    <TableRow key={row.id}>
+                                        <TableCell>{row.entry_type}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={600}>
+                                                {row.title}
+                                            </Typography>
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                sx={{ display: "block" }}
+                                            >
+                                                {(row.body || "").slice(0, 160)}
+                                                {(row.body || "").length > 160 ? "…" : ""}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
+                                                {row.namespace}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {source}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Tooltip title="View provenance">
+                                                <IconButton size="small" onClick={() => setProvEntry(row)} aria-label="provenance">
+                                                    <InfoOutlinedIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" sx={{ color: confColor, fontWeight: 500 }}>
+                                                {(conf * 100).toFixed(0)}%
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>{formatDateTime(row.updated_at)}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {expiryLabel}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                        }
+                        cards={
+                            <>
+                                {entries.map((row: SemanticMemoryEntry) => {
+                                    const source = String(
+                                        (row.provenance as Record<string, unknown>)?.source ?? "api",
+                                    );
+                                    const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
+                                    return (
+                                        <ResponsiveRowCard
+                                            key={row.id}
+                                            title={row.title}
+                                            meta={`${row.entry_type} · ${source} · ${Math.round(conf * 100)}%`}
+                                            actions={
+                                                <IconButton size="small" onClick={() => setProvEntry(row)} aria-label="provenance">
+                                                    <InfoOutlinedIcon fontSize="small" />
+                                                </IconButton>
+                                            }
+                                        >
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                                {row.namespace}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {(row.body || "").slice(0, 120)}
+                                                {(row.body || "").length > 120 ? "…" : ""}
+                                            </Typography>
+                                        </ResponsiveRowCard>
+                                    );
+                                })}
+                            </>
+                        }
+                    />
+                    </Box>
+                )}
+            </SectionCard>
+
+
             <CollapsibleSectionCard
                 title="Memory stack (5 layers)"
                 description="Where each layer lives in this product; drill down in sections below."
-                defaultExpanded
+                defaultExpanded={false}
                 sx={{ mb: 3 }}
             >
                 <Stack spacing={1.5}>
@@ -416,9 +580,10 @@ export default function SemanticMemoryPage() {
                 )}
             </CollapsibleSectionCard>
 
-            <SectionCard
+            <CollapsibleSectionCard
                 title="Semantic write approvals"
                 description="Queue when “Require approval for manual semantic writes” is on (and bypass is off)."
+                defaultExpanded={false}
                 sx={{ mb: 3 }}
             >
                 {semanticApprovals.length > 0 ? (
@@ -439,8 +604,10 @@ export default function SemanticMemoryPage() {
                                             {formatDateTime(a.created_at)}
                                         </Typography>
                                     </Stack>
-                                    <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
-                                        {JSON.stringify(a.payload ?? {}, null, 2).slice(0, 1200)}
+                                    <Typography variant="body2" color="text.secondary">
+                                        {String((a.payload as Record<string, unknown>)?.title
+                                            ?? (a.payload as Record<string, unknown>)?.summary
+                                            ?? a.approval_type)}
                                     </Typography>
                                     <TextField
                                         size="small"
@@ -479,11 +646,12 @@ export default function SemanticMemoryPage() {
                         ))}
                     </Stack>
                 )}
-            </SectionCard>
+            </CollapsibleSectionCard>
 
-            <SectionCard
+            <CollapsibleSectionCard
                 title="Memory automation"
                 description="Controls auto-ingest from decisions and approved agent memory, episodic second stage, retention, deep recall, and task-close promotion."
+                defaultExpanded={false}
                 sx={{ mb: 3 }}
             >
                 {memSettings ? (
@@ -710,129 +878,12 @@ export default function SemanticMemoryPage() {
                 ) : (
                     <Typography color="text.secondary">Loading settings…</Typography>
                 )}
-            </SectionCard>
+            </CollapsibleSectionCard>
 
-            <SectionCard
-                title="Semantic memory"
-                description="Searchable facts and decisions for this project (layer 2 of the memory stack). Use when agents need durable context beyond a single run."
-                action={
-                    <Button variant="contained" onClick={() => setOpen(true)}>
-                        New entry
-                    </Button>
-                }
-            >
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-                    <TextField
-                        label="Search title/body"
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        size="small"
-                        fullWidth
-                    />
-                    <TextField
-                        label="Vector query (optional)"
-                        value={vecQ}
-                        onChange={(e) => setVecQ(e.target.value)}
-                        size="small"
-                        fullWidth
-                        helperText="Uses embeddings when enabled in settings"
-                    />
-                </Stack>
-                {isLoading ? (
-                    <Typography color="text.secondary">Loading…</Typography>
-                ) : entries.length === 0 ? (
-                    <EmptyState
-                        icon={<InfoOutlinedIcon />}
-                        title="No memory entries yet"
-                        description="Add a fact, decision, or note agents should reuse across runs."
-                        action={
-                            <Button variant="contained" onClick={() => setOpen(true)}>
-                                New entry
-                            </Button>
-                        }
-                    />
-                ) : (
-                    <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Type</TableCell>
-                                <TableCell>Title</TableCell>
-                                <TableCell>Namespace</TableCell>
-                                <TableCell>Source</TableCell>
-                                <TableCell>Prov.</TableCell>
-                                <TableCell>Confidence</TableCell>
-                                <TableCell>Updated</TableCell>
-                                <TableCell>Retention</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {entries.map((row: SemanticMemoryEntry) => {
-                                const source = String(
-                                    (row.provenance as Record<string, unknown>)?.source ?? "api",
-                                );
-                                const conf = typeof row.confidence === "number" ? row.confidence : 0.5;
-                                const confColor =
-                                    conf >= 0.75 ? "success.main" : conf >= 0.5 ? "warning.main" : "error.main";
-                                const expiryLabel = row.expires_at
-                                    ? `Expires ${formatDateTime(row.expires_at)}`
-                                    : "No expiry";
-                                return (
-                                    <TableRow key={row.id}>
-                                        <TableCell>{row.entry_type}</TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight={600}>
-                                                {row.title}
-                                            </Typography>
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                                sx={{ display: "block" }}
-                                            >
-                                                {(row.body || "").slice(0, 160)}
-                                                {(row.body || "").length > 160 ? "…" : ""}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" sx={{ wordBreak: "break-all" }}>
-                                                {row.namespace}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {source}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Tooltip title="View full provenance JSON">
-                                                <IconButton size="small" onClick={() => setProvEntry(row)} aria-label="provenance">
-                                                    <InfoOutlinedIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" sx={{ color: confColor, fontWeight: 500 }}>
-                                                {(conf * 100).toFixed(0)}%
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>{formatDateTime(row.updated_at)}</TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {expiryLabel}
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                    </TableContainer>
-                )}
-            </SectionCard>
-
-            <SectionCard
+            <CollapsibleSectionCard
                 title="Conflict resolver"
                 description="Duplicate-title groups plus embedding-based near-duplicates and contradictions detected across existing entries."
+                defaultExpanded={false}
                 sx={{ mt: 3 }}
                 action={
                     <Button
@@ -929,10 +980,12 @@ export default function SemanticMemoryPage() {
                         ))}
                     </Stack>
                 )}
-            </SectionCard>
+            </CollapsibleSectionCard>
 
-            <SectionCard
+            <CollapsibleSectionCard
                 title="Episodic search"
+                description="Execution-derived snippets from runs, comments, and brainstorms."
+                defaultExpanded={false}
                 sx={{ mt: 3 }}
                 action={
                     <Button
@@ -975,9 +1028,9 @@ export default function SemanticMemoryPage() {
                         <Typography color="text.secondary">No matches.</Typography>
                     )}
                 </Stack>
-            </SectionCard>
+            </CollapsibleSectionCard>
 
-            <SectionCard title="Cold archives (manifests)" description="JSONL.gz snapshots written by the retention job." sx={{ mt: 3 }}>
+            <CollapsibleSectionCard title="Cold archives (manifests)" description="JSONL.gz snapshots written by the retention job." defaultExpanded={false} sx={{ mt: 3 }}>
                 {episodicArchives.length === 0 ? (
                     <Typography color="text.secondary">No archives yet.</Typography>
                 ) : (
@@ -1012,28 +1065,32 @@ export default function SemanticMemoryPage() {
                     </Table>
                     </TableContainer>
                 )}
-            </SectionCard>
+            </CollapsibleSectionCard>
 
             <Dialog open={Boolean(provEntry)} onClose={() => setProvEntry(null)} fullWidth maxWidth="md">
-                <DialogTitle>Provenance & metadata</DialogTitle>
+                <DialogTitle>Provenance</DialogTitle>
                 <DialogContent>
                     {provEntry ? (
-                        <Stack spacing={1} sx={{ mt: 1 }}>
+                        <Stack spacing={1.25} sx={{ mt: 1 }}>
+                            <Typography variant="subtitle2">{provEntry.title}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Source: {String((provEntry.provenance as Record<string, unknown>)?.source ?? "api")}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Confidence: {typeof provEntry.confidence === "number" ? `${Math.round(provEntry.confidence * 100)}%` : "—"}
+                            </Typography>
+                            {provEntry.source_run_id ? (
+                                <Typography variant="body2" color="text.secondary">
+                                    Run: {provEntry.source_run_id}
+                                </Typography>
+                            ) : null}
+                            {provEntry.source_task_id ? (
+                                <Typography variant="body2" color="text.secondary">
+                                    Task: {provEntry.source_task_id}
+                                </Typography>
+                            ) : null}
                             <Typography variant="caption" color="text.secondary">
                                 Entry {provEntry.id}
-                            </Typography>
-                            <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0 }}>
-                                {JSON.stringify(
-                                    {
-                                        provenance: provEntry.provenance,
-                                        metadata: provEntry.metadata,
-                                        source_task_id: provEntry.source_task_id,
-                                        source_run_id: provEntry.source_run_id,
-                                        confidence: provEntry.confidence,
-                                    },
-                                    null,
-                                    2,
-                                )}
                             </Typography>
                         </Stack>
                     ) : null}

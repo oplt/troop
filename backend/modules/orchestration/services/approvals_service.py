@@ -35,7 +35,7 @@ class OrchestrationApprovalsServiceMixin:
         return await self.repo.list_approvals(user.id)
 
     async def decide_approval(self, user: User, approval_id: str, status: str, reason: str | None):
-        approval = await self.repo.get_approval(user.id, approval_id)
+        approval = await self.repo.get_approval_for_update(user.id, approval_id)
         if not approval:
             raise HTTPException(status_code=404, detail="Approval request not found")
         if approval.status != "pending":
@@ -238,7 +238,12 @@ class OrchestrationApprovalsServiceMixin:
                 submit_orchestration_run,
             )
 
-            submit_orchestration_run(resume_run_id)
+            owner_id = user.id
+            if approval.project_id:
+                project = await self.db.get(OrchestratorProject, approval.project_id)
+                if project is not None:
+                    owner_id = project.owner_id
+            submit_orchestration_run(resume_run_id, expected_owner_id=owner_id)
         try:
             from backend.modules.workforce.services.workflow_hooks import on_approval_decided
 

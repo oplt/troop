@@ -27,15 +27,25 @@ class OrchestrationWorkerRuntime:
                 return
             await operation()
 
-    async def execute(self, run_id: str) -> None:
+    async def execute(self, run_id: str, *, expected_owner_id: str | None = None) -> None:
         from backend.db.session import SessionLocal
 
         async with SessionLocal() as db:
             service = OrchestrationService(db)
             try:
-                run = await service.execute_run(run_id)
-            except Exception:
+                run = await service.execute_run(run_id, expected_owner_id=expected_owner_id)
+            except Exception as exc:
                 record_run_outcome("orchestration", "worker_error")
+                # SoftTimeLimitExceeded is not always importable in eager/dev; match by name.
+                if type(exc).__name__ == "SoftTimeLimitExceeded" or "SoftTimeLimit" in type(exc).__name__:
+                    try:
+                        run = await service.repo.get_run_for_worker(run_id)
+                        if run is not None and run.status == "in_progress":
+                            run.status = "failed"
+                            run.error_message = "Celery soft time limit exceeded"
+                            await service.db.commit()
+                    except Exception:
+                        logger.exception("soft_time_limit_recovery_failed run_id=%s", run_id)
                 raise
             record_run_outcome("orchestration", str(getattr(run, "status", "unknown")))
 
@@ -90,6 +100,13 @@ class OrchestrationWorkerRuntime:
             service = OrchestrationService(db)
             await service.embed_semantic_memory_entry_worker(entry_id)
 
+    async def execute_ai_studio_run(self, run_id: str) -> None:
+        from backend.db.session import SessionLocal
+        from backend.modules.ai.service import AiService
+
+        async with SessionLocal() as db:
+            await AiService(db).execute_queued_ai_run(run_id)
+
     async def scan_sla_escalations(self) -> None:
         async def operation() -> None:
             from backend.db.session import SessionLocal
@@ -99,6 +116,16 @@ class OrchestrationWorkerRuntime:
                 await service.run_global_sla_escalation_scan()
 
         await self._run_singleton("sla_escalation_scan", operation)
+
+    async def recover_stale_in_progress_runs(self) -> None:
+        async def operation() -> None:
+            from backend.db.session import SessionLocal
+
+            async with SessionLocal() as db:
+                service = OrchestrationService(db)
+                await service.recover_stale_in_progress_runs()
+
+        await self._run_singleton("stale_in_progress_recovery", operation)
 
     async def process_memory_ingest_jobs(self) -> None:
         async def operation() -> None:
@@ -213,8 +240,8 @@ def run_code_execution(
     retry_jitter=True,
     max_retries=2,
 )
-def run_orchestration_task(run_id: str) -> None:
-    asyncio.run(OrchestrationWorkerRuntime().execute(run_id))
+def run_orchestration_task(run_id: str, expected_owner_id: str | None = None) -> None:
+    asyncio.run(OrchestrationWorkerRuntime().execute(run_id, expected_owner_id=expected_owner_id))
 
 
 @celery_app.task(
@@ -292,6 +319,33 @@ def sla_escalation_scan() -> None:
 )
 def embed_semantic_memory_entry(entry_id: str) -> None:
     asyncio.run(OrchestrationWorkerRuntime().embed_semantic_memory_entry(entry_id))
+
+
+@celery_app.task(
+    name="backend.workers.orchestration.execute_ai_studio_run",
+    autoretry_for=CELERY_TRANSIENT_EXCEPTIONS,
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=2,
+)
+def execute_ai_studio_run(run_id: str) -> None:
+    asyncio.run(OrchestrationWorkerRuntime().execute_ai_studio_run(run_id))
+
+
+def queue_ai_studio_run(run_id: str) -> None:
+    if settings.CELERY_TASK_ALWAYS_EAGER:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(OrchestrationWorkerRuntime().execute_ai_studio_run(run_id))
+        else:
+            loop.create_task(OrchestrationWorkerRuntime().execute_ai_studio_run(run_id))
+        return
+    execute_ai_studio_run.apply_async(
+        args=[run_id],
+        queue=settings.CELERY_QUEUE_MODEL_GATEWAY,
+        headers=task_context_headers(),
+    )
 
 
 @celery_app.task(
@@ -402,17 +456,26 @@ def queue_workflow_delay_resume(
     )
 
 
-def queue_orchestration_run(run_id: str) -> None:
+def queue_orchestration_run(run_id: str, *, expected_owner_id: str | None = None) -> None:
     if settings.CELERY_TASK_ALWAYS_EAGER:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            asyncio.run(OrchestrationWorkerRuntime().execute(run_id))
+            asyncio.run(
+                OrchestrationWorkerRuntime().execute(
+                    run_id, expected_owner_id=expected_owner_id
+                )
+            )
         else:
-            loop.create_task(OrchestrationWorkerRuntime().execute(run_id))
+            loop.create_task(
+                OrchestrationWorkerRuntime().execute(
+                    run_id, expected_owner_id=expected_owner_id
+                )
+            )
         return
     run_orchestration_task.apply_async(
         args=[run_id],
+        kwargs={"expected_owner_id": expected_owner_id},
         queue=settings.CELERY_TASK_DEFAULT_QUEUE,
         headers={**task_context_headers(), "run_id": run_id},
     )

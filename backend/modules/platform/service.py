@@ -29,6 +29,7 @@ from backend.modules.platform.models import (
     WebhookEndpoint,
 )
 from backend.modules.platform.repository import PlatformRepository
+from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
 from backend.modules.platform.schemas import (
     EffectiveFeatureFlagResponse,
     ModuleCatalogItem,
@@ -510,20 +511,21 @@ class PlatformService:
         target_url: str,
         description: str | None,
         events: list[str],
-    ) -> WebhookEndpoint:
+    ) -> tuple[WebhookEndpoint, str]:
         await self.ensure_module_enabled("webhooks")
         self._validate_webhook_target(target_url)
+        signing_secret = secrets.token_urlsafe(20)
         webhook = await self.repo.create_webhook(
             user_id=user.id,
             target_url=target_url,
             description=description,
-            secret=secrets.token_urlsafe(24),
+            secret=encrypt_secret(signing_secret),
             is_active=True,
             events_json=events,
         )
         await self.db.commit()
         await self.db.refresh(webhook)
-        return webhook
+        return webhook, signing_secret
 
     async def update_webhook_for_user(
         self, user: User, webhook_id: str, payload: dict
@@ -569,7 +571,8 @@ class PlatformService:
             "target_user_id": user.id,
         }
         raw_body = json.dumps(payload).encode("utf-8")
-        signature = hmac.new(webhook.secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+        signing_secret = self._webhook_signing_secret(webhook.secret)
+        signature = hmac.new(signing_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
 
         try:
             async with managed_http_client("platform", timeout_seconds=10) as client:
@@ -742,6 +745,11 @@ class PlatformService:
     @staticmethod
     def _hash_secret(raw_value: str) -> str:
         return hashlib.sha256(raw_value.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _webhook_signing_secret(stored: str) -> str:
+        """Decrypt at-rest webhook secret; accept legacy plaintext rows."""
+        return decrypt_secret(stored) or stored
 
     @staticmethod
     def _validate_webhook_target(target_url: str) -> None:

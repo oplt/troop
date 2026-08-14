@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
@@ -40,8 +40,8 @@ import { ProfileContent } from "./ProfilePage";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime } from "../utils/formatters";
-import AdminPlatformPage from "./AdminPlatformPage";
-import AdminUsersPage from "./AdminUsersPage";
+const AdminPlatformPage = lazy(() => import("./AdminPlatformPage"));
+const AdminUsersPage = lazy(() => import("./AdminUsersPage"));
 
 type DatabaseSettingDrafts = Record<
     string,
@@ -213,6 +213,7 @@ function AdminSettingsContent({
         description: "",
     });
     const [deleteTarget, setDeleteTarget] = useState<DatabaseSetting | null>(null);
+    const [leaveTabTarget, setLeaveTabTarget] = useState<SettingsTabValue | null>(null);
     const databaseDirty = databaseSettings.some((item) => {
         const draft = databaseDrafts[item.id];
         if (!draft) return false;
@@ -221,8 +222,8 @@ function AdminSettingsContent({
     const requestTabChange = (nextTab: SettingsTabValue) => {
         if (nextTab === activeTab) return;
         if (databaseDirty && activeTab === "database") {
-            const ok = window.confirm("You have unsaved parameter edits. Leave without saving?");
-            if (!ok) return;
+            setLeaveTabTarget(nextTab);
+            return;
         }
         onTabChange(nextTab);
     };
@@ -306,9 +307,13 @@ function AdminSettingsContent({
                     ) : activeTab === "github_sync" ? (
                         <GithubSyncPanel />
                     ) : activeTab === "platform" ? (
-                        <AdminPlatformPage />
+                        <Suspense fallback={<Skeleton variant="rounded" height={320} sx={{ borderRadius: 1 }} />}>
+                            <AdminPlatformPage />
+                        </Suspense>
                     ) : activeTab === "users" ? (
-                        <AdminUsersPage />
+                        <Suspense fallback={<Skeleton variant="rounded" height={320} sx={{ borderRadius: 1 }} />}>
+                            <AdminUsersPage />
+                        </Suspense>
                     ) : activeTab === "companies" ? (
                         <CompaniesPanel />
                     ) : activeTab === "profile" ? (
@@ -499,6 +504,20 @@ function AdminSettingsContent({
                     });
                 }}
             />
+            <ConfirmDestructiveDialog
+                open={Boolean(leaveTabTarget)}
+                title="Leave without saving?"
+                description="You have unsaved parameter edits. Leave this tab without saving?"
+                confirmLabel="Leave"
+                cancelLabel="Stay"
+                confirmColor="primary"
+                onClose={() => setLeaveTabTarget(null)}
+                onConfirm={() => {
+                    if (!leaveTabTarget) return;
+                    onTabChange(leaveTabTarget);
+                    setLeaveTabTarget(null);
+                }}
+            />
         </PageShell>
     );
 }
@@ -508,7 +527,7 @@ export default function AdminSettingsPage() {
     const requestedTab = searchParams.get("tab");
     const normalizedRequestedTab =
         requestedTab === "ai" ? "providers" :
-            requestedTab === "github" ? "github_sync" :
+            requestedTab === "github" || requestedTab === "integrations" ? "github_sync" :
                 requestedTab;
     const {
         data: databaseSettings,

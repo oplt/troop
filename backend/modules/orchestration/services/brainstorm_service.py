@@ -267,7 +267,8 @@ class OrchestrationBrainstormServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(run.id)
+        project = await self.get_project(user, brainstorm.project_id)
+        submit_orchestration_run(run.id, expected_owner_id=project.owner_id)
         return run
 
     async def promote_brainstorm_to_tasks(self, user: User, brainstorm_id: str):
@@ -1015,10 +1016,24 @@ class OrchestrationBrainstormServiceMixin:
             raise RuntimeError("Debate mode requires at least two agents")
         provider = await self._resolve_provider_for_run(run, moderator or participants[0])
         prompt = await self._build_task_prompt(run, moderator, prefix="Moderate a structured two-sided debate.")
-        statements: list[dict[str, Any]] = []
-        prior = ""
+        statements: list[dict[str, Any]] = list(
+            self._workflow_checkpoint_artifact(run, "debate.statements") or []
+        )
+        prior = str(statements[-1].get("text") or "") if statements else ""
         for round_number in range(1, 3):
             for side, agent in enumerate(participants[:2], start=1):
+                existing = next(
+                    (
+                        item
+                        for item in statements
+                        if int(item.get("round") or 0) == round_number
+                        and str(item.get("agent_id") or "") == str(agent.id)
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    prior = str(existing.get("text") or prior)
+                    continue
                 _, result = await self._execute_with_routing(
                     run,
                     provider=provider,
@@ -1032,29 +1047,61 @@ class OrchestrationBrainstormServiceMixin:
                 )
                 prior = result.output_text
                 statements.append({"round": round_number, "agent_id": agent.id, "text": result.output_text})
+                self._set_workflow_checkpoint_artifact(
+                    run, key="debate.statements", value=statements
+                )
+                await self._mark_run_step(
+                    run,
+                    step_id=f"debate_r{round_number}_s{side}",
+                    status="completed",
+                    message=f"Completed debate round {round_number} side {side}.",
+                    metadata={"agent_id": agent.id, "round": round_number},
+                )
                 await self._emit_run_event(
                     run,
                     event_type="debate_argument",
                     message=f"Round {round_number} argument from {agent.name}.",
                     payload={"agent_id": agent.id},
                 )
-        _, moderator_result = await self._execute_with_routing(
-            run,
-            provider=provider,
-            agent=moderator,
-            system_prompt=(moderator.system_prompt if moderator else "You are a moderator."),
-            user_prompt=(
-                "Resolve this debate and provide the final recommendation.\n\n"
-                f"{json.dumps(statements, indent=2)}"
-            ),
-            purpose="debate moderation",
-            response_format=self._structured_output_response_format(moderator),
-        )
-        run.output_payload_json = {
-            "summary": moderator_result.output_text[:1200],
-            "final_output": moderator_result.output_text,
-            "debate_messages": statements,
-        }
+        moderator_payload = self._workflow_checkpoint_artifact(run, "debate.moderator")
+        if isinstance(moderator_payload, dict) and moderator_payload.get("final_output"):
+            run.output_payload_json = {
+                "summary": str(moderator_payload.get("summary") or "")[:1200],
+                "final_output": str(moderator_payload.get("final_output") or ""),
+                "debate_messages": statements,
+            }
+        else:
+            _, moderator_result = await self._execute_with_routing(
+                run,
+                provider=provider,
+                agent=moderator,
+                system_prompt=(moderator.system_prompt if moderator else "You are a moderator."),
+                user_prompt=(
+                    "Resolve this debate and provide the final recommendation.\n\n"
+                    f"{json.dumps(statements, indent=2)}"
+                ),
+                purpose="debate moderation",
+                response_format=self._structured_output_response_format(moderator),
+            )
+            run.output_payload_json = {
+                "summary": moderator_result.output_text[:1200],
+                "final_output": moderator_result.output_text,
+                "debate_messages": statements,
+            }
+            self._set_workflow_checkpoint_artifact(
+                run,
+                key="debate.moderator",
+                value={
+                    "summary": run.output_payload_json["summary"],
+                    "final_output": run.output_payload_json["final_output"],
+                },
+            )
+            await self._mark_run_step(
+                run,
+                step_id="debate_moderate",
+                status="completed",
+                message="Completed debate moderation.",
+            )
         await self._write_artifact(
             run,
             kind="debate_transcript",

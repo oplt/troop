@@ -30,6 +30,13 @@ from backend.modules.orchestration.models import (
     ApprovalRequest,
     TaskRun,
 )
+from backend.modules.github.http_client import (
+    app_get_installation,
+    auth_headers as github_auth_headers,
+    connection_mode as github_connection_mode,
+    github_request,
+    installation_token as github_installation_token,
+)
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret, mask_secret
 from backend.modules.projects.orchestration_models import (
     OrchestratorProject,
@@ -286,9 +293,13 @@ class OrchestrationGithubServiceMixin:
             connection, repository, payload.get("issue_numbers", [])
         )
         results = []
+        links_by_number = await self.repo.map_issue_links_by_repo_and_numbers(
+            repository.id, [int(issue["number"]) for issue in issues]
+        )
+        next_position = await self.repo.get_next_task_position(project.id)
         for issue in issues:
             issue_labels = [item["name"] for item in issue.get("labels", [])]
-            link = await self.repo.get_issue_link_by_repo_and_number(repository.id, issue["number"])
+            link = links_by_number.get(int(issue["number"]))
             if link is None:
                 link = await self.repo.create_issue_link(
                     repository_id=repository.id,
@@ -306,6 +317,7 @@ class OrchestrationGithubServiceMixin:
                         "imported_at": datetime.now(UTC).isoformat(),
                     },
                 )
+                links_by_number[int(issue["number"])] = link
             else:
                 link.title = issue["title"]
                 link.body = issue.get("body")
@@ -354,14 +366,16 @@ class OrchestrationGithubServiceMixin:
                             },
                         },
                     },
-                    position=await self.repo.get_next_task_position(project.id),
+                    position=next_position,
                 )
+                next_position += 1
                 link.task_id = task.id
                 task.github_issue_link_id = link.id
             else:
                 if task.project_id != project.id:
                     task.project_id = project.id
-                    task.position = await self.repo.get_next_task_position(project.id)
+                    task.position = next_position
+                    next_position += 1
                 task.title = issue["title"][:255]
                 task.description = issue.get("body")
                 task.source = "github"
@@ -828,73 +842,23 @@ class OrchestrationGithubServiceMixin:
         return response.json()["login"]
 
     def _github_connection_mode(self, connection: GithubConnection) -> str:
-        return str((connection.metadata_json or {}).get("connection_mode") or "token")
+        return github_connection_mode(connection)
 
     def _github_app_jwt(self) -> str:
-        if not settings.GITHUB_APP_ID or not settings.GITHUB_APP_PRIVATE_KEY:
-            raise HTTPException(status_code=503, detail="GitHub App credentials are not configured")
-        now = int(time.time())
-        return jwt.encode(
-            {"iat": now - 60, "exp": now + 540, "iss": settings.GITHUB_APP_ID},
-            settings.GITHUB_APP_PRIVATE_KEY,
-            algorithm="RS256",
-        )
+        from backend.modules.github import http_client
+
+        return http_client.app_jwt()
 
     async def _github_app_get_installation(
         self, installation_id: int, *, api_url: str = "https://api.github.com"
     ) -> dict[str, Any]:
-        async with managed_http_client(
-            "github",
-            timeout_seconds=30.0,
-            base_url=api_url,
-        ) as client:
-            response = await client.get(
-                f"/app/installations/{installation_id}",
-                headers=external_headers(
-                    {
-                        "Authorization": f"Bearer {self._github_app_jwt()}",
-                        "Accept": "application/vnd.github+json",
-                    }
-                ),
-            )
-        if response.status_code >= 400:
-            raise HTTPException(status_code=502, detail="Failed to read GitHub App installation")
-        return response.json()
+        return await app_get_installation(installation_id, api_url=api_url)
 
     async def _github_installation_token(self, connection: GithubConnection) -> str:
-        installation_id = int((connection.metadata_json or {}).get("installation_id") or 0)
-        if installation_id <= 0:
-            raise HTTPException(
-                status_code=422, detail="GitHub App connection is missing installation_id"
-            )
-        async with managed_http_client(
-            "github",
-            timeout_seconds=30.0, base_url=connection.api_url
-        ) as client:
-            response = await client.post(
-                f"/app/installations/{installation_id}/access_tokens",
-                headers=external_headers(
-                    {
-                        "Authorization": f"Bearer {self._github_app_jwt()}",
-                        "Accept": "application/vnd.github+json",
-                    }
-                ),
-            )
-        if response.status_code >= 400:
-            raise HTTPException(status_code=502, detail="Failed to mint GitHub installation token")
-        return str(response.json()["token"])
+        return await github_installation_token(connection)
 
     async def _github_auth_headers(self, connection: GithubConnection) -> dict[str, str]:
-        token = (
-            await self._github_installation_token(connection)
-            if self._github_connection_mode(connection) == "github_app"
-            else decrypt_secret(connection.encrypted_token)
-        )
-        return {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
+        return await github_auth_headers(connection)
 
     async def _github_request(
         self,
@@ -905,18 +869,13 @@ class OrchestrationGithubServiceMixin:
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        headers = await self._github_auth_headers(connection)
-        async with managed_http_client(
-            "github",
-            timeout_seconds=30.0, base_url=connection.api_url
-        ) as client:
-            return await client.request(
-                method,
-                path,
-                headers=external_headers(headers),
-                params=params,
-                json=json_body,
-            )
+        return await github_request(
+            connection,
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+        )
 
     async def _list_github_repositories(self, connection: GithubConnection) -> list[dict[str, Any]]:
         if self._github_connection_mode(connection) == "github_app":
@@ -1808,7 +1767,7 @@ class OrchestrationGithubServiceMixin:
             submit_orchestration_run,
         )
 
-        submit_orchestration_run(run.id)
+        submit_orchestration_run(run.id, expected_owner_id=project.owner_id)
 
     async def _process_webhook_issue_comment(self, sync_event, payload: dict[str, Any]) -> None:
         repository = await self._ensure_repository_from_webhook_payload(payload)

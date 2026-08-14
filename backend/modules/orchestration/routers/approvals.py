@@ -6,12 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.api.deps.orchestration import get_approvals_service
+from backend.core.error_payloads import error_payload
+from backend.core.logging import get_logger
 from backend.core.schemas import RequestModel
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
 from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.schemas import ApprovalDecision, ApprovalResponse
 from backend.modules.orchestration.services.approvals_domain import ApprovalsService
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -89,7 +93,19 @@ async def edit_email_approval(
             changes=payload.model_dump(),
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        logger.warning(
+            "email_approval_edit_rejected approval_id=%s user_id=%s detail=%s",
+            approval_id,
+            current_user.id,
+            str(exc)[:300],
+        )
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=error_payload(
+                code="APPROVAL_EDIT_CONFLICT",
+                message="Approval cannot be edited in its current state",
+            ),
+        ) from exc
     return _approval_response(approval)
 
 

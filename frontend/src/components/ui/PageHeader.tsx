@@ -23,7 +23,7 @@ export function PageHeader({ eyebrow, title, description, actions }: PageHeaderP
                         {eyebrow}
                     </Typography>
                 )}
-                <Typography variant="h3" sx={{ overflowWrap: "anywhere" }}>
+                <Typography variant="h3" component="h1" sx={{ overflowWrap: "anywhere" }}>
                     {title}
                 </Typography>
                 {description && (

@@ -1,13 +1,14 @@
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Alert,
     Box,
     Button,
     Chip,
     FormControlLabel,
-    Skeleton,
+    MenuItem,
     Stack,
     Switch,
+    TextField,
     Typography,
 } from "@mui/material";
 import {
@@ -25,6 +26,9 @@ import {
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { InspectorSplit } from "../components/ui/InspectorSplit";
+import { QueryState } from "../components/ui/QueryState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { queryKeys } from "../config/queryKeys";
@@ -76,6 +80,8 @@ function PreferenceItem({
 
 export default function NotificationsPage() {
     const queryClient = useQueryClient();
+    const [search, setSearch] = useState("");
+    const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
     const { data: notifications, isLoading, error } = useQuery({
         queryKey: queryKeys.notifications.root,
         queryFn: getNotifications,
@@ -102,6 +108,18 @@ export default function NotificationsPage() {
         prefs?.marketing_enabled,
     ].filter(Boolean).length;
 
+    const filteredNotifications = useMemo(() => {
+        const items = notifications ?? [];
+        const q = search.trim().toLowerCase();
+        return items.filter((notification) => {
+            if (readFilter === "unread" && notification.is_read) return false;
+            if (readFilter === "read" && !notification.is_read) return false;
+            if (!q) return true;
+            return [notification.title, notification.body, notification.type]
+                .some((value) => String(value ?? "").toLowerCase().includes(q));
+        });
+    }, [notifications, readFilter, search]);
+
     return (
         <PageShell maxWidth="xl">
             <PageHeader
@@ -109,6 +127,29 @@ export default function NotificationsPage() {
                 title="Notifications"
                 description="Review recent activity and choose how Troop should reach you."
             />
+
+            <FilterToolbar>
+                <TextField
+                    label="Search"
+                    size="small"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Title or body"
+                    sx={{ minWidth: { sm: 220 }, flex: 1 }}
+                />
+                <TextField
+                    select
+                    label="Read state"
+                    size="small"
+                    value={readFilter}
+                    onChange={(e) => setReadFilter(e.target.value as "all" | "unread" | "read")}
+                    sx={{ minWidth: 160 }}
+                >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="unread">Unread</MenuItem>
+                    <MenuItem value="read">Read</MenuItem>
+                </TextField>
+            </FilterToolbar>
 
             <Box
                 sx={{
@@ -141,118 +182,119 @@ export default function NotificationsPage() {
                 />
             </Box>
 
-            <Box
-                sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.25fr) minmax(320px, 0.85fr)" },
-                }}
-            >
-                <SectionCard title="Inbox" description="Messages are sorted for fast scanning and clear read state.">
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {error instanceof Error ? error.message : "Couldn't load notifications. Refresh to retry."}
-                        </Alert>
-                    )}
-
-                    {isLoading ? (
-                        <Stack spacing={1.5}>
-                            {Array.from({ length: 5 }).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" height={102} sx={{ borderRadius: 4 }} />
-                            ))}
-                        </Stack>
-                    ) : notifications && notifications.length > 0 ? (
-                        <Stack spacing={1.5}>
-                            {notifications.map((notification) => {
-                                const isUpdatingThisItem =
-                                    markOneMutation.isPending &&
-                                    markOneMutation.variables === notification.id;
-                                return (
-                                    <Box
-                                        key={notification.id}
-                                        sx={(theme) => ({
-                                            p: 2.25,
-                                            borderRadius: 4,
-                                            border: `1px solid ${theme.palette.divider}`,
-                                            backgroundColor: notification.is_read
-                                                ? alpha(theme.palette.background.paper, 0.68)
-                                                : alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.06),
-                                        })}
-                                    >
-                                        <Stack spacing={1.25}>
-                                            <Stack
-                                                direction={{ xs: "column", sm: "row" }}
-                                                justifyContent="space-between"
-                                                spacing={1.5}
-                                            >
-                                                <Box>
-                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                                                        <Typography variant="subtitle2">{notification.title}</Typography>
-                                                        <Chip label={humanizeKey(notification.type)} size="small" variant="outlined" />
-                                                        {!notification.is_read && <Chip label="New" size="small" color="primary" />}
+            <InspectorSplit
+                hideSecondaryOnMobile={false}
+                secondaryWidth={360}
+                primary={
+                    <SectionCard title="Inbox" description="Messages are sorted for fast scanning and clear read state.">
+                        <QueryState
+                            loading={isLoading}
+                            error={error}
+                            onRetry={() => {
+                                void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root });
+                            }}
+                        >
+                            {notifications && notifications.length > 0 ? (
+                                filteredNotifications.length > 0 ? (
+                                    <Stack spacing={1.5}>
+                                        {filteredNotifications.map((notification) => {
+                                            const isUpdatingThisItem =
+                                                markOneMutation.isPending &&
+                                                markOneMutation.variables === notification.id;
+                                            return (
+                                                <Box
+                                                    key={notification.id}
+                                                    sx={(theme) => ({
+                                                        p: 2.25,
+                                                        borderRadius: 4,
+                                                        border: `1px solid ${theme.palette.divider}`,
+                                                        backgroundColor: notification.is_read
+                                                            ? alpha(theme.palette.background.paper, 0.68)
+                                                            : alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.06),
+                                                    })}
+                                                >
+                                                    <Stack spacing={1.25}>
+                                                        <Stack
+                                                            direction={{ xs: "column", sm: "row" }}
+                                                            justifyContent="space-between"
+                                                            spacing={1.5}
+                                                        >
+                                                            <Box>
+                                                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                                    <Typography variant="subtitle2">{notification.title}</Typography>
+                                                                    <Chip label={humanizeKey(notification.type)} size="small" variant="outlined" />
+                                                                    {!notification.is_read && <Chip label="New" size="small" color="primary" />}
+                                                                </Stack>
+                                                            </Box>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {formatDateTime(notification.created_at)}
+                                                            </Typography>
+                                                        </Stack>
+                                                        {notification.body && (
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                {notification.body}
+                                                            </Typography>
+                                                        )}
+                                                        {!notification.is_read && (
+                                                            <Box>
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    disabled={isUpdatingThisItem}
+                                                                    onClick={() => markOneMutation.mutate(notification.id)}
+                                                                >
+                                                                    {isUpdatingThisItem ? "Saving..." : "Mark as read"}
+                                                                </Button>
+                                                            </Box>
+                                                        )}
                                                     </Stack>
                                                 </Box>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {formatDateTime(notification.created_at)}
-                                                </Typography>
-                                            </Stack>
-                                            {notification.body && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {notification.body}
-                                                </Typography>
-                                            )}
-                                            {!notification.is_read && (
-                                                <Box>
-                                                    <Button
-                                                        size="small"
-                                                        variant="outlined"
-                                                        disabled={isUpdatingThisItem}
-                                                        onClick={() => markOneMutation.mutate(notification.id)}
-                                                    >
-                                                        {isUpdatingThisItem ? "Saving..." : "Mark as read"}
-                                                    </Button>
-                                                </Box>
-                                            )}
-                                        </Stack>
-                                    </Box>
-                                );
-                            })}
+                                            );
+                                        })}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No notifications match the current filters.
+                                    </Typography>
+                                )
+                            ) : (
+                                <EmptyState
+                                    icon={<NotificationsActiveIcon />}
+                                    title="Inbox is clear"
+                                    description="You have no notifications yet. New product updates and account events will appear here."
+                                />
+                            )}
+                        </QueryState>
+                    </SectionCard>
+                }
+                secondary={
+                    <SectionCard title="Delivery preferences" description="Choose how you want this workspace to reach you.">
+                        <Stack spacing={1.5}>
+                            <PreferenceItem
+                                label="Email notifications"
+                                description="Receive operational updates and account messages in your inbox."
+                                checked={prefs?.email_enabled ?? true}
+                                disabled={prefsMutation.isPending}
+                                onChange={(nextValue) => prefsMutation.mutate({ email_enabled: nextValue })}
+                            />
+                            <PreferenceItem
+                                label="Push notifications"
+                                description="Surface urgent activity directly inside the app experience."
+                                checked={prefs?.push_enabled ?? true}
+                                disabled={prefsMutation.isPending}
+                                onChange={(nextValue) => prefsMutation.mutate({ push_enabled: nextValue })}
+                            />
+                            <PreferenceItem
+                                label="Marketing emails"
+                                description="Get launch announcements, feature roundups, and educational updates."
+                                checked={prefs?.marketing_enabled ?? false}
+                                disabled={prefsMutation.isPending}
+                                onChange={(nextValue) => prefsMutation.mutate({ marketing_enabled: nextValue })}
+                            />
                         </Stack>
-                    ) : (
-                        <EmptyState
-                            icon={<NotificationsActiveIcon />}
-                            title="Inbox is clear"
-                            description="You have no notifications yet. New product updates and account events will appear here."
-                        />
-                    )}
-                </SectionCard>
-
-                <SectionCard title="Delivery preferences" description="Choose how you want this workspace to reach you.">
-                    <Stack spacing={1.5}>
-                        <PreferenceItem
-                            label="Email notifications"
-                            description="Receive operational updates and account messages in your inbox."
-                            checked={prefs?.email_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ email_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Push notifications"
-                            description="Surface urgent activity directly inside the app experience."
-                            checked={prefs?.push_enabled ?? true}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ push_enabled: nextValue })}
-                        />
-                        <PreferenceItem
-                            label="Marketing emails"
-                            description="Get launch announcements, feature roundups, and educational updates."
-                            checked={prefs?.marketing_enabled ?? false}
-                            disabled={prefsMutation.isPending}
-                            onChange={(nextValue) => prefsMutation.mutate({ marketing_enabled: nextValue })}
-                        />
-                    </Stack>
-                </SectionCard>
-            </Box>
+                    </SectionCard>
+                }
+            />
         </PageShell>
     );
 }

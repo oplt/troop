@@ -4,7 +4,6 @@ import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
     Box,
     Button,
-    Chip,
     Dialog,
     DialogActions,
     DialogContent,
@@ -15,15 +14,8 @@ import {
     InputLabel,
     LinearProgress,
     MenuItem,
-    Paper,
     Select,
     Stack,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     TextField,
     Tooltip,
     Typography,
@@ -41,6 +33,7 @@ import {
     type SkillScope,
 } from "../api/workforce";
 import { useSnackbar } from "../app/snackbarContext";
+import { CatalogCard } from "../components/ui/CatalogCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -114,36 +107,6 @@ export default function SkillsPage() {
         const matchesScope = scopeFilter === "all" || skill.scope === scopeFilter;
         return matchesSearch && matchesScope;
     });
-
-    const getScopeColor = (scope: SkillScope) => {
-        switch (scope) {
-            case "task":
-                return "default";
-            case "project":
-                return "info";
-            case "organization":
-                return "success";
-            case "template":
-                return "warning";
-            case "global":
-                return "error";
-            default:
-                return "default";
-        }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "active":
-                return "success";
-            case "draft":
-                return "warning";
-            case "deprecated":
-                return "error";
-            default:
-                return "default";
-        }
-    };
 
     return (
         <PageShell maxWidth="lg">
@@ -220,107 +183,56 @@ export default function SkillsPage() {
                         }
                     />
                 ) : (
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Purpose</TableCell>
-                                    <TableCell>Scope</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Capabilities</TableCell>
-                                    <TableCell>Version</TableCell>
-                                    <TableCell>Updated</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredSkills.map((skill) => (
-                                    <TableRow key={skill.id} hover>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight={600}>
-                                                {skill.name}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {skill.slug}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography
-                                                variant="body2"
-                                                color="text.secondary"
-                                                sx={{
-                                                    maxWidth: 300,
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                }}
-                                            >
-                                                {skill.purpose}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={skill.scope}
-                                                size="small"
-                                                color={getScopeColor(skill.scope)}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={skill.status}
-                                                size="small"
-                                                color={getStatusColor(skill.status)}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                                                {skill.capabilities.slice(0, 2).map((cap) => (
-                                                    <Chip key={cap} label={cap} size="small" />
-                                                ))}
-                                                {skill.capabilities.length > 2 && (
-                                                    <Chip
-                                                        label={`+${skill.capabilities.length - 2}`}
-                                                        size="small"
-                                                        variant="outlined"
-                                                    />
-                                                )}
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" color="text.secondary">
-                                                v{skill.version}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {formatDateTime(skill.updated_at)}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                                <Tooltip title="View details">
-                                                    <IconButton size="small">
-                                                        <ViewIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                {skill.scope !== "organization" && (
-                                                    <Tooltip title="Promote skill">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenPromote(skill)}
-                                                        >
-                                                            <PromoteIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                            </Stack>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gap: 2,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                        }}
+                    >
+                        {filteredSkills.map((skill) => (
+                            <CatalogCard
+                                key={skill.id}
+                                title={skill.name}
+                                description={skill.purpose || skill.slug}
+                                scope={skill.scope}
+                                tags={[
+                                    skill.status,
+                                    ...skill.capabilities.slice(0, 3),
+                                    ...(skill.capabilities.length > 3
+                                        ? [`+${skill.capabilities.length - 3}`]
+                                        : []),
+                                    `v${skill.version}`,
+                                ]}
+                                primaryCta={{
+                                    label: "Open",
+                                    onClick: () => navigate(`/skills/builder?skill=${skill.id}`),
+                                }}
+                                secondaryAction={
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Typography variant="caption" color="text.secondary">
+                                            {formatDateTime(skill.updated_at)}
+                                        </Typography>
+                                        <Tooltip title="View details">
+                                            <IconButton size="small" onClick={() => navigate(`/skills/builder?skill=${skill.id}`)}>
+                                                <ViewIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        {skill.scope !== "organization" && (
+                                            <Tooltip title="Promote skill">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleOpenPromote(skill)}
+                                                >
+                                                    <PromoteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                    </Stack>
+                                }
+                            />
+                        ))}
+                    </Box>
                 )}
 
                 <Dialog

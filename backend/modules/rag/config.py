@@ -48,7 +48,7 @@ class RagConfig:
             indexing_batch_size=int(getattr(settings, "RAG_INDEXING_BATCH_SIZE", 64)),
             log_content_in_dev=bool(getattr(settings, "RAG_LOG_CONTENT_IN_DEV", False)),
             chunk_fallback_max=int(getattr(settings, "RAG_CHUNK_FALLBACK_MAX", 200)),
-            python_fallback_enabled=bool(getattr(settings, "RAG_PYTHON_FALLBACK_ENABLED", False)),
+            python_fallback_enabled=bool(settings.vector_python_fallback_enabled),
         )
 
     def effective_score_threshold(self) -> float:

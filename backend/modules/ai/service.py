@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 from datetime import UTC, datetime
 from time import perf_counter
@@ -17,6 +16,7 @@ from backend.modules.ai.models import (
     AiPromptTemplate,
     AiPromptVersion,
 )
+from backend.modules.ai.gateway.pricing import estimate_tokens as _estimate_tokens
 from backend.modules.ai.providers import AiProviderRegistry, ProviderGenerateRequest
 from backend.modules.ai.repository import AiRepository
 from backend.modules.ai.schemas import AiProviderDescriptor
@@ -27,10 +27,6 @@ from backend.modules.orchestration.repository import OrchestrationRepository
 logger = get_logger(__name__)
 
 PLACEHOLDER_PATTERN = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
-
-
-def _estimate_tokens(text: str) -> int:
-    return max(1, math.ceil(len(text) / 4))
 
 
 def _render_template(template: str, variables: dict[str, Any]) -> str:
@@ -458,6 +454,7 @@ class AiService:
         review_required: bool,
         evaluation_dataset_id: str | None = None,
         evaluation_case_id: str | None = None,
+        queue_async: bool = False,
     ):
         template, version = await self._resolve_prompt_version(
             user,
@@ -491,7 +488,7 @@ class AiService:
             evaluation_case_id=evaluation_case_id,
             provider_key=version.provider_key,
             model_name=version.model_name,
-            status="running",
+            status="queued" if queue_async else "running",
             response_format=version.response_format,
             variables_json=variables,
             retrieval_query=retrieval_query,
@@ -504,6 +501,67 @@ class AiService:
         )
         await self.db.flush()
 
+        if queue_async:
+            await self.db.commit()
+            await self.db.refresh(run)
+            from backend.workers.orchestration import queue_ai_studio_run
+
+            queue_ai_studio_run(run.id)
+            return run
+
+        return await self._complete_ai_run(
+            run,
+            user=user,
+            provider=provider,
+            version=version,
+            rendered_system_prompt=rendered_system_prompt,
+            rendered_user_prompt=rendered_user_prompt,
+            review_required=review_required,
+        )
+
+    async def execute_queued_ai_run(self, run_id: str):
+        run = await self.repo.get_run_by_id(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="AI run not found")
+        if run.status not in {"queued", "running"}:
+            return run
+        version = await self.repo.get_prompt_version(run.prompt_version_id) if run.prompt_version_id else None
+        if version is None:
+            run.status = "failed"
+            run.error_message = "Prompt version missing for queued AI run."
+            run.completed_at = datetime.now(UTC)
+            await self.db.commit()
+            return run
+        provider = self.providers.get(run.provider_key)
+        messages = list(run.input_messages_json or [])
+        system_prompt = next((m.get("content") for m in messages if m.get("role") == "system"), "")
+        user_prompt = next((m.get("content") for m in messages if m.get("role") == "user"), "")
+        run.status = "running"
+        await self.db.commit()
+        user = await self.db.get(User, run.user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="AI run owner not found")
+        return await self._complete_ai_run(
+            run,
+            user=user,
+            provider=provider,
+            version=version,
+            rendered_system_prompt=str(system_prompt or ""),
+            rendered_user_prompt=str(user_prompt or ""),
+            review_required=run.review_status == "pending",
+        )
+
+    async def _complete_ai_run(
+        self,
+        run,
+        *,
+        user: User,
+        provider,
+        version,
+        rendered_system_prompt: str,
+        rendered_user_prompt: str,
+        review_required: bool,
+    ):
         started = perf_counter()
         try:
             result = await provider.generate(
@@ -550,6 +608,12 @@ class AiService:
 
         await self.db.commit()
         await self.db.refresh(run)
+        return run
+
+    async def get_run(self, user: User, run_id: str):
+        run = await self.repo.get_run_for_user(user.id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="AI run not found")
         return run
 
     async def list_runs(self, user: User):

@@ -13,13 +13,15 @@ type ConfirmDestructiveDialogProps = {
     description: string;
     confirmLabel?: string;
     cancelLabel?: string;
+    /** Use "primary" for leave-guards / affirmative confirms; default is destructive. */
+    confirmColor?: "error" | "primary";
     loading?: boolean;
     onConfirm: () => void;
     onClose: () => void;
 };
 
 /**
- * Shared destructive confirm pattern (delete / disconnect / permanent actions).
+ * Shared confirm pattern (delete / disconnect / leave without saving).
  * Prefer this over window.confirm.
  */
 export function ConfirmDestructiveDialog({
@@ -28,6 +30,7 @@ export function ConfirmDestructiveDialog({
     description,
     confirmLabel = "Delete",
     cancelLabel = "Cancel",
+    confirmColor = "error",
     loading = false,
     onConfirm,
     onClose,
@@ -42,7 +45,7 @@ export function ConfirmDestructiveDialog({
                 <Button onClick={onClose} disabled={loading}>
                     {cancelLabel}
                 </Button>
-                <Button color="error" variant="contained" disabled={loading} onClick={onConfirm} autoFocus>
+                <Button color={confirmColor} variant="contained" disabled={loading} onClick={onConfirm} autoFocus>
                     {loading ? "Working…" : confirmLabel}
                 </Button>
             </DialogActions>

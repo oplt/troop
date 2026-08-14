@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
     DEFAULT_EXPANDED_GROUPS,
+    NAV_GROUPS,
     NAV_GROUPS_STORAGE_KEY,
+    NAV_ITEM_DEFS,
     pathMatchesNavItem,
     readExpandedNavGroups,
     writeExpandedNavGroups,
@@ -44,5 +46,16 @@ describe("navConfig", () => {
         expect(pathMatchesNavItem("/projects", "/projects")).toBe(true);
         expect(pathMatchesNavItem("/projects/abc", "/projects")).toBe(true);
         expect(pathMatchesNavItem("/projects-archive", "/projects")).toBe(false);
+    });
+
+    it("defines canonical IA paths and groups", () => {
+        expect(NAV_GROUPS.map((g) => g.id)).toEqual(["work", "agents", "automate", "insight", "org", "admin"]);
+        const byId = Object.fromEntries(NAV_ITEM_DEFS.map((item) => [item.id, item]));
+        expect(byId.approvals.path).toBe("/approvals");
+        expect(byId.portfolio.path).toBe("/portfolio");
+        expect(byId.hierarchy.path).toBe("/hierarchy");
+        expect(byId.approvals.group).toBe("work");
+        expect(byId["ai-studio"].requiresAiModule).toBe(true);
+        expect(byId.settings.adminOnly).toBe(true);
     });
 });

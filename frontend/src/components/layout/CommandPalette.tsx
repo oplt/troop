@@ -12,11 +12,21 @@ import {
 } from "@mui/material";
 import { commandShortcutLabel } from "./recentProjects";
 
+export type CommandPaletteGroup =
+    | "suggested"
+    | "recent"
+    | "approvals"
+    | "runs"
+    | "agents"
+    | "skills"
+    | "actions"
+    | "pages";
+
 export type CommandPaletteItem = {
     id: string;
     label: string;
     path: string;
-    group: "suggested" | "recent" | "actions" | "pages";
+    group: CommandPaletteGroup;
     secondary?: string;
 };
 
@@ -27,10 +37,23 @@ type CommandPaletteProps = {
     onNavigate: (path: string) => void;
 };
 
-const GROUP_ORDER: CommandPaletteItem["group"][] = ["suggested", "recent", "actions", "pages"];
-const GROUP_LABEL: Record<CommandPaletteItem["group"], string> = {
+const GROUP_ORDER: CommandPaletteGroup[] = [
+    "suggested",
+    "recent",
+    "approvals",
+    "runs",
+    "agents",
+    "skills",
+    "actions",
+    "pages",
+];
+const GROUP_LABEL: Record<CommandPaletteGroup, string> = {
     suggested: "Suggested",
     recent: "Recent projects",
+    approvals: "Pending approvals",
+    runs: "Active & stuck runs",
+    agents: "Agents",
+    skills: "Skills",
     actions: "Actions",
     pages: "Pages",
 };
@@ -152,7 +175,7 @@ function CommandPaletteContent({ open, onClose, items, onNavigate }: CommandPale
                     autoFocus
                     fullWidth
                     size="small"
-                    placeholder="Search pages, projects, runs…"
+                    placeholder="Search pages, approvals, runs, agents, skills…"
                     value={q}
                     onChange={(e) => {
                         setQ(e.target.value);
@@ -208,7 +231,7 @@ function CommandPaletteContent({ open, onClose, items, onNavigate }: CommandPale
                     ))}
                     {flat.length === 0 && (
                         <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 1 }}>
-                            No matches. Try a page name, project, or run id.
+                            No matches. Try a page name, approval, run, agent, or skill.
                         </Typography>
                     )}
                 </List>

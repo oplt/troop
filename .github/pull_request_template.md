@@ -16,3 +16,4 @@
 - [ ] Analytics windows use `DateRangeControl` when date-scoped
 - [ ] No new jargon without first-use helper (DAG / semantic memory / module pack)
 - [ ] Keyboard: primary actions reachable; skip link still lands on `#main-content`
+- [ ] If shell IA / nav labels / routes changed: update `frontend/src/test/visualBaselines.ts`

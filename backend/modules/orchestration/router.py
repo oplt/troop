@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, Query, Request, Upload
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps.admin import get_admin_user
 from backend.api.deps.auth import get_current_user
 from backend.api.deps.orchestration import (
     get_execution_service,
@@ -20,11 +21,18 @@ from backend.db.session import SessionLocal, get_db
 from backend.modules.audit.repository import AuditRepository
 from backend.modules.identity_access.models import User
 from backend.modules.observability.metrics import record_sse_event
-from backend.modules.orchestration.hitl_policy import redact_approval_payload
 from backend.modules.orchestration.models import ApprovalRequest
+from backend.modules.orchestration.presenters import (
+    to_agent_response as _agent,
+    to_event_response as _event,
+    to_project_response,
+    to_run_execution_snapshot as _run_execution_snapshot,
+    to_run_response as _run,
+    to_task_execution_snapshot as _task_execution_snapshot,
+    to_task_response as _task,
+)
 from backend.modules.orchestration.routers.approvals import router as approvals_router
 from backend.modules.orchestration.schemas import (
-    ActiveRunSummary,
     AgentCreate,
     AgentFromTemplateRequest,
     AgentInheritancePreview,
@@ -65,7 +73,6 @@ from backend.modules.orchestration.schemas import (
     EvalRecordResponse,
     EvalRecordUpdate,
     ExecutionInsightsResponse,
-    ExecutionSnapshotMeta,
     GateConfigResponse,
     GateConfigUpdate,
     GithubSyncEventResponse,
@@ -88,8 +95,6 @@ from backend.modules.orchestration.schemas import (
     MergeResolveRunPayload,
     ModelCapabilityResponse,
     OverviewResponse,
-    PendingApprovalSummary,
-    PendingGithubSyncSummary,
     PendingSemanticWriteResponse,
     PortfolioControlPlaneResponse,
     PortfolioExecutionPolicyResponse,
@@ -121,10 +126,8 @@ from backend.modules.orchestration.schemas import (
     ReplayRunRequest,
     RunCostSummaryResponse,
     RunEventResponse,
-    RunEventTailItem,
     RunExecutionSnapshotResponse,
     RuntimeInfoResponse,
-    RunTraceStep,
     SemanticConflictGroupResponse,
     SemanticMemoryEntryCreate,
     SemanticMemoryEntryResponse,
@@ -207,58 +210,6 @@ async def list_hitl_audit_logs(
     return rows
 
 
-def _agent(item) -> AgentResponse:
-    inheritance_payload = getattr(item, "__orchestration_inheritance__", None)
-    lint_payload = getattr(item, "__orchestration_lint__", None)
-    return AgentResponse(
-        id=item.id,
-        project_id=item.project_id,
-        parent_agent_id=item.parent_agent_id,
-        reviewer_agent_id=item.reviewer_agent_id,
-        provider_config_id=item.provider_config_id,
-        parent_template_slug=item.parent_template_slug,
-        name=item.name,
-        slug=item.slug,
-        description=item.description,
-        role=item.role,
-        system_prompt=item.system_prompt,
-        mission_markdown=item.mission_markdown,
-        rules_markdown=item.rules_markdown,
-        output_contract_markdown=item.output_contract_markdown,
-        source_markdown=item.source_markdown,
-        capabilities=item.capabilities_json,
-        allowed_tools=item.allowed_tools_json,
-        skills=list(getattr(item, "__orchestration_skills__", None) or []),
-        model_policy=item.model_policy_json,
-        permissions=(item.model_policy_json or {}).get("permissions"),
-        escalation_path=(item.model_policy_json or {}).get("escalation_path"),
-        visibility=item.visibility,
-        is_active=item.is_active,
-        tags=item.tags_json,
-        budget=item.budget_json,
-        timeout_seconds=item.timeout_seconds,
-        retry_limit=item.retry_limit,
-        memory_policy=item.memory_policy_json,
-        output_schema=item.output_schema_json,
-        task_filters=list((item.metadata_json or {}).get("task_filters") or []),
-        inheritance=(
-            AgentInheritancePreview(
-                parent_template_slug=inheritance_payload.get("parent_template_slug"),
-                inherited_fields=inheritance_payload.get("inherited_fields", {}),
-                overridden_fields=inheritance_payload.get("overridden_fields", {}),
-                effective=AgentResolvedProfile(**inheritance_payload.get("effective", {})),
-            )
-            if inheritance_payload
-            else None
-        ),
-        lint=AgentLintSummary(**lint_payload) if lint_payload else None,
-        metadata=item.metadata_json or {},
-        version=item.version,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
-
-
 def _provider(item) -> ProviderConfigResponse:
     return ProviderConfigResponse(
         id=item.id,
@@ -322,24 +273,7 @@ def _model_capability(item) -> ModelCapabilityResponse:
 
 
 def _project(item) -> ProjectResponse:
-    return ProjectResponse(
-        id=item.id,
-        name=item.name,
-        slug=item.slug,
-        description=item.description,
-        status=item.status,
-        goals_markdown=item.goals_markdown,
-        settings=item.settings_json,
-        memory_scope=item.memory_scope,
-        knowledge_summary=item.knowledge_summary,
-        company_id=getattr(item, "company_id", None),
-        department_id=getattr(item, "department_id", None),
-        knowledge_policy=getattr(item, "knowledge_policy_json", {}),
-        budget=getattr(item, "budget_json", {}),
-        metadata=getattr(item, "metadata_json", {}),
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
+    return to_project_response(item)
 
 
 def _project_repo(item) -> ProjectRepositoryLinkResponse:
@@ -367,52 +301,6 @@ def _project_agent_membership(item) -> ProjectAgentMembershipResponse:
     )
 
 
-def _task(
-    item,
-    dependency_ids: list[str],
-    github_summary: dict[str, Any] | None = None,
-) -> TaskResponse:
-    gh_num = gh_url = gh_repo = None
-    if github_summary:
-        raw_n = github_summary.get("issue_number")
-        gh_num = int(raw_n) if raw_n is not None else None
-        u = github_summary.get("issue_url")
-        gh_url = str(u) if u else None
-        rfn = github_summary.get("repository_full_name")
-        gh_repo = str(rfn) if rfn else None
-    return TaskResponse(
-        id=item.id,
-        project_id=item.project_id,
-        created_by_user_id=item.created_by_user_id,
-        assigned_agent_id=item.assigned_agent_id,
-        reviewer_agent_id=item.reviewer_agent_id,
-        github_issue_link_id=item.github_issue_link_id,
-        github_issue_number=gh_num,
-        github_issue_url=gh_url,
-        github_repository_full_name=gh_repo,
-        parent_task_id=item.parent_task_id,
-        title=item.title,
-        description=item.description,
-        source=item.source,
-        task_type=item.task_type,
-        priority=item.priority,
-        status=item.status,
-        acceptance_criteria=item.acceptance_criteria,
-        due_date=item.due_date,
-        response_sla_hours=getattr(item, "response_sla_hours", None),
-        labels=item.labels_json,
-        required_tools=list((item.metadata_json or {}).get("required_tools") or []),
-        external_links=list((item.metadata_json or {}).get("external_links") or []),
-        result_summary=item.result_summary,
-        result_payload=item.result_payload_json,
-        position=item.position,
-        metadata=item.metadata_json,
-        dependency_ids=dependency_ids,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
-
-
 async def _tasks_to_responses(
     service: OrchestrationService,
     tasks: list,
@@ -427,92 +315,6 @@ async def _tasks_to_responses(
         gh = summaries.get(t.github_issue_link_id) if t.github_issue_link_id else None
         result.append(_task(t, deps, gh))
     return result
-
-
-def _run(item, *, startup_warnings: list[str] | None = None) -> TaskRunResponse:
-    return TaskRunResponse(
-        id=item.id,
-        parent_run_id=getattr(item, "parent_run_id", None),
-        project_id=item.project_id,
-        task_id=item.task_id,
-        triggered_by_user_id=item.triggered_by_user_id,
-        orchestrator_agent_id=item.orchestrator_agent_id,
-        worker_agent_id=item.worker_agent_id,
-        reviewer_agent_id=item.reviewer_agent_id,
-        provider_config_id=item.provider_config_id,
-        brainstorm_id=item.brainstorm_id,
-        run_mode=item.run_mode,
-        status=item.status,
-        model_name=item.model_name,
-        attempt_number=item.attempt_number,
-        token_input=item.token_input,
-        token_output=item.token_output,
-        token_total=item.token_total,
-        estimated_cost_micros=item.estimated_cost_micros,
-        latency_ms=item.latency_ms,
-        error_message=item.error_message,
-        retry_count=item.retry_count,
-        checkpoint_json=item.checkpoint_json,
-        input_payload=item.input_payload_json,
-        output_payload=item.output_payload_json,
-        created_at=item.created_at,
-        started_at=item.started_at,
-        completed_at=item.completed_at,
-        cancelled_at=item.cancelled_at,
-        startup_warnings=list(startup_warnings or []),
-    )
-
-
-def _task_execution_snapshot(raw: dict[str, Any]) -> TaskExecutionSnapshotResponse:
-    return TaskExecutionSnapshotResponse(
-        meta=ExecutionSnapshotMeta(**raw["meta"]),
-        project_id=raw["project_id"],
-        task_id=raw["task_id"],
-        task_status=raw["task_status"],
-        task_title=raw["task_title"],
-        has_active_run=raw["has_active_run"],
-        active_runs=[ActiveRunSummary(**x) for x in raw["active_runs"]],
-        pending_approvals=[PendingApprovalSummary(**x) for x in raw["pending_approvals"]],
-        pending_github_sync=[PendingGithubSyncSummary(**x) for x in raw["pending_github_sync"]],
-        metadata_views=raw["metadata_views"],
-        routing_explainability=raw.get("routing_explainability") or {},
-        acceptance_summary=raw.get("acceptance_summary") or {},
-        execution_memory=raw.get("execution_memory") or {},
-        changed_artifacts=raw.get("changed_artifacts") or [],
-        last_run_id=raw["last_run_id"],
-        focal_run_id=raw["focal_run_id"],
-        checkpoint_excerpt=raw["checkpoint_excerpt"],
-        recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
-        trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
-        durable_workflow=raw.get("durable_workflow") or {},
-        child_runs=[_run(item) for item in raw.get("child_runs") or []],
-        blocker_queue=list(raw.get("blocker_queue") or []),
-        review_state=dict(raw.get("review_state") or {}),
-        github_action_state=dict(raw.get("github_action_state") or {}),
-    )
-
-
-def _run_execution_snapshot(raw: dict[str, Any]) -> RunExecutionSnapshotResponse:
-    return RunExecutionSnapshotResponse(
-        meta=ExecutionSnapshotMeta(**raw["meta"]),
-        project_id=raw["project_id"],
-        run=_run(raw["run"]),
-        task_id=raw["task_id"],
-        pending_approvals=[PendingApprovalSummary(**x) for x in raw["pending_approvals"]],
-        pending_github_sync=[PendingGithubSyncSummary(**x) for x in raw["pending_github_sync"]],
-        routing_explainability=raw.get("routing_explainability") or {},
-        execution_memory=raw.get("execution_memory") or {},
-        changed_artifacts=raw.get("changed_artifacts") or [],
-        checkpoint_excerpt=raw["checkpoint_excerpt"],
-        recent_events_tail=[RunEventTailItem(**x) for x in raw["recent_events_tail"]],
-        trace=[RunTraceStep(**x) for x in raw.get("trace", [])],
-        durable_workflow=raw.get("durable_workflow") or {},
-        child_runs=[_run(item) for item in raw.get("child_runs") or []],
-        blocker_queue=list(raw.get("blocker_queue") or []),
-        review_state=dict(raw.get("review_state") or {}),
-        github_action_state=dict(raw.get("github_action_state") or {}),
-        resumable=bool(raw.get("resumable", False)),
-    )
 
 
 def _semantic_entry(item) -> SemanticMemoryEntryResponse:
@@ -576,22 +378,6 @@ def _working_memory_payload(wm: dict[str, Any]) -> WorkingMemoryResponse:
         discussion_summary=str(wm.get("discussion_summary") or ""),
         artifact_refs=list(wm.get("artifact_refs") or []),
         updated_at=str(wm.get("updated_at") or ""),
-    )
-
-
-def _event(item) -> RunEventResponse:
-    return RunEventResponse(
-        id=item.id,
-        run_id=item.run_id,
-        task_id=item.task_id,
-        level=item.level,
-        event_type=item.event_type,
-        message=item.message,
-        payload=redact_approval_payload(item.payload_json),
-        input_tokens=item.input_tokens,
-        output_tokens=item.output_tokens,
-        cost_usd_micros=item.cost_usd_micros,
-        created_at=item.created_at,
     )
 
 
@@ -1065,7 +851,7 @@ async def list_skill_catalog(
 async def create_skill_pack(
     payload: SkillPackCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     result = await OrchestrationService(db).create_skill_pack(payload.model_dump(exclude_none=True))
     return SkillPackResponse(**result)
@@ -1076,7 +862,7 @@ async def update_skill_pack(
     slug: str,
     payload: SkillPackUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     result = await OrchestrationService(db).update_skill_pack(
         slug, payload.model_dump(exclude_unset=True)
@@ -1088,7 +874,7 @@ async def update_skill_pack(
 async def delete_skill_pack(
     slug: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     await OrchestrationService(db).delete_skill_pack(slug)
 
@@ -1113,10 +899,11 @@ async def create_agent_from_template(
 async def create_agent_template(
     payload: AgentTemplateCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     result = await OrchestrationService(db).create_agent_template(
-        payload.model_dump(exclude_none=True)
+        payload.model_dump(exclude_none=True),
+        actor=current_user,
     )
     return AgentTemplateResponse(**result)
 
@@ -1126,10 +913,10 @@ async def update_agent_template(
     template_id: str,
     payload: AgentTemplateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     result = await OrchestrationService(db).update_agent_template(
-        template_id, payload.model_dump(exclude_unset=True, exclude_none=True)
+        template_id, payload.model_dump(exclude_unset=True, exclude_none=True), actor=current_user
     )
     return AgentTemplateResponse(**result)
 
@@ -1138,9 +925,9 @@ async def update_agent_template(
 async def delete_agent_template(
     template_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
-    await OrchestrationService(db).delete_agent_template(template_id)
+    await OrchestrationService(db).delete_agent_template(template_id, actor=current_user)
 
 
 @router.patch("/agents/templates/slug/{slug}", response_model=AgentTemplateResponse)
@@ -1148,10 +935,10 @@ async def update_agent_template_by_slug(
     slug: str,
     payload: AgentTemplateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     result = await OrchestrationService(db).update_agent_template_by_slug(
-        slug, payload.model_dump(exclude_unset=True, exclude_none=True)
+        slug, payload.model_dump(exclude_unset=True, exclude_none=True), actor=current_user
     )
     return AgentTemplateResponse(**result)
 
@@ -1160,9 +947,9 @@ async def update_agent_template_by_slug(
 async def delete_agent_template_by_slug(
     slug: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
-    await OrchestrationService(db).delete_agent_template_by_slug(slug)
+    await OrchestrationService(db).delete_agent_template_by_slug(slug, actor=current_user)
 
 
 @router.get("/teams/templates", response_model=list[TeamTemplateResponse])
@@ -3538,16 +3325,55 @@ async def export_brainstorm_artifact(
 
 @public_router.post("/webhooks/incidents")
 async def incident_webhook(
-    payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = payload.get("user_id")
-    if not user_id:
-        return JSONResponse(status_code=422, content={"detail": "user_id is required"})
-    user = await db.get(User, str(user_id))
+    """Ingest ops incidents. Auth: HMAC-SHA256 of raw body via X-Troop-Signature.
+
+    Acting user is always ``INCIDENT_WEBHOOK_OWNER_USER_ID`` — never body ``user_id``.
+    """
+    import hashlib
+    import hmac
+
+    secret = (settings.INCIDENT_WEBHOOK_SECRET or "").strip()
+    owner_id = (settings.INCIDENT_WEBHOOK_OWNER_USER_ID or "").strip()
+    if not secret or not owner_id:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Incident webhook is not configured"},
+        )
+    body = await request.body()
+    signature = request.headers.get("X-Troop-Signature") or request.headers.get("X-Hub-Signature-256")
+    expected = "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    if not signature or not hmac.compare_digest(expected, signature):
+        await AuditRepository(db).log(
+            action="security.incident_webhook.rejected",
+            resource_type="webhook",
+            resource_id="incidents",
+            metadata={"reason": "invalid_signature"},
+        )
+        await db.commit()
+        return JSONResponse(status_code=401, content={"detail": "Invalid webhook signature"})
+    try:
+        payload = json.loads(body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JSONResponse(status_code=422, content={"detail": "Invalid JSON body"})
+    if not isinstance(payload, dict):
+        return JSONResponse(status_code=422, content={"detail": "JSON object required"})
+    # Drop spoofable identity fields from payload before ingest.
+    payload = {k: v for k, v in payload.items() if k != "user_id"}
+    user = await db.get(User, owner_id)
     if not user:
-        return JSONResponse(status_code=404, content={"detail": "User not found"})
+        return JSONResponse(status_code=503, content={"detail": "Incident webhook owner not found"})
     task = await OrchestrationService(db).ingest_incident_alert(user, payload)
+    await AuditRepository(db).log(
+        action="security.incident_webhook.accepted",
+        user_id=user.id,
+        resource_type="task",
+        resource_id=task.id,
+        metadata={"source": "incident_webhook"},
+    )
+    await db.commit()
     return {"accepted": True, "task_id": task.id}
 
 

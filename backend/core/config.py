@@ -39,8 +39,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+    # Celery / worker processes: keep smaller than API to avoid connection stampede.
+    # When unset, workers use DATABASE_POOL_SIZE_WORKER / DATABASE_MAX_OVERFLOW_WORKER defaults.
+    DATABASE_POOL_SIZE_WORKER: int = 5
+    DATABASE_MAX_OVERFLOW_WORKER: int = 5
     DATABASE_POOL_RECYCLE_SECONDS: int = 1800
     DATABASE_POOL_TIMEOUT_SECONDS: int = 10
+    # api | worker | auto (detect Celery). Controls which pool size settings apply.
+    DATABASE_PROCESS_ROLE: str = "auto"
     # Fail startup when alembic_version is behind repository head. Disable only for
     # tightly controlled migration jobs that boot the app before applying upgrades.
     SCHEMA_COMPAT_CHECK_ON_STARTUP: bool = True
@@ -89,8 +95,12 @@ class Settings(BaseSettings):
     AGENT_TOKEN_BUDGET_WINDOW_DAYS: int = 30
     # When false, model-level failover inside one provider call is disabled.
     ORCHESTRATION_PROVIDER_FAILOVER: bool = True
-    # When true, execute_run routes run modes through a LangGraph StateGraph (see langgraph_runner).
-    ORCHESTRATION_USE_LANGGRAPH: bool = False
+    # Max paid LLM HTTP attempts per routing purpose (across retries × models × providers).
+    ORCHESTRATION_LLM_ATTEMPT_BUDGET: int = 3
+    # Cap provider failover chain length when failover is enabled.
+    ORCHESTRATION_PROVIDER_FAILOVER_MAX: int = 2
+    # Mark stuck in_progress runs older than this as failed/recoverable (seconds).
+    ORCHESTRATION_STALE_IN_PROGRESS_SECONDS: int = 3600
     # Durable enqueue backend. Celery is active; unsupported values fail closed until a worker
     # adapter is installed and registered.
     ORCHESTRATION_DURABLE_QUEUE_BACKEND: str = "celery"
@@ -98,6 +108,8 @@ class Settings(BaseSettings):
     ORCHESTRATION_CPU_REQUIRE_DOCKER: bool | None = None
 
     JWT_SECRET: str
+    # Fernet key (url-safe base64, 32 bytes). Empty falls back to JWT-derived legacy key for decrypt/encrypt.
+    SECRETS_ENCRYPTION_KEY: str = ""
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
@@ -123,7 +135,10 @@ class Settings(BaseSettings):
     CACHE_ACL_DENIED_TTL_SECONDS: int = 60
     CACHE_PLATFORM_METADATA_TTL_SECONDS: int = 1800
     CACHE_MEMORY_SETTINGS_TTL_SECONDS: int = 300
+    CACHE_MEMORY_CONTEXT_TTL_SECONDS: int = 120
+    CACHE_PORTFOLIO_SUMMARY_TTL_SECONDS: int = 60
     CACHE_HTTP_DOCUMENT_LIST_MAX_AGE_SECONDS: int = 60
+    REDIS_MAX_CONNECTIONS: int = 50
     HEALTH_READY_PUBLIC: bool = False
     HEALTH_VERSION_PUBLIC: bool = False
     REQUIRE_EMAIL_VERIFICATION: bool = True
@@ -184,6 +199,10 @@ class Settings(BaseSettings):
     GITHUB_APP_SLUG: str = ""
     GITHUB_APP_PRIVATE_KEY: str = ""
     GITHUB_APP_WEBHOOK_SECRET: str = ""
+    # HMAC secret for POST /webhooks/incidents (sha256). Empty → endpoint refuses traffic.
+    INCIDENT_WEBHOOK_SECRET: str = ""
+    # Fixed owner for incident ingest (never trust body user_id).
+    INCIDENT_WEBHOOK_OWNER_USER_ID: str = ""
     GITHUB_APP_CLIENT_ID: str = ""
     GITHUB_APP_CLIENT_SECRET: str = ""
     GITHUB_APP_NAME: str = "Troop GitHub App"
@@ -253,7 +272,12 @@ class Settings(BaseSettings):
     RAG_LOG_CONTENT_IN_DEV: bool = False
     RAG_CHUNK_FALLBACK_MAX: int = 200
     RAG_PYTHON_FALLBACK_ENABLED: bool = False
+    # Alias for RAG_PYTHON_FALLBACK_ENABLED (prefer the RAG_* name).
+    VECTOR_FALLBACK_JSON: bool = False
+    # When false, chunk rows store embedding_vector only (embedding_json written as []).
+    VECTOR_WRITE_EMBEDDING_JSON: bool = False
     AI_RETRIEVE_PYTHON_FALLBACK_ENABLED: bool = False
+    PROJECT_DECISIONS_MERGE_LIMIT: int = 300
     RAG_ANSWER_TIMEOUT_SECONDS: int = 90
     RAG_BULK_INGEST_CONCURRENCY: int = 4
     RAG_BULK_INGEST_BATCH_SIZE: int = 8
@@ -278,6 +302,35 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.APP_ENV.lower() == "production"
+
+    @property
+    def vector_python_fallback_enabled(self) -> bool:
+        return bool(self.RAG_PYTHON_FALLBACK_ENABLED or self.VECTOR_FALLBACK_JSON)
+
+    @property
+    def database_process_role(self) -> str:
+        role = (self.DATABASE_PROCESS_ROLE or "auto").strip().lower()
+        if role in {"api", "worker"}:
+            return role
+        import sys
+
+        argv = " ".join(sys.argv).lower()
+        argv0 = (sys.argv[0] if sys.argv else "").lower()
+        if "celery" in argv0 or "celery" in argv:
+            return "worker"
+        return "api"
+
+    @property
+    def effective_database_pool_size(self) -> int:
+        if self.database_process_role == "worker":
+            return max(1, int(self.DATABASE_POOL_SIZE_WORKER))
+        return max(1, int(self.DATABASE_POOL_SIZE))
+
+    @property
+    def effective_database_max_overflow(self) -> int:
+        if self.database_process_role == "worker":
+            return max(0, int(self.DATABASE_MAX_OVERFLOW_WORKER))
+        return max(0, int(self.DATABASE_MAX_OVERFLOW))
 
     @property
     def orchestration_cpu_require_docker(self) -> bool:

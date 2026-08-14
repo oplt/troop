@@ -16,7 +16,9 @@ export const VISUAL_BASELINES = {
         { route: "/dashboard", titleHints: ["Do next", "Projects"], shell: true },
         { route: "/", titleHints: ["Welcome back", "Sign in"], shell: false },
         { route: "/projects", titleHints: ["Projects"], shell: true },
-        { route: "/activity", titleHints: ["Approvals"], shell: true },
+        { route: "/approvals", titleHints: ["Approvals"], shell: true },
+        { route: "/portfolio", titleHints: ["Portfolio"], shell: true },
+        { route: "/hierarchy", titleHints: ["Hierarchy"], shell: true },
         { route: "/analytics/cost", titleHints: ["Cost"], shell: true },
     ],
 } as const;

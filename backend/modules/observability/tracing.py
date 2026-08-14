@@ -7,6 +7,7 @@ from contextlib import contextmanager, nullcontext
 from typing import Any
 
 from backend.core.logging import get_logger
+from backend.core.request_context import set_context
 
 logger = get_logger(__name__)
 _configured = False
@@ -61,11 +62,44 @@ def setup_tracing(endpoint: str, service_name: str, insecure: bool, app: Any = N
             app.state.troop_otel_instrumented = True
         SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
         _configured = True
-        logger.info("observability.tracing_enabled endpoint=%s", endpoint)
+        logger.info("observability.tracing_enabled endpoint=%s service=%s", endpoint, service_name)
     except ImportError:
         logger.warning("observability.otel_unavailable endpoint=%s", endpoint)
     except Exception:
         logger.exception("observability.otel_setup_failed endpoint=%s", endpoint)
+
+
+def current_trace_context() -> dict[str, str | None]:
+    """Return hex trace/span ids from the active OTel span, if any."""
+    try:
+        from opentelemetry import trace
+
+        span = trace.get_current_span()
+        ctx = span.get_span_context() if span is not None else None
+        if ctx is None or not ctx.is_valid:
+            return {"trace_id": None, "span_id": None}
+        return {
+            "trace_id": format(ctx.trace_id, "032x"),
+            "span_id": format(ctx.span_id, "016x"),
+        }
+    except ImportError:
+        return {"trace_id": None, "span_id": None}
+
+
+def bind_active_trace_context() -> None:
+    """Mirror the active OTel span into request context for logs and Celery headers."""
+    ctx = current_trace_context()
+    if ctx["trace_id"]:
+        set_context(trace_id=ctx["trace_id"], span_id=ctx["span_id"])
+
+
+def enrich_with_trace_context(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Attach trace identifiers to run-event payloads when available."""
+    merged = dict(payload or {})
+    for key, value in current_trace_context().items():
+        if value and key not in merged:
+            merged[key] = value
+    return merged
 
 
 @contextmanager
@@ -76,10 +110,65 @@ def span(name: str, attributes: Mapping[str, Any] | None = None) -> Iterator[Any
 
         tracer = trace.get_tracer("troop")
         with tracer.start_as_current_span(name, attributes=dict(attributes or {})) as current:
+            bind_active_trace_context()
             yield current
     except ImportError:
         with nullcontext():
             yield None
 
 
-__all__ = ["setup_sentry", "setup_tracing", "span"]
+@contextmanager
+def celery_task_span(task_name: str, *, task_id: str | None = None) -> Iterator[Any]:
+    attrs: dict[str, Any] = {"celery.task": task_name}
+    if task_id:
+        attrs["celery.task_id"] = task_id
+    with span("celery.task", attrs) as current:
+        yield current
+
+
+@contextmanager
+def llm_invoke_span(
+    *,
+    purpose: str,
+    provider: str,
+    model: str,
+) -> Iterator[Any]:
+    with span(
+        "llm.invoke",
+        {
+            "llm.purpose": purpose,
+            "llm.provider": provider,
+            "llm.model": model,
+        },
+    ) as current:
+        yield current
+
+
+def record_llm_span_result(
+    span: Any,
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    result: str,
+) -> None:
+    if span is None:
+        return
+    try:
+        span.set_attribute("llm.input_tokens", int(input_tokens))
+        span.set_attribute("llm.output_tokens", int(output_tokens))
+        span.set_attribute("llm.result", result)
+    except Exception:
+        return
+
+
+__all__ = [
+    "bind_active_trace_context",
+    "celery_task_span",
+    "current_trace_context",
+    "enrich_with_trace_context",
+    "llm_invoke_span",
+    "record_llm_span_result",
+    "setup_sentry",
+    "setup_tracing",
+    "span",
+]

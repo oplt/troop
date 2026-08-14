@@ -2,7 +2,7 @@ import { Box, Stack, ThemeProvider } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { lightTheme } from "../../app/theme";
 import { ColorModeContext } from "../../app/colorModeContext";
 import { expectNoA11yViolations } from "../../test/a11y";

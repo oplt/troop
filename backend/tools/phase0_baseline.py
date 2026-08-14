@@ -4,9 +4,9 @@ Examples from the repository root::
 
     python backend/tools/phase0_baseline.py \
         --url http://127.0.0.1:8000/health/live \
-        --pid 12345 \
-        --redis-url redis://127.0.0.1:6379/0 \
-        --queue celery \
+        --in-process \
+        --owner-id <user-uuid> \
+        --compare artifacts/phase0-baseline.json \
         --output artifacts/phase0-baseline.json
 
 The tool deliberately reports failures in the JSON artifact instead of
@@ -243,11 +243,25 @@ async def collect(args: argparse.Namespace) -> dict[str, Any]:
         if redis_url
         else {"skipped": "REDIS_URL not set"}
     )
+    in_process_result: dict[str, Any] = {"skipped": "pass --in-process to enable"}
+    if args.in_process:
+        owner_id = (args.owner_id or os.getenv("BENCHMARK_OWNER_ID") or "").strip()
+        if not owner_id:
+            in_process_result = {"skipped": "BENCHMARK_OWNER_ID or --owner-id required"}
+        elif not database_url:
+            in_process_result = {"skipped": "DATABASE_URL not set"}
+        else:
+            from backend.tools.performance_harness import collect_in_process_benchmarks
+
+            in_process_result = await collect_in_process_benchmarks(
+                owner_id=owner_id,
+                samples=args.samples,
+            )
     after = process_snapshot(args.pid)
     elapsed = max(time.perf_counter() - started, 0.001)
     cpu_delta = after["cpu_seconds"] - before["cpu_seconds"]
-    return {
-        "schema_version": 1,
+    report = {
+        "schema_version": 2,
         "captured_at": datetime.now(UTC).isoformat(),
         "git_revision": _git_revision(),
         "parameters": {
@@ -256,11 +270,14 @@ async def collect(args: argparse.Namespace) -> dict[str, Any]:
             "concurrency": args.concurrency,
             "samples": args.samples,
             "timeout_seconds": args.timeout,
+            "in_process": bool(args.in_process),
+            "owner_id": args.owner_id or os.getenv("BENCHMARK_OWNER_ID"),
         },
         "endpoints": endpoint_results,
         "redis": redis_result,
         "database": database_result,
         "queue_depth": queues,
+        "in_process": in_process_result,
         "process": {
             "before": before,
             "after": after,
@@ -269,6 +286,19 @@ async def collect(args: argparse.Namespace) -> dict[str, Any]:
             "rss_delta_bytes": after["rss_bytes"] - before["rss_bytes"],
         },
     }
+    if args.compare:
+        try:
+            baseline = json.loads(Path(args.compare).read_text(encoding="utf-8"))
+            from backend.tools.performance_harness import compare_benchmark_reports
+
+            report["regression"] = compare_benchmark_reports(
+                report,
+                baseline,
+                threshold=args.regression_threshold,
+            )
+        except OSError as exc:
+            report["regression"] = {"error": _safe_error(exc), "passed": False}
+    return report
 
 
 def parse_args() -> argparse.Namespace:
@@ -288,6 +318,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--database-url")
     parser.add_argument("--queue", action="append", default=[], help="Redis/Celery queue name.")
     parser.add_argument("--output", type=Path, help="Write JSON artifact to this path.")
+    parser.add_argument(
+        "--in-process",
+        action="store_true",
+        help="Run repository hot-path benchmarks (portfolio, vector search, run claim).",
+    )
+    parser.add_argument(
+        "--owner-id",
+        help="Owner user id for in-process benchmarks (or set BENCHMARK_OWNER_ID).",
+    )
+    parser.add_argument(
+        "--compare",
+        type=Path,
+        help="Compare in-process p95 metrics against a prior baseline JSON artifact.",
+    )
+    parser.add_argument(
+        "--regression-threshold",
+        type=float,
+        default=2.0,
+        help="Fail comparison when current p95 exceeds baseline * threshold (default 2.0).",
+    )
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="Exit non-zero when --compare detects regressions.",
+    )
     args = parser.parse_args()
     if not args.url:
         args.url = ["http://127.0.0.1:8000/health/live"]
@@ -304,6 +359,10 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(payload, encoding="utf-8")
     print(payload, end="")
+    if args.fail_on_regression:
+        regression = report.get("regression") or {}
+        if regression.get("passed") is False:
+            raise SystemExit(f"Performance regression detected: {regression.get('regressions')}")
 
 
 if __name__ == "__main__":

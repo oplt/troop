@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import re
 import shlex
@@ -66,6 +67,49 @@ def _run(args: list[str], cwd: Path, timeout_seconds: int = 10) -> str:
         detail = (completed.stderr or completed.stdout or "").strip()
         raise LocalRepoError(detail or f"Command failed: {' '.join(args)}")
     return completed.stdout.strip()
+
+
+async def inspect_workspace_async(raw: dict[str, Any] | None) -> dict[str, Any]:
+    return await asyncio.to_thread(inspect_workspace, raw)
+
+
+async def create_isolated_worktree_async(
+    raw: dict[str, Any] | None, *, task_id: str, title: str | None = None
+) -> dict[str, Any]:
+    return await asyncio.to_thread(create_isolated_worktree, raw, task_id=task_id, title=title)
+
+
+async def run_safe_command_async(
+    raw: dict[str, Any] | None,
+    *,
+    command: str,
+    cwd: str | None = None,
+    timeout_seconds: int = 60,
+) -> CommandResult:
+    return await asyncio.to_thread(
+        run_safe_command,
+        raw,
+        command=command,
+        cwd=cwd,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+async def read_repo_file_async(
+    raw: dict[str, Any] | None, relative_path: str, limit: int = 40_000
+) -> dict[str, Any]:
+    return await asyncio.to_thread(read_repo_file, raw, relative_path, limit)
+
+
+async def build_context_pack_async(
+    raw: dict[str, Any] | None, *, issue_text: str, acceptance_criteria: str | None = None
+) -> dict[str, Any]:
+    return await asyncio.to_thread(
+        build_context_pack,
+        raw,
+        issue_text=issue_text,
+        acceptance_criteria=acceptance_criteria,
+    )
 
 
 def _repo_root(path: str) -> Path:

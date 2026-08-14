@@ -19,6 +19,9 @@ _registered = False
 
 def task_context_headers() -> dict[str, str]:
     """Return the allowlisted current context for Celery message headers."""
+    from backend.modules.observability.tracing import bind_active_trace_context
+
+    bind_active_trace_context()
     return get_request_context().as_task_headers()
 
 

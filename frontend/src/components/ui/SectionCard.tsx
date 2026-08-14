@@ -40,7 +40,7 @@ export function SectionCard({
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                     {title && (
                         <Stack direction="row" alignItems="center" spacing={0.75}>
-                            <Typography variant="h5">{title}</Typography>
+                            <Typography variant="h5" component="h2">{title}</Typography>
                             {tooltipContent && (
                                 <Tooltip title={tooltipContent} arrow placement="top">
                                     <IconButton

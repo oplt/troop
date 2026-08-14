@@ -61,21 +61,25 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useColorMode } from "../../app/colorModeContext";
-import { getPendingApprovalsCount, getOrchestrationProject } from "../../api/orchestration";
+import { getPendingApprovalsCount, getOrchestrationProject, listApprovals, listRuns, listAgents } from "../../api/orchestration";
+import { listSkills } from "../../api/workforce";
 import { getNotifications } from "../../api/notifications";
 import { useCanonicalUser } from "../../hooks/useCanonicalUser";
 import { useAuth } from "../../hooks/useAuth";
 import { queryKeys, defaultQueryStaleTimeMs } from "../../config/queryKeys";
 import { queryPolicies } from "../../config/queryPolicies";
 import { usePlatformMetadata } from "../../hooks/usePlatformMetadata";
-import { getInitials } from "../../utils/formatters";
+import { getInitials, humanizeKey } from "../../utils/formatters";
 import { CommandPalette, type CommandPaletteItem } from "./CommandPalette";
 import {
     NAV_GROUPS,
+    NAV_ITEM_DEFS,
     pathMatchesNavItem,
     readExpandedNavGroups,
     writeExpandedNavGroups,
     type NavGroupId,
+    type NavIconId,
+    type NavItemDef,
 } from "./navConfig";
 import { commandShortcutLabel, readRecentProjects, recordRecentProject } from "./recentProjects";
 
@@ -83,6 +87,29 @@ const DRAWER_WIDTH = 288;
 const COLLAPSED_DRAWER_WIDTH = 96;
 /** Keep AppBar / drawer / main margin on the same curve to avoid CLS on collapse. */
 const SHELL_TRANSITION_MS = 330;
+
+const NAV_ICONS: Record<NavIconId, ReactNode> = {
+    dashboard: <DashboardIcon />,
+    projects: <ProjectsIcon />,
+    myTasks: <MyTasksIcon />,
+    approvals: <ApprovalsIcon />,
+    agents: <AgentsIcon />,
+    skills: <SkillsIcon />,
+    marketplace: <MarketplaceIcon />,
+    hierarchy: <HierarchyIcon />,
+    workflows: <WorkflowsIcon />,
+    workflowTemplates: <WorkflowTemplatesIcon />,
+    integrations: <IntegrationsIcon />,
+    portfolio: <PortfolioNavIcon />,
+    cost: <CostAnalyticsIcon />,
+    execution: <ExecutionIcon />,
+    brainstorms: <BrainstormsIcon />,
+    aiStudio: <AiStudioIcon />,
+    departments: <DepartmentsIcon />,
+    companies: <CompaniesIcon />,
+    modelSettings: <ModelSettingsIcon />,
+    settings: <SettingsIcon />,
+};
 
 type NavItem = {
     label: string;
@@ -94,6 +121,21 @@ type NavItem = {
     subtitle?: string;
     group: NavGroupId;
 };
+
+function navItemFromDef(
+    def: NavItemDef,
+    extras?: { badge?: number; subtitle?: string },
+): NavItem {
+    return {
+        label: def.label,
+        path: def.path,
+        group: def.group,
+        adminOnly: def.adminOnly,
+        icon: NAV_ICONS[def.icon],
+        badge: extras?.badge,
+        subtitle: extras?.subtitle,
+    };
+}
 
 type BreadcrumbItem = {
     label: string;
@@ -228,7 +270,7 @@ function NavItemButton({
     }
 
     const collapsedTitle =
-        item.path === "/activity" && item.badge
+        item.path === "/approvals" && item.badge
             ? `${item.label} — ${item.badge} pending approval${item.badge === 1 ? "" : "s"}`
             : item.label;
     return (
@@ -357,6 +399,38 @@ export function AppLayout() {
     });
     const pendingCount = pendingApprovals?.count ?? 0;
     const unreadNotifications = notifications?.filter((item) => !item.is_read).length ?? 0;
+
+    const { data: paletteApprovals = [] } = useQuery({
+        queryKey: queryKeys.orchestration.approvals,
+        queryFn: listApprovals,
+        ...queryPolicies.operational,
+        enabled: authReady && commandPaletteOpen,
+        retry: false,
+    });
+    const { data: paletteRuns = [] } = useQuery({
+        queryKey: ["orchestration", "runs", "command-palette"],
+        queryFn: () => listRuns(),
+        ...queryPolicies.operational,
+        enabled: authReady && commandPaletteOpen,
+        retry: false,
+    });
+    const { data: paletteAgents = [] } = useQuery({
+        queryKey: queryKeys.orchestration.agents(),
+        queryFn: () => listAgents(),
+        ...queryPolicies.operational,
+        enabled: authReady && commandPaletteOpen,
+        staleTime: defaultQueryStaleTimeMs,
+        retry: false,
+    });
+    const { data: paletteSkills = [] } = useQuery({
+        queryKey: ["workforce", "skills", "command-palette"],
+        queryFn: listSkills,
+        ...queryPolicies.operational,
+        enabled: authReady && commandPaletteOpen,
+        staleTime: defaultQueryStaleTimeMs,
+        retry: false,
+    });
+
     const appName = platformMetadata?.app_name ?? "Troop";
     const shortcutLabel = useMemo(() => commandShortcutLabel(), []);
     const hasAiModule =
@@ -365,50 +439,19 @@ export function AppLayout() {
     const desktopDrawerWidth = drawerCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH;
 
     const navItems = useMemo<NavItem[]>(
-        () => [
-            { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", group: "work" },
-            { label: "Projects", icon: <ProjectsIcon />, path: "/projects", group: "work" },
-            { label: "My tasks", icon: <MyTasksIcon />, path: "/my-tasks", group: "work" },
-            {
-                label: "Approvals",
-                icon: <ApprovalsIcon />,
-                path: "/activity",
-                group: "work",
-                badge: pendingCount || undefined,
-                subtitle:
-                    pendingCount > 0
-                        ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
-                        : undefined,
-            },
-            { label: "Agents", icon: <AgentsIcon />, path: "/agents", group: "agents" },
-            { label: "Skills", icon: <SkillsIcon />, path: "/skills", group: "agents" },
-            { label: "Marketplace", icon: <MarketplaceIcon />, path: "/marketplace", group: "agents" },
-            { label: "Hierarchy", icon: <HierarchyIcon />, path: "/hierarchy-builder", group: "agents" },
-            { label: "Workflows", icon: <WorkflowsIcon />, path: "/workforce-workflows", group: "automate" },
-            {
-                label: "Workflow templates",
-                icon: <WorkflowTemplatesIcon />,
-                path: "/workflow-templates",
-                group: "automate",
-            },
-            { label: "Integrations", icon: <IntegrationsIcon />, path: "/integrations", group: "automate" },
-            { label: "Portfolio", icon: <PortfolioNavIcon />, path: "/agent-portfolio", group: "insight" },
-            { label: "Cost & usage", icon: <CostAnalyticsIcon />, path: "/analytics/cost", group: "insight" },
-            {
-                label: "Execution insights",
-                icon: <ExecutionIcon />,
-                path: "/analytics/execution",
-                group: "insight",
-            },
-            { label: "Brainstorms", icon: <BrainstormsIcon />, path: "/brainstorms", group: "insight" },
-            ...(hasAiModule
-                ? [{ label: "AI Studio", icon: <AiStudioIcon />, path: "/ai", group: "insight" as const }]
-                : []),
-            { label: "Departments", icon: <DepartmentsIcon />, path: "/departments", group: "org" },
-            { label: "Companies", icon: <CompaniesIcon />, path: "/companies", group: "org" },
-            { label: "Model settings", icon: <ModelSettingsIcon />, path: "/model-settings", group: "org" },
-            { label: "Settings", icon: <SettingsIcon />, path: "/admin/settings", adminOnly: true, group: "admin" },
-        ],
+        () =>
+            NAV_ITEM_DEFS.filter((def) => !def.requiresAiModule || hasAiModule).map((def) => {
+                if (def.id === "approvals") {
+                    return navItemFromDef(def, {
+                        badge: pendingCount || undefined,
+                        subtitle:
+                            pendingCount > 0
+                                ? `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"}`
+                                : undefined,
+                    });
+                }
+                return navItemFromDef(def);
+            }),
         [hasAiModule, pendingCount],
     );
 
@@ -446,7 +489,7 @@ export function AppLayout() {
             {
                 id: "suggested-approvals",
                 label: pendingCount > 0 ? `Review approvals (${pendingCount})` : "Review approvals",
-                path: "/activity",
+                path: "/approvals",
                 group: "suggested",
                 secondary: "Clear the approval queue",
             },
@@ -492,7 +535,7 @@ export function AppLayout() {
             {
                 id: "action-approvals",
                 label: "Open approvals",
-                path: "/activity",
+                path: "/approvals",
                 group: "actions",
                 secondary: pendingCount > 0 ? `${pendingCount} pending` : "Approval queue",
             },
@@ -509,10 +552,63 @@ export function AppLayout() {
             label: item.label,
             path: item.path,
             group: "pages",
-            secondary: item.path,
+            secondary: item.label,
         }));
-        return [...suggested, ...recent, ...actions, ...pages];
-    }, [pendingCount, unreadNotifications, visibleNavItems]);
+        const approvals: CommandPaletteItem[] = paletteApprovals
+            .filter((item) => item.status === "pending")
+            .slice(0, 8)
+            .map((item) => ({
+                id: `approval-${item.id}`,
+                label: humanizeKey(item.approval_type || "approval"),
+                path: "/approvals",
+                group: "approvals" as const,
+                secondary: item.reason?.trim() || (item.run_id ? `Run ${item.run_id.slice(0, 8)}…` : "Pending approval"),
+            }));
+        const ACTIVE_RUN = new Set(["queued", "in_progress", "running", "waiting", "blocked"]);
+        const STUCK_RUN = new Set(["failed", "error", "cancelled", "timed_out"]);
+        const runs: CommandPaletteItem[] = paletteRuns
+            .filter((run) => ACTIVE_RUN.has(run.status) || STUCK_RUN.has(run.status))
+            .slice(0, 8)
+            .map((run) => ({
+                id: `run-item-${run.id}`,
+                label: `${humanizeKey(run.status)} · ${run.id.slice(0, 8)}…`,
+                path: `/runs/${run.id}`,
+                group: "runs" as const,
+                secondary: run.model_name || run.run_mode || "Open run inspector",
+            }));
+        const agents: CommandPaletteItem[] = paletteAgents.slice(0, 8).map((agent) => ({
+            id: `agent-${agent.id}`,
+            label: agent.name,
+            path: "/agents",
+            group: "agents" as const,
+            secondary: agent.role ? humanizeKey(agent.role) : agent.slug,
+        }));
+        const skills: CommandPaletteItem[] = paletteSkills.slice(0, 8).map((skill) => ({
+            id: `skill-${skill.id}`,
+            label: skill.name,
+            path: "/skills",
+            group: "skills" as const,
+            secondary: skill.slug || skill.purpose?.slice(0, 72) || "Skill",
+        }));
+        return [
+            ...suggested,
+            ...recent,
+            ...approvals,
+            ...runs,
+            ...agents,
+            ...skills,
+            ...actions,
+            ...pages,
+        ];
+    }, [
+        pendingCount,
+        unreadNotifications,
+        visibleNavItems,
+        paletteApprovals,
+        paletteRuns,
+        paletteAgents,
+        paletteSkills,
+    ]);
 
     useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {

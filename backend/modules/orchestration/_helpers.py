@@ -86,11 +86,18 @@ def resolve_query_limit(
     *,
     default: int,
     maximum: int,
-) -> int | None:
-    """Return SQL LIMIT or None when limit=0 requests an uncapped list."""
-    effective = default if limit is None else limit
-    if effective == 0:
-        return None
+) -> int:
+    """Return a SQL LIMIT clamped to ``maximum``.
+
+    ``limit=0`` historically meant "uncapped"; that is no longer allowed on hot
+    list paths — treat it as the configured maximum instead.
+    """
+    if limit is None:
+        effective = default
+    elif limit == 0:
+        effective = maximum
+    else:
+        effective = limit
     return max(1, min(effective, maximum))
 
 

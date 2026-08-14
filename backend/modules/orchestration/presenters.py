@@ -19,6 +19,7 @@ from backend.modules.orchestration.schemas import (
     ExecutionSnapshotMeta,
     PendingApprovalSummary,
     PendingGithubSyncSummary,
+    ProjectResponse,
     RunEventResponse,
     RunEventTailItem,
     RunExecutionSnapshotResponse,
@@ -27,6 +28,27 @@ from backend.modules.orchestration.schemas import (
     TaskResponse,
     TaskRunResponse,
 )
+
+
+def to_project_response(item: Any) -> ProjectResponse:
+    return ProjectResponse(
+        id=item.id,
+        name=item.name,
+        slug=item.slug,
+        description=item.description,
+        status=item.status,
+        goals_markdown=item.goals_markdown or "",
+        settings=item.settings_json,
+        memory_scope=item.memory_scope,
+        knowledge_summary=item.knowledge_summary,
+        company_id=getattr(item, "company_id", None),
+        department_id=getattr(item, "department_id", None),
+        knowledge_policy=getattr(item, "knowledge_policy_json", None),
+        budget=getattr(item, "budget_json", None),
+        metadata=getattr(item, "metadata_json", None),
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 def to_agent_response(item: Any) -> AgentResponse:

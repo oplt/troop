@@ -11,7 +11,6 @@ import {
     Box,
     Button,
     Chip,
-    Drawer,
     IconButton,
     InputAdornment,
     LinearProgress,
@@ -19,6 +18,7 @@ import {
     MenuItem,
     Paper,
     Stack,
+    Skeleton,
     TextField,
     Tooltip,
     Typography,
@@ -57,6 +57,8 @@ import { ConfirmDestructiveDialog } from "../components/ui/ConfirmDestructiveDia
 import { PageShell } from "../components/ui/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
+import { CreateProjectDrawer } from "./projects/CreateProjectDrawer";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusChip } from "../components/ui/StatusChip";
 import { formatDate, formatDateTime, humanizeKey } from "../utils/formatters";
@@ -172,9 +174,11 @@ export default function OrchestrationProjectsPage() {
     const [projectMenuAnchor, setProjectMenuAnchor] = useState<HTMLElement | null>(null);
     const [projectMenuProjectId, setProjectMenuProjectId] = useState<string | null>(null);
     const [deleteProjectTarget, setDeleteProjectTarget] = useState<{ id: string; name: string } | null>(null);
+    const [analyzeProjectTarget, setAnalyzeProjectTarget] = useState<{ id: string } | null>(null);
+    const [analyzePending, setAnalyzePending] = useState(false);
     const [advancedRepoOpen, setAdvancedRepoOpen] = useState(false);
 
-    const { data: projects = [] } = useQuery({
+    const { data: projects = [], isLoading: projectsLoading } = useQuery({
         queryKey: ["orchestration", "projects"],
         queryFn: listOrchestrationProjects,
     });
@@ -314,18 +318,7 @@ export default function OrchestrationProjectsPage() {
             await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
             reset();
             showToast({ message: "Project created.", severity: "success" });
-            
-            const shouldAnalyze = window.confirm("Analyze this project with AI to identify skills and agents?");
-            if (shouldAnalyze) {
-                try {
-                    await analyzeProject(project.id);
-                    showToast({ message: "Project analysis started.", severity: "success" });
-                } catch (error) {
-                    showToast({ message: `Analysis failed: ${(error as Error).message}`, severity: "warning" });
-                }
-            }
-            
-            navigate(`/projects/${project.id}`);
+            setAnalyzeProjectTarget({ id: project.id });
         },
     });
     const bootstrapMutation = useMutation({
@@ -549,7 +542,13 @@ export default function OrchestrationProjectsPage() {
                             ))}
                         </Box>
 
-                    {projects.length === 0 ? (
+                    {projectsLoading ? (
+                        <Stack spacing={1.5} role="status" aria-busy="true" aria-label="Loading projects">
+                            {Array.from({ length: 4 }).map((_, index) => (
+                                <Skeleton key={index} variant="rounded" height={88} sx={{ borderRadius: 1 }} />
+                            ))}
+                        </Stack>
+                    ) : projects.length === 0 ? (
                         <EmptyState
                             icon={<ProjectIcon />}
                             title="No projects yet"
@@ -568,10 +567,12 @@ export default function OrchestrationProjectsPage() {
                     ) : sortedProjects.length === 0 ? (
                         <EmptyState icon={<SearchIcon />} title="No matching projects" description="Clear search or adjust view." />
                     ) : (
+                        <ResponsiveTable
+                            table={
                         <Stack spacing={1}>
                             <Box
                                 sx={{
-                                    display: { xs: "none", md: "grid" },
+                                    display: "grid",
                                     gridTemplateColumns: "minmax(220px, 1.5fr) 130px 160px 160px minmax(120px, 1fr) 130px 44px",
                                     gap: 1.5,
                                     px: 2,
@@ -585,7 +586,6 @@ export default function OrchestrationProjectsPage() {
                                 ))}
                             </Box>
                             {sortedProjects.map((project) => {
-                                const agentCount = agentCountByProject.get(project.id) ?? 0;
                                 const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
                                 const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
                                 const lastRun = latestRunByProject.get(project.id);
@@ -598,21 +598,21 @@ export default function OrchestrationProjectsPage() {
                                         key={project.id}
                                         variant="outlined"
                                         sx={{
-                                            p: { xs: 1.5, md: 0 },
+                                            p: 0,
                                             borderRadius: 1,
                                             overflow: "hidden",
                                             transition: "border-color 0.33s, background-color 0.33s",
-                                            "&:hover": { borderColor: "primary.main", backgroundColor: "grey.50" },
+                                            "&:hover": { borderColor: "primary.main", backgroundColor: "action.hover" },
                                         }}
                                     >
                                         <Box
                                             sx={{
                                                 display: "grid",
-                                                gridTemplateColumns: { xs: "1fr", md: "minmax(220px, 1.5fr) 130px 160px 160px minmax(120px, 1fr) 130px 44px" },
-                                                gap: { xs: 1, md: 1.5 },
+                                                gridTemplateColumns: "minmax(220px, 1.5fr) 130px 160px 160px minmax(120px, 1fr) 130px 44px",
+                                                gap: 1.5,
                                                 alignItems: "center",
-                                                px: { xs: 0, md: 2 },
-                                                py: { xs: 0, md: 1.5 },
+                                                px: 2,
+                                                py: 1.5,
                                             }}
                                         >
                                             <Box sx={{ minWidth: 0 }}>
@@ -630,26 +630,14 @@ export default function OrchestrationProjectsPage() {
                                                 >
                                                     {project.description || "No description"}
                                                 </Typography>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75, display: { md: "none" } }}>
-                                                    <StatusChip
-                                                        status={statusKey}
-                                                        kind="project"
-                                                        label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
-                                                        variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
-                                                    />
-                                                    <Chip size="small" variant="outlined" label={`${activeRuns} active`} />
-                                                    <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
-                                                </Stack>
                                             </Box>
 
-                                            <Box sx={{ display: { xs: "none", md: "block" } }}>
-                                                <StatusChip
-                                                    status={statusKey}
-                                                    kind="project"
-                                                    label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
-                                                    variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
-                                                />
-                                            </Box>
+                                            <StatusChip
+                                                status={statusKey}
+                                                kind="project"
+                                                label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
+                                                variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
+                                            />
 
                                             <Typography variant="body2" color={activeRuns > 0 ? "warning.main" : "text.secondary"}>
                                                 {activeRuns > 0 ? `${activeRuns} running` : lastRun ? humanizeKey(lastRun.status) : "No runs"}
@@ -683,6 +671,63 @@ export default function OrchestrationProjectsPage() {
                                 );
                             })}
                         </Stack>
+                            }
+                            cards={
+                                <>
+                                    {sortedProjects.map((project) => {
+                                        const agentCount = agentCountByProject.get(project.id) ?? 0;
+                                        const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
+                                        const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
+                                        const lastRun = latestRunByProject.get(project.id);
+                                        const lastRunMs = lastRunAtByProject.get(project.id);
+                                        const statusKey = failedRuns > 0 ? "needs_attention" : activeRuns > 0 ? "running" : project.status;
+                                        const actionLabel = activeRuns > 0 ? "Resume" : "Open";
+                                        return (
+                                            <ResponsiveRowCard
+                                                key={project.id}
+                                                title={project.name}
+                                                meta={project.description || "No description"}
+                                                actions={
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <Button size="small" variant={activeRuns > 0 ? "contained" : "outlined"} onClick={() => navigate(`/projects/${project.id}`)}>
+                                                            {actionLabel}
+                                                        </Button>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(event: MouseEvent<HTMLElement>) => {
+                                                                setProjectMenuAnchor(event.currentTarget);
+                                                                setProjectMenuProjectId(project.id);
+                                                            }}
+                                                        >
+                                                            <MoreIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Stack>
+                                                }
+                                            >
+                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                    <StatusChip
+                                                        status={statusKey}
+                                                        kind="project"
+                                                        label={failedRuns > 0 ? "Needs attention" : humanizeKey(project.status)}
+                                                        variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
+                                                    />
+                                                    <Chip size="small" variant="outlined" label={`${activeRuns} active`} />
+                                                    <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
+                                                    <Chip
+                                                        size="small"
+                                                        variant="outlined"
+                                                        label={lastRunMs != null ? formatDateTime(new Date(lastRunMs).toISOString()) : formatDate(project.updated_at)}
+                                                    />
+                                                    {lastRun ? (
+                                                        <Chip size="small" variant="outlined" label={humanizeKey(lastRun.status)} />
+                                                    ) : null}
+                                                </Stack>
+                                            </ResponsiveRowCard>
+                                        );
+                                    })}
+                                </>
+                            }
+                        />
                     )}
                 </SectionCard>
             </Stack>
@@ -744,17 +789,42 @@ export default function OrchestrationProjectsPage() {
                     });
                 }}
             />
-            <Drawer
-                anchor="right"
+            <ConfirmDestructiveDialog
+                open={Boolean(analyzeProjectTarget)}
+                title="Analyze with AI?"
+                description="Identify skills and agents for this project. You can skip and open the project now."
+                confirmLabel="Analyze"
+                cancelLabel="Skip"
+                confirmColor="primary"
+                loading={analyzePending}
+                onClose={() => {
+                    if (analyzePending || !analyzeProjectTarget) return;
+                    const projectId = analyzeProjectTarget.id;
+                    setAnalyzeProjectTarget(null);
+                    navigate(`/projects/${projectId}`);
+                }}
+                onConfirm={async () => {
+                    if (!analyzeProjectTarget) return;
+                    const projectId = analyzeProjectTarget.id;
+                    setAnalyzePending(true);
+                    try {
+                        await analyzeProject(projectId);
+                        showToast({ message: "Project analysis started.", severity: "success" });
+                    } catch (error) {
+                        showToast({
+                            message: `Analysis failed: ${(error as Error).message}`,
+                            severity: "warning",
+                        });
+                    } finally {
+                        setAnalyzePending(false);
+                        setAnalyzeProjectTarget(null);
+                        navigate(`/projects/${projectId}`);
+                    }
+                }}
+            />
+            <CreateProjectDrawer
                 open={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
-                PaperProps={{
-                    sx: {
-                        width: 540,
-                        maxWidth: "100vw",
-                        p: 3,
-                    },
-                }}
             >
                 <Stack spacing={2} component="form" onSubmit={submitProject} sx={{ width: "100%" }}>
                     <input type="hidden" {...register("team_profile_id")} />
@@ -1070,7 +1140,7 @@ export default function OrchestrationProjectsPage() {
                         </>
                     )}
                 </Stack>
-            </Drawer>
+            </CreateProjectDrawer>
         </PageShell>
     );
 }

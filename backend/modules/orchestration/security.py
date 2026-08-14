@@ -1,16 +1,37 @@
 import base64
 from functools import lru_cache
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from backend.core.config import settings
 
 
-@lru_cache(maxsize=1)
-def _fernet() -> Fernet:
+def _legacy_jwt_fernet_key() -> bytes:
+    """Historical key material (JWT_SECRET truncated/padded). Kept for decrypt migration only."""
     secret_bytes = settings.JWT_SECRET.encode("utf-8")
-    key = base64.urlsafe_b64encode(secret_bytes[:32].ljust(32, b"0"))
-    return Fernet(key)
+    return base64.urlsafe_b64encode(secret_bytes[:32].ljust(32, b"0"))
+
+
+def _primary_fernet_key() -> bytes:
+    configured = (settings.SECRETS_ENCRYPTION_KEY or "").strip()
+    if configured:
+        return configured.encode("utf-8")
+    return _legacy_jwt_fernet_key()
+
+
+@lru_cache(maxsize=1)
+def _fernet() -> Fernet | MultiFernet:
+    primary = Fernet(_primary_fernet_key())
+    legacy_key = _legacy_jwt_fernet_key()
+    if (settings.SECRETS_ENCRYPTION_KEY or "").strip() and _primary_fernet_key() != legacy_key:
+        # Encrypt with dedicated key; decrypt accepts dedicated then legacy.
+        return MultiFernet([primary, Fernet(legacy_key)])
+    return primary
+
+
+def clear_secrets_fernet_cache() -> None:
+    """Test/helper hook after mutating SECRETS_ENCRYPTION_KEY or JWT_SECRET."""
+    _fernet.cache_clear()
 
 
 def encrypt_secret(value: str) -> str:

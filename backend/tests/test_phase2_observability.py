@@ -8,8 +8,15 @@ from backend.api.v1 import health as health_module
 from backend.modules.observability.health import readiness_report
 from backend.modules.observability.metrics import (
     HTTP_ACTIVE,
+    EMBED_TOKENS,
+    LLM_ATTEMPTS,
+    LLM_COST_MICROS,
     MetricsRegistry,
     bounded_route,
+    metrics_registry,
+    record_embed_tokens,
+    record_llm_attempt,
+    record_llm_cost_micros,
 )
 from httpx import ASGITransport, AsyncClient
 
@@ -127,3 +134,57 @@ def test_registry_label_shape_is_explicit() -> None:
     registry.increment("troop_shape_total", help_text="Shape.", labels={"kind": "ok"})
     with pytest.raises(ValueError, match="incompatible shape"):
         registry.increment("troop_shape_total", help_text="Shape.", labels={})
+
+
+def test_ai_metrics_render_purpose_provider_and_cost() -> None:
+    metrics_registry.reset()
+    record_llm_attempt(purpose="agent_plan", provider="openai_compatible", result="success")
+    record_llm_attempt(purpose="agent_plan", provider="openai_compatible", result="error")
+    record_llm_cost_micros(purpose="agent_plan", provider="openai_compatible", micros=1250)
+    record_embed_tokens(provider="openai", tokens=512, outcome="success")
+
+    rendered = metrics_registry.render_prometheus()
+
+    assert f"# TYPE {LLM_ATTEMPTS} counter" in rendered
+    assert 'purpose="agent_plan"' in rendered
+    assert 'provider="openai_compatible"' in rendered
+    assert 'result="success"' in rendered
+    assert f"# TYPE {LLM_COST_MICROS} counter" in rendered
+    assert f"{LLM_COST_MICROS}" in rendered and "1250" in rendered
+    assert f"# TYPE {EMBED_TOKENS} counter" in rendered
+    assert 'provider="openai"' in rendered
+    metrics_registry.reset()
+
+
+@pytest.mark.asyncio
+async def test_execute_prompt_records_direct_path_metrics(monkeypatch) -> None:
+    from backend.modules.orchestration.providers import ProviderExecutionResult, execute_prompt
+
+    metrics_registry.reset()
+    stub = ProviderExecutionResult(
+        model_name="gpt-test",
+        output_text="ok",
+        output_json=None,
+        input_tokens=10,
+        output_tokens=5,
+        latency_ms=12,
+    )
+
+    async def fake_impl(*_args, **_kwargs):
+        return stub
+
+    monkeypatch.setattr(
+        "backend.modules.orchestration.providers._execute_prompt_impl",
+        fake_impl,
+    )
+    await execute_prompt(
+        None,
+        model_name="local-heuristic",
+        system_prompt="sys",
+        user_prompt="usr",
+        purpose="health_probe",
+    )
+    rendered = metrics_registry.render_prometheus()
+    assert 'purpose="health_probe"' in rendered
+    assert 'provider="local-heuristic"' in rendered
+    metrics_registry.reset()

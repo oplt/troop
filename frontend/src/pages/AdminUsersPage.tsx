@@ -17,22 +17,19 @@ import {
     TableRow,
     Tooltip,
     Typography,
-    useMediaQuery,
 } from "@mui/material";
 import { PeopleAlt as PeopleAltIcon } from "@mui/icons-material";
-import { useTheme } from "@mui/material/styles";
 import { listAdminUsers, updateUserStatus } from "../api/admin";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
 import { useDebounce } from "../hooks/useDebounce";
 import { formatDate } from "../utils/formatters";
 
 export default function AdminUsersPage() {
     const queryClient = useQueryClient();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("md"));
     const [search] = useState("");
     const [page, setPage] = useState(0);
     const pageSize = 20;
@@ -108,124 +105,119 @@ export default function AdminUsersPage() {
                         title="No users found"
                         description="Try broadening the search or check if the current filters are too narrow."
                     />
-                ) : isMobile ? (
-                    <Stack spacing={1.5}>
-                        {users.map((user) => {
-                            const isUpdatingThisUser =
-                                statusMutation.isPending &&
-                                statusMutation.variables?.id === user.id;
-                            return (
-                                <Box
-                                    key={user.id}
-                                    sx={(currentTheme) => ({
-                                        p: 2.25,
-                                        borderRadius: 4,
-                                        border: `1px solid ${currentTheme.palette.divider}`,
-                                    })}
-                                >
-                                    <Stack spacing={1.25}>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Box sx={{ minWidth: 0 }}>
-                                                <Typography variant="subtitle2" noWrap>{user.full_name ?? "Unnamed user"}</Typography>
-                                                <Typography variant="body2" color="text.secondary" noWrap>
-                                                    {user.email}
-                                                </Typography>
-                                            </Box>
-                                            <Switch
-                                                checked={user.is_active}
-                                                size="small"
-                                                disabled={isUpdatingThisUser}
-                                                onChange={(event) =>
-                                                    statusMutation.mutate({
-                                                        id: user.id,
-                                                        is_active: event.target.checked,
-                                                    })
-                                                }
-                                            />
-                                        </Stack>
-                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                            {user.roles.map((role) => (
-                                                <Chip key={role} label={role} size="small" />
-                                            ))}
-                                            <Chip
-                                                label={user.is_verified ? "Verified" : "Unverified"}
-                                                size="small"
-                                                color={user.is_verified ? "success" : "warning"}
-                                                variant="outlined"
-                                            />
-                                        </Stack>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Joined {formatDate(user.created_at)}
-                                        </Typography>
-                                    </Stack>
-                                </Box>
-                            );
-                        })}
-                    </Stack>
                 ) : (
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Email</TableCell>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Roles</TableCell>
-                                    <TableCell>Verified</TableCell>
-                                    <TableCell>Joined</TableCell>
-                                    <TableCell align="center">Active</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
+                    <ResponsiveTable
+                        table={
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Email</TableCell>
+                                            <TableCell>Name</TableCell>
+                                            <TableCell>Roles</TableCell>
+                                            <TableCell>Verified</TableCell>
+                                            <TableCell>Joined</TableCell>
+                                            <TableCell align="center">Active</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {users.map((user) => {
+                                            const isUpdatingThisUser =
+                                                statusMutation.isPending &&
+                                                statusMutation.variables?.id === user.id;
+                                            return (
+                                                <TableRow key={user.id} hover>
+                                                    <TableCell>{user.email}</TableCell>
+                                                    <TableCell>{user.full_name ?? "—"}</TableCell>
+                                                    <TableCell>
+                                                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                            {user.roles.map((role) => (
+                                                                <Chip key={role} label={role} size="small" />
+                                                            ))}
+                                                        </Stack>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            label={user.is_verified ? "Verified" : "Unverified"}
+                                                            size="small"
+                                                            color={user.is_verified ? "success" : "warning"}
+                                                            variant="outlined"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(user.created_at)}</TableCell>
+                                                    <TableCell align="center">
+                                                        <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
+                                                            <Box component="span">
+                                                                {isUpdatingThisUser ? (
+                                                                    <CircularProgress size={18} />
+                                                                ) : (
+                                                                    <Switch
+                                                                        checked={user.is_active}
+                                                                        size="small"
+                                                                        onChange={(event) =>
+                                                                            statusMutation.mutate({
+                                                                                id: user.id,
+                                                                                is_active: event.target.checked,
+                                                                            })
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        }
+                        cards={
+                            <>
                                 {users.map((user) => {
                                     const isUpdatingThisUser =
                                         statusMutation.isPending &&
                                         statusMutation.variables?.id === user.id;
                                     return (
-                                        <TableRow key={user.id} hover>
-                                            <TableCell>{user.email}</TableCell>
-                                            <TableCell>{user.full_name ?? "—"}</TableCell>
-                                            <TableCell>
-                                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                    {user.roles.map((role) => (
-                                                        <Chip key={role} label={role} size="small" />
-                                                    ))}
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
+                                        <ResponsiveRowCard
+                                            key={user.id}
+                                            title={user.full_name ?? "Unnamed user"}
+                                            meta={user.email}
+                                            actions={
+                                                <Switch
+                                                    checked={user.is_active}
+                                                    size="small"
+                                                    disabled={isUpdatingThisUser}
+                                                    onChange={(event) =>
+                                                        statusMutation.mutate({
+                                                            id: user.id,
+                                                            is_active: event.target.checked,
+                                                        })
+                                                    }
+                                                    inputProps={{ "aria-label": user.is_active ? "Deactivate user" : "Activate user" }}
+                                                />
+                                            }
+                                        >
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                {user.roles.map((role) => (
+                                                    <Chip key={role} label={role} size="small" />
+                                                ))}
                                                 <Chip
                                                     label={user.is_verified ? "Verified" : "Unverified"}
                                                     size="small"
                                                     color={user.is_verified ? "success" : "warning"}
                                                     variant="outlined"
                                                 />
-                                            </TableCell>
-                                            <TableCell>{formatDate(user.created_at)}</TableCell>
-                                            <TableCell align="center">
-                                                <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
-                                                    <Box component="span">
-                                                        {isUpdatingThisUser ? (
-                                                            <CircularProgress size={18} />
-                                                        ) : (
-                                                            <Switch
-                                                                checked={user.is_active}
-                                                                size="small"
-                                                                onChange={(event) =>
-                                                                    statusMutation.mutate({
-                                                                        id: user.id,
-                                                                        is_active: event.target.checked,
-                                                                    })
-                                                                }
-                                                            />
-                                                        )}
-                                                    </Box>
-                                                </Tooltip>
-                                            </TableCell>
-                                        </TableRow>
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Joined {formatDate(user.created_at)}
+                                            </Typography>
+                                        </ResponsiveRowCard>
                                     );
                                 })}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                            </>
+                        }
+                    />
                 )}
 
                 <TablePagination

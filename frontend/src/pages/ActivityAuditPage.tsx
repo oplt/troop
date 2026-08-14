@@ -5,6 +5,7 @@ import {
     Button,
     Chip,
     CircularProgress,
+    Skeleton,
     Dialog,
     DialogActions,
     DialogContent,
@@ -18,7 +19,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Check as ApproveIcon,
@@ -45,10 +46,22 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusChip } from "../components/ui/StatusChip";
 import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { DensePageMobileNotice } from "../components/ui/DensePageMobileNotice";
+import { KeyboardShortcutsMenu } from "../components/ui/KeyboardShortcutsMenu";
 import { queryKeys } from "../config/queryKeys";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
 import { editEmailApprovalPayload, requestApprovalChanges } from "../api/integrations";
 import { normalizeEmailApproval } from "../features/approvals/emailApproval";
+
+function emailConsequenceLine(approval: { approval_type: string; payload: Record<string, unknown> }): string | null {
+    const email = normalizeEmailApproval(approval.payload, approval.approval_type);
+    if (!email.isEmail) return null;
+    const recipients = email.draft.to.length > 0
+        ? email.draft.to
+        : email.incoming.to.map((item) => item.email).filter(Boolean);
+    if (recipients.length === 0) return "Sends email (recipients not set yet).";
+    return `Sends email to ${recipients.join(", ")}`;
+}
 
 /** Map approval_type to a human-readable action description */
 function describeAction(approval: { approval_type: string; payload: Record<string, unknown> }): string {
@@ -177,6 +190,12 @@ function ApprovalCard({
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
     const navigate = useNavigate();
+    const cardRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!focused || !cardRef.current) return;
+        cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, [focused]);
 
     const mutation = useMutation({
         mutationFn: ({ status, reason: r }: { status: "approved" | "rejected"; reason?: string }) =>
@@ -219,9 +238,11 @@ function ApprovalCard({
 
     const isPending = approval.status === "pending";
     const actionDescription = describeAction(approval);
+    const consequence = emailConsequenceLine(approval);
 
     return (
         <Paper
+            ref={cardRef}
             onClick={onFocusCard}
             tabIndex={isPending ? 0 : -1}
             onFocus={onFocusCard}
@@ -322,6 +343,11 @@ function ApprovalCard({
 
                 {isPending && (
                     <>
+                        {consequence ? (
+                            <Alert severity="warning" sx={{ py: 0.75 }}>
+                                <Typography variant="body2">{consequence}</Typography>
+                            </Alert>
+                        ) : null}
                         <TextField
                             size="small"
                             label="Decision note"
@@ -556,16 +582,27 @@ export default function ActivityAuditPage() {
                 title="Approvals"
                 description="Decide pending requests, then browse the ledger or HITL audit log. This is the action queue — not My tasks."
                 actions={
-                    <Button variant="outlined" onClick={() => navigate("/my-tasks")}>
-                        My tasks
-                    </Button>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <KeyboardShortcutsMenu
+                            title="Approvals shortcuts"
+                            shortcuts={[
+                                { keys: "j / k", label: "Move focus in pending queue" },
+                                { keys: "a", label: "Approve focused card" },
+                                { keys: "r", label: "Reject focused card" },
+                            ]}
+                        />
+                        <Button variant="outlined" onClick={() => navigate("/my-tasks")}>
+                            My tasks
+                        </Button>
+                    </Stack>
                 }
             />
+            <DensePageMobileNotice surface="Approvals queue" />
 
             <Paper sx={{ p: 2, borderRadius: 1 }}>
                 <Stack spacing={2}>
                     <Typography variant="body2" color="text.secondary">
-                        Queue tip: decide pending cards first. Keys: j/k move · a approve · r reject (when not typing). Ledger and Audit are history.
+                        Decide pending cards first. Ledger and Audit are history.
                     </Typography>
                     <FilterToolbar>
                         <TextField
@@ -640,9 +677,10 @@ export default function ActivityAuditPage() {
                         >
                             <Stack spacing={1.5}>
                                 {approvalsLoading && (
-                                    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                                        <CircularProgress size={24} />
-                                    </Box>
+                                    <Stack spacing={1.5} role="status" aria-busy="true" aria-label="Loading approvals">
+                                        <Skeleton variant="rounded" height={96} sx={{ borderRadius: 1 }} />
+                                        <Skeleton variant="rounded" height={96} sx={{ borderRadius: 1 }} />
+                                    </Stack>
                                 )}
                                 {!approvalsLoading && pending.length === 0 && (
                                     <Alert severity="success" sx={{ py: 1 }}>
@@ -685,9 +723,10 @@ export default function ActivityAuditPage() {
                         description="Execution history with model and token metadata. Use Inspect for the live event stream."
                     >
                         {runsLoading && (
-                            <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                                <CircularProgress size={24} />
-                            </Box>
+                            <Stack spacing={1.5} role="status" aria-busy="true" aria-label="Loading runs">
+                                <Skeleton variant="rounded" height={72} sx={{ borderRadius: 1 }} />
+                                <Skeleton variant="rounded" height={72} sx={{ borderRadius: 1 }} />
+                            </Stack>
                         )}
                         <Stack spacing={1.5}>
                             {filteredRuns.map((run) => (
@@ -696,19 +735,7 @@ export default function ActivityAuditPage() {
                                         <Box>
                                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                                 <Chip label={humanizeKey(run.run_mode)} size="small" variant="outlined" />
-                                                <Chip
-                                                    label={humanizeKey(run.status)}
-                                                    size="small"
-                                                    color={
-                                                        run.status === "completed"
-                                                            ? "success"
-                                                            : run.status === "failed"
-                                                              ? "error"
-                                                              : run.status === "in_progress"
-                                                                ? "info"
-                                                                : "default"
-                                                    }
-                                                />
+                                                <StatusChip status={run.status} kind="run" size="small" />
                                             </Stack>
                                             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                                 {run.model_name || "default model"} • {run.token_total.toLocaleString()} tokens • {run.latency_ms ?? 0} ms
@@ -730,7 +757,9 @@ export default function ActivityAuditPage() {
                     </SectionCard>
 
                     <SectionCard title="GitHub sync events" description="Webhook and sync pipeline activity (filtered by date only).">
-                        {syncLoading && <CircularProgress size={20} />}
+                        {syncLoading && (
+                            <Skeleton variant="rounded" height={56} sx={{ borderRadius: 1 }} aria-label="Loading sync events" />
+                        )}
                         <Stack spacing={1.25}>
                             {filteredSync.map((event) => (
                                 <Paper key={event.id} sx={{ p: 1.5, borderRadius: 1 }}>
@@ -753,7 +782,12 @@ export default function ActivityAuditPage() {
                     title="Human-in-the-loop audit log"
                     description="Approval requests, decisions, and project control changes. Sensitive payload values are intentionally excluded."
                 >
-                    {auditLoading && <CircularProgress size={22} />}
+                    {auditLoading && (
+                        <Stack spacing={1.25} role="status" aria-busy="true" aria-label="Loading audit log">
+                            <Skeleton variant="rounded" height={64} sx={{ borderRadius: 1 }} />
+                            <Skeleton variant="rounded" height={64} sx={{ borderRadius: 1 }} />
+                        </Stack>
+                    )}
                     <Stack spacing={1.25}>
                         {filteredAuditLogs.map((log) => (
                             <Paper key={log.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>

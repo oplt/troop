@@ -29,8 +29,11 @@ import {
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDateTime, humanizeKey } from "../utils/formatters";
+import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { StatusChip } from "../components/ui/StatusChip";
 
 const BRAINSTORM_MODES = [
     "exploration",
@@ -308,45 +311,46 @@ export default function BrainstormsPage() {
 
     return (
         <PageShell maxWidth="xl">
-            <Paper sx={{ p: 2, borderRadius: 1, mb: 2 }}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                    <TextField
-                        label="Search"
-                        size="small"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Topic or summary"
-                        fullWidth
-                    />
-                    <TextField
-                        select
-                        label="Project"
-                        size="small"
-                        value={projectFilter}
-                        onChange={(e) => setProjectFilter(e.target.value)}
-                        sx={{ minWidth: 200 }}
-                    >
-                        <MenuItem value="">All projects</MenuItem>
-                        {projects.map((p) => (
-                            <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-                        ))}
-                    </TextField>
-                    <TextField
-                        select
-                        label="Status"
-                        size="small"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        sx={{ minWidth: 160 }}
-                    >
-                        <MenuItem value="">Any status</MenuItem>
-                        <MenuItem value="running">Running</MenuItem>
-                        <MenuItem value="completed">Completed</MenuItem>
-                        <MenuItem value="draft">Draft</MenuItem>
-                        <MenuItem value="paused">Paused</MenuItem>
-                    </TextField>
-                </Stack>
-            </Paper>
+            <PageHeader
+                title="Brainstorms"
+                description="Multi-agent debates and synthesis runs across projects."
+            />
+            <FilterToolbar>
+                <TextField
+                    label="Search"
+                    size="small"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Topic or summary"
+                    fullWidth
+                />
+                <TextField
+                    select
+                    label="Project"
+                    size="small"
+                    value={projectFilter}
+                    onChange={(e) => setProjectFilter(e.target.value)}
+                    sx={{ minWidth: 200 }}
+                >
+                    <MenuItem value="">All projects</MenuItem>
+                    {projects.map((p) => (
+                        <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                    ))}
+                </TextField>
+                <TextField
+                    select
+                    label="Status"
+                    size="small"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    sx={{ minWidth: 160 }}
+                >
+                    <MenuItem value="">Any status</MenuItem>
+                    <MenuItem value="running">Running</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                </TextField>
+            </FilterToolbar>
             <SectionCard title="All brainstorms" description="Each room tracks mode, participants, rounds, guardrails, summaries, and promoted outputs.">
                 {brainstorms.length === 0 ? (
                     <EmptyState
@@ -382,7 +386,7 @@ export default function BrainstormsPage() {
                                         <Chip label={humanizeKey(item.output_type)} size="small" variant="outlined" />
                                         <Chip label={`${item.participant_count} participants`} size="small" variant="outlined" />
                                         <Chip label={`Round ${item.current_round}/${item.max_rounds}`} size="small" variant="outlined" />
-                                        <Chip label={humanizeKey(item.status)} size="small" color={item.status === "completed" ? "success" : "default"} />
+                                        <StatusChip status={item.status} kind="run" />
                                         <Chip label={humanizeKey(item.consensus_status)} size="small" color={item.consensus_status === "consensus" ? "success" : "warning"} variant="outlined" />
                                     </Stack>
                                     <Typography variant="caption" color="text.secondary">

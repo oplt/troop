@@ -3,12 +3,20 @@ import json
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.request_context import get_request_context
 from backend.modules.audit.models import AuditLog
 
 
 class AuditRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def _merge_request_context(metadata: dict | None) -> dict:
+        merged = dict(metadata or {})
+        for key, value in get_request_context().as_log_fields().items():
+            merged.setdefault(key, value)
+        return merged
 
     async def log(
         self,
@@ -28,7 +36,7 @@ class AuditRepository:
             resource_id=resource_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            metadata_json=json.dumps(metadata) if metadata else None,
+            metadata_json=json.dumps(self._merge_request_context(metadata)),
         )
         self.db.add(entry)
         await self.db.flush()

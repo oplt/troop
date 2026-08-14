@@ -18,7 +18,7 @@ from backend.workers.context import (
 
 
 def test_context_is_scoped_and_restored() -> None:
-    set_context(user_id=None, run_id=None)
+    set_context(user_id=None, run_id=None, trace_id=None, span_id=None)
     assert get_request_context().user_id is None
 
     with bind_context(user_id="user-1", run_id="run-1"):

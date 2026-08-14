@@ -17,6 +17,7 @@ from backend.modules.observability.tracing import setup_sentry, setup_tracing
 
 _database_instrumented = False
 _worker_signals_registered = False
+_active_task_spans: dict[str, Any] = {}
 _task_started: dict[str, float] = {}
 
 
@@ -84,6 +85,11 @@ def register_worker_observability_signals() -> None:
     def on_prerun(task_id: str | None = None, task: Any = None, **_: Any) -> None:
         if task_id:
             _task_started[task_id] = perf_counter()
+            from backend.modules.observability.tracing import celery_task_span
+
+            cm = celery_task_span(task_name(task), task_id=task_id)
+            cm.__enter__()
+            _active_task_spans[task_id] = cm
         metrics_registry.increment_gauge(
             WORKER_ACTIVE,
             help_text="Currently active Celery tasks.",
@@ -98,6 +104,10 @@ def register_worker_observability_signals() -> None:
     ) -> None:
         started = _task_started.pop(task_id or "", perf_counter())
         record_worker_task(task_name(task), (state or "unknown").lower(), perf_counter() - started)
+        if task_id:
+            cm = _active_task_spans.pop(task_id, None)
+            if cm is not None:
+                cm.__exit__(None, None, None)
         metrics_registry.increment_gauge(
             WORKER_ACTIVE,
             help_text="Currently active Celery tasks.",

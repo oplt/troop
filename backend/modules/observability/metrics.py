@@ -252,10 +252,20 @@ SSE_CONNECTIONS = "troop_sse_connections"
 SSE_EVENTS = "troop_sse_events_total"
 QUEUE_DEPTH = "troop_queue_depth"
 QUEUE_AGE = "troop_queue_oldest_age_seconds"
+RUNS_ACTIVE = "troop_orchestration_runs_active"
+STALE_IN_PROGRESS_RUNS = "troop_orchestration_stale_in_progress_runs"
+OLDEST_IN_PROGRESS_AGE = "troop_orchestration_oldest_in_progress_age_seconds"
+DB_POOL_CHECKED_OUT = "troop_db_pool_checked_out"
+DB_POOL_OVERFLOW = "troop_db_pool_overflow"
+DB_POOL_SIZE = "troop_db_pool_size"
+DB_POOL_CHECKOUT_WAIT = "troop_db_pool_checkout_wait_seconds"
 RUNS = "troop_orchestration_runs_total"
 MEMORY_RETRIEVALS = "troop_memory_retrievals_total"
 MEMORY_RETRIEVAL_DURATION = "troop_memory_retrieval_duration_seconds"
 DISTRIBUTED_LOCKS = "troop_distributed_lock_attempts_total"
+LLM_ATTEMPTS = "troop_llm_attempts_total"
+LLM_COST_MICROS = "troop_llm_cost_micros_total"
+EMBED_TOKENS = "troop_embed_tokens_total"
 
 
 def record_http_request(method: str, route: str, status_code: int, duration_seconds: float) -> None:
@@ -402,6 +412,75 @@ def record_queue_state(queue: str, *, depth: int, oldest_age_seconds: float | No
         )
 
 
+_ACTIVE_RUN_STATUSES = ("queued", "in_progress", "blocked", "awaiting_approval")
+
+
+def record_run_status_snapshot(
+    counts_by_status: dict[str, int],
+    *,
+    stale_in_progress: int,
+    oldest_in_progress_age_seconds: float | None,
+) -> None:
+    """Refresh gauges for active orchestration runs and stuck in_progress detection."""
+    for status in _ACTIVE_RUN_STATUSES:
+        metrics_registry.set_gauge(
+            RUNS_ACTIVE,
+            max(0, int(counts_by_status.get(status, 0))),
+            help_text="Active orchestration runs by status.",
+            labels={"status": bounded_label(status)},
+        )
+    metrics_registry.set_gauge(
+        STALE_IN_PROGRESS_RUNS,
+        max(0, stale_in_progress),
+        help_text="in_progress runs older than the stale recovery threshold.",
+        labels={},
+    )
+    if oldest_in_progress_age_seconds is not None:
+        metrics_registry.set_gauge(
+            OLDEST_IN_PROGRESS_AGE,
+            max(0.0, oldest_in_progress_age_seconds),
+            help_text="Age in seconds of the oldest in_progress run.",
+            labels={},
+        )
+
+
+def record_db_pool_state(
+    *,
+    role: str,
+    checked_out: int,
+    overflow: int,
+    pool_size: int,
+) -> None:
+    labels = {"role": bounded_label(role, fallback="api")}
+    metrics_registry.set_gauge(
+        DB_POOL_CHECKED_OUT,
+        max(0, checked_out),
+        help_text="Database connections currently checked out.",
+        labels=labels,
+    )
+    metrics_registry.set_gauge(
+        DB_POOL_OVERFLOW,
+        max(0, overflow),
+        help_text="Database pool overflow connections in use.",
+        labels=labels,
+    )
+    metrics_registry.set_gauge(
+        DB_POOL_SIZE,
+        max(0, pool_size),
+        help_text="Configured database pool size for this process role.",
+        labels=labels,
+    )
+
+
+def record_db_pool_checkout_wait(duration_seconds: float, *, role: str) -> None:
+    metrics_registry.observe(
+        DB_POOL_CHECKOUT_WAIT,
+        max(0.0, duration_seconds),
+        help_text="Time spent waiting for a database pool checkout.",
+        labels={"role": bounded_label(role, fallback="api")},
+    )
+
+
 def record_run_outcome(run_mode: str, outcome: str) -> None:
     metrics_registry.increment(
         RUNS,
@@ -437,15 +516,68 @@ def record_distributed_lock(name: str, outcome: str) -> None:
     )
 
 
+def record_llm_attempt(*, purpose: str, provider: str, result: str) -> None:
+    """Record one LLM routing/provider attempt (success, error, budget_exhausted)."""
+    metrics_registry.increment(
+        LLM_ATTEMPTS,
+        help_text="LLM invoke attempts by purpose, provider, and outcome.",
+        labels={
+            "purpose": bounded_label(purpose, fallback="unknown"),
+            "provider": bounded_label(provider, fallback="unknown"),
+            "result": bounded_label(result, fallback="unknown"),
+        },
+    )
+
+
+def record_llm_cost_micros(*, purpose: str, provider: str, micros: int) -> None:
+    """Accumulate estimated LLM spend in micro-dollars."""
+    if micros <= 0:
+        return
+    metrics_registry.increment(
+        LLM_COST_MICROS,
+        help_text="Estimated LLM cost in micro-dollars.",
+        labels={
+            "purpose": bounded_label(purpose, fallback="unknown"),
+            "provider": bounded_label(provider, fallback="unknown"),
+        },
+        delta=float(micros),
+    )
+
+
+def record_embed_tokens(*, provider: str, tokens: int, outcome: str = "success") -> None:
+    """Record embedding token volume for cost/usage dashboards."""
+    if tokens <= 0:
+        return
+    metrics_registry.increment(
+        EMBED_TOKENS,
+        help_text="Embedding input tokens processed.",
+        labels={
+            "provider": bounded_label(provider, fallback="unknown"),
+            "outcome": bounded_label(outcome, fallback="unknown"),
+        },
+        delta=float(tokens),
+    )
+
+
 __all__ = [
     "CACHE_DURATION",
     "CACHE_OPERATIONS",
+    "DB_POOL_CHECKED_OUT",
+    "DB_POOL_CHECKOUT_WAIT",
+    "DB_POOL_OVERFLOW",
+    "DB_POOL_SIZE",
     "DISTRIBUTED_LOCKS",
+    "EMBED_TOKENS",
+    "LLM_ATTEMPTS",
+    "LLM_COST_MICROS",
     "MEMORY_RETRIEVALS",
     "MEMORY_RETRIEVAL_DURATION",
+    "OLDEST_IN_PROGRESS_AGE",
     "QUEUE_AGE",
     "QUEUE_DEPTH",
     "RUNS",
+    "RUNS_ACTIVE",
+    "STALE_IN_PROGRESS_RUNS",
     "SSE_CONNECTIONS",
     "SSE_EVENTS",
     "DB_DURATION",
@@ -464,9 +596,15 @@ __all__ = [
     "bounded_label",
     "bounded_route",
     "metrics_registry",
+    "record_db_pool_checkout_wait",
+    "record_db_pool_state",
     "record_db_query",
+    "record_run_status_snapshot",
     "record_cache_operation",
     "record_distributed_lock",
+    "record_embed_tokens",
+    "record_llm_attempt",
+    "record_llm_cost_micros",
     "record_sse_event",
     "record_http_request",
     "record_memory_retrieval",

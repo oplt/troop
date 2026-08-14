@@ -227,38 +227,15 @@ class OrchestrationProvidersServiceMixin:
         *,
         model_name: str | None = None,
     ) -> int:
-        # Ollama and built-in local heuristic are not metered like cloud APIs; using generic defaults
-        # ($/1k from capability fallbacks) falsely trips expensive-model approval for models like qwen3:4b.
-        if provider is not None and str(getattr(provider, "provider_type", None) or "").strip().lower() in {
-            "ollama",
-            "local",
-        }:
-            return 0
-        capability = None
-        if model_name:
-            capability = next(
-                (
-                    item
-                    for item in getattr(self, "_cached_model_capabilities", [])
-                    if item.model_slug == model_name
-                    and (
-                        provider is None
-                        or item.provider_id == getattr(provider, "id", None)
-                        or item.provider_type in _provider_type_aliases(provider.provider_type)
-                    )
-                ),
-                None,
-            )
-        if capability:
-            cost_in = float(capability.cost_per_1k_input)
-            cost_out = float(capability.cost_per_1k_output)
-        elif provider and provider.metadata_json:
-            cost_in = float(provider.metadata_json.get("cost_per_1k_input", 1.0))
-            cost_out = float(provider.metadata_json.get("cost_per_1k_output", 2.0))
-        else:
-            cost_in, cost_out = 1.0, 2.0
-        micros = int((input_tokens / 1000.0 * cost_in + output_tokens / 1000.0 * cost_out) * 1_000_000)
-        return micros
+        from backend.modules.ai.gateway.pricing import estimate_cost_micros
+
+        return estimate_cost_micros(
+            provider,
+            input_tokens,
+            output_tokens,
+            model_name=model_name,
+            capabilities=getattr(self, "_cached_model_capabilities", None),
+        )
 
     async def _model_capabilities(self) -> list[ModelCapability]:
         items = await self.repo.list_model_capabilities()

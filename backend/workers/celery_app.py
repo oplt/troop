@@ -20,6 +20,15 @@ register_task_context_signals()
 register_worker_observability_signals()
 register_worker_http_shutdown()
 
+if settings.OTLP_ENDPOINT:
+    from backend.modules.observability.tracing import setup_tracing
+
+    setup_tracing(
+        settings.OTLP_ENDPOINT,
+        f"{settings.APP_NAME}-worker",
+        settings.OTLP_INSECURE,
+    )
+
 
 def _orchestration_task_routes() -> dict[str, dict[str, str]]:
     """Route orchestration tasks to service-scoped queues (same codebase, split workers)."""
@@ -38,10 +47,16 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.memory_expiration_sweep": {
             "queue": s.CELERY_QUEUE_OBSERVABILITY
         },
+        "backend.workers.orchestration.stale_in_progress_recovery": {
+            "queue": s.CELERY_QUEUE_OBSERVABILITY
+        },
         "backend.workers.orchestration.sla_escalation_scan": {
             "queue": s.CELERY_QUEUE_OBSERVABILITY
         },
         "backend.workers.orchestration.embed_semantic_memory_entry": {
+            "queue": s.CELERY_QUEUE_MODEL_GATEWAY
+        },
+        "backend.workers.orchestration.execute_ai_studio_run": {
             "queue": s.CELERY_QUEUE_MODEL_GATEWAY
         },
         "backend.workers.orchestration.process_memory_ingest_jobs": {
@@ -109,6 +124,10 @@ celery_app.conf.update(
             "schedule": crontab(
                 minute=f"*/{max(1, settings.ORCHESTRATION_SLA_SCAN_INTERVAL_MINUTES)}"
             ),
+        },
+        "stale-in-progress-recovery": {
+            "task": "backend.workers.orchestration.stale_in_progress_recovery",
+            "schedule": crontab(minute="*/5"),
         },
         "memory-ingest-jobs": {
             "task": "backend.workers.orchestration.process_memory_ingest_jobs",

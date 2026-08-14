@@ -35,8 +35,11 @@ import { deleteAvatar, getProfile, updateProfile, uploadAvatar } from "../api/pr
 import { useSnackbar } from "../app/snackbarContext";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageShell } from "../components/ui/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { formatDate, formatDateTime, getInitials } from "../utils/formatters";
+import { FormFieldStack } from "../components/ui/FormFieldStack";
+import { Subsection } from "../components/ui/Subsection";
 
 const accountSchema = z.object({
     full_name: z.string().optional(),
@@ -407,13 +410,14 @@ export function ProfileContent() {
                 <SectionCard title="Account info" description="Update how your name appears across the product.">
                     <Stack spacing={3}>
                         <Box component="form" onSubmit={accountForm.handleSubmit((values) => accountMutation.mutate(values))}>
-                            <Stack spacing={2}>
+                            <FormFieldStack>
                                 <TextField
                                     label="Full name"
                                     {...accountForm.register("full_name")}
                                     error={!!accountForm.formState.errors.full_name}
                                     helperText={accountForm.formState.errors.full_name?.message}
                                     fullWidth
+                                    size="small"
                                 />
                                 {accountMutation.isSuccess && <Alert severity="success">Account details updated.</Alert>}
                                 {accountMutation.isError && (
@@ -426,7 +430,7 @@ export function ProfileContent() {
                                 <Button type="submit" variant="contained" disabled={accountMutation.isPending}>
                                     {accountMutation.isPending ? "Saving..." : "Save changes"}
                                 </Button>
-                            </Stack>
+                            </FormFieldStack>
                         </Box>
 
                         <Box>
@@ -574,6 +578,11 @@ export function ProfileContent() {
                 }}
             >
                 <SectionCard title="Public profile" description="Control the profile details other users can discover.">
+                    <Subsection title="Visibility" info="These fields appear on your public profile when enabled.">
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                            Keep personal details accurate so teammates can find the right contact.
+                        </Typography>
+                    </Subsection>
                     <Box
                         component="form"
                         onSubmit={profileForm.handleSubmit((values) =>
@@ -744,6 +753,10 @@ export function ProfileContent() {
 export default function ProfilePage() {
     return (
         <PageShell maxWidth="xl">
+            <PageHeader
+                title="Profile"
+                description="Account identity, security, and notification preferences."
+            />
             <ProfileContent />
         </PageShell>
     );

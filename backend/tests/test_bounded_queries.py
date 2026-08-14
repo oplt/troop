@@ -22,7 +22,7 @@ def test_run_event_query_settings_have_sensible_defaults():
 
 def test_resolve_query_limit():
     assert resolve_query_limit(None, default=100, maximum=500) == 100
-    assert resolve_query_limit(0, default=100, maximum=500) is None
+    assert resolve_query_limit(0, default=100, maximum=500) == 500
     assert resolve_query_limit(50, default=100, maximum=500) == 50
     assert resolve_query_limit(9999, default=100, maximum=500) == 500
 

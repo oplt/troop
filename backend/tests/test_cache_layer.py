@@ -55,10 +55,10 @@ async def test_ai_provider_registry_uses_embedding_cache():
             provider, "embed_texts", new=AsyncMock(return_value=[[0.1, 0.2]])
         ) as embed_mock,
         patch(
-            "backend.modules.ai.providers.get_cached_embeddings",
+            "backend.modules.ai.providers.registry.get_cached_embeddings",
             new=AsyncMock(return_value=[None]),
         ),
-        patch("backend.modules.ai.providers.set_cached_embeddings", new=AsyncMock()) as set_mock,
+        patch("backend.modules.ai.providers.registry.set_cached_embeddings", new=AsyncMock()) as set_mock,
     ):
         vectors = await registry.embed_texts(["cached text"])
     assert vectors == [[0.1, 0.2]]

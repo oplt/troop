@@ -45,6 +45,12 @@ class SemanticMemoryEntryResponse(BaseModel):
     source_run_id: str | None
     provenance: dict[str, Any]
     confidence: float = 0.5
+    canonical_key: str | None = None
+    valid_from: datetime
+    valid_until: datetime | None = None
+    status: str = "current"
+    supersedes_memory_id: str | None = None
+    memory_version: int = 1
     created_by_user_id: str | None
     created_at: datetime
     updated_at: datetime
@@ -62,6 +68,7 @@ class SemanticMemoryEntryCreate(RequestModel):
     source_task_id: str | None = None
     source_run_id: str | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)
+    canonical_key: str | None = Field(default=None, min_length=1, max_length=512)
 
     @field_validator("entry_type")
     @classmethod

@@ -51,9 +51,7 @@ async def replace_email_approval_draft(
     payload = dict(approval.payload_json or {})
     bound = read_proposed_effect(approval)
     draft_arguments = dict(
-        (bound.normalized_effect if bound else None)
-        or payload.get("draft_arguments")
-        or {}
+        (bound.normalized_effect if bound else None) or payload.get("draft_arguments") or {}
     )
     installation_id = str(draft_arguments.get("connector_installation_id") or "")
     draft_id = str(draft_arguments.get("gmail_draft_id") or "")

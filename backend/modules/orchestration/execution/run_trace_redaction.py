@@ -38,7 +38,9 @@ _RAW_PAYLOAD_KEYS = frozenset(
 
 def _key_is_sensitive(key: str) -> bool:
     normalized = str(key).lower().replace("-", "_")
-    return normalized in _RAW_PAYLOAD_KEYS or any(marker in normalized for marker in _SENSITIVE_KEY_MARKERS)
+    return normalized in _RAW_PAYLOAD_KEYS or any(
+        marker in normalized for marker in _SENSITIVE_KEY_MARKERS
+    )
 
 
 def redact_trace_payload(value: Any, *, depth: int = 0) -> Any:
@@ -73,7 +75,8 @@ def build_safe_payload(
         {
             str(key)
             for key in raw
-            if _key_is_sensitive(str(key)) or (isinstance(raw.get(key), (dict, list)) and key in _RAW_PAYLOAD_KEYS)
+            if _key_is_sensitive(str(key))
+            or (isinstance(raw.get(key), (dict, list)) and key in _RAW_PAYLOAD_KEYS)
         }
     )
     if event_type in {"tool_call_completed", "llm_response"} and "result_preview" not in redacted:

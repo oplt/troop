@@ -44,10 +44,7 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
 
-    const {
-        data: analysis,
-        error: _analysisError,
-    } = useQuery({
+    const { data: analysis } = useQuery({
         queryKey: ["workforce", "task-analysis", taskId],
         queryFn: () => getTaskAnalysis(taskId),
         retry: false,
@@ -57,7 +54,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: skillMatches,
         isLoading: isLoadingSkills,
-        error: _skillsError,
     } = useQuery<SkillMatch[]>({
         queryKey: ["workforce", "skill-matches", taskId],
         queryFn: () => findSkillMatches(taskId),
@@ -67,7 +63,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: generatedDrafts,
         isLoading: isLoadingGenerated,
-        error: _generatedError,
     } = useQuery<GeneratedSkillDraft[]>({
         queryKey: ["workforce", "generated-skills", taskId],
         queryFn: () => generateMissingSkills(taskId),
@@ -77,7 +72,6 @@ export function TaskIntelligencePanel({ taskId }: TaskIntelligencePanelProps) {
     const {
         data: agentMatches,
         isLoading: isLoadingAgents,
-        error: _agentsError,
     } = useQuery<AgentMatch[]>({
         queryKey: ["workforce", "agent-matches", taskId],
         queryFn: () => findAgentMatches(taskId),

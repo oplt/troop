@@ -27,9 +27,7 @@ from backend.modules.workforce.models import (
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
-MICROSOFT_CALENDAR_AUTHORIZE_URL = (
-    "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-)
+MICROSOFT_CALENDAR_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MICROSOFT_CALENDAR_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 MICROSOFT_CALENDAR_SCOPES = (
     "offline_access",
@@ -192,7 +190,9 @@ class MicrosoftCalendarOAuthService:
         if response.status_code >= 400 or "access_token" not in token:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Microsoft Calendar OAuth failed")
         if not token.get("refresh_token"):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Microsoft did not return refresh token")
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Microsoft did not return refresh token"
+            )
         definition = await self._definition()
         expires_at = _utcnow() + timedelta(seconds=max(0, int(token.get("expires_in") or 0)))
         installation = ConnectorInstallation(

@@ -74,4 +74,4 @@ export type AgentValidationState = {
     ready: boolean;
 };
 
-export type AgentEditorTab = "contract" | "instructions" | "versions" | "validation";
+export type AgentEditorTab = "profile" | "skills" | "tools" | "memory" | "runs" | "evaluation";

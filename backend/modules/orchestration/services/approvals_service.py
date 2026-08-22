@@ -94,9 +94,7 @@ class OrchestrationApprovalsServiceMixin:
                 detail="Approval effect expired before decision",
             )
         try:
-            eligible = await recheck_user_eligible(
-                self.db, approval=approval, user_id=user.id
-            )
+            eligible = await recheck_user_eligible(self.db, approval=approval, user_id=user.id)
         except ApproverEligibilityError as exc:
             raise HTTPException(
                 status_code=403,
@@ -332,6 +330,8 @@ class OrchestrationApprovalsServiceMixin:
     ):
         from backend.modules.orchestration.execution.hitl.approval_delegation import (
             ApprovalDelegationError,
+        )
+        from backend.modules.orchestration.execution.hitl.approval_delegation import (
             delegate_approval as delegate_approval_row,
         )
         from backend.modules.orchestration.execution.hitl.approver_resolver import (

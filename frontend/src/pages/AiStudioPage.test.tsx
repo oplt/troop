@@ -11,14 +11,22 @@ import {
     createAiDocument,
     createPromptTemplate,
     getAiOverview,
+    listAiDatasets,
+    listAiDocuments,
     listAiEvaluationRuns,
     listAiReviews,
+    listPromptTemplates,
+    retrieveAiChunks,
 } from "../api/ai";
 
 vi.mock("../api/ai", () => ({
     getAiOverview: vi.fn(),
+    listPromptTemplates: vi.fn(),
+    listAiDocuments: vi.fn(),
+    listAiDatasets: vi.fn(),
     listAiReviews: vi.fn(),
     listAiEvaluationRuns: vi.fn(),
+    retrieveAiChunks: vi.fn(),
     listPromptVersions: vi.fn(),
     listAiDatasetCases: vi.fn(),
     createPromptTemplate: vi.fn(),
@@ -60,7 +68,13 @@ describe("AiStudioPage", () => {
         vi.clearAllMocks();
         vi.mocked(getAiOverview).mockResolvedValue({
             providers: [],
-            prompt_templates: [{
+            recent_runs: [],
+            prompt_template_count: 1,
+            document_count: 0,
+            pending_review_count: 0,
+            dataset_count: 0,
+        });
+        vi.mocked(listPromptTemplates).mockResolvedValue([{
                 id: "tmpl-1",
                 key: "demo",
                 name: "Demo prompt",
@@ -69,11 +83,9 @@ describe("AiStudioPage", () => {
                 active_version_id: null,
                 created_at: "",
                 updated_at: "",
-            }],
-            recent_runs: [],
-            documents: [],
-            datasets: [],
-        });
+            }]);
+        vi.mocked(listAiDocuments).mockResolvedValue([]);
+        vi.mocked(listAiDatasets).mockResolvedValue([]);
         vi.mocked(listAiReviews).mockResolvedValue([]);
         vi.mocked(listAiEvaluationRuns).mockResolvedValue([]);
     });
@@ -87,7 +99,8 @@ describe("AiStudioPage", () => {
     it("honors studio query param for tab selection", async () => {
         renderPage("/ai-studio?studio=documents");
         expect(await screen.findByText("AI Studio")).toBeInTheDocument();
-        expect(screen.getByRole("tab", { name: /retrieval/i })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("tab", { name: "Knowledge" })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("tab", { name: "Documents" })).toHaveAttribute("aria-selected", "true");
     });
 
     it("renders reviews tab when studio query param is reviews", async () => {
@@ -176,6 +189,42 @@ describe("AiStudioPage", () => {
                 content: "Returns accepted within 30 days.",
                 content_type: "text/plain",
             });
+        });
+    });
+
+    it("inspects retrieved chunks from the Knowledge workspace", async () => {
+        const user = userEvent.setup();
+        vi.mocked(listAiDocuments).mockResolvedValue([{
+            id: "doc-1",
+            title: "Return policy",
+            description: null,
+            filename: null,
+            content_type: "text/plain",
+            size_bytes: 80,
+            ingestion_status: "completed",
+            metadata: {},
+            chunk_count: 1,
+            created_at: "",
+            updated_at: "",
+        }]);
+        vi.mocked(retrieveAiChunks).mockResolvedValue([{
+            document_id: "doc-1",
+            chunk_id: "chunk-1",
+            document_title: "Return policy",
+            chunk_index: 0,
+            score: 0.91,
+            content: "Returns are accepted within 30 days.",
+        }]);
+
+        renderPage("/ai-studio?studio=retrieval");
+        await user.type(await screen.findByLabelText("Search query"), "How long can I return an item?");
+        await user.click(screen.getByRole("button", { name: "Inspect retrieval" }));
+
+        expect(await screen.findByText("Returns are accepted within 30 days.")).toBeInTheDocument();
+        expect(retrieveAiChunks).toHaveBeenCalledWith({
+            query: "How long can I return an item?",
+            document_ids: [],
+            top_k: 6,
         });
     });
 });

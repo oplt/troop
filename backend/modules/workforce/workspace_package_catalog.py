@@ -22,7 +22,7 @@ def content_hash(payload: dict[str, Any]) -> str:
 
 def sign_workspace_package(*, content_digest: str, signer_user_id: str) -> dict[str, Any]:
     secret = (settings.SECRETS_ENCRYPTION_KEY or settings.JWT_SECRET or "").encode("utf-8")
-    message = f"{content_digest}:{signer_user_id}".encode("utf-8")
+    message = f"{content_digest}:{signer_user_id}".encode()
     signature = hmac.new(secret, message, hashlib.sha256).hexdigest() if secret else ""
     return {
         "content_hash": content_digest,
@@ -40,7 +40,9 @@ def verify_workspace_package_signature(
     if trust.get("signature_scheme") == "unsigned":
         return False
     expected = sign_workspace_package(content_digest=content_digest, signer_user_id=signer_user_id)
-    return hmac.compare_digest(str(trust.get("signature") or ""), str(expected.get("signature") or ""))
+    return hmac.compare_digest(
+        str(trust.get("signature") or ""), str(expected.get("signature") or "")
+    )
 
 
 def _sorted_unique(values: Any) -> list[str]:
@@ -93,7 +95,13 @@ def diff_permission_manifests(
     prev = previous or {}
     added: dict[str, list[str]] = {}
     removed: dict[str, list[str]] = {}
-    for key in ("required_tools", "allowed_tools", "connector_slugs", "oauth_scopes", "external_writes"):
+    for key in (
+        "required_tools",
+        "allowed_tools",
+        "connector_slugs",
+        "oauth_scopes",
+        "external_writes",
+    ):
         before = set(_sorted_unique(prev.get(key)))
         after = set(_sorted_unique(current.get(key)))
         added_items = sorted(after - before)
@@ -102,7 +110,12 @@ def diff_permission_manifests(
             added[key] = added_items
         if removed_items:
             removed[key] = removed_items
-    has_escalation = bool(added.get("required_tools") or added.get("connector_slugs") or added.get("oauth_scopes") or added.get("external_writes"))
+    has_escalation = bool(
+        added.get("required_tools")
+        or added.get("connector_slugs")
+        or added.get("oauth_scopes")
+        or added.get("external_writes")
+    )
     return {
         "added": added,
         "removed": removed,

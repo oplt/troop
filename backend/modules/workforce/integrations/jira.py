@@ -28,7 +28,11 @@ from backend.modules.orchestration.execution.hitl.commit_authorization import (
 )
 from backend.modules.orchestration.security import encrypt_secret
 from backend.modules.workforce.integrations.issue_tracking import jira_issue_arguments_hash
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 ATLASSIAN_AUTHORIZE_URL = "https://auth.atlassian.com/authorize"
@@ -84,7 +88,9 @@ class JiraOAuthService:
         redirect_after: str | None = None,
     ) -> dict[str, Any]:
         if not settings.JIRA_CLIENT_ID or not settings.JIRA_OAUTH_REDIRECT_URI:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Jira OAuth is not configured")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Jira OAuth is not configured"
+            )
         requested = list(dict.fromkeys(scopes or JIRA_SCOPES))
         state = secrets.token_urlsafe(32)
         row = ConnectorOAuthState(
@@ -116,7 +122,9 @@ class JiraOAuthService:
         state_hash = _hash_secret(state)
         result = await self.db.execute(
             select(ConnectorOAuthState)
-            .where(ConnectorOAuthState.provider == "jira", ConnectorOAuthState.state_hash == state_hash)
+            .where(
+                ConnectorOAuthState.provider == "jira", ConnectorOAuthState.state_hash == state_hash
+            )
             .with_for_update()
         )
         oauth_state = result.scalar_one_or_none()
@@ -189,7 +197,9 @@ class JiraOAuthService:
         return installation, oauth_state.redirect_after
 
     async def _definition(self) -> ConnectorDefinition:
-        result = await self.db.execute(select(ConnectorDefinition).where(ConnectorDefinition.slug == "jira"))
+        result = await self.db.execute(
+            select(ConnectorDefinition).where(ConnectorDefinition.slug == "jira")
+        )
         definition = result.scalar_one_or_none()
         if definition is None:
             definition = ConnectorDefinition(
@@ -211,10 +221,15 @@ class JiraAdapter:
         self.installation = installation
 
     @classmethod
-    async def for_owner(cls, db: AsyncSession, *, owner_id: str, installation_id: str) -> JiraAdapter:
+    async def for_owner(
+        cls, db: AsyncSession, *, owner_id: str, installation_id: str
+    ) -> JiraAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -345,7 +360,9 @@ class JiraAdapter:
                 fields["priority"] = {"name": str(arguments["priority"])}
             if arguments.get("assignee_account_id"):
                 fields["assignee"] = {"id": str(arguments["assignee_account_id"])}
-            return await self.request("POST", "/issue", json_payload={"fields": fields}, arguments=merged)
+            return await self.request(
+                "POST", "/issue", json_payload={"fields": fields}, arguments=merged
+            )
         if operation == "jira.update_issue":
             if arguments.get("approval_request_id") and arguments.get("workflow_run_id"):
                 return await self.update_issue_exactly_once(merged)
@@ -359,7 +376,9 @@ class JiraAdapter:
                 fields["priority"] = {"name": str(arguments["priority"])}
             if not fields:
                 raise JiraAPIError("jira.update_issue requires at least one field to update")
-            await self.request("PUT", f"/issue/{issue_ref}", json_payload={"fields": fields}, arguments=merged)
+            await self.request(
+                "PUT", f"/issue/{issue_ref}", json_payload={"fields": fields}, arguments=merged
+            )
             return {"issue_key": issue_ref, "updated_fields": sorted(fields.keys())}
         if operation == "jira.add_comment":
             if arguments.get("approval_request_id") and arguments.get("workflow_run_id"):

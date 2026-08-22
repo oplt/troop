@@ -102,18 +102,38 @@ describe("navPersona", () => {
     it("partitions operator primary nav and advanced overflow", () => {
         const accessible = NAV_ITEM_DEFS.filter((item) => !item.adminOnly && !item.requiresAiModule);
         const { primary, advanced } = partitionNavItemsForPersona(accessible, "operator");
-        expect(primary.map((item) => item.id)).toEqual(
-            expect.arrayContaining(["dashboard", "my-tasks", "approvals", "activity", "workflows"]),
-        );
+        expect(primary.map((item) => item.id)).toEqual(["dashboard", "my-tasks", "approvals", "workflows"]);
         expect(primary.map((item) => item.id)).not.toContain("agents");
         expect(advanced.map((item) => item.id)).toEqual(expect.arrayContaining(["agents", "projects", "execution"]));
     });
 
-    it("keeps builder runs and templates in primary nav", () => {
+    it("keeps the builder sidebar focused on building", () => {
         const accessible = NAV_ITEM_DEFS.filter((item) => !item.adminOnly && !item.requiresAiModule);
         const { primary } = partitionNavItemsForPersona(accessible, "builder");
-        expect(primary.map((item) => item.id)).toEqual(
-            expect.arrayContaining(["agents", "workflow-templates", "integrations", "execution"]),
-        );
+        expect(primary.map((item) => item.id)).toEqual([
+            "dashboard",
+            "projects",
+            "agents",
+            "workflows",
+            "integrations",
+        ]);
+    });
+
+    it("keeps the admin sidebar at five decision-level destinations", () => {
+        const { primary } = partitionNavItemsForPersona(NAV_ITEM_DEFS, "admin");
+        expect(primary.map((item) => item.id)).toEqual([
+            "dashboard",
+            "projects",
+            "activity",
+            "companies",
+            "settings",
+        ]);
+        expect(primary.map((item) => item.personaLabels?.admin ?? item.label)).toEqual([
+            "Home",
+            "Work",
+            "Observe",
+            "Organization",
+            "Settings",
+        ]);
     });
 });

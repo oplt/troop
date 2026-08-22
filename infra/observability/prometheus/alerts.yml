@@ -13,14 +13,44 @@ groups:
           runbook: docs/PHASE7_OPERATIONS.md#api-availability
 
       - alert: TroopApiP95LatencyHigh
-        expr: histogram_quantile(0.95, sum(rate(troop_http_request_duration_seconds_bucket[10m])) by (le)) > 1.5
+        expr: histogram_quantile(0.95, sum(rate(troop_http_request_duration_seconds_bucket{method="GET",route!~".*/projects/\\{id\\}.*"}[10m])) by (le)) > 0.25
         for: 15m
         labels:
           severity: ticket
           owner: platform
         annotations:
-          summary: Troop API p95 latency is above 1.5 seconds
-          runbook: docs/PHASE7_OPERATIONS.md#api-latency
+          summary: Troop simple-read API p95 latency is above 250 milliseconds
+          runbook: docs/operations/LATENCY_SLOS.md#simple-api-reads
+
+      - alert: TroopProjectDetailP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(troop_http_request_duration_seconds_bucket{method="GET",route=~".*/projects/\\{[^}]+\\}"}[10m])) by (le)) > 0.5
+        for: 15m
+        labels:
+          severity: ticket
+          owner: orchestration
+        annotations:
+          summary: Project detail API p95 latency is above 500 milliseconds
+          runbook: docs/operations/LATENCY_SLOS.md#project-detail
+
+      - alert: TroopVectorRetrievalP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(troop_rag_retrieval_duration_seconds_bucket{stage="vector_search",outcome="success"}[10m])) by (le)) > 0.5
+        for: 15m
+        labels:
+          severity: ticket
+          owner: ai-platform
+        annotations:
+          summary: Vector search p95 latency is above 500 milliseconds excluding embedding
+          runbook: docs/operations/LATENCY_SLOS.md#vector-retrieval
+
+      - alert: TroopRagDegradedModeActive
+        expr: sum(increase(troop_rag_degraded_total[10m])) > 0
+        for: 5m
+        labels:
+          severity: ticket
+          owner: ai-platform
+        annotations:
+          summary: RAG retrieval entered a controlled degraded mode
+          runbook: docs/operations/LATENCY_SLOS.md#rag-degraded-mode
 
       - alert: TroopQueueAgeHigh
         expr: max(troop_queue_oldest_age_seconds) > 300

@@ -38,6 +38,17 @@ class ExternalEffectContract:
 
 # Canonical inventory keyed by exact tool slug. Pattern families below extend this.
 _EXTERNAL_EFFECT_CONTRACTS: dict[str, ExternalEffectContract] = {
+    "invoke_specialist": ExternalEffectContract(
+        action_key="invoke_specialist",
+        provider="troop",
+        risk_level="medium",
+        side_effect=SideEffect.INTERNAL_MUTATING,
+        approval_rule="Execution policy; limited to an active parent run and one nesting level",
+        idempotency_strategy=IdempotencyStrategy.NONE,
+        idempotency_detail="Creates and executes a child run; parent invocation count bounds fan-out",
+        ownership_check="Parent run ownership is inherited and rechecked by ExecutionService",
+        retry_behavior="Do not retry automatically because a replay may create another child run",
+    ),
     # --- Gmail ---
     "gmail.search_messages": ExternalEffectContract(
         action_key="gmail.search_messages",

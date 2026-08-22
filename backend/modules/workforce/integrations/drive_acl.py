@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def normalize_google_drive_acl(*, file_body: dict[str, Any], owner_email: str | None = None) -> dict[str, Any]:
+def normalize_google_drive_acl(
+    *, file_body: dict[str, Any], owner_email: str | None = None
+) -> dict[str, Any]:
     permissions = []
     for item in file_body.get("permissions") or []:
-        email = str((item.get("emailAddress") or "")).strip().lower()
+        email = str(item.get("emailAddress") or "").strip().lower()
         if email:
             permissions.append(email)
         elif str(item.get("type") or "") == "anyone":
@@ -17,12 +19,16 @@ def normalize_google_drive_acl(*, file_body: dict[str, Any], owner_email: str | 
                 "allowed_emails": sorted(set(permissions)),
                 "public": True,
             }
-    owner = str((file_body.get("owners") or [{}])[0].get("emailAddress") or owner_email or "").lower()
+    owner = str(
+        (file_body.get("owners") or [{}])[0].get("emailAddress") or owner_email or ""
+    ).lower()
     allowed = sorted({owner, *permissions} - {""})
     return {"owner_email": owner, "allowed_emails": allowed, "public": False}
 
 
-def normalize_microsoft_drive_acl(*, file_body: dict[str, Any], owner_email: str | None = None) -> dict[str, Any]:
+def normalize_microsoft_drive_acl(
+    *, file_body: dict[str, Any], owner_email: str | None = None
+) -> dict[str, Any]:
     allowed: set[str] = set()
     owner = owner_email or ""
     created_by = dict(file_body.get("createdBy") or {}).get("user") or {}

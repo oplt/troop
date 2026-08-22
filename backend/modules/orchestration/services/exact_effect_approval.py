@@ -8,8 +8,6 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.orchestration.execution.hitl.approver_resolver import (
-    ApproverEligibilityError,
-    format_eligibility_reason,
     snapshot_routing_on_approval,
 )
 from backend.modules.orchestration.execution.hitl.exact_effect import (

@@ -1,9 +1,6 @@
 from datetime import datetime
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-
-T = TypeVar("T")
 
 
 class RequestModel(BaseModel):
@@ -16,6 +13,6 @@ class CursorTokenResponse(BaseModel):
     position: int | None = None
 
 
-class CursorPageResponse(BaseModel, Generic[T]):
+class CursorPageResponse[T](BaseModel):
     items: list[T]
     next_cursor: CursorTokenResponse | None = None

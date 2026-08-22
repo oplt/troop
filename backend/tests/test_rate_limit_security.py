@@ -16,7 +16,7 @@ class _ExecutionHarness(OrchestrationExecutionServiceMixin):
 @pytest.mark.asyncio
 async def test_run_rate_limit_skipped_in_dev():
     harness = _ExecutionHarness()
-    with patch("backend.modules.orchestration.execution.execution_service.settings.APP_ENV", "dev"):
+    with patch("backend.modules.orchestration.execution.run_lifecycle.budget.settings.APP_ENV", "dev"):
         await harness._enforce_orchestration_run_rate_limit("user-1")
 
 
@@ -30,9 +30,12 @@ async def test_run_rate_limit_enforced_outside_dev():
     redis.ttl = AsyncMock(return_value=30)
 
     with (
-        patch("backend.modules.orchestration.execution.execution_service.settings.APP_ENV", "staging"),
-        patch("backend.modules.orchestration.execution.execution_service.settings.ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE", 120),
-        patch("backend.modules.orchestration.execution.execution_service.redis_client", redis),
+        patch("backend.modules.orchestration.execution.run_lifecycle.budget.settings.APP_ENV", "staging"),
+        patch(
+            "backend.modules.orchestration.execution.run_lifecycle.budget.settings.ORCHESTRATION_RUN_RATE_LIMIT_PER_MINUTE",
+            120,
+        ),
+        patch("backend.modules.orchestration.execution.run_lifecycle.budget.redis_client", redis),
     ):
         with pytest.raises(HTTPException) as exc:
             await harness._enforce_orchestration_run_rate_limit("user-1")

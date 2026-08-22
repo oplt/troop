@@ -20,7 +20,11 @@ from backend.core.http_clients import managed_http_client
 from backend.modules.audit.repository import AuditRepository
 from backend.modules.orchestration.security import encrypt_secret
 from backend.modules.workforce.integrations.drive_acl import normalize_microsoft_drive_acl
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
@@ -74,7 +78,9 @@ class MicrosoftDriveOAuthService:
     ) -> dict[str, Any]:
         client_id, client_secret, redirect_uri = self._client()
         if not client_id or not client_secret or not redirect_uri:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Microsoft Drive OAuth is not configured")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Microsoft Drive OAuth is not configured"
+            )
         requested = list(dict.fromkeys(scopes or MICROSOFT_DRIVE_SCOPES))
         state = secrets.token_urlsafe(32)
         row = ConnectorOAuthState(
@@ -99,7 +105,10 @@ class MicrosoftDriveOAuthService:
                 "state": state,
             }
         )
-        return {"authorization_url": f"{MICROSOFT_DRIVE_AUTHORIZE_URL}?{query}", "scopes": requested}
+        return {
+            "authorization_url": f"{MICROSOFT_DRIVE_AUTHORIZE_URL}?{query}",
+            "scopes": requested,
+        }
 
     async def complete(self, *, code: str, state: str) -> tuple[ConnectorInstallation, str | None]:
         client_id, client_secret, redirect_uri = self._client()
@@ -196,7 +205,10 @@ class MicrosoftDriveAdapter:
     ) -> MicrosoftDriveAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -306,7 +318,9 @@ class MicrosoftDriveAdapter:
             )
             if isinstance(body, dict):
                 email = str((self.installation.metadata_json or {}).get("email_address") or "")
-                body["acl_snapshot"] = normalize_microsoft_drive_acl(file_body=body, owner_email=email)
+                body["acl_snapshot"] = normalize_microsoft_drive_acl(
+                    file_body=body, owner_email=email
+                )
             return body if isinstance(body, dict) else {}
         if operation == "microsoft_drive.get_file_content":
             item_id = str(arguments["file_id"])

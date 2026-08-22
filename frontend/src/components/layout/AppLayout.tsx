@@ -393,8 +393,14 @@ export function AppLayout() {
     );
 
     const sidebarNavDefs = useMemo(
-        () => [...primaryNavDefs, ...advancedNavDefs.map((def) => ({ ...def, group: "advanced" as const }))],
-        [primaryNavDefs, advancedNavDefs],
+        () => [
+            ...primaryNavDefs.map((def) => ({
+                ...def,
+                label: def.personaLabels?.[persona] ?? def.label,
+            })),
+            ...advancedNavDefs.map((def) => ({ ...def, group: "advanced" as const })),
+        ],
+        [primaryNavDefs, advancedNavDefs, persona],
     );
 
     const sidebarNavItems = useMemo<NavItem[]>(

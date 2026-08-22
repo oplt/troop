@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
     AI_SECTIONS,
+    defaultSectionForWorkspace,
     parseJsonObject,
     parseStudioSection,
+    workspaceForSection,
 } from "./formUtils";
 
 describe("aiStudio formUtils", () => {
@@ -12,6 +14,10 @@ describe("aiStudio formUtils", () => {
         expect(parseStudioSection("datasets")).toBe("datasets");
         expect(parseStudioSection("unknown")).toBe("prompts");
         expect(AI_SECTIONS).toContain("playground");
+        expect(parseStudioSection("retrieval")).toBe("retrieval");
+        expect(workspaceForSection("datasets")).toBe("test");
+        expect(workspaceForSection("documents")).toBe("knowledge");
+        expect(defaultSectionForWorkspace("build")).toBe("prompts");
     });
 
     it("parseJsonObject returns fallback for empty input", () => {

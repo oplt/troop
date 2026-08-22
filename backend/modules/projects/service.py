@@ -28,4 +28,8 @@ class OrchestrationProjectsServiceMixin(
     The host service is expected to provide ``self.db``, ``self.repo``,
     ``self.audit_repo``, and the orchestration-only helpers used for repository
     indexing, task bootstrapping, and knowledge-graph side effects.
+
+    Requires ``self.db``, ``self.repo``, and ``self.audit_repo``. Calls task,
+    provider-routing, and memory helpers supplied by the compatibility host;
+    new code should prefer explicit domain objects.
     """

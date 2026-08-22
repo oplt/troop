@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
+from inspect import iscoroutinefunction
 from typing import Any, Protocol
 
 from backend.modules.memory.layer.entry_mapping import (
@@ -29,6 +31,24 @@ def _parse_datetime(value: object) -> datetime | None:
         except ValueError:
             return None
     return None
+
+
+def _canonical_key(
+    *,
+    metadata: dict[str, Any],
+    scope: str,
+    project_id: str | None,
+    namespace: str,
+    entry_type: str,
+    title: str,
+) -> str:
+    explicit = str(metadata.get("canonical_key") or "").strip()
+    if explicit:
+        return explicit[:512]
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:120] or "memory"
+    scope_id = str(metadata.get("company_id") or project_id or scope)
+    namespace_root = "/".join(part for part in namespace.split("/")[:3] if part)
+    return f"{scope}/{scope_id}/{namespace_root}/{entry_type}/{slug}"[:512]
 
 
 class MemoryProvider(Protocol):
@@ -117,6 +137,45 @@ class SemanticMemoryProvider:
                 company_id=payload_meta.get("company_id"),
                 agent_id=payload_meta.get("agent_id"),
             )
+        canonical_key = _canonical_key(
+            metadata=payload_meta,
+            scope=scope,
+            project_id=project_id,
+            namespace=namespace,
+            entry_type=entry_type,
+            title=title,
+        )
+        now = datetime.now(UTC)
+        finder = getattr(self._repository, "find_current_by_canonical_key", None)
+        prior = (
+            await finder(
+                owner_id,
+                canonical_key,
+                project_id=project_id if scope != "company" else None,
+                company_id=payload_meta.get("company_id"),
+            )
+            if finder is not None and iscoroutinefunction(finder)
+            else None
+        )
+        version = 1
+        supersedes_memory_id = None
+        provenance = {
+            **dict(payload_meta.get("provenance") or {}),
+            "source": payload_meta.get("source", "memory_layer"),
+            "confidence": payload_meta.get("confidence"),
+            "created_by_user_id": payload_meta.get("created_by_user_id"),
+        }
+        if prior is not None:
+            prior.status = "superseded"
+            prior.valid_until = now
+            await self._repository.update(prior)
+            version = max(1, int(prior.memory_version or 1)) + 1
+            supersedes_memory_id = prior.id
+            provenance["supersedes"] = list(
+                dict.fromkeys([*list(provenance.get("supersedes") or []), prior.id])
+            )
+        payload_meta["canonical_key"] = canonical_key
+        payload_meta["status"] = "current"
         entry = await self._repository.create(
             owner_id=owner_id,
             scope=scope,
@@ -128,19 +187,20 @@ class SemanticMemoryProvider:
             title=title[:255],
             body=content,
             metadata_json=payload_meta,
+            source_chunk_id=payload_meta.get("source_chunk_id"),
             source_task_id=payload_meta.get("task_id") or payload_meta.get("source_task_id"),
             source_run_id=payload_meta.get("session_id") or payload_meta.get("source_run_id"),
-            provenance_json={
-                **dict(payload_meta.get("provenance") or {}),
-                "source": payload_meta.get("source", "memory_layer"),
-                "confidence": payload_meta.get("confidence"),
-                "created_by_user_id": payload_meta.get("created_by_user_id"),
-            },
+            provenance_json=provenance,
             created_by_user_id=payload_meta.get("created_by_user_id"),
             ttl_days=payload_meta.get("ttl_days"),
             expires_at=_parse_datetime(payload_meta.get("expires_at")),
             retention_policy=str(payload_meta.get("retention_policy") or "default")[:64],
-            memory_version=int(payload_meta.get("memory_version") or 1),
+            memory_version=version,
+            canonical_key=canonical_key,
+            valid_from=now,
+            valid_until=None,
+            status="current",
+            supersedes_memory_id=supersedes_memory_id,
             embedding_model=payload_meta.get("embedding_model"),
             embedding_version=payload_meta.get("embedding_version"),
         )

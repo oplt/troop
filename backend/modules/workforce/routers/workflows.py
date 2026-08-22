@@ -18,7 +18,6 @@ from backend.modules.workforce.models import (
     WorkflowDefinition,
     WorkflowRun,
     WorkflowStepRun,
-    WorkflowVersion,
 )
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.schemas import (
@@ -110,14 +109,6 @@ class WorkflowDiffResponse(BaseModel):
     graph_hash_after: str | None = None
     graph_changed: bool = False
     summary: dict = Field(default_factory=dict)
-
-
-class WorkflowVersionSummary(BaseModel):
-    id: str
-    version_number: int
-    graph_hash: str | None = None
-    entry_node_id: str | None = None
-    created_at: object | None = None
 
 
 class WorkflowVersionSummary(BaseModel):

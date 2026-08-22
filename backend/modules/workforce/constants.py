@@ -988,7 +988,9 @@ NATIVE_TOOL_CATALOG: list[dict] = [
     ],
     *[
         {
-            "slug": f"{provider}.search_companies" if provider == "hubspot" else f"{provider}.search_accounts",
+            "slug": f"{provider}.search_companies"
+            if provider == "hubspot"
+            else f"{provider}.search_accounts",
             "name": f"{label} Search {'Companies' if provider == 'hubspot' else 'Accounts'}",
             "description": f"Search {'companies' if provider == 'hubspot' else 'accounts'} in {label}",
             "risk_level": "low",
@@ -1009,7 +1011,9 @@ NATIVE_TOOL_CATALOG: list[dict] = [
     ],
     *[
         {
-            "slug": f"{provider}.get_company" if provider == "hubspot" else f"{provider}.get_account",
+            "slug": f"{provider}.get_company"
+            if provider == "hubspot"
+            else f"{provider}.get_account",
             "name": f"{label} Get {'Company' if provider == 'hubspot' else 'Account'}",
             "description": f"Read one {label} {'company' if provider == 'hubspot' else 'account'}",
             "risk_level": "low",
@@ -1278,11 +1282,19 @@ DEFAULT_ACTION_POLICIES: list[dict] = [
         for provider in ("google_drive", "microsoft_drive")
     ],
     *[
-        {"action_key": f"{provider}.get_file_metadata", "decision": "autonomous", "risk_level": "low"}
+        {
+            "action_key": f"{provider}.get_file_metadata",
+            "decision": "autonomous",
+            "risk_level": "low",
+        }
         for provider in ("google_drive", "microsoft_drive")
     ],
     *[
-        {"action_key": f"{provider}.get_file_content", "decision": "autonomous", "risk_level": "low"}
+        {
+            "action_key": f"{provider}.get_file_content",
+            "decision": "autonomous",
+            "risk_level": "low",
+        }
         for provider in ("google_drive", "microsoft_drive")
     ],
     *[
@@ -1374,7 +1386,11 @@ DEFAULT_ACTION_POLICIES: list[dict] = [
         for provider in ("hubspot", "salesforce")
     ],
     {"action_key": "hubspot.create_note", "decision": "approval_required", "risk_level": "medium"},
-    {"action_key": "salesforce.create_task", "decision": "approval_required", "risk_level": "medium"},
+    {
+        "action_key": "salesforce.create_task",
+        "decision": "approval_required",
+        "risk_level": "medium",
+    },
     *[
         {
             "action_key": f"{provider}.send_email",

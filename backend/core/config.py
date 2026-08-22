@@ -314,9 +314,17 @@ class Settings(BaseSettings):
     RAG_CHUNK_SIZE: int = 0
     RAG_CHUNK_OVERLAP: int = 0
     RAG_TOP_K: int = 5
+    RAG_CANDIDATE_TOP_K: int = 30
     RAG_SCORE_THRESHOLD: float = 0.2
     RAG_SCORE_THRESHOLD_LOCAL: float = 0.05
     RAG_RERANK_ENABLED: bool = False
+    RAG_RERANK_MODE: str = "lexical"
+    RAG_RERANK_TOP_N: int = 15
+    RAG_HYBRID_SEARCH_ENABLED: bool = True
+    RAG_RRF_K: int = 60
+    RAG_MAX_CHUNKS_PER_DOCUMENT: int = 2
+    RAG_MAX_CHUNKS_PER_SOURCE: int = 4
+    RAG_DEDUP_SIMILARITY_THRESHOLD: float = 0.9
     RAG_MAX_CONTEXT_TOKENS: int = 4000
     RAG_INDEXING_BATCH_SIZE: int = 64
     GITHUB_INSTALLATION_TOKEN_SAFETY_MARGIN_SECONDS: int = 300
@@ -325,6 +333,7 @@ class Settings(BaseSettings):
     RAG_LOG_CONTENT_IN_DEV: bool = False
     RAG_CHUNK_FALLBACK_MAX: int = 200
     RAG_PYTHON_FALLBACK_ENABLED: bool = False
+    RAG_ALLOW_PYTHON_FALLBACK_IN_PRODUCTION: bool = False
     # Alias for RAG_PYTHON_FALLBACK_ENABLED (prefer the RAG_* name).
     VECTOR_FALLBACK_JSON: bool = False
     # When false, chunk rows store embedding_vector only (embedding_json written as []).
@@ -344,6 +353,7 @@ class Settings(BaseSettings):
     SSE_POLL_INTERVAL_SECONDS: float = 2.0
     SSE_MAX_PAYLOAD_BYTES: int = 1_000_000
     MEMORY_INGEST_JOB_CONCURRENCY: int = 3
+    AI_EVAL_CONCURRENCY: int = 4
 
     CORS_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 
@@ -361,7 +371,10 @@ class Settings(BaseSettings):
 
     @property
     def vector_python_fallback_enabled(self) -> bool:
-        return bool(self.RAG_PYTHON_FALLBACK_ENABLED or self.VECTOR_FALLBACK_JSON)
+        requested = bool(self.RAG_PYTHON_FALLBACK_ENABLED or self.VECTOR_FALLBACK_JSON)
+        return requested and (
+            not self.is_production or self.RAG_ALLOW_PYTHON_FALLBACK_IN_PRODUCTION
+        )
 
     @property
     def database_process_role(self) -> str:

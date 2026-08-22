@@ -18,7 +18,7 @@ from backend.modules.workforce.catalog import (
     MARKETPLACE_WORKFLOWS,
 )
 from backend.modules.workforce.email_approval_template import EMAIL_APPROVAL_FLAGSHIP_SLUG
-from backend.modules.workforce.models import WorkflowDefinition, WorkflowVersion
+from backend.modules.workforce.models import WorkflowDefinition
 from backend.modules.workforce.repository import WorkforceRepository
 from backend.modules.workforce.services.department_service import DepartmentService
 from backend.modules.workforce.services.skill_service import SkillService
@@ -340,11 +340,15 @@ class MarketplaceService:
         team = TeamService(self.db)
 
         if not gmail_installation_id.strip():
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="gmail_installation_id required")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, detail="gmail_installation_id required"
+            )
 
         channel = str(approval_channel or "in_app").strip().lower()
         if channel not in {"in_app", "telegram"}:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid approval_channel")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid approval_channel"
+            )
 
         if not agent_id:
             existing_agent = await team.repo.get_agent_by_slug(owner_id, "email-inbox-agent")

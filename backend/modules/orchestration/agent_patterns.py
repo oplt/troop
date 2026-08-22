@@ -41,8 +41,7 @@ BUILTIN_AGENT_PATTERNS: list[dict[str, Any]] = [
         "id": "bounded_panel_reviewer",
         "name": "Bounded parallel panel + reviewer",
         "description": (
-            "Up to three parallel specialist branches with a mandatory reviewer "
-            "synthesis pass."
+            "Up to three parallel specialist branches with a mandatory reviewer synthesis pass."
         ),
         "category": "panel",
         "baseline_run_mode": "single_agent",

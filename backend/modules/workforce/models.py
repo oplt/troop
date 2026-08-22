@@ -521,7 +521,9 @@ class ExternalKnowledgeSource(Base):
 class ExternalDocumentSyncState(Base):
     __tablename__ = "external_document_sync_states"
     __table_args__ = (
-        UniqueConstraint("source_id", "external_file_id", name="uq_external_document_sync_source_file"),
+        UniqueConstraint(
+            "source_id", "external_file_id", name="uq_external_document_sync_source_file"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
@@ -905,7 +907,9 @@ class WorkflowEnvironmentDeploymentEvent(Base):
 
     __tablename__ = "workflow_environment_deployment_events"
     __table_args__ = (
-        Index("ix_workflow_environment_deployment_events_workflow_env", "workflow_id", "environment"),
+        Index(
+            "ix_workflow_environment_deployment_events_workflow_env", "workflow_id", "environment"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))

@@ -43,6 +43,14 @@ class OrchestrationExecutionServiceMixin(
     ExecutionManagerWorkerMixin,
     ExecutionRunLifecycleMixin,
 ):
+    """Compatibility execution façade.
+
+    Requires ``self.db``, ``self.repo``, ``self.audit_repo``, and
+    ``self.ai_providers`` from the host service. Cross-domain calls to project,
+    task, approval, and memory behavior are temporary and tracked in the shim
+    retirement plan.
+    """
+
     def _run_event_tail_payloads(
         self, events: list[Any], *, limit: int = 12
     ) -> list[dict[str, Any]]:

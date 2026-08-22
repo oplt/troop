@@ -19,10 +19,12 @@ from backend.modules.orchestration.schemas import (
     AgentResponse,
     ApprovalListItem,
     ExecutionSnapshotMeta,
+    ModelCapabilityResponse,
     PendingApprovalSummary,
     PendingGithubSyncSummary,
     ProjectListItem,
     ProjectResponse,
+    ProviderConfigResponse,
     RunEventListItem,
     RunEventResponse,
     RunEventTailItem,
@@ -53,6 +55,68 @@ def to_project_response(item: Any) -> ProjectResponse:
         knowledge_policy=getattr(item, "knowledge_policy_json", None),
         budget=getattr(item, "budget_json", None),
         metadata=getattr(item, "metadata_json", None),
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def to_provider_response(item: Any) -> ProviderConfigResponse:
+    return ProviderConfigResponse(
+        id=item.id,
+        project_id=item.project_id,
+        name=item.name,
+        provider_type=item.provider_type,
+        base_url=item.base_url,
+        api_key_hint=item.api_key_hint,
+        organization=item.organization,
+        default_model=item.default_model,
+        fallback_model=item.fallback_model,
+        temperature=item.temperature,
+        max_tokens=item.max_tokens,
+        timeout_seconds=item.timeout_seconds,
+        is_default=item.is_default,
+        is_enabled=item.is_enabled,
+        metadata=item.metadata_json,
+        last_healthcheck_status=item.last_healthcheck_status,
+        last_healthcheck_latency_ms=item.last_healthcheck_latency_ms,
+        is_healthy=item.is_healthy,
+        last_healthcheck_at=item.last_healthcheck_at,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def to_model_capability_response(item: Any) -> ModelCapabilityResponse:
+    metadata = item.metadata_json or {}
+    return ModelCapabilityResponse(
+        id=item.id,
+        provider_id=item.provider_id,
+        provider_type=item.provider_type,
+        model_slug=item.model_slug,
+        display_name=item.display_name,
+        supports_tools=item.supports_tools,
+        supports_tool_calling=bool(metadata.get("supports_tool_calling", item.supports_tools)),
+        supports_structured_output=bool(metadata.get("supports_structured_output", False)),
+        supports_reasoning=bool(metadata.get("supports_reasoning", False)),
+        supports_vision=item.supports_vision,
+        max_context_tokens=item.max_context_tokens,
+        cost_per_1k_input=item.cost_per_1k_input,
+        cost_per_1k_output=item.cost_per_1k_output,
+        context_window=metadata.get("context_window")
+        if metadata.get("context_window") is not None
+        else (item.max_context_tokens or None),
+        max_output_tokens=metadata.get("max_output_tokens"),
+        input_cost_per_1k=metadata.get("input_cost_per_1k", item.cost_per_1k_input),
+        output_cost_per_1k=metadata.get("output_cost_per_1k", item.cost_per_1k_output),
+        input_cost_per_1m=metadata.get("input_cost_per_1m"),
+        output_cost_per_1m=metadata.get("output_cost_per_1m"),
+        latency_p50=metadata.get("latency_p50"),
+        health_status=metadata.get("health_status"),
+        source_for_each_field=metadata.get("source_for_each_field") or {},
+        last_verified_at=metadata.get("last_verified_at"),
+        override_reason=metadata.get("override_reason"),
+        metadata=metadata,
+        is_active=item.is_active,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )

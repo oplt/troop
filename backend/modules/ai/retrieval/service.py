@@ -12,6 +12,8 @@ from backend.modules.orchestration._helpers import _cosine_similarity
 
 
 class AiRetrievalMixin:
+    """Retrieval behavior. Requires ``self.repo`` and ``self.providers``."""
+
     async def retrieve_chunks(
         self,
         user: User,

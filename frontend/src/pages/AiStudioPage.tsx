@@ -12,12 +12,6 @@ export default function AiStudioPage() {
     const { data: overview, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ["ai", "overview"],
         queryFn: getAiOverview,
-        refetchInterval: (query) => {
-            const docs = query.state.data?.documents ?? [];
-            return docs.some((doc) => doc.ingestion_status === "pending" || doc.ingestion_status === "running")
-                ? 2500
-                : false;
-        },
     });
 
     if (isLoading) {

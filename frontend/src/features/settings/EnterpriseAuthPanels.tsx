@@ -34,7 +34,7 @@ export function AuditExportPanel() {
     const [actionFilter, setActionFilter] = useState("");
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ["admin", "audit-logs"],
-        queryFn: () => listAuditLogs({ page: 1, page_size: 25 }),
+        queryFn: () => listAuditLogs({ limit: 25 }),
     });
 
     const handleExport = async (format: "ndjson" | "csv") => {

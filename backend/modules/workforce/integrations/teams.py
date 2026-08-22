@@ -216,14 +216,18 @@ class TeamsOAuthService:
             with __import__("contextlib").suppress(jwt.PyJWTError):
                 id_claims = jwt.decode(id_token, options={"verify_signature": False})
         tenant_id = str(id_claims.get("tid") or "")
-        user_name = str(id_claims.get("name") or id_claims.get("preferred_username") or "Teams user")
+        user_name = str(
+            id_claims.get("name") or id_claims.get("preferred_username") or "Teams user"
+        )
 
         definition_result = await self.db.execute(
             select(ConnectorDefinition).where(ConnectorDefinition.slug == "teams")
         )
         definition = definition_result.scalar_one_or_none()
         if definition is None:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Teams connector definition missing")
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Teams connector definition missing"
+            )
 
         existing_result = await self.db.execute(
             select(ConnectorInstallation).where(
@@ -421,7 +425,9 @@ class TeamsAdapter:
                     f"/chats/{conversation_id}/messages/{arguments['reply_to_id']}/replies",
                     json_payload={"body": payload["body"]},
                 )
-            return await self._graph("POST", f"/chats/{conversation_id}/messages", json_payload=payload)
+            return await self._graph(
+                "POST", f"/chats/{conversation_id}/messages", json_payload=payload
+            )
         if operation == "teams.update_message":
             conversation_id = str(arguments["conversation_id"])
             message_id = str(arguments["message_id"])
@@ -839,7 +845,11 @@ class TeamsWebhookService:
             install_tenant = str((installation.config_json or {}).get("tenant_id") or "")
             if tenant_id and install_tenant and tenant_id != install_tenant:
                 raise ValueError("Activity tenant does not match connector installation")
-        if conversation_id and binding.conversation_id and conversation_id != binding.conversation_id:
+        if (
+            conversation_id
+            and binding.conversation_id
+            and conversation_id != binding.conversation_id
+        ):
             raise ValueError("Teams conversation does not match linked identity")
         expected_owner = str(
             (approval.payload_json or {}).get("owner_id") or approval.requested_by_user_id or ""

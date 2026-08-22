@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.audit.repository import AuditRepository
 from backend.modules.workforce.models import (
-    ConnectorDefinition,
     ConnectorInstallation,
     WorkflowDefinition,
     WorkflowEnvironmentDeployment,
@@ -112,7 +111,9 @@ def diff_bindings(
             removed.append(node_id)
             continue
         if left_map[node_id] != right_map[node_id]:
-            changed.append({"node_id": node_id, "before": left_map[node_id], "after": right_map[node_id]})
+            changed.append(
+                {"node_id": node_id, "before": left_map[node_id], "after": right_map[node_id]}
+            )
     return {
         "bindings_added": added,
         "bindings_removed": removed,
@@ -275,7 +276,9 @@ class WorkflowEnvironmentService:
             elif isinstance(node_bindings, str):
                 has_binding = bool(node_bindings.strip())
             inline = dict(node.get("config") or {})
-            if not has_binding and not any(str(inline.get(key) or "").strip() for key in _BINDING_KEYS):
+            if not has_binding and not any(
+                str(inline.get(key) or "").strip() for key in _BINDING_KEYS
+            ):
                 if ntype == "trigger":
                     trigger_type = str(inline.get("trigger_type") or inline.get("event_type") or "")
                     if trigger_type not in {"manual", "schedule", ""}:
@@ -304,7 +307,9 @@ class WorkflowEnvironmentService:
         if not version.is_published:
             raise ValueError("only published versions can be promoted to an environment")
 
-        bindings = dict(connection_bindings or extract_bindings_from_graph(list(version.nodes_json or [])))
+        bindings = dict(
+            connection_bindings or extract_bindings_from_graph(list(version.nodes_json or []))
+        )
         validation = await self.validate_bindings(
             owner_id=definition.owner_id,
             environment=env,
@@ -398,7 +403,7 @@ class WorkflowEnvironmentService:
         if len(events) < 2:
             raise ValueError("no previous deployment to roll back to")
 
-        current_event, previous_event = events[0], events[1]
+        previous_event = events[1]
         deployment = await self.get_deployment(definition, env)
         if deployment is None:
             raise ValueError("no active deployment")
@@ -470,8 +475,7 @@ class WorkflowEnvironmentService:
         )
 
         candidate_binding_map = dict(
-            candidate_bindings
-            or extract_bindings_from_graph(list(candidate.nodes_json or []))
+            candidate_bindings or extract_bindings_from_graph(list(candidate.nodes_json or []))
         )
         graph_diff = diff_workflow_graphs(
             left_nodes=left_nodes,

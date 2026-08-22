@@ -215,7 +215,7 @@ async def test_authorize_tool_denies_when_not_permitted():
         )
 
     assert auth["permitted"] is False
-    assert auth["decision"] == "autonomous"
+    assert auth["decision"] == "approval_required"
 
 
 @pytest.mark.asyncio

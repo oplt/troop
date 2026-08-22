@@ -526,9 +526,7 @@ class GmailAdapter:
             if thread_fingerprint(thread) != metadata.thread_fingerprint:
                 metadata.status = "stale"
                 stale_error = "Gmail thread changed while approval was pending"
-                await mark_execution_stale(
-                    self.db, existing, approval, error=stale_error
-                )
+                await mark_execution_stale(self.db, existing, approval, error=stale_error)
                 raise GmailAPIError(stale_error)
         await mark_execution_sending(
             self.db,

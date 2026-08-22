@@ -32,7 +32,11 @@ from backend.modules.workforce.integrations.crm_records import (
     filter_allowlisted_fields,
     salesforce_crm_arguments_hash,
 )
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 SALESFORCE_AUTHORIZE_URL = "https://login.salesforce.com/services/oauth2/authorize"
@@ -191,7 +195,10 @@ class SalesforceAdapter:
     ) -> SalesforceAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -335,7 +342,9 @@ class SalesforceAdapter:
         requested = set(dict(arguments.get("fields") or {}).keys())
         rejected = sorted(requested - SALESFORCE_CONTACT_UPDATE_ALLOWLIST)
         if rejected:
-            raise SalesforceAPIError(f"Rejected non-allowlisted Salesforce fields: {', '.join(rejected)}")
+            raise SalesforceAPIError(
+                f"Rejected non-allowlisted Salesforce fields: {', '.join(rejected)}"
+            )
         body = await self.request(
             "PATCH",
             f"/services/data/v59.0/sobjects/Contact/{contact_id}",
@@ -346,8 +355,12 @@ class SalesforceAdapter:
     async def _create_task(self, arguments: dict[str, Any]) -> dict[str, Any]:
         who_id = str(arguments.get("contact_id") or arguments.get("record_id") or "")
         payload = {
-            "Subject": str(arguments.get("task_subject") or arguments.get("subject") or "Follow up"),
-            "Description": str(arguments.get("task_description") or arguments.get("description") or ""),
+            "Subject": str(
+                arguments.get("task_subject") or arguments.get("subject") or "Follow up"
+            ),
+            "Description": str(
+                arguments.get("task_description") or arguments.get("description") or ""
+            ),
             "Status": "Not Started",
             "Priority": str(arguments.get("priority") or "Normal"),
         }
@@ -356,7 +369,9 @@ class SalesforceAdapter:
         what_id = str(arguments.get("account_id") or "")
         if what_id:
             payload["WhatId"] = what_id
-        return await self.request("POST", "/services/data/v59.0/sobjects/Task", json_payload=payload)
+        return await self.request(
+            "POST", "/services/data/v59.0/sobjects/Task", json_payload=payload
+        )
 
     async def _send_email(self, arguments: dict[str, Any]) -> dict[str, Any]:
         recipient_id = str(arguments.get("contact_id") or arguments.get("record_id") or "")
@@ -371,7 +386,9 @@ class SalesforceAdapter:
                         "emailSubject": str(
                             arguments.get("email_subject") or arguments.get("subject") or ""
                         ),
-                        "emailBody": str(arguments.get("email_body") or arguments.get("message") or ""),
+                        "emailBody": str(
+                            arguments.get("email_body") or arguments.get("message") or ""
+                        ),
                         "senderType": "CurrentUser",
                         "recipientId": recipient_id,
                     }
@@ -411,7 +428,9 @@ class SalesforceAdapter:
                 require_consumed=True,
             )
         except CommitAuthorizationError as exc:
-            raise SalesforceAPIError(str(exc), retryable="Concurrent duplicate" in str(exc)) from exc
+            raise SalesforceAPIError(
+                str(exc), retryable="Concurrent duplicate" in str(exc)
+            ) from exc
         existing = claim.execution
         if claim.replayed:
             return dict(existing.result_json or {})

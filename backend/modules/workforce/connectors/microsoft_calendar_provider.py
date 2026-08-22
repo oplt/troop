@@ -49,12 +49,16 @@ class MicrosoftCalendarConnectorProvider:
         )
 
     async def refresh(self, db: AsyncSession, installation_id: str) -> ConnectorAuthResult:
-        installation = await load_installation(db, installation_id, provider_slug="microsoft_calendar")
+        installation = await load_installation(
+            db, installation_id, provider_slug="microsoft_calendar"
+        )
         adapter = MicrosoftCalendarAdapter(db, installation)
         try:
             await adapter._access_token()
             await db.commit()
-            return ConnectorAuthResult(status=str(installation.status or "active"), installation_id=installation_id)
+            return ConnectorAuthResult(
+                status=str(installation.status or "active"), installation_id=installation_id
+            )
         except MicrosoftCalendarAPIError as exc:
             await db.commit()
             return ConnectorAuthResult(
@@ -64,7 +68,9 @@ class MicrosoftCalendarConnectorProvider:
             )
 
     async def health(self, db: AsyncSession, installation_id: str) -> ConnectorHealthResult:
-        installation = await load_installation(db, installation_id, provider_slug="microsoft_calendar")
+        installation = await load_installation(
+            db, installation_id, provider_slug="microsoft_calendar"
+        )
         adapter = MicrosoftCalendarAdapter(db, installation)
         try:
             await adapter.request("GET", "/me/calendar")
@@ -95,7 +101,9 @@ class MicrosoftCalendarConnectorProvider:
     ) -> None:
         _ = (db, installation_id, subscription_id)
 
-    async def normalize_event(self, raw_event: dict[str, Any], *, installation_id: str | None = None):
+    async def normalize_event(
+        self, raw_event: dict[str, Any], *, installation_id: str | None = None
+    ):
         _ = (raw_event, installation_id)
         raise ValueError("Microsoft Calendar webhooks are not supported yet")
 

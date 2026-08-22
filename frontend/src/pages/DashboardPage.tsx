@@ -121,8 +121,14 @@ export default function DashboardPage() {
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root }),
     });
 
-    const pendingApprovals = orchestrationOverview?.pending_approvals ?? [];
-    const activeRuns = orchestrationOverview?.active_runs ?? [];
+    const pendingApprovals = useMemo(
+        () => orchestrationOverview?.pending_approvals ?? [],
+        [orchestrationOverview?.pending_approvals],
+    );
+    const activeRuns = useMemo(
+        () => orchestrationOverview?.active_runs ?? [],
+        [orchestrationOverview?.active_runs],
+    );
     const unreadCount = notifications.filter((item) => !item.is_read).length;
     const attentionProjects = useMemo(
         () =>

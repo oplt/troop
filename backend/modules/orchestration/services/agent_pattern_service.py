@@ -30,9 +30,7 @@ class OrchestrationAgentPatternServiceMixin:
         settings["execution"] = execution
         project.settings_json = self._normalize_project_settings(settings)
 
-    async def list_project_agent_patterns(
-        self, user: User, project_id: str
-    ) -> dict[str, Any]:
+    async def list_project_agent_patterns(self, user: User, project_id: str) -> dict[str, Any]:
         project = await self.get_project(user, project_id)
         state = self._agent_pattern_state(project)
         patterns: list[dict[str, Any]] = []

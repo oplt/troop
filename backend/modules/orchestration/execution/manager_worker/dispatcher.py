@@ -150,9 +150,9 @@ class ManagerWorkerDispatcherMixin:
                 sequential = [item for item in ready if not item.get("parallelizable")]
                 max_branches = int(
                     (run.input_payload_json or {}).get("max_parallel_branches")
-                    or (
-                        (project.settings_json or {}).get("execution") or {}
-                    ).get("max_parallel_branches")
+                    or ((project.settings_json or {}).get("execution") or {}).get(
+                        "max_parallel_branches"
+                    )
                     or 999
                 )
                 if parallel and max_branches < len(parallel):

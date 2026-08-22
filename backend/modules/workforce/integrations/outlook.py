@@ -28,7 +28,7 @@ from backend.modules.orchestration.execution.hitl.commit_authorization import (
     mark_execution_stale,
     mark_execution_succeeded,
 )
-from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
+from backend.modules.orchestration.security import encrypt_secret
 from backend.modules.workforce.integrations.email import (
     outlook_email_action_arguments_hash,
     outlook_thread_fingerprint,
@@ -79,9 +79,7 @@ def _graph_recipients(addresses: Any) -> list[dict[str, Any]]:
         address = item.get("email") if isinstance(item, dict) else item
         if address:
             name = item.get("name") if isinstance(item, dict) else ""
-            recipients.append(
-                {"emailAddress": {"address": str(address), "name": str(name or "")}}
-            )
+            recipients.append({"emailAddress": {"address": str(address), "name": str(name or "")}})
     return recipients
 
 
@@ -377,7 +375,9 @@ class OutlookAdapter:
             message = "Outlook Graph request failed"
             with suppress(ValueError, AttributeError):
                 body = response.json()
-                message = str(body.get("error", {}).get("message") or body.get("message") or message)
+                message = str(
+                    body.get("error", {}).get("message") or body.get("message") or message
+                )
             raise OutlookAPIError(
                 message,
                 status_code=response.status_code,
@@ -451,11 +451,7 @@ class OutlookAdapter:
 
     async def _latest_thread_message(self, thread_id: str) -> dict[str, Any]:
         thread = await self.execute("outlook.get_thread", {"thread_id": thread_id})
-        messages = [
-            item
-            for item in thread.get("value") or []
-            if not item.get("isDraft")
-        ]
+        messages = [item for item in thread.get("value") or [] if not item.get("isDraft")]
         if not messages:
             raise OutlookAPIError("Outlook conversation has no anchor message for reply draft")
         return messages[-1]
@@ -538,15 +534,11 @@ class OutlookAdapter:
             )
             raise OutlookAPIError("Draft content does not match approval fingerprint")
         if metadata.thread_id:
-            thread = await self.execute(
-                "outlook.get_thread", {"thread_id": metadata.thread_id}
-            )
+            thread = await self.execute("outlook.get_thread", {"thread_id": metadata.thread_id})
             if outlook_thread_fingerprint(thread) != metadata.thread_fingerprint:
                 metadata.status = "stale"
                 stale_error = "Outlook thread changed while approval was pending"
-                await mark_execution_stale(
-                    self.db, existing, approval, error=stale_error
-                )
+                await mark_execution_stale(self.db, existing, approval, error=stale_error)
                 raise OutlookAPIError(stale_error)
         await mark_execution_sending(
             self.db,

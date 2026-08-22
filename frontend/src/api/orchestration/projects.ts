@@ -106,6 +106,10 @@ export type TaskListItem = {
     updated_at: string;
 };
 
+export type MyTaskListItem = TaskListItem & {
+    project_name: string;
+};
+
 export type DagReadyTask = {
     id: string;
     title: string;
@@ -434,6 +438,15 @@ export async function listOrchestrationProjects(): Promise<OrchestrationProject[
     return apiFetch("/orchestration/projects");
 }
 
+export async function listMyTasksPage(
+    options: { limit?: number; cursor?: CursorToken | null } = {},
+): Promise<CursorPage<MyTaskListItem>> {
+    const params = new URLSearchParams();
+    appendCursorParams(params, options);
+    const query = params.size ? `?${params.toString()}` : "";
+    return assertCursorPage(await apiFetch(`/orchestration/tasks/my${query}`), "/orchestration/tasks/my");
+}
+
 export async function createOrchestrationProject(payload: Record<string, unknown>): Promise<OrchestrationProject> {
     return apiFetch("/orchestration/projects", { method: "POST", body: JSON.stringify(payload) });
 }
@@ -689,7 +702,8 @@ export async function refreshGithubIssueLink(issueLinkId: string): Promise<Githu
 
 export async function listGithubSyncEvents(projectId?: string): Promise<GithubSyncEvent[]> {
     const suffix = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-    return apiFetch(`/orchestration/github/sync-events${suffix}`);
+    const endpoint = "/orchestration/github/sync-events";
+    return assertCursorPage<GithubSyncEvent>(await apiFetch(`${endpoint}${suffix}`), endpoint).items;
 }
 
 export async function replayGithubSyncEvent(
@@ -729,7 +743,8 @@ export async function uploadProjectDocument(projectId: string, file: File, taskI
 
 export async function listProjectDocuments(projectId: string, taskId?: string): Promise<ProjectDocument[]> {
     const suffix = taskId ? `?task_id=${encodeURIComponent(taskId)}` : "";
-    return apiFetch(`/orchestration/projects/${projectId}/documents${suffix}`);
+    const endpoint = `/orchestration/projects/${projectId}/documents`;
+    return assertCursorPage<ProjectDocument>(await apiFetch(`${endpoint}${suffix}`), endpoint).items;
 }
 
 export async function deleteProjectDocument(projectId: string, documentId: string): Promise<void> {
@@ -929,12 +944,12 @@ export type TaskArtifact = {
     created_at: string;
 };
 
-export async function listTaskArtifacts(taskId: string): Promise<TaskArtifact[]> {
-    return apiFetch(`/orchestration/tasks/${taskId}/artifacts`);
+export async function listTaskArtifacts(projectId: string, taskId: string): Promise<TaskArtifact[]> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/artifacts`);
 }
 
-export async function createTaskArtifact(taskId: string, payload: Record<string, unknown>): Promise<TaskArtifact> {
-    return apiFetch(`/orchestration/tasks/${taskId}/artifacts`, { method: "POST", body: JSON.stringify(payload) });
+export async function createTaskArtifact(projectId: string, taskId: string, payload: Record<string, unknown>): Promise<TaskArtifact> {
+    return apiFetch(`/orchestration/projects/${projectId}/tasks/${taskId}/artifacts`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 // ── Subtasks ─────────────────────────────────────────────────

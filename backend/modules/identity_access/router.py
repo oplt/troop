@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -220,9 +220,7 @@ async def sign_in(
         metadata={"method": "password"},
     )
     await db.commit()
-    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(
-        result["user"]
-    )
+    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(result["user"])
     return AuthSessionResponse(user=_build_user(result["user"], workspace_ctx=workspace_ctx))
 
 
@@ -241,9 +239,7 @@ async def refresh(
     _set_access_cookie(response, access_token)
     _set_refresh_cookie(response, result["refresh_token"])
     _set_csrf_cookie(response, csrf_token)
-    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(
-        result["user"]
-    )
+    workspace_ctx = await WorkspaceAuthorizationService(db).resolve_active_workspace(result["user"])
     return AuthSessionResponse(user=_build_user(result["user"], workspace_ctx=workspace_ctx))
 
 

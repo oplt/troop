@@ -366,15 +366,10 @@ class OrchestrationRepository(
         )
         task_ids = task_ids.limit(fetch_limit(cap))
 
-        id_rows = await self.db.execute(task_ids)
-        ordered_task_ids = [str(row[0]) for row in id_rows.all()]
-        if not ordered_task_ids:
-            return [], {}
-
         result = await self.db.execute(
             select(OrchestratorTask, TaskDependency)
             .outerjoin(TaskDependency, TaskDependency.task_id == OrchestratorTask.id)
-            .where(OrchestratorTask.id.in_(ordered_task_ids))
+            .where(OrchestratorTask.id.in_(task_ids))
             .order_by(
                 OrchestratorTask.position.asc(),
                 OrchestratorTask.created_at.asc(),
@@ -382,13 +377,61 @@ class OrchestrationRepository(
             )
         )
         tasks_by_id: dict[str, OrchestratorTask] = {}
+        ordered_task_ids: list[str] = []
         dependencies: dict[str, list[str]] = {}
         for task, dependency in result.all():
-            tasks_by_id.setdefault(task.id, task)
+            if task.id not in tasks_by_id:
+                tasks_by_id[task.id] = task
+                ordered_task_ids.append(task.id)
             if dependency is not None:
                 dependencies.setdefault(task.id, []).append(dependency.depends_on_task_id)
         tasks = [tasks_by_id[task_id] for task_id in ordered_task_ids if task_id in tasks_by_id]
         return tasks, dependencies
+
+    async def list_my_tasks_with_dependencies(
+        self,
+        owner_id: str,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
+    ) -> tuple[list[tuple[OrchestratorTask, str]], dict[str, list[str]]]:
+        """Return one bounded owner-scoped page of open human-assigned work."""
+        stmt = (
+            select(OrchestratorTask, OrchestratorProject.name)
+            .join(OrchestratorProject, OrchestratorProject.id == OrchestratorTask.project_id)
+            .where(
+                OrchestratorProject.owner_id == owner_id,
+                OrchestratorTask.human_assignee_id == user_id,
+                ~OrchestratorTask.status.in_(
+                    ["completed", "archived", "cancelled", "synced_to_github"]
+                ),
+            )
+        )
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            OrchestratorTask,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(OrchestratorTask.created_at.desc(), OrchestratorTask.id.desc())
+        cap = resolve_query_limit(
+            limit,
+            default=settings.ORCHESTRATION_LIST_TASKS_DEFAULT_LIMIT,
+            maximum=settings.ORCHESTRATION_LIST_TASKS_MAX_LIMIT,
+        )
+        result = await self.db.execute(stmt.options(task_list_load()).limit(fetch_limit(cap)))
+        rows = [(task, str(project_name)) for task, project_name in result.all()]
+        page_task_ids = [task.id for task, _ in rows[:cap]]
+        if not page_task_ids:
+            return rows, {}
+        dependency_rows = await self.db.execute(
+            select(TaskDependency).where(TaskDependency.task_id.in_(page_task_ids))
+        )
+        dependencies: dict[str, list[str]] = {}
+        for dependency in dependency_rows.scalars().all():
+            dependencies.setdefault(dependency.task_id, []).append(dependency.depends_on_task_id)
+        return rows, dependencies
 
     async def get_task(self, project_id: str, task_id: str) -> OrchestratorTask | None:
         result = await self.db.execute(
@@ -1211,7 +1254,13 @@ class OrchestrationRepository(
         return result.scalar_one_or_none()
 
     async def list_sync_events(
-        self, owner_id: str, project_id: str | None = None
+        self,
+        owner_id: str,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[GithubSyncEvent]:
         stmt = (
             select(GithubSyncEvent)
@@ -1227,7 +1276,15 @@ class OrchestrationRepository(
         )
         if project_id:
             stmt = stmt.where(GithubRepository.project_id == project_id)
-        result = await self.db.execute(stmt.order_by(GithubSyncEvent.created_at.desc()))
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            GithubSyncEvent,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(GithubSyncEvent.created_at.desc(), GithubSyncEvent.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def list_sync_events_for_owner_since(
@@ -1281,6 +1338,8 @@ class OrchestrationRepository(
         task_id: str | None = None,
         *,
         limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[ProjectDocument]:
         stmt = select(ProjectDocument).where(
             ProjectDocument.project_id == project_id,
@@ -1290,7 +1349,12 @@ class OrchestrationRepository(
             stmt = stmt.where(
                 or_(ProjectDocument.task_id == task_id, ProjectDocument.task_id.is_(None))
             )
-        stmt = stmt.order_by(ProjectDocument.created_at.desc())
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            ProjectDocument,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(ProjectDocument.created_at.desc(), ProjectDocument.id.desc())
         cap = resolve_query_limit(
             limit,
             default=settings.ORCHESTRATION_LIST_DOCUMENTS_DEFAULT_LIMIT,
@@ -1306,6 +1370,7 @@ class OrchestrationRepository(
             select(ProjectDocument).where(
                 ProjectDocument.project_id == project_id,
                 ProjectDocument.id == document_id,
+                ProjectDocument.deleted_at.is_(None),
             )
         )
         return result.scalar_one_or_none()
@@ -1338,6 +1403,71 @@ class OrchestrationRepository(
             )
         await self.db.flush()
 
+    async def list_document_chunks_for_document(
+        self, document_id: str
+    ) -> list[ProjectDocumentChunk]:
+        result = await self.db.execute(
+            select(ProjectDocumentChunk)
+            .where(
+                ProjectDocumentChunk.project_document_id == document_id,
+                ProjectDocumentChunk.deleted_at.is_(None),
+            )
+            .order_by(ProjectDocumentChunk.chunk_index.asc())
+        )
+        return list(result.scalars().all())
+
+    async def sync_document_chunks(
+        self,
+        document: ProjectDocument,
+        chunks: list[tuple[int, str, int, list[float], dict]],
+    ) -> None:
+        """Reconcile chunks by content hash while retaining unchanged row IDs."""
+        existing = await self.list_document_chunks_for_document(document.id)
+        by_hash: dict[str, list[ProjectDocumentChunk]] = {}
+        for item in existing:
+            content_hash = str((item.metadata_json or {}).get("content_hash") or "")
+            by_hash.setdefault(content_hash, []).append(item)
+
+        retained_ids: set[str] = set()
+        for chunk_index, content, token_count, embedding, metadata in chunks:
+            content_hash = str(metadata.get("content_hash") or "")
+            reusable = by_hash.get(content_hash, [])
+            row = reusable.pop(0) if content_hash and reusable else None
+            ev = normalize_embedding_for_vector(embedding)
+            if row is None:
+                row = ProjectDocumentChunk(
+                    project_document_id=document.id,
+                    project_id=document.project_id,
+                    task_id=document.task_id,
+                    chunk_index=chunk_index,
+                    content=content,
+                    token_count=token_count,
+                    embedding_json=(embedding if settings.VECTOR_WRITE_EMBEDDING_JSON else []),
+                    embedding_vector=ev,
+                    metadata_json=metadata,
+                )
+                self.db.add(row)
+            else:
+                retained_ids.add(row.id)
+                row.project_id = document.project_id
+                row.task_id = document.task_id
+                row.chunk_index = chunk_index
+                row.content = content
+                row.token_count = token_count
+                row.metadata_json = metadata
+                row.deleted_at = None
+                # The ingestion service passes the stored vector for unchanged
+                # hashes, so assigning here also repairs legacy JSON-only rows.
+                row.embedding_vector = ev
+                row.embedding_json = embedding if settings.VECTOR_WRITE_EMBEDDING_JSON else []
+
+        removed_ids = [item.id for item in existing if item.id not in retained_ids]
+        if removed_ids:
+            await self.db.execute(
+                delete(ProjectDocumentChunk).where(ProjectDocumentChunk.id.in_(removed_ids))
+            )
+        await self.db.flush()
+
     async def search_document_chunks_by_vector(
         self,
         project_id: str,
@@ -1358,7 +1488,7 @@ class OrchestrationRepository(
         params: dict[str, str | int] = {
             "pid": project_id,
             "qv": literal,
-            "lim": max(1, min(top_k, 20)),
+            "lim": max(1, min(top_k, 50)),
         }
         if task_id is not None:
             clauses.append("(c.task_id = :tid OR c.task_id IS NULL)")
@@ -1369,7 +1499,8 @@ class OrchestrationRepository(
         where_sql = " AND ".join(clauses)
         sql = text(
             f"""
-            SELECT c.id AS chunk_id, c.project_document_id, c.chunk_index, c.content, c.metadata_json,
+            SELECT c.id AS chunk_id, c.project_document_id, c.chunk_index,
+                   c.content, c.metadata_json,
                    d.filename,
                    1 - (c.embedding_vector <=> CAST(:qv AS vector)) AS score
             FROM project_document_chunks c
@@ -1381,6 +1512,54 @@ class OrchestrationRepository(
         )
         result = await self.db.execute(sql, params)
         return [dict(r) for r in result.mappings().all()]
+
+    async def search_document_chunks_by_text(
+        self,
+        project_id: str,
+        query: str,
+        *,
+        task_id: str | None,
+        source_kind: str | None,
+        top_k: int,
+    ) -> list[dict]:
+        if not query.strip():
+            return []
+        clauses = [
+            "c.project_id = :pid",
+            "c.deleted_at IS NULL",
+            "d.deleted_at IS NULL",
+            "to_tsvector('simple', COALESCE(d.filename, '') || ' ' || c.content) @@ q.query",
+        ]
+        params: dict[str, str | int] = {
+            "pid": project_id,
+            "query": query[:1000],
+            "lim": max(1, min(top_k, 50)),
+        }
+        if task_id is not None:
+            clauses.append("(c.task_id = :tid OR c.task_id IS NULL)")
+            params["tid"] = task_id
+        if source_kind:
+            clauses.append("c.metadata_json->>'source_kind' = :sk")
+            params["sk"] = source_kind
+        sql = text(
+            f"""
+            WITH q AS (SELECT websearch_to_tsquery('simple', :query) AS query)
+            SELECT c.id AS chunk_id, c.project_document_id, c.chunk_index, c.content,
+                   c.metadata_json, d.filename,
+                   ts_rank_cd(
+                       to_tsvector('simple', COALESCE(d.filename, '') || ' ' || c.content),
+                       q.query
+                   ) AS score
+            FROM project_document_chunks c
+            INNER JOIN project_documents d ON d.id = c.project_document_id
+            CROSS JOIN q
+            WHERE {" AND ".join(clauses)}
+            ORDER BY score DESC, c.id ASC
+            LIMIT :lim
+            """
+        )
+        result = await self.db.execute(sql, params)
+        return [dict(row) for row in result.mappings().all()]
 
     async def list_document_chunks(
         self,
@@ -1430,6 +1609,9 @@ class OrchestrationRepository(
         project_id: str | None = None,
         agent_id: str | None = None,
         status: str | None = None,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[AgentMemoryEntry]:
         stmt = select(AgentMemoryEntry).where(
             AgentMemoryEntry.owner_id == owner_id,
@@ -1441,7 +1623,15 @@ class OrchestrationRepository(
             stmt = stmt.where(AgentMemoryEntry.agent_id == agent_id)
         if status is not None:
             stmt = stmt.where(AgentMemoryEntry.status == status)
-        result = await self.db.execute(stmt.order_by(AgentMemoryEntry.updated_at.desc()))
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            AgentMemoryEntry,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(AgentMemoryEntry.created_at.desc(), AgentMemoryEntry.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_agent_memory(self, owner_id: str, memory_id: str) -> AgentMemoryEntry | None:
@@ -1755,9 +1945,7 @@ class OrchestrationRepository(
         )
 
         result = await self.db.execute(
-            select(ApprovalRequest)
-            .where(ApprovalRequest.id == approval_id)
-            .with_for_update()
+            select(ApprovalRequest).where(ApprovalRequest.id == approval_id).with_for_update()
         )
         approval = result.scalar_one_or_none()
         if approval is None:
@@ -2370,6 +2558,7 @@ class OrchestrationRepository(
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.id == entry_id,
                 SemanticMemoryEntry.owner_id == owner_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.deleted_at.is_(None),
                 or_(
                     SemanticMemoryEntry.expires_at.is_(None),
@@ -2396,6 +2585,7 @@ class OrchestrationRepository(
     ) -> list[SemanticMemoryEntry]:
         stmt = select(SemanticMemoryEntry).where(
             SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.status == "current",
             SemanticMemoryEntry.deleted_at.is_(None),
         )
         if not include_expired:
@@ -2440,6 +2630,7 @@ class OrchestrationRepository(
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["decision_id"].as_string() == decision_id,
             )
         )
@@ -2452,6 +2643,7 @@ class OrchestrationRepository(
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["agent_memory_id"].as_string() == memory_id,
             )
         )
@@ -2465,6 +2657,7 @@ class OrchestrationRepository(
             .where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["source"].as_string() == "task_close",
                 SemanticMemoryEntry.provenance_json["task_id"].as_string() == task_id,
             )
@@ -2489,6 +2682,9 @@ class OrchestrationRepository(
             WHERE owner_id = :oid
               AND project_id = :pid
               AND embedding_vector IS NOT NULL
+              AND deleted_at IS NULL
+              AND status = 'current'
+              AND (expires_at IS NULL OR expires_at > NOW())
             ORDER BY embedding_vector <=> CAST(:qv AS vector)
             LIMIT :lim
             """
@@ -2500,7 +2696,15 @@ class OrchestrationRepository(
         if not ids:
             return []
         r2 = await self.db.execute(
-            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+            select(SemanticMemoryEntry).where(
+                SemanticMemoryEntry.id.in_(ids),
+                SemanticMemoryEntry.status == "current",
+                SemanticMemoryEntry.deleted_at.is_(None),
+                or_(
+                    SemanticMemoryEntry.expires_at.is_(None),
+                    SemanticMemoryEntry.expires_at > func.now(),
+                ),
+            )
         )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
@@ -2899,21 +3103,13 @@ class OrchestrationRepository(
             .where(OrchestratorProject.owner_id == owner_id, TaskRun.created_at >= since)
         )
         over_48h = int(
-            (
-                await self.db.execute(base_stmt.where(duration > timedelta(hours=48)))
-            ).scalar()
-            or 0
+            (await self.db.execute(base_stmt.where(duration > timedelta(hours=48)))).scalar() or 0
         )
         over_7d = int(
-            (
-                await self.db.execute(base_stmt.where(duration > timedelta(days=7)))
-            ).scalar()
-            or 0
+            (await self.db.execute(base_stmt.where(duration > timedelta(days=7)))).scalar() or 0
         )
 
-        event_counts = dict(
-            await self.aggregate_run_events_by_type_for_owner(owner_id, since)
-        )
+        event_counts = dict(await self.aggregate_run_events_by_type_for_owner(owner_id, since))
         workflow_recovery_events = int(event_counts.get("workflow_recovery") or 0)
         workflow_signal_events = int(event_counts.get("workflow_signal_queued") or 0)
 
@@ -2923,19 +3119,10 @@ class OrchestrationRepository(
         resume_json = TaskRun.checkpoint_json[wf_key]["resume_count"].astext
         recovery_json = TaskRun.checkpoint_json[wf_key]["recovery_count"].astext
         runs_high_resume = int(
-            (
-                await self.db.execute(
-                    base_stmt.where(cast(resume_json, Integer) >= 2)
-                )
-            ).scalar()
-            or 0
+            (await self.db.execute(base_stmt.where(cast(resume_json, Integer) >= 2))).scalar() or 0
         )
         runs_high_recovery = int(
-            (
-                await self.db.execute(
-                    base_stmt.where(cast(recovery_json, Integer) >= 2)
-                )
-            ).scalar()
+            (await self.db.execute(base_stmt.where(cast(recovery_json, Integer) >= 2))).scalar()
             or 0
         )
 
@@ -2956,9 +3143,12 @@ class OrchestrationRepository(
         )
 
         stale_recovery_events = 0
-        for _run_id, _task_id, event_type, payload in await self.list_observability_events_for_owner(
-            owner_id, since
-        ):
+        for (
+            _run_id,
+            _task_id,
+            event_type,
+            payload,
+        ) in await self.list_observability_events_for_owner(owner_id, since):
             if event_type != "workflow_recovery":
                 continue
             if isinstance(payload, dict) and payload.get("stale_after_seconds") is not None:

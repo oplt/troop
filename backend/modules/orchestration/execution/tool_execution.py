@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.db.session import SessionLocal
 from backend.modules.orchestration._helpers import BlockedExecution
 from backend.modules.orchestration.execution.parallel_group import (
@@ -83,9 +81,9 @@ class ExecutionToolCallsMixin:
         """Returns (result_payload, updated_failures, should_stop)."""
         tool_name = str(call.get("tool") or "").strip()
         self._tool_allowed_for_agent_permissions(tool_name, agent)
-        if self.action_requires_approval(project, "run_tool") and tool_requires_hitl_execution_grant(
-            tool_name
-        ):
+        if self.action_requires_approval(
+            project, "run_tool"
+        ) and tool_requires_hitl_execution_grant(tool_name):
             grant_consumed = await self._consume_hitl_grant(
                 run,
                 "dangerous_tool_call",

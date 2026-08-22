@@ -7,7 +7,6 @@ from typing import Any
 
 from backend.modules.workforce.connectors.manifest import ConnectorManifest, OperationKind
 from backend.modules.workforce.services.tool_governance import (
-    catalog_tool_requires_approval,
     is_external_mutating_tool,
 )
 from backend.modules.workforce.services.workflow_validation import WorkflowValidationService
@@ -158,9 +157,7 @@ class WorkflowScaffoldValidator:
 
             installation_id = str(config.get("connector_installation_id") or "").strip()
             installation = (
-                self.installations_by_provider.get(provider_slug or "")
-                if provider_slug
-                else None
+                self.installations_by_provider.get(provider_slug or "") if provider_slug else None
             )
             if not installation_id:
                 gaps.append(
@@ -214,9 +211,7 @@ class WorkflowScaffoldValidator:
                     )
 
             requires_approval = bool(manifest_op and manifest_op.requires_approval)
-            if ntype == "tool" and (
-                requires_approval or is_external_mutating_tool(operation_slug)
-            ):
+            if ntype == "tool" and (requires_approval or is_external_mutating_tool(operation_slug)):
                 downstream = _downstream_node_ids(
                     start_id=node_id,
                     edges=edges,

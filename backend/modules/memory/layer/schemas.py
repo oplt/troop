@@ -92,6 +92,11 @@ class MemoryRecord:
     deleted_at: datetime | None = None
     retention_policy: str = "default"
     memory_version: int = 1
+    canonical_key: str | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    status: str = "current"
+    supersedes_memory_id: str | None = None
     embedding_model: str | None = None
     embedding_version: str | None = None
 

@@ -75,8 +75,12 @@ def _google_event_payload(arguments: dict[str, Any]) -> dict[str, Any]:
         "summary": str(arguments.get("subject") or arguments.get("summary") or ""),
         "description": str(arguments.get("body") or arguments.get("description") or ""),
         "location": str(arguments.get("location") or ""),
-        "start": _google_event_time(str(arguments.get("start_at") or arguments.get("start") or ""), timezone),
-        "end": _google_event_time(str(arguments.get("end_at") or arguments.get("end") or ""), timezone),
+        "start": _google_event_time(
+            str(arguments.get("start_at") or arguments.get("start") or ""), timezone
+        ),
+        "end": _google_event_time(
+            str(arguments.get("end_at") or arguments.get("end") or ""), timezone
+        ),
     }
     attendees = arguments.get("attendees") or []
     if attendees:
@@ -106,7 +110,10 @@ class GoogleCalendarOAuthService:
         if not settings.GOOGLE_CLIENT_ID or not redirect_uri or not settings.GOOGLE_CLIENT_SECRET:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                {"code": "google_calendar_not_configured", "detail": "Google Calendar OAuth is not configured"},
+                {
+                    "code": "google_calendar_not_configured",
+                    "detail": "Google Calendar OAuth is not configured",
+                },
             )
         requested = list(dict.fromkeys(scopes or GOOGLE_CALENDAR_SCOPES))
         state = secrets.token_urlsafe(32)

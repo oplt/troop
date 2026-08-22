@@ -93,8 +93,10 @@ def test_redaction_env_var_assignment():
 
 @pytest.mark.asyncio
 async def test_knowledge_search_uses_rag_retrieve():
+    db = MagicMock()
+    db.get = AsyncMock(return_value=None)
     toolbox = OrchestrationToolbox(
-        db=MagicMock(),
+        db=db,
         repo=MagicMock(),
         project=MagicMock(id="project-1"),
         task=None,

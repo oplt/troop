@@ -53,9 +53,7 @@ def _orchestration_task_routes() -> dict[str, dict[str, str]]:
         "backend.workers.orchestration.sla_escalation_scan": {
             "queue": s.CELERY_QUEUE_OBSERVABILITY
         },
-        "backend.workers.orchestration.approval_sla_scan": {
-            "queue": s.CELERY_QUEUE_OBSERVABILITY
-        },
+        "backend.workers.orchestration.approval_sla_scan": {"queue": s.CELERY_QUEUE_OBSERVABILITY},
         "backend.workers.orchestration.embed_semantic_memory_entry": {
             "queue": s.CELERY_QUEUE_MODEL_GATEWAY
         },

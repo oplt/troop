@@ -7,16 +7,22 @@ from backend.api.main import app
 from backend.api.v1 import health as health_module
 from backend.modules.observability.health import readiness_report
 from backend.modules.observability.metrics import (
-    HTTP_ACTIVE,
+    CONTEXT_TOKENS,
+    EMBED_DURATION,
     EMBED_TOKENS,
+    HTTP_ACTIVE,
     LLM_ATTEMPTS,
     LLM_COST_MICROS,
+    RAG_RETRIEVAL_DURATION,
     MetricsRegistry,
     bounded_route,
     metrics_registry,
+    record_context_tokens,
     record_embed_tokens,
+    record_embedding_duration,
     record_llm_attempt,
     record_llm_cost_micros,
+    record_rag_retrieval_duration,
 )
 from httpx import ASGITransport, AsyncClient
 
@@ -54,6 +60,23 @@ def test_active_gauge_is_clamped_at_zero() -> None:
 
     snapshot = registry.snapshot()
     assert snapshot[HTTP_ACTIVE]["values"][()] == 0
+
+
+def test_ai_latency_and_context_metrics_are_recorded() -> None:
+    metrics_registry.reset()
+    record_embedding_duration(provider="local", outcome="success", duration_seconds=0.25)
+    record_context_tokens(pipeline="rag", tokens=750)
+    record_rag_retrieval_duration(
+        stage="vector_search",
+        outcome="success",
+        duration_seconds=0.12,
+    )
+
+    snapshot = metrics_registry.snapshot()
+
+    assert snapshot[EMBED_DURATION]["histograms"]
+    assert snapshot[CONTEXT_TOKENS]["histograms"]
+    assert snapshot[RAG_RETRIEVAL_DURATION]["histograms"]
 
 
 class _HealthyConnection:

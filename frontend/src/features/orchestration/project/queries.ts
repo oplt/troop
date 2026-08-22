@@ -28,12 +28,13 @@ import { projectDetailApi } from "./api";
 
 export type DetailTab = "overview" | "board" | "runs" | "agents" | "memory" | "settings";
 export type WorkView = "board" | "dependencies" | "brainstorms";
-export type KnowledgeView = "search" | "sources" | "decisions" | "integrations" | "memory";
+export type KnowledgeView = "ask" | "search" | "sources" | "decisions" | "integrations" | "memory";
 export type TeamView = "agents" | "settings";
 
 export type ProjectDetailQueryState = {
     tab: DetailTab;
     workView: WorkView;
+    teamView: TeamView;
     knowledgeView: KnowledgeView;
     knowledgeQuery: string;
     includeDecisionRecall: boolean;
@@ -42,7 +43,7 @@ export type ProjectDetailQueryState = {
 
 export function isProjectDetailSectionActive(
     state: ProjectDetailQueryState,
-    ...sections: Array<DetailTab | WorkView | KnowledgeView | "agents" | "activity" | "knowledge" | "team" | "work">
+    ...sections: Array<DetailTab | WorkView | KnowledgeView | "agents" | "activity" | "execution" | "knowledge" | "team" | "work">
 ): boolean {
     return sections.some((section) => {
         if (section === state.tab) return true;
@@ -66,18 +67,21 @@ export function isProjectDetailSectionActive(
                 section === "memory" ||
                 section === "knowledge" ||
                 section === "search" ||
+                section === "ask" ||
                 section === "sources" ||
                 section === "decisions" ||
                 section === state.knowledgeView
             );
         }
         if (state.tab === "settings") {
-            return (
-                section === "settings" ||
-                section === "team" ||
-                section === "integrations" ||
-                section === "sources"
-            );
+            if (section === "settings") return true;
+            if (state.knowledgeView === "integrations") {
+                return section === "integrations" || section === "sources";
+            }
+            if (state.teamView === "agents") {
+                return section === "team" || section === "agents";
+            }
+            return section === "execution";
         }
         if (state.tab === "overview") {
             return section === "overview";
@@ -104,12 +108,12 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const allAgents = useQuery({
         queryKey: queryKeys.orchestration.agents(projectId),
         queryFn: () => listAgents(projectId),
-        enabled: enabled && active("overview", "board", "dependencies", "brainstorms", "agents", "knowledge"),
+        enabled: enabled && active("overview", "board", "dependencies", "brainstorms", "agents", "knowledge", "execution"),
     });
     const agentTemplates = useQuery({
         queryKey: queryKeys.orchestration.agentTemplates,
         queryFn: listAgentTemplates,
-        enabled: active("agents"),
+        enabled: active("agents", "execution"),
     });
     const providers = useQuery({
         queryKey: queryKeys.orchestration.providers,
@@ -119,7 +123,7 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const projectAgents = useQuery({
         queryKey: queryKeys.orchestration.projectAgents(projectId),
         queryFn: () => listProjectAgents(projectId),
-        enabled: enabled && active("board", "agents"),
+        enabled: enabled && active("board", "agents", "execution"),
     });
     const brainstorms = useQuery({
         queryKey: queryKeys.orchestration.projectBrainstorms(projectId),
@@ -134,17 +138,17 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const docs = useQuery({
         queryKey: queryKeys.orchestration.projectDocuments(projectId),
         queryFn: () => listProjectDocuments(projectId),
-        enabled: enabled && active("sources", "memory", "settings"),
+        enabled: enabled && active("sources", "memory"),
     });
     const projectRepositories = useQuery({
         queryKey: queryKeys.orchestration.projectRepositories(projectId),
         queryFn: () => listProjectRepositories(projectId),
-        enabled: enabled && active("sources", "memory", "settings"),
+        enabled: enabled && active("sources", "memory"),
     });
     const repositoryIndexStatus = useQuery({
         queryKey: queryKeys.orchestration.projectRepositoryIndexStatus(projectId),
         queryFn: () => getProjectRepositoryIndexStatus(projectId),
-        enabled: enabled && active("sources", "settings"),
+        enabled: enabled && active("sources"),
     });
     const knowledgeResults = useQuery({
         queryKey: queryKeys.orchestration.projectKnowledge(projectId, state.knowledgeQuery, state.includeDecisionRecall),
@@ -164,7 +168,7 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const projectMemorySettings = useQuery({
         queryKey: queryKeys.orchestration.projectMemorySettings(projectId),
         queryFn: () => getProjectMemorySettings(projectId),
-        enabled: enabled && active("memory", "knowledge", "settings"),
+        enabled: enabled && active("memory", "knowledge"),
     });
     const memoryIngestJobs = useQuery({
         queryKey: queryKeys.orchestration.projectMemoryIngestJobs(projectId),
@@ -184,12 +188,12 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const issueLinks = useQuery({
         queryKey: queryKeys.orchestration.projectIssues(projectId),
         queryFn: () => listGithubIssueLinks(projectId),
-        enabled: enabled && active("integrations", "settings"),
+        enabled: enabled && active("integrations"),
     });
     const syncEvents = useQuery({
         queryKey: queryKeys.orchestration.projectSyncEvents(projectId),
         queryFn: () => listGithubSyncEvents(projectId),
-        enabled: enabled && active("integrations", "settings", "runs"),
+        enabled: enabled && active("integrations", "runs"),
     });
     const milestones = useQuery({
         queryKey: queryKeys.orchestration.projectMilestones(projectId),
@@ -204,7 +208,7 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     const gateConfig = useQuery({
         queryKey: queryKeys.orchestration.projectGateConfig(projectId),
         queryFn: () => getGateConfig(projectId),
-        enabled: enabled && active("overview", "agents", "settings"),
+        enabled: enabled && active("overview", "agents", "execution"),
     });
     const dagReadyList = useQuery({
         queryKey: queryKeys.orchestration.projectDagReady(projectId),

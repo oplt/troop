@@ -6,12 +6,12 @@ from backend.modules.github.service import OrchestrationGithubServiceMixin
 from backend.modules.orchestration.execution.execution_service import (
     OrchestrationExecutionServiceMixin,
 )
+from backend.modules.orchestration.services.agent_pattern_service import (
+    OrchestrationAgentPatternServiceMixin,
+)
 from backend.modules.orchestration.services.base import (
     OrchestrationRunQueryMixin,
     OrchestrationServiceBase,
-)
-from backend.modules.orchestration.services.agent_pattern_service import (
-    OrchestrationAgentPatternServiceMixin,
 )
 from backend.modules.orchestration.services.evals_service import OrchestrationEvalsServiceMixin
 from backend.modules.orchestration.services.providers_service import (

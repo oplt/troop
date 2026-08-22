@@ -13,6 +13,7 @@ import { useSnackbar } from "../../app/snackbarContext";
 import { queryKeys } from "../../config/queryKeys";
 import { formatDateTime } from "../../utils/formatters";
 import { extractApiErrorMessage } from "../../utils/apiErrors";
+import { SemanticMemoryProvenanceDetails } from "../../features/memory/SemanticMemoryProvenanceDetails";
 
 export function TaskMemoryInspector({
     projectId,
@@ -187,12 +188,15 @@ export function TaskMemoryInspector({
                     </Typography>
                 ) : (
                     semanticRows.map((row) => (
-                        <Typography key={row.id} variant="caption" sx={{ display: "block" }}>
-                            <Link component={RouterLink} to={`/projects/${projectId}/memory`} underline="hover">
-                                [{row.entry_type}]
-                            </Link>{" "}
-                            {row.title} · {(row.confidence * 100).toFixed(0)}%
-                        </Typography>
+                        <Paper key={row.id} variant="outlined" sx={{ p: 0.75, borderRadius: 1 }}>
+                            <Typography variant="caption" sx={{ display: "block" }}>
+                                <Link component={RouterLink} to={`/projects/${projectId}/memory`} underline="hover">
+                                    [{row.entry_type}]
+                                </Link>{" "}
+                                {row.title}
+                            </Typography>
+                            <SemanticMemoryProvenanceDetails entry={row} compact />
+                        </Paper>
                     ))
                 )}
             </Stack>

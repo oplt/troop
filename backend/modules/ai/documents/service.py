@@ -12,8 +12,14 @@ from backend.modules.identity_access.models import User
 
 
 class AiDocumentsMixin(AiDocumentIngestionMixin):
-    async def list_documents(self, user: User):
-        return await self.repo.list_documents_for_user(user.id)
+    """Document API behavior.
+
+    Requires ``self.db``, ``self.repo``, and ingestion helpers inherited from
+    ``AiDocumentIngestionMixin``. Calls no unrelated sibling domain mixins.
+    """
+
+    async def list_documents(self, user: User, **page):
+        return await self.repo.list_documents_for_user(user.id, **page)
 
     async def get_document(self, user: User, document_id: str):
         document = await self.repo.get_document_for_user(user.id, document_id)

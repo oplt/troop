@@ -7,9 +7,9 @@ from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_authenticated_user
+from backend.api.deps.workspace import get_workspace_context
 from backend.core.schemas import RequestModel
 from backend.db.session import get_db
-from backend.api.deps.workspace import get_workspace_context
 from backend.modules.identity_access.models import User
 from backend.modules.identity_access.workspace_context import WorkspaceContext
 from backend.modules.workforce.authz import assert_company_owned

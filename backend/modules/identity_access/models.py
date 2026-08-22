@@ -50,9 +50,7 @@ class Workspace(Base):
     """
 
     __tablename__ = "workspaces"
-    __table_args__ = (
-        UniqueConstraint("owner_user_id", "slug", name="uq_workspaces_owner_slug"),
-    )
+    __table_args__ = (UniqueConstraint("owner_user_id", "slug", name="uq_workspaces_owner_slug"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     owner_user_id: Mapped[str] = mapped_column(

@@ -94,21 +94,21 @@ export type AuditLogEntry = {
 export type AuditLogListResponse = {
     items: AuditLogEntry[];
     total: number;
-    page: number;
-    page_size: number;
+    next_cursor: import("./pagination").CursorToken | null;
 };
 
 export async function listAuditLogs(params?: {
-    page?: number;
-    page_size?: number;
+    limit?: number;
+    cursor?: import("./pagination").CursorToken | null;
     action?: string;
     user_id?: string;
     resource_type?: string;
     workspace_id?: string;
 }): Promise<AuditLogListResponse> {
     const qs = new URLSearchParams();
-    if (params?.page) qs.set("page", String(params.page));
-    if (params?.page_size) qs.set("page_size", String(params.page_size));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.cursor?.created_at) qs.set("cursor_created_at", params.cursor.created_at);
+    if (params?.cursor?.id) qs.set("cursor_id", params.cursor.id);
     if (params?.action) qs.set("action", params.action);
     if (params?.user_id) qs.set("user_id", params.user_id);
     if (params?.resource_type) qs.set("resource_type", params.resource_type);

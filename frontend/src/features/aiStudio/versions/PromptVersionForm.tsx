@@ -1,4 +1,16 @@
-import { Button, FormControlLabel, MenuItem, Stack, Switch, TextField } from "@mui/material";
+import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
+    Button,
+    FormControlLabel,
+    MenuItem,
+    Stack,
+    Switch,
+    TextField,
+    Typography,
+} from "@mui/material";
+import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 
 import type { AiPromptTemplate } from "../../../api/ai";
 import type { AiProvider, VersionFormState } from "../types";
@@ -82,87 +94,96 @@ export function PromptVersionForm({
                 multiline
                 minRows={5}
             />
-            <TextField
-                label="Variable names (comma separated)"
-                value={versionForm.variable_names}
-                onChange={(event) =>
-                    onVersionFormChange((current) => ({ ...current, variable_names: event.target.value }))
-                }
-                fullWidth
-            />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                    select
-                    label="Response format"
-                    value={versionForm.response_format}
-                    onChange={(event) =>
-                        onVersionFormChange((current) => ({
-                            ...current,
-                            response_format: event.target.value as "text" | "json",
-                        }))
-                    }
-                    fullWidth
-                >
-                    <MenuItem value="text">Text</MenuItem>
-                    <MenuItem value="json">JSON</MenuItem>
-                </TextField>
-                <TextField
-                    label="Temperature"
-                    value={versionForm.temperature}
-                    onChange={(event) =>
-                        onVersionFormChange((current) => ({ ...current, temperature: event.target.value }))
-                    }
-                    fullWidth
-                />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                    label="Rollout %"
-                    value={versionForm.rollout_percentage}
-                    onChange={(event) =>
-                        onVersionFormChange((current) => ({ ...current, rollout_percentage: event.target.value }))
-                    }
-                    fullWidth
-                />
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={versionForm.is_published}
+            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2">Advanced version configuration</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Variable names (comma separated)"
+                            value={versionForm.variable_names}
                             onChange={(event) =>
-                                onVersionFormChange((current) => ({
-                                    ...current,
-                                    is_published: event.target.checked,
-                                }))
+                                onVersionFormChange((current) => ({ ...current, variable_names: event.target.value }))
                             }
+                            fullWidth
                         />
-                    }
-                    label="Published"
-                />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                    label="Input cost / million"
-                    value={versionForm.input_cost_per_million}
-                    onChange={(event) =>
-                        onVersionFormChange((current) => ({
-                            ...current,
-                            input_cost_per_million: event.target.value,
-                        }))
-                    }
-                    fullWidth
-                />
-                <TextField
-                    label="Output cost / million"
-                    value={versionForm.output_cost_per_million}
-                    onChange={(event) =>
-                        onVersionFormChange((current) => ({
-                            ...current,
-                            output_cost_per_million: event.target.value,
-                        }))
-                    }
-                    fullWidth
-                />
-            </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                            <TextField
+                                select
+                                label="Response format"
+                                value={versionForm.response_format}
+                                onChange={(event) =>
+                                    onVersionFormChange((current) => ({
+                                        ...current,
+                                        response_format: event.target.value as "text" | "json",
+                                    }))
+                                }
+                                fullWidth
+                            >
+                                <MenuItem value="text">Text</MenuItem>
+                                <MenuItem value="json">JSON</MenuItem>
+                            </TextField>
+                            <TextField
+                                label="Temperature"
+                                value={versionForm.temperature}
+                                onChange={(event) =>
+                                    onVersionFormChange((current) => ({ ...current, temperature: event.target.value }))
+                                }
+                                fullWidth
+                            />
+                        </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                            <TextField
+                                label="Rollout %"
+                                value={versionForm.rollout_percentage}
+                                onChange={(event) =>
+                                    onVersionFormChange((current) => ({ ...current, rollout_percentage: event.target.value }))
+                                }
+                                fullWidth
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={versionForm.is_published}
+                                        onChange={(event) =>
+                                            onVersionFormChange((current) => ({
+                                                ...current,
+                                                is_published: event.target.checked,
+                                            }))
+                                        }
+                                    />
+                                }
+                                label="Published"
+                            />
+                        </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                            <TextField
+                                label="Input cost / million"
+                                value={versionForm.input_cost_per_million}
+                                onChange={(event) =>
+                                    onVersionFormChange((current) => ({
+                                        ...current,
+                                        input_cost_per_million: event.target.value,
+                                    }))
+                                }
+                                fullWidth
+                            />
+                            <TextField
+                                label="Output cost / million"
+                                value={versionForm.output_cost_per_million}
+                                onChange={(event) =>
+                                    onVersionFormChange((current) => ({
+                                        ...current,
+                                        output_cost_per_million: event.target.value,
+                                    }))
+                                }
+                                fullWidth
+                            />
+                        </Stack>
+                    </Stack>
+                </AccordionDetails>
+            </Accordion>
             <Button
                 variant="contained"
                 disabled={

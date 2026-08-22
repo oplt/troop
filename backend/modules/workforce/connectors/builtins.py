@@ -147,9 +147,7 @@ def build_gmail_manifest(*, version: str = "1.0.0") -> ConnectorManifest:
             label=label,
             description=description,
             required_for=[
-                op
-                for op, required in _GMAIL_SCOPE_BY_OPERATION.items()
-                if scope in required
+                op for op, required in _GMAIL_SCOPE_BY_OPERATION.items() if scope in required
             ],
         )
         for scope, label, description in _GMAIL_SCOPES
@@ -355,9 +353,7 @@ def build_slack_manifest(*, version: str = "1.0.0") -> ConnectorManifest:
             label=label,
             description=description,
             required_for=[
-                op
-                for op, required in _SLACK_SCOPE_BY_OPERATION.items()
-                if scope in required
+                op for op, required in _SLACK_SCOPE_BY_OPERATION.items() if scope in required
             ],
         )
         for scope, label, description in _SLACK_SCOPES
@@ -611,9 +607,7 @@ def build_google_drive_manifest(*, version: str = "1.0.0") -> ConnectorManifest:
             label=label,
             description=description,
             required_for=[
-                op
-                for op, required in _GOOGLE_DRIVE_SCOPE_BY_OPERATION.items()
-                if scope in required
+                op for op, required in _GOOGLE_DRIVE_SCOPE_BY_OPERATION.items() if scope in required
             ],
         )
         for scope, label, description in _GOOGLE_DRIVE_SCOPES
@@ -949,6 +943,7 @@ def register_builtin_manifests() -> None:
 
 def register_builtin_providers() -> None:
     """Register native connector providers that implement the runtime contract."""
+    from backend.modules.workforce.connectors.gmail_provider import GmailConnectorProvider
     from backend.modules.workforce.connectors.google_calendar_provider import (
         GoogleCalendarConnectorProvider,
     )
@@ -958,15 +953,14 @@ def register_builtin_providers() -> None:
     from backend.modules.workforce.connectors.hubspot_provider import HubSpotConnectorProvider
     from backend.modules.workforce.connectors.jira_provider import JiraConnectorProvider
     from backend.modules.workforce.connectors.linear_provider import LinearConnectorProvider
-    from backend.modules.workforce.connectors.salesforce_provider import SalesforceConnectorProvider
     from backend.modules.workforce.connectors.microsoft_calendar_provider import (
         MicrosoftCalendarConnectorProvider,
     )
     from backend.modules.workforce.connectors.microsoft_drive_provider import (
         MicrosoftDriveConnectorProvider,
     )
-    from backend.modules.workforce.connectors.gmail_provider import GmailConnectorProvider
     from backend.modules.workforce.connectors.outlook_provider import OutlookConnectorProvider
+    from backend.modules.workforce.connectors.salesforce_provider import SalesforceConnectorProvider
     from backend.modules.workforce.connectors.slack_provider import SlackConnectorProvider
     from backend.modules.workforce.connectors.teams_provider import TeamsConnectorProvider
     from backend.modules.workforce.connectors.telegram_provider import TelegramConnectorProvider

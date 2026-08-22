@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert, Box, Button, Chip, CircularProgress, Divider, Drawer, FormControlLabel, IconButton, Link, MenuItem,
-    Paper, Stack, Switch, TextField, Typography,
+    Paper, Stack, Switch, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Close as CloseIcon, Check as CheckSimpleIcon, PlayArrow as RunIcon } from "@mui/icons-material";
@@ -52,6 +52,8 @@ type KanbanTaskDrawerProps = {
     isRunPending: boolean;
 };
 
+type TaskInspectorSection = "details" | "run" | "memory" | "artifacts" | "activity";
+
 export function KanbanTaskDrawer({
     projectId,
     tasks,
@@ -75,6 +77,12 @@ export function KanbanTaskDrawer({
     const [taskLinkDrafts, setTaskLinkDrafts] = useState<Record<string, ExternalLinkRecord[]>>({});
     const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, EvidenceBundleDraft>>({});
     const [nextStatusByTask, setNextStatusByTask] = useState<Record<string, string>>({});
+    const [taskSection, setTaskSection] = useState<TaskInspectorSection>("details");
+
+    const closeTaskDrawer = () => {
+        setTaskSection("details");
+        setExpandedTask(null);
+    };
 
     const taskUpdateMutation = useMutation({
         mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
@@ -116,7 +124,7 @@ export function KanbanTaskDrawer({
     const { data: timeline = [] } = useQuery({
         queryKey: queryKeys.orchestration.projectTaskTimeline(projectId, expandedTask || ""),
         queryFn: () => (expandedTask ? getTaskTimeline(projectId, expandedTask) : Promise.resolve([])),
-        enabled: Boolean(expandedTask),
+        enabled: Boolean(expandedTask) && taskSection === "activity",
     });
     const { data: detailedTask } = useQuery({
         queryKey: queryKeys.orchestration.projectTask(projectId, expandedTask || ""),
@@ -126,17 +134,17 @@ export function KanbanTaskDrawer({
     const { data: expandedExecSnapshot } = useQuery({
         queryKey: queryKeys.orchestration.projectTaskExecution(projectId, expandedTask || ""),
         queryFn: () => (expandedTask ? getTaskExecutionState(projectId, expandedTask) : Promise.resolve(null)),
-        enabled: Boolean(expandedTask),
+        enabled: Boolean(expandedTask) && ["details", "run"].includes(taskSection),
     });
     const { data: expandedArtifacts = [] } = useQuery({
         queryKey: queryKeys.orchestration.projectTaskArtifacts(projectId, expandedTask || ""),
-        queryFn: () => (expandedTask ? listTaskArtifacts(expandedTask) : Promise.resolve([])),
-        enabled: Boolean(expandedTask),
+        queryFn: () => (expandedTask ? listTaskArtifacts(projectId, expandedTask) : Promise.resolve([])),
+        enabled: Boolean(expandedTask) && ["details", "artifacts"].includes(taskSection),
     });
     const { data: expandedBlockers } = useQuery({
         queryKey: queryKeys.orchestration.projectTaskBlockers(projectId, expandedTask || ""),
         queryFn: () => (expandedTask ? getTaskBlockers(projectId, expandedTask) : Promise.resolve(null)),
-        enabled: Boolean(expandedTask),
+        enabled: Boolean(expandedTask) && ["details", "run"].includes(taskSection),
     });
 
     function updateAcceptanceConfig(task: OrchestrationTask, patch: Partial<AcceptanceCheckerConfig>) {
@@ -157,7 +165,7 @@ export function KanbanTaskDrawer({
             <Drawer
                 anchor="right"
                 open={Boolean(expandedTask)}
-                onClose={() => setExpandedTask(null)}
+                onClose={closeTaskDrawer}
                 slotProps={{ backdrop: { sx: { bgcolor: alpha("#000", 0.2) } } }}
                 sx={{ "& .MuiDrawer-paper": { width: { xs: "92vw", sm: 480, md: 540 }, p: 2.5 } }}
             >
@@ -221,17 +229,31 @@ export function KanbanTaskDrawer({
                                         {humanizeKey(drawerTask.status)} · {agent?.name ?? "Unassigned"}
                                     </Typography>
                                 </Box>
-                                <IconButton size="small" onClick={() => setExpandedTask(null)}>
+                                <IconButton size="small" onClick={closeTaskDrawer} aria-label="Close task inspector">
                                     <CloseIcon />
                                 </IconButton>
                             </Stack>
 
-                            {drawerTask.description ? (
+                            <Tabs
+                                value={taskSection}
+                                onChange={(_, value: TaskInspectorSection) => setTaskSection(value)}
+                                variant="scrollable"
+                                scrollButtons="auto"
+                                sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}
+                            >
+                                <Tab value="details" label="Details" />
+                                <Tab value="run" label="Run" />
+                                <Tab value="memory" label="Memory" />
+                                <Tab value="artifacts" label="Artifacts" />
+                                <Tab value="activity" label="Activity" />
+                            </Tabs>
+
+                            {taskSection === "details" && drawerTask.description ? (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                     {drawerTask.description}
                                 </Typography>
                             ) : null}
-                            {expandedBlockers && (expandedBlockers.blockers.length > 0 || expandedBlockers.warnings.length > 0) ? (
+                            {taskSection === "details" && expandedBlockers && (expandedBlockers.blockers.length > 0 || expandedBlockers.warnings.length > 0) ? (
                                 <Stack spacing={0.75} sx={{ mb: 2 }}>
                                     {expandedBlockers.blockers.map((blocker, index) => (
                                         <Alert key={`blocker-${index}`} severity="warning">
@@ -245,7 +267,7 @@ export function KanbanTaskDrawer({
                                     ))}
                                 </Stack>
                             ) : null}
-                            <Button
+                            {taskSection === "details" ? <Button
                                 size="small"
                                 color="error"
                                 variant="outlined"
@@ -255,9 +277,9 @@ export function KanbanTaskDrawer({
                                 sx={{ mb: 2 }}
                             >
                                 Delete task
-                            </Button>
+                            </Button> : null}
 
-                            <Stack spacing={1.5} sx={{ overflowY: "auto", flex: 1, pb: 2 }}>
+                            {taskSection === "details" ? <Stack spacing={1.5} sx={{ overflowY: "auto", flex: 1, pb: 2 }}>
                                 <TextField
                                     size="small"
                                     label="Task source"
@@ -751,46 +773,71 @@ export function KanbanTaskDrawer({
 
                                 <Divider />
 
-                                <Typography variant="subtitle2">Timeline</Typography>
-
-                                <Stack spacing={0.75} sx={{ maxHeight: 220, overflow: "auto" }}>
-                                    {timeline.length === 0 ? (
-                                        <Typography variant="caption" color="text.secondary">
-                                            No comments or GitHub sync events yet.
-                                        </Typography>
-                                    ) : (
-                                        timeline.map((row) => (
-                                            <Paper key={`${row.kind}-${row.id}`} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {formatDateTime(row.created_at)} · {row.kind}
-                                                </Typography>
-                                                <Typography variant="body2">{row.title}</Typography>
-                                                {row.body ? (
-                                                    <Typography variant="caption" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
-                                                        {row.body}
-                                                    </Typography>
-                                                ) : null}
-                                            </Paper>
-                                        ))
-                                    )}
-                                </Stack>
-
-                                <Divider />
-
                                 <SubtaskPanel projectId={projectId} taskId={drawerTask.id} taskTitle={drawerTask.title} />
+                            </Stack> : null}
 
-                                <Divider />
+                            {taskSection === "run" ? (
+                                <Stack spacing={2}>
+                                    <Stack direction="row" spacing={1}>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<RunIcon />}
+                                            disabled={isRunPending}
+                                            onClick={() => onRunTask(
+                                                drawerTask.id,
+                                                taskRunModes[drawerTask.id] ?? "single_agent",
+                                                taskPrModes[drawerTask.id] ?? false,
+                                            )}
+                                        >
+                                            Run task
+                                        </Button>
+                                        <Button variant="outlined" onClick={() => onAcceptanceCheck(drawerTask.id)}>
+                                            Check acceptance
+                                        </Button>
+                                    </Stack>
+                                    {lastRun ? (
+                                        <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                            <Typography variant="subtitle2">Latest run</Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {humanizeKey(lastRun.status)} · {formatDateTime(lastRun.created_at)}
+                                            </Typography>
+                                            <Link href={`/runs/${lastRun.id}`} underline="hover">Open full run</Link>
+                                        </Paper>
+                                    ) : <Alert severity="info">This task has not run yet.</Alert>}
+                                    {expandedExecSnapshot?.routing_explainability ? (
+                                        <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                            <Typography variant="subtitle2">Routing explanation</Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {String(expandedExecSnapshot.routing_explainability.agent_selection_reason || workerTip)}
+                                            </Typography>
+                                        </Paper>
+                                    ) : null}
+                                </Stack>
+                            ) : null}
 
-                                <ArtifactPanel taskId={drawerTask.id} />
+                            {taskSection === "memory" ? (
+                                <TaskMemoryInspector projectId={projectId} taskId={drawerTask.id} lastRunId={lastRun?.id} />
+                            ) : null}
 
-                                <Divider />
+                            {taskSection === "artifacts" ? (
+                                <ArtifactPanel projectId={projectId} taskId={drawerTask.id} />
+                            ) : null}
 
-                                <TaskMemoryInspector
-                                    projectId={projectId}
-                                    taskId={drawerTask.id}
-                                    lastRunId={lastRun?.id}
-                                />
-                            </Stack>
+                            {taskSection === "activity" ? (
+                                <Stack spacing={0.75}>
+                                    {timeline.length === 0 ? (
+                                        <Typography variant="body2" color="text.secondary">No task activity yet.</Typography>
+                                    ) : timeline.map((row) => (
+                                        <Paper key={`${row.kind}-${row.id}`} variant="outlined" sx={{ p: 1.25 }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatDateTime(row.created_at)} · {row.kind}
+                                            </Typography>
+                                            <Typography variant="body2">{row.title}</Typography>
+                                            {row.body ? <Typography variant="caption">{row.body}</Typography> : null}
+                                        </Paper>
+                                    ))}
+                                </Stack>
+                            ) : null}
                         </>
                     );
                 })()}
@@ -812,7 +859,7 @@ export function KanbanTaskDrawer({
                     deleteTaskMutation.mutate(deleteTaskTarget.id, {
                         onSettled: () => {
                             setDeleteTaskTarget(null);
-                            setExpandedTask(null);
+                            closeTaskDrawer();
                         },
                     });
                 }}

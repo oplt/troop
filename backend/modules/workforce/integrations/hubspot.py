@@ -32,7 +32,11 @@ from backend.modules.workforce.integrations.crm_records import (
     filter_allowlisted_fields,
     hubspot_crm_arguments_hash,
 )
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 HUBSPOT_AUTHORIZE_URL = "https://app.hubspot.com/oauth/authorize"
@@ -75,7 +79,9 @@ class HubSpotOAuthService:
         redirect_after: str | None = None,
     ) -> dict[str, Any]:
         if not settings.HUBSPOT_CLIENT_ID or not settings.HUBSPOT_OAUTH_REDIRECT_URI:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "HubSpot OAuth is not configured")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "HubSpot OAuth is not configured"
+            )
         requested = list(dict.fromkeys(scopes or HUBSPOT_SCOPES))
         state = secrets.token_urlsafe(32)
         row = ConnectorOAuthState(
@@ -104,7 +110,10 @@ class HubSpotOAuthService:
         state_hash = _hash_secret(state)
         result = await self.db.execute(
             select(ConnectorOAuthState)
-            .where(ConnectorOAuthState.provider == "hubspot", ConnectorOAuthState.state_hash == state_hash)
+            .where(
+                ConnectorOAuthState.provider == "hubspot",
+                ConnectorOAuthState.state_hash == state_hash,
+            )
             .with_for_update()
         )
         oauth_state = result.scalar_one_or_none()
@@ -192,7 +201,10 @@ class HubSpotAdapter:
     ) -> HubSpotAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -293,7 +305,9 @@ class HubSpotAdapter:
             }
             if filters:
                 payload["filterGroups"] = filters
-            return await self.request("POST", "/crm/v3/objects/contacts/search", json_payload=payload)
+            return await self.request(
+                "POST", "/crm/v3/objects/contacts/search", json_payload=payload
+            )
         if operation == "hubspot.get_contact":
             contact_id = str(arguments.get("contact_id") or arguments.get("record_id") or "")
             return await self.request(
@@ -324,7 +338,9 @@ class HubSpotAdapter:
             }
             if filters:
                 payload["filterGroups"] = filters
-            return await self.request("POST", "/crm/v3/objects/companies/search", json_payload=payload)
+            return await self.request(
+                "POST", "/crm/v3/objects/companies/search", json_payload=payload
+            )
         if operation == "hubspot.get_company":
             company_id = str(arguments.get("company_id") or arguments.get("record_id") or "")
             return await self.request(
@@ -343,7 +359,9 @@ class HubSpotAdapter:
         if operation == "hubspot.send_email":
             if arguments.get("approval_request_id") and arguments.get("workflow_run_id"):
                 return await self.send_email_exactly_once(arguments)
-            raise HubSpotAPIError("hubspot.send_email requires approval_request_id and workflow_run_id")
+            raise HubSpotAPIError(
+                "hubspot.send_email requires approval_request_id and workflow_run_id"
+            )
         raise HubSpotAPIError(f"Unsupported HubSpot operation: {operation}")
 
     async def _update_contact(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -401,7 +419,9 @@ class HubSpotAdapter:
                     "bcc": arguments.get("bcc") or [],
                 },
                 "customProperties": {
-                    "subject": str(arguments.get("email_subject") or arguments.get("subject") or ""),
+                    "subject": str(
+                        arguments.get("email_subject") or arguments.get("subject") or ""
+                    ),
                     "body": str(arguments.get("email_body") or arguments.get("message") or ""),
                 },
             },

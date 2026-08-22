@@ -77,6 +77,25 @@ async def test_project_list_service_uses_summary_projection() -> None:
 
 
 @pytest.mark.asyncio
+async def test_my_tasks_query_is_owner_scoped_assignee_scoped_and_bounded() -> None:
+    db = CaptureDb()
+
+    rows, dependencies = await OrchestrationRepository(db).list_my_tasks_with_dependencies(
+        "owner-1",
+        "user-1",
+        limit=50,
+    )
+
+    assert rows == []
+    assert dependencies == {}
+    sql = str(db.statement.compile(compile_kwargs={"literal_binds": True})).lower()
+    assert "orchestrator_projects.owner_id = 'owner-1'" in sql
+    assert "orchestrator_tasks.human_assignee_id = 'user-1'" in sql
+    assert "not in ('completed', 'archived', 'cancelled', 'synced_to_github')" in sql
+    assert "limit 51" in sql
+
+
+@pytest.mark.asyncio
 async def test_overview_uses_full_project_projection() -> None:
     repo = SimpleNamespace(
         list_projects=AsyncMock(return_value=[]),

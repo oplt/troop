@@ -87,15 +87,17 @@ class WorkflowValidationService:
 
             if ntype == "trigger":
                 trigger_type = str(config.get("trigger_type") or "").strip()
-                if trigger_type in _GMAIL_TRIGGER_TYPES and not str(
-                    config.get("connector_installation_id") or ""
-                ).strip():
+                if (
+                    trigger_type in _GMAIL_TRIGGER_TYPES
+                    and not str(config.get("connector_installation_id") or "").strip()
+                ):
                     errors.append(
                         f"Gmail trigger node `{node_id}` requires connector_installation_id"
                     )
-                if trigger_type in _OUTLOOK_TRIGGER_TYPES and not str(
-                    config.get("connector_installation_id") or ""
-                ).strip():
+                if (
+                    trigger_type in _OUTLOOK_TRIGGER_TYPES
+                    and not str(config.get("connector_installation_id") or "").strip()
+                ):
                     errors.append(
                         f"Outlook trigger node `{node_id}` requires connector_installation_id"
                     )
@@ -103,15 +105,14 @@ class WorkflowValidationService:
             if ntype == "agent" and not str(config.get("agent_id") or "").strip():
                 errors.append(f"agent node `{node_id}` missing config.agent_id")
 
-            if ntype == "subworkflow" and not str(
-                config.get("workflow_id") or config.get("subworkflow_id") or ""
-            ).strip():
+            if (
+                ntype == "subworkflow"
+                and not str(config.get("workflow_id") or config.get("subworkflow_id") or "").strip()
+            ):
                 errors.append(f"subworkflow node `{node_id}` missing config.workflow_id")
 
         if external_write_nodes:
-            infos.append(
-                f"{len(external_write_nodes)} node(s) invoke external-mutating tools"
-            )
+            infos.append(f"{len(external_write_nodes)} node(s) invoke external-mutating tools")
 
         return {
             "valid": not errors,

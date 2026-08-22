@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select, text
 
 from backend.core.config import settings
+from backend.core.pagination import apply_desc_time_id_cursor
 from backend.modules.memory.models import (
     AgentMemoryEntry,
     EpisodicArchiveManifest,
@@ -196,6 +197,9 @@ class MemoryRepositoryMixin:
         project_id: str | None = None,
         agent_id: str | None = None,
         status: str | None = None,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[AgentMemoryEntry]:
         stmt = select(AgentMemoryEntry).where(
             AgentMemoryEntry.owner_id == owner_id,
@@ -207,7 +211,15 @@ class MemoryRepositoryMixin:
             stmt = stmt.where(AgentMemoryEntry.agent_id == agent_id)
         if status is not None:
             stmt = stmt.where(AgentMemoryEntry.status == status)
-        result = await self.db.execute(stmt.order_by(AgentMemoryEntry.updated_at.desc()))
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            AgentMemoryEntry,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(AgentMemoryEntry.created_at.desc(), AgentMemoryEntry.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_agent_memory(self, owner_id: str, memory_id: str) -> AgentMemoryEntry | None:
@@ -232,6 +244,7 @@ class MemoryRepositoryMixin:
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.id == entry_id,
                 SemanticMemoryEntry.owner_id == owner_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.deleted_at.is_(None),
                 or_(
                     SemanticMemoryEntry.expires_at.is_(None),
@@ -254,6 +267,7 @@ class MemoryRepositoryMixin:
     ) -> list[SemanticMemoryEntry]:
         stmt = select(SemanticMemoryEntry).where(
             SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.status == "current",
             SemanticMemoryEntry.deleted_at.is_(None),
             or_(
                 SemanticMemoryEntry.expires_at.is_(None),
@@ -293,6 +307,7 @@ class MemoryRepositoryMixin:
         stmt = select(SemanticMemoryEntry).where(
             SemanticMemoryEntry.owner_id == owner_id,
             SemanticMemoryEntry.project_id.in_(ids),
+            SemanticMemoryEntry.status == "current",
             SemanticMemoryEntry.deleted_at.is_(None),
             or_(
                 SemanticMemoryEntry.expires_at.is_(None),
@@ -317,6 +332,7 @@ class MemoryRepositoryMixin:
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["decision_id"].as_string() == decision_id,
             )
         )
@@ -329,6 +345,7 @@ class MemoryRepositoryMixin:
             select(SemanticMemoryEntry).where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["agent_memory_id"].as_string() == memory_id,
             )
         )
@@ -342,6 +359,7 @@ class MemoryRepositoryMixin:
             .where(
                 SemanticMemoryEntry.owner_id == owner_id,
                 SemanticMemoryEntry.project_id == project_id,
+                SemanticMemoryEntry.status == "current",
                 SemanticMemoryEntry.provenance_json["source"].as_string() == "task_close",
                 SemanticMemoryEntry.provenance_json["task_id"].as_string() == task_id,
             )
@@ -365,6 +383,7 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id = :pid
+              AND status = 'current'
               AND deleted_at IS NULL
               AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
@@ -379,7 +398,10 @@ class MemoryRepositoryMixin:
         if not ids:
             return []
         r2 = await self.db.execute(
-            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+            select(SemanticMemoryEntry).where(
+                SemanticMemoryEntry.id.in_(ids),
+                SemanticMemoryEntry.status == "current",
+            )
         )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
@@ -399,6 +421,7 @@ class MemoryRepositoryMixin:
             SemanticMemoryEntry.owner_id == owner_id,
             SemanticMemoryEntry.company_id == company_id,
             SemanticMemoryEntry.project_id.is_(None),
+            SemanticMemoryEntry.status == "current",
             SemanticMemoryEntry.deleted_at.is_(None),
             or_(
                 SemanticMemoryEntry.expires_at.is_(None),
@@ -451,6 +474,7 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id = :pid
+              AND status = 'current'
               AND deleted_at IS NULL
               AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
@@ -464,7 +488,10 @@ class MemoryRepositoryMixin:
         if not ids:
             return []
         r2 = await self.db.execute(
-            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+            select(SemanticMemoryEntry).where(
+                SemanticMemoryEntry.id.in_(ids),
+                SemanticMemoryEntry.status == "current",
+            )
         )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
@@ -486,6 +513,7 @@ class MemoryRepositoryMixin:
             WHERE owner_id = :oid
               AND company_id = :cid
               AND project_id IS NULL
+              AND status = 'current'
               AND deleted_at IS NULL
               AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
@@ -500,7 +528,10 @@ class MemoryRepositoryMixin:
         if not ids:
             return []
         r2 = await self.db.execute(
-            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+            select(SemanticMemoryEntry).where(
+                SemanticMemoryEntry.id.in_(ids),
+                SemanticMemoryEntry.status == "current",
+            )
         )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]
@@ -527,6 +558,7 @@ class MemoryRepositoryMixin:
             SELECT id FROM semantic_memory_entries
             WHERE owner_id = :oid
               AND project_id IN ({placeholders})
+              AND status = 'current'
               AND deleted_at IS NULL
               AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
               AND embedding_vector IS NOT NULL
@@ -539,7 +571,10 @@ class MemoryRepositoryMixin:
         if not ids:
             return []
         r2 = await self.db.execute(
-            select(SemanticMemoryEntry).where(SemanticMemoryEntry.id.in_(ids))
+            select(SemanticMemoryEntry).where(
+                SemanticMemoryEntry.id.in_(ids),
+                SemanticMemoryEntry.status == "current",
+            )
         )
         by_id = {x.id: x for x in r2.scalars().all()}
         return [by_id[i] for i in ids if i in by_id]

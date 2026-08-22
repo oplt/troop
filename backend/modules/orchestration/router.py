@@ -9,27 +9,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.admin import get_admin_user
 from backend.api.deps.auth import get_current_user
-from backend.api.deps.workspace import get_session_workspace_context
 from backend.api.deps.orchestration import (
     get_execution_service,
-    get_github_sync_service,
     get_knowledge_service,
     get_memory_service,
 )
+from backend.api.deps.workspace import get_session_workspace_context
 from backend.core.config import settings
 from backend.core.http_cache import apply_private_list_cache_headers, compute_documents_etag
 from backend.core.pagination import (
     build_cursor_page,
+    fetch_limit,
     token_from_created_at_id,
     token_from_position_created_at_id,
 )
 from backend.core.schemas import CursorPageResponse
 from backend.core.sse_streams import live_snapshot_stream as _live_snapshot_stream
 from backend.db.session import SessionLocal, get_db
-from backend.modules.identity_access.models import User
-from backend.modules.observability.metrics import record_sse_event
-from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.audit.repository import AuditRepository
+from backend.modules.identity_access.models import User
+from backend.modules.orchestration._helpers import resolve_query_limit
+from backend.modules.orchestration.agent_patterns import BUILTIN_AGENT_PATTERNS
 from backend.modules.orchestration.models import ApprovalRequest
 from backend.modules.orchestration.presenters import (
     to_agent_response as _agent,
@@ -42,6 +42,8 @@ from backend.modules.orchestration.presenters import (
 )
 from backend.modules.orchestration.presenters import (
     to_project_list_item as _project_list_item,
+)
+from backend.modules.orchestration.presenters import (
     to_project_response,
 )
 from backend.modules.orchestration.presenters import (
@@ -62,14 +64,25 @@ from backend.modules.orchestration.presenters import (
 from backend.modules.orchestration.presenters import (
     to_task_response as _task,
 )
+from backend.modules.orchestration.routers.analytics import router as analytics_router
 from backend.modules.orchestration.routers.approvals import router as approvals_router
-from backend.modules.orchestration.schemas.run_trace import RunTracePageResponse
+from backend.modules.orchestration.routers.portfolio import router as portfolio_router
+from backend.modules.orchestration.routers.providers import router as providers_router
+from backend.modules.orchestration.routers.tasks import router as tasks_router
 from backend.modules.orchestration.schemas import (
+    ActivationStatusResponse,
     AgentCreate,
     AgentFromTemplateRequest,
     AgentMarkdownValidationResponse,
     AgentMemoryEntryCreate,
     AgentMemoryEntryResponse,
+    AgentPatternApplyResponse,
+    AgentPatternBenchmarkRequest,
+    AgentPatternBenchmarkResponse,
+    AgentPatternEnableResponse,
+    AgentPatternProjectStatusResponse,
+    AgentPatternResponse,
+    AgentPatternStatusResponse,
     AgentQualityScoreResponse,
     AgentResponse,
     AgentTemplateCreate,
@@ -91,7 +104,6 @@ from backend.modules.orchestration.schemas import (
     BrainstormParticipantResponse,
     BrainstormParticipantUpdate,
     BrainstormResponse,
-    CostAggregationResponse,
     DagParallelStartPayload,
     DagParallelStartResult,
     DagReadyTaskItem,
@@ -103,7 +115,6 @@ from backend.modules.orchestration.schemas import (
     EvalRecordCreate,
     EvalRecordResponse,
     EvalRecordUpdate,
-    ExecutionInsightsResponse,
     GateConfigResponse,
     GateConfigUpdate,
     GithubSyncEventResponse,
@@ -124,21 +135,8 @@ from backend.modules.orchestration.schemas import (
     MemorySettingsPatch,
     MemorySettingsResponse,
     MergeResolveRunPayload,
-    ModelCapabilityResponse,
-    ActivationStatusResponse,
-    AgentPatternApplyResponse,
-    AgentPatternBenchmarkRequest,
-    AgentPatternBenchmarkResponse,
-    AgentPatternEnableResponse,
-    AgentPatternProjectStatusResponse,
-    AgentPatternResponse,
-    AgentPatternStatusResponse,
     OverviewResponse,
     PendingSemanticWriteResponse,
-    PortfolioControlPlaneResponse,
-    PortfolioExecutionPolicyResponse,
-    PortfolioExecutionPolicyUpdate,
-    PortfolioProjectSummary,
     ProceduralPlaybookCreate,
     ProceduralPlaybookResponse,
     ProceduralPlaybookUpdate,
@@ -156,17 +154,9 @@ from backend.modules.orchestration.schemas import (
     ProjectResponse,
     ProjectUpdate,
     PromoteWorkingMemoryRequest,
-    ProviderCompareRequest,
-    ProviderCompareResponse,
-    ProviderConfigCreate,
-    ProviderConfigResponse,
-    ProviderConfigUpdate,
-    ProviderHealthSummaryResponse,
-    ProviderModelListResponse,
     ReplayRunRequest,
     RunCostSummaryResponse,
     RunEventListItem,
-    RunEventResponse,
     RunExecutionSnapshotResponse,
     RuntimeInfoResponse,
     SemanticConflictGroupResponse,
@@ -209,12 +199,11 @@ from backend.modules.orchestration.schemas import (
     WorkingMemoryPatch,
     WorkingMemoryResponse,
 )
+from backend.modules.orchestration.schemas.run_trace import RunTracePageResponse
 from backend.modules.orchestration.services.execution_domain import ExecutionService
-from backend.modules.orchestration.services.github_sync_domain import GithubSyncService
 from backend.modules.orchestration.services.knowledge_domain import KnowledgeService
 from backend.modules.orchestration.services.memory_domain import MemoryService
 from backend.modules.orchestration.services.service import OrchestrationService
-from backend.modules.orchestration.agent_patterns import BUILTIN_AGENT_PATTERNS
 from backend.modules.orchestration.workflow_templates import BUILTIN_WORKFLOW_TEMPLATES
 from backend.modules.team.schemas import (
     ProjectAgentMembershipCreate,
@@ -225,6 +214,10 @@ from backend.modules.team.schemas import (
 router = APIRouter()
 public_router = APIRouter()
 router.include_router(approvals_router)
+router.include_router(analytics_router)
+router.include_router(portfolio_router)
+router.include_router(providers_router)
+router.include_router(tasks_router)
 
 
 @router.get("/hitl/audit-logs", response_model=list[HITLAuditLogResponse])
@@ -252,68 +245,6 @@ async def list_hitl_audit_logs(
             )
         )
     return rows
-
-
-def _provider(item) -> ProviderConfigResponse:
-    return ProviderConfigResponse(
-        id=item.id,
-        project_id=item.project_id,
-        name=item.name,
-        provider_type=item.provider_type,
-        base_url=item.base_url,
-        api_key_hint=item.api_key_hint,
-        organization=item.organization,
-        default_model=item.default_model,
-        fallback_model=item.fallback_model,
-        temperature=item.temperature,
-        max_tokens=item.max_tokens,
-        timeout_seconds=item.timeout_seconds,
-        is_default=item.is_default,
-        is_enabled=item.is_enabled,
-        metadata=item.metadata_json,
-        last_healthcheck_status=item.last_healthcheck_status,
-        last_healthcheck_latency_ms=item.last_healthcheck_latency_ms,
-        is_healthy=item.is_healthy,
-        last_healthcheck_at=item.last_healthcheck_at,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
-
-
-def _model_capability(item) -> ModelCapabilityResponse:
-    metadata = item.metadata_json or {}
-    return ModelCapabilityResponse(
-        id=item.id,
-        provider_id=item.provider_id,
-        provider_type=item.provider_type,
-        model_slug=item.model_slug,
-        display_name=item.display_name,
-        supports_tools=item.supports_tools,
-        supports_tool_calling=bool(metadata.get("supports_tool_calling", item.supports_tools)),
-        supports_structured_output=bool(metadata.get("supports_structured_output", False)),
-        supports_reasoning=bool(metadata.get("supports_reasoning", False)),
-        supports_vision=item.supports_vision,
-        max_context_tokens=item.max_context_tokens,
-        cost_per_1k_input=item.cost_per_1k_input,
-        cost_per_1k_output=item.cost_per_1k_output,
-        context_window=metadata.get("context_window")
-        if metadata.get("context_window") is not None
-        else (item.max_context_tokens or None),
-        max_output_tokens=metadata.get("max_output_tokens"),
-        input_cost_per_1k=metadata.get("input_cost_per_1k", item.cost_per_1k_input),
-        output_cost_per_1k=metadata.get("output_cost_per_1k", item.cost_per_1k_output),
-        input_cost_per_1m=metadata.get("input_cost_per_1m"),
-        output_cost_per_1m=metadata.get("output_cost_per_1m"),
-        latency_p50=metadata.get("latency_p50"),
-        health_status=metadata.get("health_status"),
-        source_for_each_field=metadata.get("source_for_each_field") or {},
-        last_verified_at=metadata.get("last_verified_at"),
-        override_reason=metadata.get("override_reason"),
-        metadata=metadata,
-        is_active=item.is_active,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
 
 
 def _project(item) -> ProjectResponse:
@@ -388,6 +319,11 @@ def _semantic_entry(item) -> SemanticMemoryEntryResponse:
         deleted_at=getattr(item, "deleted_at", None),
         retention_policy=getattr(item, "retention_policy", "default"),
         memory_version=getattr(item, "memory_version", 1),
+        canonical_key=getattr(item, "canonical_key", None),
+        valid_from=getattr(item, "valid_from", item.created_at),
+        valid_until=getattr(item, "valid_until", None),
+        status=getattr(item, "status", "current"),
+        supersedes_memory_id=getattr(item, "supersedes_memory_id", None),
         embedding_model=getattr(item, "embedding_model", None),
         embedding_version=getattr(item, "embedding_version", None),
         created_at=item.created_at,
@@ -679,46 +615,6 @@ async def orchestration_memory_metrics(
     from backend.modules.memory.metrics import snapshot_memory_metrics
 
     return snapshot_memory_metrics()
-
-
-@router.get("/portfolio", response_model=list[PortfolioProjectSummary])
-async def orchestration_portfolio(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    rows = await OrchestrationService(db).summarize_portfolio(current_user)
-    return [PortfolioProjectSummary(**row) for row in rows]
-
-
-@router.get("/portfolio/control-plane", response_model=PortfolioControlPlaneResponse)
-async def orchestration_portfolio_control_plane(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    payload = await OrchestrationService(db).portfolio_control_plane(current_user)
-    return PortfolioControlPlaneResponse(**payload)
-
-
-@router.get("/portfolio/execution-policy", response_model=PortfolioExecutionPolicyResponse)
-async def orchestration_portfolio_execution_policy(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    payload = await OrchestrationService(db).get_portfolio_execution_policy(current_user)
-    return PortfolioExecutionPolicyResponse(**payload)
-
-
-@router.put("/portfolio/execution-policy", response_model=PortfolioExecutionPolicyResponse)
-async def update_orchestration_portfolio_execution_policy(
-    payload: PortfolioExecutionPolicyUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    data = await OrchestrationService(db).update_portfolio_execution_policy(
-        current_user,
-        payload.model_dump(exclude_none=True),
-    )
-    return PortfolioExecutionPolicyResponse(**data)
 
 
 async def _with_fresh_orchestration_session(callback):
@@ -2864,7 +2760,8 @@ async def stream_run_events(
                 yield f"event: run_event\ndata: {_event(item).model_dump_json()}\n\n"
             run_obj = await service.repo.get_run(current_user.id, run_id)
             if run_obj and run_obj.status in terminal:
-                yield f"event: stream_end\ndata: {json.dumps({'event_type': 'stream_end', 'status': run_obj.status})}\n\n"
+                payload = {"event_type": "stream_end", "status": run_obj.status}
+                yield f"event: stream_end\ndata: {json.dumps(payload)}\n\n"
                 return
             idle_loops += 1
             if idle_loops % 20 == 0:
@@ -2963,59 +2860,6 @@ async def github_sync_events_stream(
         request=request,
         stream_name="github",
     )
-
-
-@router.post("/github/sync-events/{sync_event_id}/replay")
-async def replay_github_sync_event(
-    sync_event_id: str,
-    payload: dict[str, Any] = Body(default_factory=dict),
-    current_user: User = Depends(get_current_user),
-    github_sync: GithubSyncService = Depends(get_github_sync_service),
-):
-    item = await github_sync.replay_github_sync_event(
-        current_user,
-        sync_event_id,
-        force=bool(payload.get("force")),
-    )
-    return _github_sync_event(item)
-
-
-@router.get("/analytics/cost", response_model=CostAggregationResponse)
-async def cost_analytics(
-    days: int = Query(30, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    payload = await OrchestrationService(db).aggregate_cost_analytics(current_user, days)
-    return CostAggregationResponse(**payload)
-
-
-@router.get("/analytics/execution-insights", response_model=ExecutionInsightsResponse)
-async def execution_insights(
-    days: int = Query(7, ge=1, le=90),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    payload = await OrchestrationService(db).execution_insights(current_user, days)
-    return ExecutionInsightsResponse(**payload)
-
-
-@router.get("/analytics/agent-performance")
-async def agent_performance(
-    days: int = Query(30, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).agent_performance_scorecard(current_user, days)
-
-
-@router.get("/analytics/budget-projection")
-async def budget_projection(
-    days: int = Query(30, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).project_budget_projection(current_user, days)
 
 
 @router.post("/agents/{agent_id}/simulate")
@@ -3242,107 +3086,6 @@ async def apply_workflow_template(
     return await OrchestrationService(db).apply_workflow_template(
         current_user, project_id, template_id
     )
-
-
-@router.get("/providers", response_model=list[ProviderConfigResponse])
-async def list_providers(
-    project_id: str | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return [
-        _provider(item)
-        for item in await OrchestrationService(db).list_providers(current_user, project_id)
-    ]
-
-
-@router.post("/providers", response_model=ProviderConfigResponse, status_code=201)
-async def create_provider(
-    payload: ProviderConfigCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return _provider(
-        await OrchestrationService(db).create_provider(current_user, payload.model_dump())
-    )
-
-
-@router.patch("/providers/{provider_id}", response_model=ProviderConfigResponse)
-async def update_provider(
-    provider_id: str,
-    payload: ProviderConfigUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return _provider(
-        await OrchestrationService(db).update_provider(
-            current_user, provider_id, payload.model_dump(exclude_unset=True)
-        )
-    )
-
-
-@router.delete("/providers/{provider_id}", status_code=204)
-async def delete_provider(
-    provider_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    await OrchestrationService(db).delete_provider(current_user, provider_id)
-    return Response(status_code=204)
-
-
-@router.post("/providers/{provider_id}/test")
-async def test_provider_connection(
-    provider_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).test_provider(current_user, provider_id)
-
-
-@router.post("/providers/health-check")
-async def health_check_providers(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).run_provider_health_checks_for_user(current_user)
-
-
-@router.get("/providers/health-summary", response_model=list[ProviderHealthSummaryResponse])
-async def provider_health_summary(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).provider_health_summary(current_user)
-
-
-@router.get("/providers/{provider_id}/models", response_model=ProviderModelListResponse)
-async def list_provider_models(
-    provider_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).list_provider_models_for_user(current_user, provider_id)
-
-
-@router.get("/providers/model-capabilities", response_model=list[ModelCapabilityResponse])
-async def list_model_capabilities(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return [
-        _model_capability(item)
-        for item in await OrchestrationService(db).list_model_capabilities(current_user)
-    ]
-
-
-@router.post("/providers/compare", response_model=ProviderCompareResponse)
-async def compare_provider_outputs(
-    payload: ProviderCompareRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await OrchestrationService(db).compare_providers(current_user, payload.model_dump())
 
 
 @router.get("/brainstorms", response_model=list[BrainstormResponse])
@@ -3615,21 +3358,38 @@ async def pr_assistant_review(
     return await OrchestrationService(db).pr_assistant_review(current_user, payload)
 
 
-@router.get("/projects/{project_id}/documents", response_model=list[ProjectDocumentResponse])
+@router.get(
+    "/projects/{project_id}/documents",
+    response_model=CursorPageResponse[ProjectDocumentResponse],
+)
 async def list_documents(
     project_id: str,
     request: Request,
     response: Response,
     task_id: str | None = None,
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     knowledge: KnowledgeService = Depends(get_knowledge_service),
 ):
-    rows = await knowledge.list_documents(current_user, project_id, task_id)
+    rows = await knowledge.list_documents(
+        current_user,
+        project_id,
+        task_id,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
     etag = compute_documents_etag(rows)
     apply_private_list_cache_headers(response, etag)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=dict(response.headers))
-    return [_document(item) for item in rows]
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_document(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(
@@ -3685,23 +3445,34 @@ async def search_knowledge(
     )
 
 
-@router.get("/projects/{project_id}/memory", response_model=list[AgentMemoryEntryResponse])
+@router.get(
+    "/projects/{project_id}/memory",
+    response_model=CursorPageResponse[AgentMemoryEntryResponse],
+)
 async def list_project_memory(
     project_id: str,
     agent_id: str | None = None,
     status: str | None = None,
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [
-        _memory(item)
-        for item in await OrchestrationService(db).list_project_memory(
-            current_user,
-            project_id,
-            agent_id=agent_id,
-            status=status,
-        )
-    ]
+    rows = await OrchestrationService(db).list_project_memory(
+        current_user,
+        project_id,
+        agent_id=agent_id,
+        status=status,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_memory(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post("/projects/{project_id}/memory", status_code=201)

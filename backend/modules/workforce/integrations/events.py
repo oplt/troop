@@ -25,7 +25,6 @@ from backend.modules.workforce.integrations.email import (
 from backend.modules.workforce.integrations.gmail import GmailAdapter, GmailAPIError
 from backend.modules.workforce.integrations.outlook import (
     OutlookAdapter,
-    OutlookAPIError,
     validate_outlook_webhook_client_state,
 )
 from backend.modules.workforce.models import (
@@ -193,7 +192,9 @@ class ExternalEventService:
                 ingested.append((existing_result.scalar_one(), False))
         return ingested
 
-    async def ingest_outlook_push(self, payload: dict[str, Any]) -> list[tuple[ExternalEvent, bool]]:
+    async def ingest_outlook_push(
+        self, payload: dict[str, Any]
+    ) -> list[tuple[ExternalEvent, bool]]:
         notifications = payload.get("value")
         if not isinstance(notifications, list) or not notifications:
             raise ValueError("Outlook notification payload is required")
@@ -201,7 +202,9 @@ class ExternalEventService:
         for notification in notifications:
             if not isinstance(notification, dict):
                 continue
-            if not validate_outlook_webhook_client_state(str(notification.get("clientState") or "")):
+            if not validate_outlook_webhook_client_state(
+                str(notification.get("clientState") or "")
+            ):
                 raise ValueError("Invalid Outlook webhook client state")
             subscription_id = str(notification.get("subscriptionId") or "")
             resource = str(notification.get("resource") or "")
@@ -428,9 +431,7 @@ class ExternalEventService:
         child_event = existing.scalar_one_or_none()
         if child_event is not None and child_event.workflow_run_id:
             return
-        message = await adapter.execute(
-            "outlook.get_message", {"message_id": message_id}
-        )
+        message = await adapter.execute("outlook.get_message", {"message_id": message_id})
         normalized = normalize_outlook_message(
             message,
             connector_installation_id=event.connector_installation_id,
@@ -623,7 +624,9 @@ class TriggerSubscriptionService:
         return renewed
 
     async def renew_due_outlook_subscriptions(self) -> int:
-        cutoff = datetime.now(UTC) + timedelta(hours=settings.OUTLOOK_SUBSCRIPTION_RENEW_BEFORE_HOURS)
+        cutoff = datetime.now(UTC) + timedelta(
+            hours=settings.OUTLOOK_SUBSCRIPTION_RENEW_BEFORE_HOURS
+        )
         result = await self.db.execute(
             select(TriggerSubscription).where(
                 TriggerSubscription.provider == "outlook",

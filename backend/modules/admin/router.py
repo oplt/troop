@@ -6,6 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.admin import get_admin_user
+from backend.core.pagination import build_cursor_page, fetch_limit, token_from_created_at_id
 from backend.db.session import get_db
 from backend.modules.admin.schemas import (
     AdminUserListResponse,
@@ -126,8 +127,9 @@ async def update_user_status(
 
 @router.get("/audit-logs", response_model=AuditLogListResponse)
 async def list_audit_logs(
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     action: str | None = None,
     user_id: str | None = None,
     resource_type: str | None = None,
@@ -136,18 +138,23 @@ async def list_audit_logs(
     _: User = Depends(get_admin_user),
 ):
     logs, total = await AuditExportService(db).list_filtered(
-        page=page,
-        page_size=page_size,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
         action=action,
         user_id=user_id,
         resource_type=resource_type,
         workspace_id=workspace_id,
     )
+    page, next_cursor = build_cursor_page(
+        logs,
+        limit,
+        token_from_row=token_from_created_at_id,
+    )
     return AuditLogListResponse(
-        items=[AuditLogResponse(**audit_log_to_dict(log)) for log in logs],
+        items=[AuditLogResponse(**audit_log_to_dict(log)) for log in page],
         total=total,
-        page=page,
-        page_size=page_size,
+        next_cursor=next_cursor,
     )
 
 
@@ -222,10 +229,13 @@ async def create_identity_provider(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
-    from backend.modules.identity_access.sso_service import SsoService
     from uuid import uuid4
 
-    existing = await db.execute(select(IdentityProvider).where(IdentityProvider.slug == payload.slug))
+    from backend.modules.identity_access.sso_service import SsoService
+
+    existing = await db.execute(
+        select(IdentityProvider).where(IdentityProvider.slug == payload.slug)
+    )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="identity provider slug already exists")
     row = IdentityProvider(

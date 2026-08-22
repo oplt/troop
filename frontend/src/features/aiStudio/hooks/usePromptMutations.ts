@@ -37,7 +37,8 @@ export function usePromptMutations({ selectedTemplateId }: UsePromptMutationsOpt
         mutationFn: createPromptTemplate,
         onSuccess: async () => {
             setTemplateForm({ key: "", name: "", description: "" });
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "prompts"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({ message: "Prompt template created.", severity: "success" });
         },
     });
@@ -51,7 +52,8 @@ export function usePromptMutations({ selectedTemplateId }: UsePromptMutationsOpt
             payload: Parameters<typeof createPromptVersion>[1];
         }) => createPromptVersion(templateId, payload),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "prompts"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             await queryClient.invalidateQueries({ queryKey: ["ai", "prompt-versions", selectedTemplateId] });
             showToast({ message: "Prompt version created.", severity: "success" });
         },
@@ -61,7 +63,7 @@ export function usePromptMutations({ selectedTemplateId }: UsePromptMutationsOpt
         mutationFn: ({ templateId, versionId }: { templateId: string; versionId: string }) =>
             updatePromptTemplate(templateId, { active_version_id: versionId }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "prompts"] });
             showToast({ message: "Active prompt version updated.", severity: "success" });
         },
     });

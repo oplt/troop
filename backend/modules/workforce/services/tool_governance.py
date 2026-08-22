@@ -257,5 +257,7 @@ def built_in_tool_decision_snapshots() -> dict[str, dict[str, Any]]:
         key = str(row["action_key"])
         if key not in snapshots:
             snapshots[key] = effective_tool_decision_from_catalog(key).to_snapshot()
-    snapshots["__unknown__"] = effective_tool_decision_from_catalog("not.a.registered.tool").to_snapshot()
+    snapshots["__unknown__"] = effective_tool_decision_from_catalog(
+        "not.a.registered.tool"
+    ).to_snapshot()
     return snapshots

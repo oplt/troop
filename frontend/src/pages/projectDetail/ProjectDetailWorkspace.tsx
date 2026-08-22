@@ -74,6 +74,8 @@ import {
     withProjectDetailTab,
 } from "../../features/orchestration/project/routing";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
+import { ProjectKnowledgeSurface } from "../../features/projectKnowledge/ProjectKnowledgeSurface";
+import { SemanticMemoryProvenanceDetails } from "../../features/memory/SemanticMemoryProvenanceDetails";
 import {
     ProjectDetailErrorState,
     ProjectDetailLoadingState,
@@ -232,6 +234,7 @@ export function ProjectDetailWorkspace() {
     const projectDetailQueries = useProjectDetailQueries(projectId, {
         tab,
         workView,
+        teamView,
         knowledgeView,
         knowledgeQuery: debouncedKnowledgeQuery,
         includeDecisionRecall,
@@ -836,7 +839,7 @@ export function ProjectDetailWorkspace() {
 
             <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
                 <Tabs
-                    value={tab}
+                    value={tab === "agents" ? "settings" : tab}
                     onChange={(_, value: DetailTab) => {
                         setTab(value);
                         const sideEffects = projectDetailTabSideEffects(value);
@@ -848,10 +851,9 @@ export function ProjectDetailWorkspace() {
                     scrollButtons="auto"
                 >
                     <Tab label="Overview" value="overview" />
-                    <Tab label="Board" value="board" />
+                    <Tab label="Tasks" value="board" />
+                    <Tab label="Knowledge" value="memory" />
                     <Tab label="Runs" value="runs" />
-                    <Tab label="Agents" value="agents" />
-                    <Tab label="Memory" value="memory" />
                     <Tab label="Settings" value="settings" />
                 </Tabs>
             </Paper>
@@ -1040,22 +1042,32 @@ export function ProjectDetailWorkspace() {
             {tab === "memory" && (
                 <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
                     <Tabs value={knowledgeView} onChange={(_, value) => setKnowledgeView(value)} variant="scrollable" scrollButtons="auto">
+                        <Tab label="Documents" value="sources" />
                         <Tab label="Memory" value="memory" />
-                        <Tab label="Search" value="search" />
-                        <Tab label="Sources" value="sources" />
+                        <Tab label="Ask" value="ask" />
                         <Tab label="Decisions" value="decisions" />
                     </Tabs>
                 </Paper>
             )}
 
+            {tab === "memory" && knowledgeView === "sources" && (
+                <ProjectKnowledgeSurface projectId={projectId} view="documents" />
+            )}
+            {tab === "memory" && knowledgeView === "ask" && (
+                <ProjectKnowledgeSurface projectId={projectId} view="ask" />
+            )}
+
             {tab === "settings" && (
                 <Paper sx={{ mb: 2, borderRadius: 1, p: 1 }}>
                     <Tabs
-                        value={teamView === "settings" || knowledgeView === "integrations" ? (knowledgeView === "integrations" ? "integrations" : "settings") : "settings"}
+                        value={knowledgeView === "integrations" ? "integrations" : teamView === "agents" ? "team" : "execution"}
                         onChange={(_, value) => {
                             if (value === "integrations") {
                                 setKnowledgeView("integrations");
                                 setTeamView("settings");
+                            } else if (value === "team") {
+                                setTeamView("agents");
+                                setKnowledgeView("sources");
                             } else {
                                 setTeamView("settings");
                                 setKnowledgeView("sources");
@@ -1064,7 +1076,8 @@ export function ProjectDetailWorkspace() {
                         variant="scrollable"
                         scrollButtons="auto"
                     >
-                        <Tab label="Execution" value="settings" />
+                        <Tab label="Team" value="team" />
+                        <Tab label="Execution" value="execution" />
                         <Tab label="Integrations" value="integrations" />
                     </Tabs>
                 </Paper>
@@ -1377,8 +1390,8 @@ export function ProjectDetailWorkspace() {
 
             {/* ── Agents / Settings (execution) ── */}
             {(tab === "agents" || (tab === "settings" && knowledgeView !== "integrations")) && (
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: tab === "agents" ? "340px minmax(0, 1fr)" : "1fr" } }}>
-                    <SectionCard title="Assign agent" sx={{ display: tab === "agents" ? "block" : "none" }}>
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: tab === "agents" || teamView === "agents" ? "340px minmax(0, 1fr)" : "1fr" } }}>
+                    <SectionCard title="Assign agent" sx={{ display: tab === "agents" || teamView === "agents" ? "block" : "none" }}>
                         <Stack spacing={2}>
                             <TextField select label="Agent" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)}>
                                 {availableAgents.length > 0 ? <ListSubheader>Existing agents</ListSubheader> : null}
@@ -1408,7 +1421,7 @@ export function ProjectDetailWorkspace() {
                         </Stack>
                     </SectionCard>
                     <Stack spacing={2}>
-                        <SectionCard title="Project team" sx={{ display: tab === "agents" ? "block" : "none" }}>
+                        <SectionCard title="Project team" sx={{ display: tab === "agents" || teamView === "agents" ? "block" : "none" }}>
                             <Stack spacing={1.5}>
                                 {projectAgents.map((membership) => {
                                     const agent = allAgents.find((item) => item.id === membership.agent_id);
@@ -1495,7 +1508,7 @@ export function ProjectDetailWorkspace() {
                                 })}
                             </Stack>
                         </SectionCard>
-                        <SectionCard title="Execution settings" sx={{ display: tab === "settings" ? "block" : "none" }}>
+                        <SectionCard title="Execution settings" sx={{ display: tab === "settings" && teamView === "settings" ? "block" : "none" }}>
                             <Stack spacing={2}>
                                 <TextField
                                     select
@@ -1830,7 +1843,7 @@ export function ProjectDetailWorkspace() {
                         {/* ── Gate config ── */}
                         <SectionCard
                             title="Approval gates"
-                            sx={{ display: tab === "settings" ? "block" : "none" }}
+                            sx={{ display: tab === "settings" && teamView === "settings" ? "block" : "none" }}
                         >
                             <Stack spacing={2}>
                                 <TextField
@@ -2394,7 +2407,7 @@ export function ProjectDetailWorkspace() {
             {tab === "memory" && (knowledgeView === "search" || knowledgeView === "sources" || knowledgeView === "memory") && (
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 400px" }, alignItems: "start" }}>
                     <Stack spacing={2}>
-                        <SectionCard title="Sources" sx={{ display: knowledgeView === "sources" ? "block" : "none" }}>
+                        <SectionCard title="Sources" sx={{ display: "none" }}>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }} alignItems={{ sm: "center" }}>
                                 <TextField
                                     label="TTL days"
@@ -2765,6 +2778,7 @@ export function ProjectDetailWorkspace() {
                                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mt: 0.75, display: "block" }}>
                                         {entry.body.slice(0, 400)}
                                     </Typography>
+                                    <SemanticMemoryProvenanceDetails entry={entry} compact />
                                 </Paper>
                             )) : (
                                 <Typography variant="body2" color="text.secondary">No semantic memory entries yet.</Typography>

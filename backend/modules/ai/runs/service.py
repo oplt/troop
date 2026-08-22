@@ -15,6 +15,13 @@ from backend.modules.identity_access.models import User
 
 
 class AiRunsMixin:
+    """Run lifecycle behavior.
+
+    Requires ``self.db``, ``self.repo``, and ``self.providers``. Calls
+    ``self.retrieve_chunks`` from the retrieval domain until that domain is
+    migrated to explicit composition.
+    """
+
     async def _resolve_prompt_version(
         self,
         user: User,
@@ -237,5 +244,5 @@ class AiRunsMixin:
             raise HTTPException(status_code=404, detail="AI run not found")
         return run
 
-    async def list_runs(self, user: User):
-        return await self.repo.list_runs_for_user(user.id)
+    async def list_runs(self, user: User, **page):
+        return await self.repo.list_runs_for_user(user.id, **page)

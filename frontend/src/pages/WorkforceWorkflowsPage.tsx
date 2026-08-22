@@ -83,7 +83,7 @@ import {
 } from "../features/workflows/builderState";
 import { canvasFromWorkflowPayload } from "../features/workflows/graphFromPayload";
 import { humanizeKey } from "../utils/formatters";
-import { workflowNodeTypes } from "../features/workflows/WorkflowGraphNode";
+import { workflowNodeTypes } from "../features/workflows/workflowNodeTypes";
 import { WorkflowNodeInspector } from "../features/workflows/WorkflowNodeInspector";
 import { WorkflowEnvironmentPanel } from "../features/workflows/WorkflowEnvironmentPanel";
 import { WorkflowScaffoldPanel } from "../features/workflows/WorkflowScaffoldPanel";
@@ -475,7 +475,7 @@ function WorkflowBuilderInner() {
         setSavedSignature(signature);
         void invalidateWorkflowGovernance(result.workflow_id);
         showToast({ message: "Generated draft loaded. Review gaps, test, then publish.", severity: "success" });
-    }, [invalidateWorkflowGovernance, showToast]);
+    }, [invalidateWorkflowGovernance, setEdges, setNodes, showToast]);
 
     const updateSelected = (node: WorkflowCanvasNode) => {
         setNodes((current) => current.map((item) => (item.id === node.id ? node : item)));

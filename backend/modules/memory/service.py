@@ -42,10 +42,12 @@ from backend.modules.memory.conflict_resolver import (
 from backend.modules.memory.conflict_resolver import (
     summarize as summarize_memory_conflicts,
 )
+from backend.modules.memory.context_retrieval_planner import ContextRetrievalPlanner
 from backend.modules.memory.coordination import (
     MEMORY_COORDINATION_KEY,
     extract_blackboard_sections,
 )
+from backend.modules.memory.domain_errors import MemoryDomainError
 from backend.modules.memory.episodic_jobs import EpisodicJobsMixin
 from backend.modules.memory.layer.config import resolve_memory_config
 from backend.modules.memory.layer.schemas import MemoryFilters
@@ -61,6 +63,7 @@ from backend.modules.memory.models import (
     SemanticMemoryLink,
     normalize_embedding_for_vector,
 )
+from backend.modules.memory.procedural import ProceduralMemoryService
 from backend.modules.memory.promotion_rules import (
     PromotionCandidate,
     PromotionEvaluation,
@@ -131,6 +134,23 @@ SEMANTIC_ENTRY_TYPES = frozenset(_CANONICAL_SEMANTIC_ENTRY_TYPES)
 
 
 class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
+    """Compatibility host for orchestration memory domains.
+
+    Requires:
+      self.db: AsyncSession
+      self.repo: OrchestrationRepository
+      self.audit_repo: AuditRepository
+      self.ai_providers: AiProviderRegistry
+
+    Calls:
+      project/task authorization helpers supplied by the project façade;
+      isolated AI ingestion workers; episodic job helpers inherited from
+      ``EpisodicJobsMixin``.
+
+    New memory behavior belongs in a responsibility-specific module and is
+    exposed here only as a compatibility delegate.
+    """
+
     def _memory_layer_service(
         self, project_settings_json: dict[str, Any] | None = None
     ) -> MemoryService:
@@ -233,7 +253,10 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         if not patch_allowed_for_run_status(run.status):
             raise HTTPException(
                 status_code=409,
-                detail="Working memory can only be edited while the run is queued, in progress, or blocked.",
+                detail=(
+                    "Working memory can only be edited while the run is queued, "
+                    "in progress, or blocked."
+                ),
             )
         current = working_memory_from_checkpoint(run.checkpoint_json)
         try:
@@ -289,7 +312,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             )
             _take(rows)
             increment_memory_metric("retrieval_scope_semantic_project_kw")
-        if len(entries) < min_hits and company_id:
+        if company_id:
             rows = await self.repo.list_semantic_memory_entries_for_company(
                 project.owner_id,
                 company_id,
@@ -329,9 +352,59 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
                 increment_memory_metric("retrieval_scope_semantic_cross_project_kw")
         if not entries:
             return ""
+        planner = ContextRetrievalPlanner(
+            owner_id=project.owner_id,
+            project_id=project.id,
+            company_id=company_id,
+            task_id=task.id,
+        )
+        candidates = []
+        for index, entry in enumerate(entries):
+            provenance = dict(entry.provenance_json or {})
+            scope = (
+                "task"
+                if entry.source_task_id == task.id or entry.namespace.startswith(f"task/{task.id}/")
+                else entry.scope
+            )
+            authority = 0.62
+            if entry.entry_type in {"policy", "standard"} and entry.scope == "company":
+                authority = 1.0
+            elif provenance.get("source") == "project_decision":
+                authority = 0.9
+            elif entry.entry_type in {"policy", "constraint", "adr", "decision"}:
+                authority = 0.82
+            candidates.append(
+                planner.candidate(
+                    kind="semantic_memory",
+                    scope=scope,
+                    content=(entry.body or "")[:600],
+                    relevance=max(0.35, 1.0 - index * 0.04),
+                    authority=authority,
+                    confidence=float(provenance.get("confidence") or 0.5),
+                    provenance={
+                        **provenance,
+                        "owner_id": entry.owner_id,
+                        "project_id": entry.project_id,
+                        "company_id": entry.company_id,
+                        "source_task_id": entry.source_task_id,
+                        "entry_type": entry.entry_type,
+                        "title": entry.title,
+                        "namespace": entry.namespace,
+                    },
+                    source_id=str(entry.source_chunk_id or entry.source_run_id or entry.id),
+                    canonical_key=entry.canonical_key,
+                    status=entry.status,
+                    valid_from=entry.valid_from,
+                    valid_until=entry.valid_until,
+                )
+            )
+        selected = planner.select(candidates, max_tokens=1200, max_candidates=12)
         lines = [
-            f"- [{e.entry_type}] **{e.title}** (`{e.namespace}`): {(e.body or '')[:420].strip()}"
-            for e in entries[:12]
+            "- "
+            f"[{item.provenance.get('entry_type', 'note')}] "
+            f"**{item.provenance.get('title', 'Memory')}** "
+            f"(`{item.provenance.get('namespace', '')}`): {item.content.strip()}"
+            for item in selected
         ]
         return "Semantic memory (typed entries):\n" + "\n".join(lines)
 
@@ -477,6 +550,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
                 "source_task_id": payload.get("source_task_id"),
                 "source_run_id": payload.get("source_run_id"),
                 "provenance": provenance,
+                "canonical_key": payload.get("canonical_key"),
             }
         )
         canonical = self._memory_layer_service(project.settings_json)
@@ -721,6 +795,48 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         if "retention_policy" in updates and updates["retention_policy"] is not None:
             update_metadata["retention_policy"] = updates["retention_policy"]
         canonical = self._memory_layer_service(project.settings_json)
+        if (
+            entry.canonical_key
+            and updates.get("body") is not None
+            and str(updates["body"]).strip() != (entry.body or "").strip()
+        ):
+            replacement_metadata = {
+                **dict(entry.metadata_json or {}),
+                **update_metadata,
+                "entry_type": update_metadata.get("entry_type", entry.entry_type),
+                "title": update_metadata.get("title", entry.title),
+                "namespace": update_metadata.get("namespace", entry.namespace),
+                "company_id": entry.company_id,
+                "agent_id": entry.agent_id,
+                "source_chunk_id": entry.source_chunk_id,
+                "source_task_id": entry.source_task_id,
+                "source_run_id": entry.source_run_id,
+                "created_by_user_id": user.id,
+                "canonical_key": entry.canonical_key,
+                "provenance": {
+                    **dict(entry.provenance_json or {}),
+                    "source": "api_update",
+                    "created_by_user_id": user.id,
+                },
+            }
+            replacement = await canonical.add_memory(
+                project.owner_id,
+                str(updates["body"]),
+                replacement_metadata,
+                scope=entry.scope,  # type: ignore[arg-type]
+                project_id=entry.project_id,
+                ttl_days=updates.get("ttl_days", entry.ttl_days),
+                retention_policy=str(
+                    updates.get("retention_policy") or entry.retention_policy or "default"
+                ),
+            )
+            if replacement is None:
+                raise HTTPException(status_code=422, detail="Memory update was blocked")
+            refreshed = await self.repo.get_semantic_memory_entry(project.owner_id, replacement.id)
+            if refreshed is None:
+                raise HTTPException(status_code=500, detail="Replacement memory row missing")
+            await invalidate_project_knowledge_caches(project_id)
+            return refreshed
         updated_record = await canonical.update_memory(
             entry.id,
             user_id=project.owner_id,
@@ -884,7 +1000,10 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             entry_type="adr",
             title=(decision_row.title or "Decision")[:255],
             body=body,
-            metadata={"rationale": (decision_row.rationale or "captured from project decision")},
+            metadata={
+                "rationale": (decision_row.rationale or "captured from project decision"),
+                "approved": True,
+            },
             scope="project",
             source="project_decision",
             source_task_id=decision_row.task_id,
@@ -940,7 +1059,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             entry_type="preference",
             title=f"Memory: {memory.key}"[:255],
             body=memory.value_text or "",
-            metadata={"preference_key": memory.key},
+            metadata={"preference_key": memory.key, "approved": memory.status == "approved"},
             scope="project",
             source="agent_memory",
             source_agent_id=memory.agent_id,
@@ -1024,6 +1143,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             source="task_close",
             source_task_id=task.id,
             source_run_id=latest.id,
+            metadata={"stable_task_outcome": latest.status == "completed"},
         )
         evaluation = evaluate_promotion(cand)
         if evaluation.verdict == "skip":
@@ -1308,87 +1428,39 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
     async def _procedural_playbook_excerpt(
         self, project: OrchestratorProject | None, task: OrchestratorTask | None
     ) -> str:
-        if not project or not task:
-            return ""
-        rows = await self.repo.list_procedural_playbooks(project.owner_id, project.id)
-        if not rows:
-            return ""
-        labels = {str(x).lower() for x in (task.labels_json or [])}
-        tt = (task.task_type or "").lower()
-        bits: list[str] = []
-        for pb in rows[:16]:
-            tags = [str(t).lower() for t in (pb.tags_json or []) if t]
-            if tags and tt not in tags and not labels.intersection(set(tags)):
-                continue
-            bits.append(f"**{pb.title}** (`{pb.slug}`):\n{(pb.body_md or '')[:900]}")
-        return "\n\n".join(bits)[:2400]
+        return await self._procedural_memory_service().excerpt(project, task)
+
+    def _procedural_memory_service(self) -> ProceduralMemoryService:
+        return ProceduralMemoryService(self.db, self.repo, self.get_project)
+
+    async def _call_procedural(self, method_name: str, *args):
+        service = self._procedural_memory_service()
+        try:
+            return await getattr(service, method_name)(*args)
+        except MemoryDomainError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
     async def list_procedural_playbooks_for_project(
         self, user: User, project_id: str
     ) -> list[ProceduralPlaybook]:
-        project = await self.get_project(user, project_id)
-        return await self.repo.list_procedural_playbooks(project.owner_id, project_id)
+        return await self._call_procedural("list_for_project", user, project_id)
 
     async def create_procedural_playbook_for_project(
         self, user: User, project_id: str, payload: dict[str, Any]
     ) -> ProceduralPlaybook:
-        project = await self.get_project(user, project_id)
-        slug = (
-            re.sub(r"[^a-z0-9]+", "-", str(payload.get("slug") or "").lower()).strip("-")[:128]
-            or "playbook"
-        )
-        title = str(payload.get("title") or slug).strip()[:255]
-        body = str(payload.get("body_md") or "").strip()
-        if not body:
-            raise HTTPException(status_code=422, detail="body_md is required")
-        ns = (
-            str(payload.get("namespace") or "").strip() or f"project/{project_id}/procedural/{slug}"
-        )
-        tags = payload.get("tags") if isinstance(payload.get("tags"), list) else []
-        row = await self.repo.create_procedural_playbook(
-            owner_id=project.owner_id,
-            project_id=project_id,
-            slug=slug,
-            title=title,
-            body_md=body,
-            version=int(payload.get("version") or 1),
-            tags_json=list(tags),
-            namespace=ns[:512],
-        )
-        await self.db.commit()
-        await self.db.refresh(row)
-        return row
+        return await self._call_procedural("create_for_project", user, project_id, payload)
 
     async def update_procedural_playbook_for_project(
         self, user: User, project_id: str, playbook_id: str, updates: dict[str, Any]
     ) -> ProceduralPlaybook:
-        project = await self.get_project(user, project_id)
-        row = await self.repo.get_procedural_playbook(project.owner_id, project_id, playbook_id)
-        if row is None:
-            raise HTTPException(status_code=404, detail="Playbook not found")
-        if "title" in updates and updates["title"] is not None:
-            row.title = str(updates["title"])[:255]
-        if "body_md" in updates and updates["body_md"] is not None:
-            row.body_md = str(updates["body_md"])
-        if "tags" in updates and updates["tags"] is not None:
-            row.tags_json = list(updates["tags"])
-        if "namespace" in updates and updates["namespace"] is not None:
-            row.namespace = str(updates["namespace"])[:512]
-        if "version" in updates and updates["version"] is not None:
-            row.version = int(updates["version"])
-        await self.db.commit()
-        await self.db.refresh(row)
-        return row
+        return await self._call_procedural(
+            "update_for_project", user, project_id, playbook_id, updates
+        )
 
     async def delete_procedural_playbook_for_project(
         self, user: User, project_id: str, playbook_id: str
     ) -> None:
-        project = await self.get_project(user, project_id)
-        row = await self.repo.get_procedural_playbook(project.owner_id, project_id, playbook_id)
-        if row is None:
-            raise HTTPException(status_code=404, detail="Playbook not found")
-        await self.db.delete(row)
-        await self.db.commit()
+        await self._call_procedural("delete_for_project", user, project_id, playbook_id)
 
     async def get_task_memory_coordination(
         self, user: User, project_id: str, task_id: str
@@ -2173,9 +2245,15 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         await self.db.refresh(item)
         return item
 
-    async def list_documents(self, user: User, project_id: str, task_id: str | None = None):
+    async def list_documents(
+        self,
+        user: User,
+        project_id: str,
+        task_id: str | None = None,
+        **page,
+    ):
         await self.get_project(user, project_id)
-        return await self.repo.list_documents(project_id, task_id)
+        return await self.repo.list_documents(project_id, task_id, **page)
 
     async def delete_document(self, user: User, project_id: str, document_id: str) -> None:
         await self.get_project(user, project_id)
@@ -2361,6 +2439,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         *,
         agent_id: str | None = None,
         status: str | None = None,
+        **page,
     ) -> list[AgentMemoryEntry]:
         await self.get_project(user, project_id)
         return await self.repo.list_agent_memory(
@@ -2368,6 +2447,7 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             project_id=project_id,
             agent_id=agent_id,
             status=status,
+            **page,
         )
 
     async def create_project_agent_memory(
@@ -2498,6 +2578,9 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
             .where(
                 _Sem.owner_id == agent.owner_id,
                 _Sem.namespace.startswith(prefix),
+                _Sem.status == "current",
+                _Sem.deleted_at.is_(None),
+                (_Sem.expires_at.is_(None) | (_Sem.expires_at > datetime.now(UTC))),
             )
             .order_by(_Sem.updated_at.desc())
             .limit(8)
@@ -2808,7 +2891,8 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         replay_block = ""
         if isinstance(replay, dict) and replay.get("prior_transcript"):
             replay_block = (
-                "Replay context (carry forward from a previous run; continue without repeating completed steps):\n"
+                "Replay context (carry forward from a previous run; continue without "
+                "repeating completed steps):\n"
                 f"{replay.get('prior_transcript')}"
             )
 
@@ -2872,6 +2956,75 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         if task:
             aid = agent.id if agent else None
             shared_bb, priv_bb = extract_blackboard_sections(task.metadata_json, agent_id=aid)
+
+        if project:
+            planner = ContextRetrievalPlanner(
+                owner_id=project.owner_id,
+                project_id=project.id,
+                company_id=getattr(project, "company_id", None),
+                task_id=task.id if task else None,
+            )
+            memory_sections = {
+                "company_brief": ("company", "company", company_brief, 0.78, 0.92),
+                "semantic": ("semantic_memory", "project", semantic_block, 0.86, 0.78),
+                "memory_layer": (
+                    "semantic_memory",
+                    "project",
+                    memory_layer_block,
+                    0.82,
+                    0.72,
+                ),
+                "episodic": ("episodic", "task", episodic_recall_block, 0.6, 0.48),
+                "deep_recall": ("episodic", "project", deep_recall_block, 0.66, 0.55),
+                "agent_memory": ("agent_memory", "agent", agent_memory, 0.74, 0.68),
+                "procedural": ("procedural", "project", proc_block, 0.76, 0.86),
+                "rag": ("rag", "project", context_docs, 0.84, 0.7),
+                "working": ("working", "task", wm_block, 0.95, 0.9),
+            }
+            planner_candidates = [
+                planner.candidate(
+                    kind=kind,  # type: ignore[arg-type]
+                    scope=scope,
+                    content=content,
+                    relevance=relevance,
+                    authority=authority,
+                    provenance={
+                        "owner_id": project.owner_id,
+                        "project_id": project.id if scope != "company" else None,
+                        "company_id": getattr(project, "company_id", None),
+                        "source_task_id": task.id if task and scope == "task" else None,
+                    },
+                    source_id=key,
+                )
+                for key, (kind, scope, content, relevance, authority) in memory_sections.items()
+                if content
+            ]
+            memory_budget = max(
+                700,
+                int(
+                    merge_memory_settings(project.settings_json).get("context_packet_max_tokens")
+                    or 3500
+                )
+                * 2
+                // 3,
+            )
+            selected_memory = {
+                candidate.source_id: candidate.content
+                for candidate in planner.select(
+                    planner_candidates,
+                    max_tokens=memory_budget,
+                    max_candidates=len(planner_candidates),
+                )
+            }
+            company_brief = selected_memory.get("company_brief", "")
+            semantic_block = selected_memory.get("semantic", "")
+            memory_layer_block = selected_memory.get("memory_layer", "")
+            episodic_recall_block = selected_memory.get("episodic", "")
+            deep_recall_block = selected_memory.get("deep_recall", "")
+            agent_memory = selected_memory.get("agent_memory", "")
+            proc_block = selected_memory.get("procedural", "")
+            context_docs = selected_memory.get("rag", "")
+            wm_block = selected_memory.get("working", "")
 
         sections: dict[str, str] = {}
         if prefix:
@@ -2953,7 +3106,8 @@ class OrchestrationMemoryServiceMixin(EpisodicJobsMixin):
         if run.run_mode == "review" or ms.get("require_grounded_context"):
             grounding_prefix = (
                 "Grounding requirement: Use only information from the context sections below. "
-                "If context is insufficient to complete the task, respond with INSUFFICIENT_CONTEXT "
+                "If context is insufficient to complete the task, respond with "
+                "INSUFFICIENT_CONTEXT "
                 "and do not invent facts or sources."
             )
         combined_prefix = (

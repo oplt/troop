@@ -18,17 +18,17 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from backend.modules.orchestration.models import ApprovalRequest
 from backend.modules.orchestration.tool_execution_context import arguments_hash
-from backend.modules.workforce.integrations.email import (
-    canonical_email_action_arguments,
-    canonical_outlook_email_action_arguments,
-    email_action_arguments_hash,
-    outlook_email_action_arguments_hash,
-)
 from backend.modules.workforce.integrations.crm_records import (
     canonical_hubspot_crm_arguments,
     canonical_salesforce_crm_arguments,
     hubspot_crm_arguments_hash,
     salesforce_crm_arguments_hash,
+)
+from backend.modules.workforce.integrations.email import (
+    canonical_email_action_arguments,
+    canonical_outlook_email_action_arguments,
+    email_action_arguments_hash,
+    outlook_email_action_arguments_hash,
 )
 from backend.modules.workforce.integrations.issue_tracking import (
     canonical_jira_issue_arguments,
@@ -48,9 +48,7 @@ _GITHUB_COMMENT_ACTIONS = frozenset(
         "github_manager_closure",
     }
 )
-_JIRA_MUTATION_ACTIONS = frozenset(
-    {"jira.create_issue", "jira.update_issue", "jira.add_comment"}
-)
+_JIRA_MUTATION_ACTIONS = frozenset({"jira.create_issue", "jira.update_issue", "jira.add_comment"})
 _LINEAR_MUTATION_ACTIONS = frozenset(
     {"linear.create_issue", "linear.update_issue", "linear.add_comment"}
 )
@@ -107,18 +105,25 @@ def normalize_proposed_effect(
         return canonical_outlook_email_action_arguments(arguments)
     if canonical_key in _GITHUB_COMMENT_ACTIONS:
         return normalize_github_comment_effect(arguments)
-    if canonical_key in _JIRA_MUTATION_ACTIONS or str(arguments.get("provider") or "") == "jira":
-        if canonical_key.startswith("jira."):
-            return canonical_jira_issue_arguments(arguments)
-    if canonical_key in _LINEAR_MUTATION_ACTIONS or str(arguments.get("provider") or "") == "linear":
-        if canonical_key.startswith("linear."):
-            return canonical_linear_issue_arguments(arguments)
-    if canonical_key in _HUBSPOT_MUTATION_ACTIONS or str(arguments.get("provider") or "") == "hubspot":
-        if canonical_key.startswith("hubspot."):
-            return canonical_hubspot_crm_arguments(arguments)
-    if canonical_key in _SALESFORCE_MUTATION_ACTIONS or str(arguments.get("provider") or "") == "salesforce":
-        if canonical_key.startswith("salesforce."):
-            return canonical_salesforce_crm_arguments(arguments)
+    if (
+        canonical_key in _JIRA_MUTATION_ACTIONS or str(arguments.get("provider") or "") == "jira"
+    ) and canonical_key.startswith("jira."):
+        return canonical_jira_issue_arguments(arguments)
+    if (
+        canonical_key in _LINEAR_MUTATION_ACTIONS
+        or str(arguments.get("provider") or "") == "linear"
+    ) and canonical_key.startswith("linear."):
+        return canonical_linear_issue_arguments(arguments)
+    if (
+        canonical_key in _HUBSPOT_MUTATION_ACTIONS
+        or str(arguments.get("provider") or "") == "hubspot"
+    ) and canonical_key.startswith("hubspot."):
+        return canonical_hubspot_crm_arguments(arguments)
+    if (
+        canonical_key in _SALESFORCE_MUTATION_ACTIONS
+        or str(arguments.get("provider") or "") == "salesforce"
+    ) and canonical_key.startswith("salesforce."):
+        return canonical_salesforce_crm_arguments(arguments)
     binding_keys = (
         "connector_installation_id",
         "resource_id",
@@ -141,15 +146,30 @@ def compute_effect_hash(normalized_effect: dict[str, Any], *, action_key: str = 
     canonical_key = _strip_tool_prefix(action_key)
     if canonical_key in _GMAIL_ACTIONS or str(normalized_effect.get("provider") or "") == "gmail":
         return email_action_arguments_hash(normalized_effect)
-    if canonical_key in _OUTLOOK_ACTIONS or str(normalized_effect.get("provider") or "") == "outlook":
+    if (
+        canonical_key in _OUTLOOK_ACTIONS
+        or str(normalized_effect.get("provider") or "") == "outlook"
+    ):
         return outlook_email_action_arguments_hash(normalized_effect)
-    if canonical_key in _JIRA_MUTATION_ACTIONS or str(normalized_effect.get("provider") or "") == "jira":
+    if (
+        canonical_key in _JIRA_MUTATION_ACTIONS
+        or str(normalized_effect.get("provider") or "") == "jira"
+    ):
         return jira_issue_arguments_hash(normalized_effect)
-    if canonical_key in _LINEAR_MUTATION_ACTIONS or str(normalized_effect.get("provider") or "") == "linear":
+    if (
+        canonical_key in _LINEAR_MUTATION_ACTIONS
+        or str(normalized_effect.get("provider") or "") == "linear"
+    ):
         return linear_issue_arguments_hash(normalized_effect)
-    if canonical_key in _HUBSPOT_MUTATION_ACTIONS or str(normalized_effect.get("provider") or "") == "hubspot":
+    if (
+        canonical_key in _HUBSPOT_MUTATION_ACTIONS
+        or str(normalized_effect.get("provider") or "") == "hubspot"
+    ):
         return hubspot_crm_arguments_hash(normalized_effect)
-    if canonical_key in _SALESFORCE_MUTATION_ACTIONS or str(normalized_effect.get("provider") or "") == "salesforce":
+    if (
+        canonical_key in _SALESFORCE_MUTATION_ACTIONS
+        or str(normalized_effect.get("provider") or "") == "salesforce"
+    ):
         return salesforce_crm_arguments_hash(normalized_effect)
     return arguments_hash(normalized_effect)
 
@@ -257,9 +277,7 @@ def read_proposed_effect(approval: ApprovalRequest) -> ProposedEffect | None:
         normalized_effect=normalized,
         effect_hash=effect_hash,
         precondition_fingerprint=(
-            approval.precondition_fingerprint
-            or payload.get("precondition_fingerprint")
-            or None
+            approval.precondition_fingerprint or payload.get("precondition_fingerprint") or None
         ),
         effect_version=int(approval.effect_version or payload.get("effect_version") or 1),
         expires_at=expires_at,

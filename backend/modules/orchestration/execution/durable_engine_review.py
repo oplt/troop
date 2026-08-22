@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from backend.modules.orchestration.execution.durable_execution import (
@@ -81,8 +81,7 @@ def _trigger_met(trigger: dict[str, Any], evidence: dict[str, Any]) -> tuple[boo
         observed = int(evidence.get(key) or 0)
         details[key] = {"observed": observed, "threshold": int(threshold)}
     met = any(
-        int(evidence.get(key) or 0) >= int(threshold)
-        for key, threshold in thresholds.items()
+        int(evidence.get(key) or 0) >= int(threshold) for key, threshold in thresholds.items()
     )
     return met, details
 
@@ -182,9 +181,7 @@ async def benchmark_durable_recovery_side_by_side(
 
     current = await benchmark_run_claim_precheck(repo, samples=samples)
     probe = await repo.db.execute(
-        select(TaskRun.id, TaskRun.checkpoint_json)
-        .order_by(TaskRun.created_at.desc())
-        .limit(1)
+        select(TaskRun.id, TaskRun.checkpoint_json).order_by(TaskRun.created_at.desc()).limit(1)
     )
     row = probe.first()
     checkpoint_reads_ms: list[float] = []
@@ -203,7 +200,11 @@ async def benchmark_durable_recovery_side_by_side(
     replay_ms = [_simulate_hypothetical_engine_replay(steps=5) for _ in range(max(1, samples))]
     replay_avg = sum(replay_ms) / len(replay_ms)
     current_p95 = float((current.get("latency") or {}).get("p95_ms") or 0)
-    checkpoint_p95 = sorted(checkpoint_reads_ms)[int(len(checkpoint_reads_ms) * 0.95)] if checkpoint_reads_ms else 0.0
+    checkpoint_p95 = (
+        sorted(checkpoint_reads_ms)[int(len(checkpoint_reads_ms) * 0.95)]
+        if checkpoint_reads_ms
+        else 0.0
+    )
 
     return {
         "interpretation": (

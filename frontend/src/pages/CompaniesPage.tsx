@@ -10,6 +10,8 @@ import {
     MenuItem,
     Paper,
     Stack,
+    Tab,
+    Tabs,
     TextField,
     Typography,
 } from "@mui/material";
@@ -43,6 +45,7 @@ function CompanyEditor({ company }: { company: Company }) {
     const { showToast } = useSnackbar();
     const [brief, setBrief] = useState(company.brief_markdown ?? "");
     const [editedName, setEditedName] = useState(company.name);
+    const [section, setSection] = useState<"overview" | "departments" | "people" | "knowledge" | "policies">("overview");
 
     const updateMut = useMutation({
         mutationFn: () =>
@@ -68,14 +71,6 @@ function CompanyEditor({ company }: { company: Company }) {
                     description="A short company brief is included in every run (up to 500 characters)."
             action={
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-                    <Button
-                        component={RouterLink}
-                        to={`/companies/${company.id}/memory`}
-                        size="small"
-                        variant="outlined"
-                    >
-                        Company semantic
-                    </Button>
                     <Chip
                         size="small"
                         variant="outlined"
@@ -90,47 +85,85 @@ function CompanyEditor({ company }: { company: Company }) {
             }
         >
             <Stack spacing={2}>
-                <TextField
-                    label="Name"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    inputProps={{ maxLength: 255 }}
-                />
-                <Divider />
-                <Typography variant="subtitle2">Company brief</Typography>
-                <Typography variant="caption" color="text.secondary">
-                    Keep the mission, stack, policies, and coding standards concise.
-                    Only the first {BRIEF_MAX_CHARS} characters enter each run.
-                </Typography>
-                <TextField
-                    value={brief}
-                    onChange={(e) => setBrief(e.target.value)}
-                    multiline
-                    minRows={10}
-                    inputProps={{ maxLength: 4000 }}
-                    placeholder="e.g. Company glossary, deploy rules, security standards."
-                />
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography
-                        variant="caption"
-                        color={brief.length > BRIEF_MAX_CHARS ? "error.main" : "text.secondary"}
-                    >
-                        {brief.length} chars · injected: {Math.min(brief.length, BRIEF_MAX_CHARS)}
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        disabled={updateMut.isPending}
-                        onClick={() => updateMut.mutate()}
-                    >
-                        Save company
-                    </Button>
-                </Stack>
-                {updateMut.isError && (
-                    <Alert severity="error">
-                        {updateMut.error instanceof Error
-                            ? updateMut.error.message
-                            : "Couldn't save."}
-                    </Alert>
+                <Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto">
+                    <Tab value="overview" label="Overview" />
+                    <Tab value="departments" label="Departments" />
+                    <Tab value="people" label="People" />
+                    <Tab value="knowledge" label="Knowledge" />
+                    <Tab value="policies" label="Policies" />
+                </Tabs>
+                {section === "overview" ? (
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Name"
+                            value={editedName}
+                            onChange={(e) => setEditedName(e.target.value)}
+                            inputProps={{ maxLength: 255 }}
+                        />
+                        <Divider />
+                        <Typography variant="subtitle2">Company brief</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            Keep the mission, stack, policies, and coding standards concise.
+                            Only the first {BRIEF_MAX_CHARS} characters enter each run.
+                        </Typography>
+                        <TextField
+                            value={brief}
+                            onChange={(e) => setBrief(e.target.value)}
+                            multiline
+                            minRows={10}
+                            inputProps={{ maxLength: 4000 }}
+                            placeholder="e.g. Company glossary, deploy rules, security standards."
+                        />
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography
+                                variant="caption"
+                                color={brief.length > BRIEF_MAX_CHARS ? "error.main" : "text.secondary"}
+                            >
+                                {brief.length} chars · injected: {Math.min(brief.length, BRIEF_MAX_CHARS)}
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                disabled={updateMut.isPending}
+                                onClick={() => updateMut.mutate()}
+                            >
+                                Save company
+                            </Button>
+                        </Stack>
+                        {updateMut.isError && (
+                            <Alert severity="error">
+                                {updateMut.error instanceof Error
+                                    ? updateMut.error.message
+                                    : "Couldn't save."}
+                            </Alert>
+                        )}
+                    </Stack>
+                ) : (
+                    <Box sx={{ p: 2, border: 1, borderColor: "divider", borderRadius: 1 }}>
+                        <Typography variant="h6" gutterBottom>
+                            {section === "departments" ? "Company departments" :
+                                section === "people" ? "Company people" :
+                                section === "knowledge" ? "Company knowledge" : "Company policies"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            {section === "departments" ? "Organize teams and ownership within this company." :
+                                section === "people" ? "Manage members, access, and workspace roles." :
+                                section === "knowledge" ? "Inspect governed company-wide facts, decisions, and provenance." :
+                                "Configure provider and workspace policies that apply to company work."}
+                        </Typography>
+                        <Button
+                            component={RouterLink}
+                            to={
+                                section === "departments" ? "/departments" :
+                                    section === "people" ? "/admin/settings?tab=users" :
+                                        section === "knowledge" ? `/companies/${company.id}/memory` :
+                                            "/admin/settings?tab=providers"
+                            }
+                            variant="contained"
+                            size="small"
+                        >
+                            Open {section}
+                        </Button>
+                    </Box>
                 )}
             </Stack>
         </SectionCard>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import asdict
+from time import perf_counter
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,12 @@ from backend.core.config import settings
 from backend.core.logging import get_logger
 from backend.modules.ai.providers import AiProviderRegistry, ProviderGenerateRequest
 from backend.modules.memory.models import ProjectDocument
-from backend.modules.observability.metrics import record_memory_retrieval
+from backend.modules.observability.metrics import (
+    record_context_tokens,
+    record_memory_retrieval,
+    record_rag_degraded,
+    record_rag_retrieval_duration,
+)
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.providers import execute_prompt
 from backend.modules.orchestration.repository import OrchestrationRepository
@@ -26,15 +32,17 @@ from backend.modules.rag.chunking import ChunkingService
 from backend.modules.rag.citations import SourceCitationService
 from backend.modules.rag.config import RagConfig
 from backend.modules.rag.embedding import EmbeddingService
+from backend.modules.rag.fusion import reciprocal_rank_fusion
 from backend.modules.rag.observability import RagTimer, log_rag_event
 from backend.modules.rag.parsing import DocumentParser, detect_source_type
 from backend.modules.rag.prompt_builder import RagPromptBuilder
 from backend.modules.rag.reranker import RerankerService
 from backend.modules.rag.schemas import RagAnswer, RagChunkMatch, RagSearchFilters
+from backend.modules.rag.selection import select_context_matches
+from backend.modules.rag.vector_store import PgVectorStoreRepository
 from backend.modules.workforce.integrations.drive_acl import actor_can_read_acl
 
 _DRIVE_SOURCE_KINDS = frozenset({"google_drive", "microsoft_drive"})
-from backend.modules.rag.vector_store import PgVectorStoreRepository
 
 logger = get_logger(__name__)
 
@@ -54,7 +62,10 @@ class RetrieverService:
         self._config = config or RagConfig.from_settings()
         self._vector_store = vector_store or PgVectorStoreRepository(db)
         self._embedder = embedder or EmbeddingService(self._config)
-        self._reranker = reranker or RerankerService(self._config.rerank_enabled)
+        self._reranker = reranker or RerankerService(
+            self._config.rerank_enabled,
+            mode=self._config.rerank_mode,
+        )
         self._repo = repo or OrchestrationRepository(db)
         self._prompt_builder = RagPromptBuilder()
         self._citations = SourceCitationService()
@@ -104,30 +115,136 @@ class RetrieverService:
                 return [RagChunkMatch(**item) for item in cached_after_wait]
 
             query_vec = (await self._embedder.embed_texts([query.strip() or "context"]))[0]
-            vector_hits = await self._vector_store.search(
-                filters.project_id,
-                query_vec,
-                filters=filters,
-                limit=cap,
-            )
-            matches = self._hits_from_vector_rows(vector_hits)
+            candidate_cap = max(cap, self._config.candidate_top_k)
+            rankings: list[list[RagChunkMatch]] = []
+            vector_failed = False
+            vector_started = perf_counter()
+            try:
+                vector_hits = await self._vector_store.search(
+                    filters.project_id,
+                    query_vec,
+                    filters=filters,
+                    limit=candidate_cap,
+                )
+            except Exception as exc:
+                vector_failed = True
+                record_rag_retrieval_duration(
+                    stage="vector_search",
+                    outcome="error",
+                    duration_seconds=perf_counter() - vector_started,
+                )
+                record_rag_degraded(
+                    reason=type(exc).__name__,
+                    fallback=("python" if self._config.python_fallback_enabled else "lexical_only"),
+                )
+                log_rag_event(
+                    "retrieve_vector_degraded",
+                    project_id=filters.project_id,
+                    user_id=filters.user_id,
+                    level="warning",
+                )
+                vector_hits = []
+            else:
+                record_rag_retrieval_duration(
+                    stage="vector_search",
+                    outcome="success",
+                    duration_seconds=perf_counter() - vector_started,
+                )
 
-            if not matches and self._config.python_fallback_enabled:
+            threshold = self._config.effective_score_threshold()
+            vector_matches = [
+                item for item in self._hits_from_vector_rows(vector_hits) if item.score >= threshold
+            ]
+            vector_matches = self._filter_drive_acl_matches(
+                vector_matches,
+                actor_email=filters.actor_email,
+            )
+            if vector_matches:
+                rankings.append(vector_matches)
+
+            if self._config.hybrid_search_enabled:
+                lexical_started = perf_counter()
+                try:
+                    lexical_hits = await self._vector_store.text_search(
+                        filters.project_id,
+                        query,
+                        filters=filters,
+                        limit=candidate_cap,
+                    )
+                except Exception:
+                    record_rag_retrieval_duration(
+                        stage="lexical_search",
+                        outcome="error",
+                        duration_seconds=perf_counter() - lexical_started,
+                    )
+                else:
+                    record_rag_retrieval_duration(
+                        stage="lexical_search",
+                        outcome="success",
+                        duration_seconds=perf_counter() - lexical_started,
+                    )
+                    lexical_matches = self._filter_drive_acl_matches(
+                        self._hits_from_vector_rows(lexical_hits),
+                        actor_email=filters.actor_email,
+                    )
+                    if lexical_matches:
+                        rankings.append(lexical_matches)
+
+            if (vector_failed or not vector_matches) and self._config.python_fallback_enabled:
+                record_rag_degraded(
+                    reason="vector_unavailable" if vector_failed else "no_vector_matches",
+                    fallback="python",
+                )
                 log_rag_event(
                     "retrieve_python_fallback",
                     project_id=filters.project_id,
                     user_id=filters.user_id,
                     level="warning",
                 )
-                matches = await self._fallback_search(filters.project_id, query_vec, filters, cap)
+                fallback_matches = await self._fallback_search(
+                    filters.project_id,
+                    query_vec,
+                    filters,
+                    candidate_cap,
+                )
+                if fallback_matches:
+                    rankings.append(fallback_matches)
 
             if filters.include_decisions:
-                matches = await self._merge_decisions(filters.project_id, query, matches, cap)
+                decision_matches = await self._decision_matches(
+                    filters.project_id,
+                    query,
+                    candidate_cap,
+                )
+                if decision_matches:
+                    rankings.append(decision_matches)
+                if filters.user_id:
+                    semantic_matches = await self._semantic_memory_matches(
+                        filters.user_id,
+                        filters.project_id,
+                        query_vec,
+                        candidate_cap,
+                    )
+                    if semantic_matches:
+                        rankings.append(semantic_matches)
 
-            threshold = self._config.effective_score_threshold()
-            matches = [m for m in matches if m.score >= threshold]
+            matches = reciprocal_rank_fusion(
+                rankings,
+                limit=candidate_cap,
+                rank_constant=self._config.rrf_k,
+            )
             matches = self._filter_drive_acl_matches(matches, actor_email=filters.actor_email)
-            matches = self._reranker.rerank(query, matches)[:cap]
+            rerank_cap = min(len(matches), max(1, self._config.rerank_top_n))
+            matches = self._reranker.rerank(query, matches[:rerank_cap])
+            matches = select_context_matches(
+                matches,
+                limit=cap,
+                max_context_tokens=self._config.max_context_tokens,
+                max_chunks_per_document=self._config.max_chunks_per_document,
+                max_chunks_per_source=self._config.max_chunks_per_source,
+                dedup_similarity_threshold=self._config.dedup_similarity_threshold,
+                estimate_tokens=PgVectorStoreRepository.estimate_tokens,
+            )
             await set_cached_rag_retrieval(cache_key, matches)
             return matches
 
@@ -151,6 +268,10 @@ class RetrieverService:
         limit: int | None = None,
     ) -> str:
         matches = await self.retrieve(query, filters=filters, limit=limit)
+        record_context_tokens(
+            pipeline="rag",
+            tokens=sum(PgVectorStoreRepository.estimate_tokens(item.content) for item in matches),
+        )
         return self._prompt_builder.build_context_block(matches)
 
     def _hits_from_vector_rows(self, rows: list[dict[str, Any]]) -> list[RagChunkMatch]:
@@ -224,14 +345,17 @@ class RetrieverService:
         matches.sort(key=lambda item: item.score, reverse=True)
         return self._filter_drive_acl_matches(matches[:cap], actor_email=filters.actor_email)
 
-    async def _merge_decisions(
+    async def _decision_matches(
         self,
         project_id: str,
         query: str,
-        matches: list[RagChunkMatch],
         cap: int,
     ) -> list[RagChunkMatch]:
-        decisions = await self._repo.list_project_decisions(project_id, query=query)
+        decisions = await self._repo.list_project_decisions(
+            project_id,
+            query=query,
+            limit=cap,
+        )
         q_tokens = {t for t in re.findall(r"[a-z0-9]{3,}", query.lower())}
         extra: list[RagChunkMatch] = []
         for decision in decisions:
@@ -253,8 +377,40 @@ class RetrieverService:
                     hit_kind="decision",
                 )
             )
-        merged = sorted([*matches, *extra], key=lambda item: item.score, reverse=True)
-        return merged[:cap]
+        return sorted(extra, key=lambda item: item.score, reverse=True)[:cap]
+
+    async def _semantic_memory_matches(
+        self,
+        owner_id: str,
+        project_id: str,
+        query_vec: list[float],
+        cap: int,
+    ) -> list[RagChunkMatch]:
+        entries = await self._repo.search_semantic_memory_by_vector(
+            owner_id,
+            project_id,
+            query_vec,
+            limit=cap,
+        )
+        return [
+            RagChunkMatch(
+                chunk_id=entry.id,
+                document_id=str(entry.source_chunk_id or entry.id),
+                title=entry.title or "memory",
+                content=entry.body or "",
+                chunk_index=0,
+                score=1.0 / rank,
+                hit_kind="semantic_memory",
+                metadata={
+                    **dict(entry.metadata_json or {}),
+                    "source_id": entry.source_chunk_id or entry.id,
+                    "source_task_id": entry.source_task_id,
+                    "source_run_id": entry.source_run_id,
+                    "provenance": dict(entry.provenance_json or {}),
+                },
+            )
+            for rank, entry in enumerate(entries, start=1)
+        ]
 
 
 class DocumentIngestionService:
@@ -319,14 +475,41 @@ class DocumentIngestionService:
             project_id=normalized.project_id,
             metadata=normalized.metadata,
         )
-        texts = [chunk.content for chunk in rag_chunks]
-        embeddings = await self._embedder.embed_texts(texts) if texts else []
+
+        existing = await self._vector_store.list_document_chunks_for_document(document.id)
+        existing_vectors: dict[str, list[list[float]]] = {}
+        for item in existing:
+            content_hash = str((item.metadata_json or {}).get("content_hash") or "")
+            stored_vector = item.embedding_vector
+            if stored_vector is None or len(stored_vector) == 0:
+                stored_vector = item.embedding_json
+            if content_hash and stored_vector is not None and len(stored_vector) > 0:
+                existing_vectors.setdefault(content_hash, []).append(
+                    [float(value) for value in stored_vector]
+                )
+
+        embeddings: list[list[float] | None] = []
+        changed_indexes: list[int] = []
+        changed_texts: list[str] = []
+        for index, chunk in enumerate(rag_chunks):
+            reusable = existing_vectors.get(chunk.content_hash, [])
+            if reusable:
+                embeddings.append(reusable.pop(0))
+            else:
+                embeddings.append(None)
+                changed_indexes.append(index)
+                changed_texts.append(chunk.content)
+
+        if changed_texts:
+            changed_embeddings = await self._embedder.embed_texts(changed_texts)
+            for index, embedding in zip(changed_indexes, changed_embeddings, strict=True):
+                embeddings[index] = embedding
         rows = [
             (
                 chunk.chunk_index,
                 chunk.content,
                 PgVectorStoreRepository.estimate_tokens(chunk.content),
-                embeddings[index],
+                embeddings[index] or [],
                 {
                     **chunk.metadata,
                     "content_hash": chunk.content_hash,

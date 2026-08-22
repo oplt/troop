@@ -1,7 +1,23 @@
 import { Box, Tab, Tabs } from "@mui/material";
 import type { ReactNode } from "react";
 
-import type { AiSection } from "./formUtils";
+import {
+    AI_WORKSPACE_SECTIONS,
+    defaultSectionForWorkspace,
+    workspaceForSection,
+    type AiSection,
+    type AiWorkspace,
+} from "./formUtils";
+
+const SECTION_LABELS: Record<AiSection, string> = {
+    prompts: "Prompt",
+    versions: "Versions",
+    playground: "Playground",
+    datasets: "Evaluations",
+    reviews: "Reviews",
+    documents: "Documents",
+    retrieval: "Retrieval inspector",
+};
 
 type AiSectionPanelProps = {
     activeSection: AiSection;
@@ -32,23 +48,40 @@ type AiStudioTabsProps = {
 };
 
 export function AiStudioTabs({ activeSection, onSectionChange, children }: AiStudioTabsProps) {
+    const activeWorkspace = workspaceForSection(activeSection);
     return (
         <Box sx={{ mt: 2 }}>
+            <Tabs
+                value={activeWorkspace}
+                onChange={(_, value: AiWorkspace) => onSectionChange(defaultSectionForWorkspace(value))}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+                aria-label="AI Studio workspaces"
+                sx={{ borderBottom: 1, borderColor: "divider" }}
+            >
+                <Tab value="build" label="Build" />
+                <Tab value="test" label="Test" />
+                <Tab value="knowledge" label="Knowledge" />
+            </Tabs>
             <Tabs
                 value={activeSection}
                 onChange={(_, value: AiSection) => onSectionChange(value)}
                 variant="scrollable"
                 scrollButtons="auto"
                 allowScrollButtonsMobile
-                aria-label="AI Studio sections"
+                aria-label={`${activeWorkspace} tools`}
                 sx={{ borderBottom: 1, borderColor: "divider" }}
             >
-                <Tab id="ai-tab-prompts" aria-controls="ai-panel-prompts" value="prompts" label="Prompt" />
-                <Tab id="ai-tab-playground" aria-controls="ai-panel-playground" value="playground" label="Playground" />
-                <Tab id="ai-tab-versions" aria-controls="ai-panel-versions" value="versions" label="Versions" />
-                <Tab id="ai-tab-documents" aria-controls="ai-panel-documents" value="documents" label="Retrieval" />
-                <Tab id="ai-tab-reviews" aria-controls="ai-panel-reviews" value="reviews" label="Reviews" />
-                <Tab id="ai-tab-datasets" aria-controls="ai-panel-datasets" value="datasets" label="Datasets" />
+                {AI_WORKSPACE_SECTIONS[activeWorkspace].map((section) => (
+                    <Tab
+                        key={section}
+                        id={`ai-tab-${section}`}
+                        aria-controls={`ai-panel-${section}`}
+                        value={section}
+                        label={SECTION_LABELS[section]}
+                    />
+                ))}
             </Tabs>
             {children}
         </Box>

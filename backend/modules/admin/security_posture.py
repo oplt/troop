@@ -19,7 +19,12 @@ from backend.modules.orchestration.external_effect_inventory import (
 )
 from backend.modules.platform.models import WebhookEndpoint
 from backend.modules.workforce.action_metadata import SideEffect
-from backend.modules.workforce.models import ActionPolicy, ConnectorDefinition, ConnectorInstallation, ToolDefinition
+from backend.modules.workforce.models import (
+    ActionPolicy,
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ToolDefinition,
+)
 from backend.modules.workforce.services.action_policy import DECISION_AUTONOMOUS
 
 SEVERITY_ORDER = ("critical", "high", "medium", "low", "info")
@@ -228,7 +233,9 @@ def _parse_expires_at(raw: Any) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-async def run_database_checks(db: AsyncSession, cfg: Settings | None = None) -> list[SecurityFinding]:
+async def run_database_checks(
+    db: AsyncSession, cfg: Settings | None = None
+) -> list[SecurityFinding]:
     """Workspace and connector policy checks requiring database access."""
     cfg = cfg or settings
     findings: list[SecurityFinding] = []
@@ -276,7 +283,10 @@ async def run_database_checks(db: AsyncSession, cfg: Settings | None = None) -> 
                     remediation_url=REMEDIATION_LINKS["connectors"],
                     resource_type="connector_installation",
                     resource_id=installation.id,
-                    metadata={"connector_slug": definition.slug, "token_expires_at": expires_at.isoformat()},
+                    metadata={
+                        "connector_slug": definition.slug,
+                        "token_expires_at": expires_at.isoformat(),
+                    },
                 )
             )
 
@@ -403,7 +413,9 @@ async def run_database_checks(db: AsyncSession, cfg: Settings | None = None) -> 
             )
         )
 
-    webhook_rows = await db.execute(select(WebhookEndpoint).where(WebhookEndpoint.is_active.is_(True)))
+    webhook_rows = await db.execute(
+        select(WebhookEndpoint).where(WebhookEndpoint.is_active.is_(True))
+    )
     for webhook in webhook_rows.scalars().all():
         parsed = urlparse(webhook.target_url or "")
         if cfg.is_production and parsed.scheme == "http":

@@ -35,7 +35,19 @@ def test_durable_claim_mutators_in_catalog():
             durable_mutators.append(slug)
     assert set(durable_mutators) == {
         "gmail.send_draft",
+        "hubspot.create_note",
+        "hubspot.send_email",
+        "hubspot.update_contact",
+        "jira.add_comment",
+        "jira.create_issue",
+        "jira.update_issue",
+        "linear.add_comment",
+        "linear.create_issue",
+        "linear.update_issue",
         "outlook.send_draft",
+        "salesforce.create_task",
+        "salesforce.send_email",
+        "salesforce.update_contact",
         "slack.post_message",
         "teams.post_message",
     }

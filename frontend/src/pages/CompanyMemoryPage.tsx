@@ -21,6 +21,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { PageShell } from "../components/ui/PageShell";
 import { SectionCard } from "../components/ui/SectionCard";
 import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
+import { SemanticMemoryProvenanceDetails } from "../features/memory/SemanticMemoryProvenanceDetails";
 import { formatDateTime } from "../utils/formatters";
 
 export default function CompanyMemoryPage() {
@@ -99,6 +100,7 @@ export default function CompanyMemoryPage() {
                                             <TableCell>Title</TableCell>
                                             <TableCell>Namespace</TableCell>
                                             <TableCell>Confidence</TableCell>
+                                            <TableCell>Lifecycle</TableCell>
                                             <TableCell>Updated</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -125,6 +127,9 @@ export default function CompanyMemoryPage() {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>{conf.toFixed(2)}</TableCell>
+                                                    <TableCell>
+                                                        <SemanticMemoryProvenanceDetails entry={row} compact />
+                                                    </TableCell>
                                                     <TableCell>{formatDateTime(row.updated_at)}</TableCell>
                                                 </TableRow>
                                             );
@@ -144,6 +149,7 @@ export default function CompanyMemoryPage() {
                                     <Typography variant="caption" sx={{ display: "block", wordBreak: "break-all" }}>
                                         {row.namespace}
                                     </Typography>
+                                    <SemanticMemoryProvenanceDetails entry={row} compact />
                                 </ResponsiveRowCard>
                             ))}
                         />

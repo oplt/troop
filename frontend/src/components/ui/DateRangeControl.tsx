@@ -1,7 +1,6 @@
 import { MenuItem, TextField } from "@mui/material";
 
-export const ANALYTICS_DAY_OPTIONS = [7, 14, 30, 90] as const;
-export type AnalyticsDays = (typeof ANALYTICS_DAY_OPTIONS)[number];
+import { ANALYTICS_DAY_OPTIONS } from "./dateRangeOptions";
 
 type DateRangeControlProps = {
     value: number;

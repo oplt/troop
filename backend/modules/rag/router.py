@@ -11,9 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.api.deps.rag import get_rag_service
+from backend.core.config import settings
 from backend.core.http_cache import apply_private_list_cache_headers, compute_documents_etag
+from backend.core.pagination import build_cursor_page, fetch_limit, token_from_created_at_id
+from backend.core.schemas import CursorPageResponse
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
+from backend.modules.orchestration.repository import OrchestrationRepository
 from backend.modules.orchestration.services.service import OrchestrationService
 from backend.modules.rag.bulk_ingest import bulk_ingest_documents_parallel
 from backend.modules.rag.observability import log_rag_event
@@ -183,6 +187,11 @@ async def create_rag_document(
     return _document_response(document)
 
 
+@router.post(
+    "/projects/{project_id}/documents/bulk",
+    response_model=list[RagDocumentResponse],
+    status_code=201,
+)
 async def bulk_ingest_documents(
     project_id: str,
     payload: RagBulkIngestRequest,
@@ -258,21 +267,38 @@ async def upload_rag_document(
     return _document_response(document)
 
 
-@router.get("/projects/{project_id}/documents", response_model=list[RagDocumentResponse])
+@router.get(
+    "/projects/{project_id}/documents",
+    response_model=CursorPageResponse[RagDocumentResponse],
+)
 async def list_rag_documents(
     project_id: str,
     request: Request,
     response: Response,
     task_id: str | None = None,
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    rows = await OrchestrationService(db).list_documents(current_user, project_id, task_id)
+    await OrchestrationService(db).get_project(current_user, project_id)
+    rows = await OrchestrationRepository(db).list_documents(
+        project_id,
+        task_id,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
     etag = compute_documents_etag(rows)
     apply_private_list_cache_headers(response, etag)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=dict(response.headers))
-    return [_document_response(row) for row in rows]
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_document_response(row) for row in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/projects/{project_id}/documents/{document_id}", response_model=RagDocumentResponse)
@@ -282,8 +308,8 @@ async def get_rag_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    rows = await OrchestrationService(db).list_documents(current_user, project_id)
-    row = next((item for item in rows if item.id == document_id), None)
+    await OrchestrationService(db).get_project(current_user, project_id)
+    row = await OrchestrationRepository(db).get_document(project_id, document_id)
     if row is None:
         from fastapi import HTTPException
 

@@ -14,9 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.orchestration.models import ProviderConfig
 from backend.modules.orchestration.providers import execute_prompt
-from backend.modules.workforce.connectors.manifest import ConnectorManifest, OperationKind
+from backend.modules.workforce.connectors.manifest import ConnectorManifest
 from backend.modules.workforce.connectors.registry import ConnectorManifestRegistry
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, WorkflowDefinition
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    WorkflowDefinition,
+)
 from backend.modules.workforce.services.connector_service import ConnectorService
 from backend.modules.workforce.services.workflow_scaffold_validator import (
     WorkflowScaffoldValidator,
@@ -104,9 +107,19 @@ def _heuristic_generate(
 
         specs: list[tuple[str, str, str, dict[str, Any]]] = [
             ("trigger", "trigger", "Gmail: new email", trigger_cfg),
-            ("fetch_thread", "tool", "Fetch Gmail thread", {"tool_slug": "gmail.get_thread", "tool": "gmail.get_thread"}),
+            (
+                "fetch_thread",
+                "tool",
+                "Fetch Gmail thread",
+                {"tool_slug": "gmail.get_thread", "tool": "gmail.get_thread"},
+            ),
             ("triage", "agent", "Classify incoming email", {"input_mapping": "$.email"}),
-            ("should_reply", "condition", "Reply required?", {"expression": "$.triage.should_reply == true"}),
+            (
+                "should_reply",
+                "condition",
+                "Reply required?",
+                {"expression": "$.triage.should_reply == true"},
+            ),
             ("draft_reply", "agent", "Draft response", {"input_mapping": "$.thread"}),
         ]
         if has_op("gmail.create_draft"):
@@ -140,9 +153,7 @@ def _heuristic_generate(
         for index in range(len(nodes) - 1):
             source = str(nodes[index]["id"])
             target = str(nodes[index + 1]["id"])
-            edges.append(
-                _edge(source, target, label="true" if source == "should_reply" else None)
-            )
+            edges.append(_edge(source, target, label="true" if source == "should_reply" else None))
 
         return {
             "suggested_name": "Email triage and reply",
@@ -155,7 +166,13 @@ def _heuristic_generate(
     if "slack" in lowered and "slack" in installed and has_op("slack.post_message"):
         slack_id = installation_for("slack")
         nodes = [
-            _node("trigger", "trigger", "Manual start", {"trigger_type": "manual", "event_type": "manual"}, y=0),
+            _node(
+                "trigger",
+                "trigger",
+                "Manual start",
+                {"trigger_type": "manual", "event_type": "manual"},
+                y=0,
+            ),
             _node(
                 "draft",
                 "agent",
@@ -176,9 +193,21 @@ def _heuristic_generate(
             ),
         ]
         if has_op("slack.post_message"):
-            nodes.insert(2, _node("approve", "approval", "Approve Slack message", {"action": "slack.post_message"}, y=180))
+            nodes.insert(
+                2,
+                _node(
+                    "approve",
+                    "approval",
+                    "Approve Slack message",
+                    {"action": "slack.post_message"},
+                    y=180,
+                ),
+            )
             nodes[-1]["position"]["y"] = 300
-        edges = [_edge("trigger", "draft"), _edge("draft", "approve" if len(nodes) == 4 else "post")]
+        edges = [
+            _edge("trigger", "draft"),
+            _edge("draft", "approve" if len(nodes) == 4 else "post"),
+        ]
         if len(nodes) == 4:
             edges.append(_edge("approve", "post"))
         return {
@@ -195,7 +224,13 @@ def _heuristic_generate(
 def _manual_agent_starter(prompt: str, catalog: dict[str, Any]) -> dict[str, Any]:
     first_op = next(iter(catalog.get("operations") or []), None)
     nodes = [
-        _node("trigger", "trigger", "Manual start", {"trigger_type": "manual", "event_type": "manual"}, y=0),
+        _node(
+            "trigger",
+            "trigger",
+            "Manual start",
+            {"trigger_type": "manual", "event_type": "manual"},
+            y=0,
+        ),
         _node(
             "agent",
             "agent",
@@ -205,7 +240,9 @@ def _manual_agent_starter(prompt: str, catalog: dict[str, Any]) -> dict[str, Any
         ),
     ]
     edges = [_edge("trigger", "agent")]
-    summary = "Manual trigger with an agent step. Connect integrations and extend the graph as needed."
+    summary = (
+        "Manual trigger with an agent step. Connect integrations and extend the graph as needed."
+    )
     if first_op:
         summary = (
             f"Starter graph for: {prompt[:120]}. "
@@ -377,7 +414,7 @@ class WorkflowScaffoldService:
         definition, draft = await self._persist_draft(
             owner_id=owner_id,
             workflow_id=workflow_id,
-            name=suggested_name if not name else name,
+            name=name if name else suggested_name,
             slug=slug or _slug_from_prompt(prompt),
             company_id=company_id,
             nodes=nodes,

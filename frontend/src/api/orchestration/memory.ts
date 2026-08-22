@@ -1,7 +1,8 @@
 import { apiFetch } from "../client";
+import { assertCursorPage } from "../pagination";
 
 export type KnowledgeSearchResult = {
-    hit_kind?: "chunk" | "decision";
+    hit_kind?: "chunk" | "decision" | "semantic_memory";
     document_id: string;
     chunk_id: string;
     filename: string;
@@ -56,6 +57,11 @@ export type SemanticMemoryEntry = {
     deleted_at: string | null;
     retention_policy: string;
     memory_version: number;
+    canonical_key: string | null;
+    valid_from: string;
+    valid_until: string | null;
+    status: "current" | "superseded" | "archived";
+    supersedes_memory_id: string | null;
     embedding_model: string | null;
     embedding_version: string | null;
     created_at: string;
@@ -403,7 +409,8 @@ export async function listProjectMemory(projectId: string, options?: { agentId?:
     if (options?.agentId) params.set("agent_id", options.agentId);
     if (options?.status) params.set("status", options.status);
     const suffix = params.toString() ? `?${params.toString()}` : "";
-    return apiFetch(`/orchestration/projects/${projectId}/memory${suffix}`);
+    const endpoint = `/orchestration/projects/${projectId}/memory`;
+    return assertCursorPage<AgentMemoryEntry>(await apiFetch(`${endpoint}${suffix}`), endpoint).items;
 }
 
 export async function createProjectMemory(

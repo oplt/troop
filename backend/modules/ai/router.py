@@ -1,8 +1,13 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
+from backend.core.config import settings
+from backend.core.pagination import build_cursor_page, fetch_limit, token_from_created_at_id
+from backend.core.schemas import CursorPageResponse
 from backend.db.session import get_db
 from backend.modules.ai.schemas import (
     AiChunkMatchResponse,
@@ -179,12 +184,11 @@ async def get_overview(
     overview = await service.get_overview(current_user)
     return AiModuleOverviewResponse(
         providers=overview["providers"],
-        prompt_templates=[
-            _prompt_template_to_response(item) for item in overview["prompt_templates"]
-        ],
         recent_runs=[_run_to_response(item) for item in overview["recent_runs"]],
-        documents=[_document_to_response(item) for item in overview["documents"]],
-        datasets=[_dataset_to_response(item) for item in overview["datasets"]],
+        prompt_template_count=overview["prompt_template_count"],
+        document_count=overview["document_count"],
+        pending_review_count=overview["pending_review_count"],
+        dataset_count=overview["dataset_count"],
     )
 
 
@@ -290,13 +294,26 @@ def _document_ingest_response(
     )
 
 
-@router.get("/documents", response_model=list[AiDocumentResponse])
+@router.get("/documents", response_model=CursorPageResponse[AiDocumentResponse])
 async def list_documents(
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    return [_document_to_response(item) for item in await service.list_documents(current_user)]
+    rows = await service.list_documents(
+        current_user,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_document_to_response(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/documents/{document_id}", response_model=AiDocumentResponse)
@@ -369,13 +386,26 @@ async def retrieve_chunks(
     return [AiChunkMatchResponse(**item) for item in matches]
 
 
-@router.get("/runs", response_model=list[AiRunResponse])
+@router.get("/runs", response_model=CursorPageResponse[AiRunResponse])
 async def list_runs(
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    return [_run_to_response(item) for item in await service.list_runs(current_user)]
+    rows = await service.list_runs(
+        current_user,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_run_to_response(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/runs/{run_id}", response_model=AiRunResponse)
@@ -559,14 +589,26 @@ async def create_dataset_case_from_trace(
     return _dataset_case_to_response(case)
 
 
-@router.get("/evaluation-runs", response_model=list[AiEvaluationRunResponse])
+@router.get("/evaluation-runs", response_model=CursorPageResponse[AiEvaluationRunResponse])
 async def list_evaluation_runs(
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    runs = await service.list_evaluation_runs(current_user)
-    return [await _evaluation_run_to_response(service, run) for run in runs]
+    rows = await service.list_evaluation_runs(
+        current_user,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[await _evaluation_run_to_response(service, run) for run in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/evaluation-runs/{evaluation_run_id}", response_model=AiEvaluationRunResponse)
@@ -606,7 +648,5 @@ async def run_evaluation(
     current_user: User = Depends(get_current_user),
 ):
     service = AiService(db)
-    evaluation_run = await service.run_evaluation(
-        current_user, dataset_id, payload.model_dump()
-    )
+    evaluation_run = await service.run_evaluation(current_user, dataset_id, payload.model_dump())
     return await _evaluation_run_to_response(service, evaluation_run)

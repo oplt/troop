@@ -1,6 +1,7 @@
 import { Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
 
 import type { AiEvaluationDataset, AiPromptVersion } from "../../../api/ai";
+import { JsonObjectEditor } from "../../../components/ui/JsonObjectEditor";
 import type { DatasetCaseFormState, DatasetFormState, RunFormState } from "../types";
 
 type DatasetCaseFormProps = {
@@ -77,17 +78,15 @@ export function DatasetCaseForm({
                     </MenuItem>
                 ))}
             </TextField>
-            <TextField
+            <JsonObjectEditor
                 label="Case input variables JSON"
                 value={datasetCaseForm.input_variables_json}
-                onChange={(event) =>
+                onChange={(value) =>
                     onDatasetCaseFormChange((current) => ({
                         ...current,
-                        input_variables_json: event.target.value,
+                        input_variables_json: value,
                     }))
                 }
-                fullWidth
-                multiline
                 minRows={4}
             />
             <TextField
@@ -103,18 +102,17 @@ export function DatasetCaseForm({
                 multiline
                 minRows={2}
             />
-            <TextField
+            <JsonObjectEditor
                 label="Expected output JSON"
                 value={datasetCaseForm.expected_output_json}
-                onChange={(event) =>
+                onChange={(value) =>
                     onDatasetCaseFormChange((current) => ({
                         ...current,
-                        expected_output_json: event.target.value,
+                        expected_output_json: value,
                     }))
                 }
-                fullWidth
-                multiline
-                minRows={2}
+                minRows={3}
+                allowEmpty
             />
             <TextField
                 label="Notes"

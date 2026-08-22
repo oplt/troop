@@ -61,6 +61,7 @@ import { extractApiErrorMessage } from "../utils/apiErrors";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveTable";
 import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { SemanticMemoryProvenanceDetails } from "../features/memory/SemanticMemoryProvenanceDetails";
 import { ErrorOutline as ErrorOutlineIcon, Refresh as RefreshIcon } from "@mui/icons-material";
 
 const ENTRY_TYPES = ["note", "policy", "standard", "adr", "glossary", "convention", "preference", "routing"];
@@ -1071,22 +1072,7 @@ export default function SemanticMemoryPage() {
                     {provEntry ? (
                         <Stack spacing={1.25} sx={{ mt: 1 }}>
                             <Typography variant="subtitle2">{provEntry.title}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Source: {String((provEntry.provenance as Record<string, unknown>)?.source ?? "api")}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Confidence: {typeof provEntry.confidence === "number" ? `${Math.round(provEntry.confidence * 100)}%` : "—"}
-                            </Typography>
-                            {provEntry.source_run_id ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    Run: {provEntry.source_run_id}
-                                </Typography>
-                            ) : null}
-                            {provEntry.source_task_id ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    Task: {provEntry.source_task_id}
-                                </Typography>
-                            ) : null}
+                            <SemanticMemoryProvenanceDetails entry={provEntry} />
                             <Typography variant="caption" color="text.secondary">
                                 Entry {provEntry.id}
                             </Typography>

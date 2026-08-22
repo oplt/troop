@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from types import SimpleNamespace
-
 from backend.core.pagination import build_cursor_page, fetch_limit, token_from_created_at_id
 from backend.modules.orchestration.execution.execution_workflow import summarize_trace
 from backend.modules.orchestration.execution.run_trace_redaction import build_safe_payload
@@ -158,7 +157,9 @@ def _approval_span(run_id: str, approval: ApprovalRequest) -> RunTraceSpanSafe:
             "effect_hash": approval.effect_hash,
         }
     )
-    finished_at = approval.resolved_at if approval.status in {"approved", "rejected", "expired"} else None
+    finished_at = (
+        approval.resolved_at if approval.status in {"approved", "rejected", "expired"} else None
+    )
     return RunTraceSpanSafe(
         id=f"approval:{approval.id}",
         run_id=run_id,
@@ -179,7 +180,9 @@ def _effect_span(run_id: str, effect: ExternalActionExecution) -> RunTraceSpanSa
             "action_key": effect.action_key,
             "status": effect.status,
             "external_result_id": effect.external_result_id,
-            "idempotency_key": effect.idempotency_key[:16] + "…" if effect.idempotency_key else None,
+            "idempotency_key": effect.idempotency_key[:16] + "…"
+            if effect.idempotency_key
+            else None,
             "error": effect.error,
         }
     )

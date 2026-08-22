@@ -31,13 +31,12 @@ import {
     requestGithubPr,
     syncGithubRepositories,
     updateOrchestrationTask,
-} from "../api/orchestration";
+} from "../../../api/orchestration";
 import { Close as CloseIcon } from "@mui/icons-material";
-import { useSnackbar } from "../app/snackbarContext";
-import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
-import { PageShell } from "../components/ui/PageShell";
-import { SectionCard } from "../components/ui/SectionCard";
-import { useLiveSnapshotStream } from "../hooks/useLiveSnapshotStream";
+import { useSnackbar } from "../../../app/snackbarContext";
+import { CollapsibleSectionCard } from "../../../components/ui/CollapsibleSectionCard";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { useLiveSnapshotStream } from "../../../hooks/useLiveSnapshotStream";
 
 type LinkedIssueAssignmentFieldProps = {
     projectId: string;
@@ -549,13 +548,5 @@ export function GithubSyncPanel() {
             </Stack>
         </Box>
         </Stack>
-    );
-}
-
-export default function GithubSyncPage() {
-    return (
-        <PageShell maxWidth="xl">
-            <GithubSyncPanel />
-        </PageShell>
     );
 }

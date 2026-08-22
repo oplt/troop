@@ -461,8 +461,8 @@ class OrchestrationGithubServiceMixin:
     async def list_github_issue_links(self, user: User, project_id: str | None = None):
         return await self.repo.list_issue_links(user.id, project_id)
 
-    async def list_github_sync_events(self, user: User, project_id: str | None = None):
-        return await self.repo.list_sync_events(user.id, project_id)
+    async def list_github_sync_events(self, user: User, project_id: str | None = None, **page):
+        return await self.repo.list_sync_events(user.id, project_id, **page)
 
     async def refresh_github_issue_link_from_api(self, link: GithubIssueLink) -> None:
         repository = await self.db.get(GithubRepository, link.repository_id)

@@ -81,6 +81,10 @@ class TaskListItem(BaseModel):
     updated_at: datetime
 
 
+class MyTaskListItem(TaskListItem):
+    project_name: str
+
+
 class ApprovalListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

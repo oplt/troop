@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import or_, select
 
+from backend.core.pagination import apply_desc_time_id_cursor
 from backend.modules.github.models import (
     GithubConnection,
     GithubEntityMapping,
@@ -379,7 +380,13 @@ class GithubRepositoryMixin:
         return result.scalar_one_or_none()
 
     async def list_sync_events(
-        self, owner_id: str, project_id: str | None = None
+        self,
+        owner_id: str,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
     ) -> list[GithubSyncEvent]:
         stmt = (
             select(GithubSyncEvent)
@@ -395,7 +402,15 @@ class GithubRepositoryMixin:
         )
         if project_id:
             stmt = stmt.where(GithubRepository.project_id == project_id)
-        result = await self.db.execute(stmt.order_by(GithubSyncEvent.created_at.desc()))
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            GithubSyncEvent,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(GithubSyncEvent.created_at.desc(), GithubSyncEvent.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def list_sync_events_for_task(self, task_id: str) -> list[GithubSyncEvent]:

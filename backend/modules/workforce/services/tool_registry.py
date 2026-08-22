@@ -174,7 +174,15 @@ class ToolRegistryService:
 
     def provider_for(self, tool_slug: str) -> ToolProvider:
         if tool_slug.startswith(
-            ("gmail.", "outlook.", "google_calendar.", "microsoft_calendar.", "telegram.", "slack.", "teams.")
+            (
+                "gmail.",
+                "outlook.",
+                "google_calendar.",
+                "microsoft_calendar.",
+                "telegram.",
+                "slack.",
+                "teams.",
+            )
         ):
             return self.providers["connector"]
         if tool_slug.startswith("github_"):
@@ -362,7 +370,15 @@ class ToolRegistryService:
         elif tool_slug.startswith("github_"):
             provider_name = "github"
         elif tool_slug.startswith(
-            ("gmail.", "outlook.", "google_calendar.", "microsoft_calendar.", "telegram.", "slack.", "teams.")
+            (
+                "gmail.",
+                "outlook.",
+                "google_calendar.",
+                "microsoft_calendar.",
+                "telegram.",
+                "slack.",
+                "teams.",
+            )
         ):
             provider_name = "connector"
         else:

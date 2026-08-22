@@ -94,9 +94,7 @@ async def authorize_and_claim_execution(
         if existing.arguments_hash != arguments_hash:
             raise CommitAuthorizationError("Idempotency key was reused with different content")
         if existing.status == "succeeded":
-            return CommitClaim(
-                execution=existing, approval=approval, effect=effect, replayed=True
-            )
+            return CommitClaim(execution=existing, approval=approval, effect=effect, replayed=True)
         if existing.status in {"claimed", "sending", "retryable_failure"}:
             return CommitClaim(execution=existing, approval=approval, effect=effect)
         if existing.status in {"failed", "stale", "outcome_unknown"}:

@@ -181,7 +181,7 @@ describe("OrchestrationProjectDetailPage", () => {
 
         renderProjectDetail();
         await screen.findByText("Launch Ops");
-        await user.click(screen.getByRole("tab", { name: "Board" }));
+        await user.click(screen.getByRole("tab", { name: "Tasks" }));
 
         await waitFor(() => {
             expect(screen.getByText("Verify rollout checklist")).toBeInTheDocument();

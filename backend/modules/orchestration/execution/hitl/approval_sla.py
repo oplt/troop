@@ -29,9 +29,7 @@ def normalize_approval_sla_policy(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(policy.get("escalation_roles"), list):
         policy["escalation_roles"] = list(DEFAULT_APPROVAL_SLA["escalation_roles"])
     policy["escalation_roles"] = [
-        str(role).strip()
-        for role in policy["escalation_roles"]
-        if str(role).strip()
+        str(role).strip() for role in policy["escalation_roles"] if str(role).strip()
     ] or list(DEFAULT_APPROVAL_SLA["escalation_roles"])
     policy["response_hours"] = max(1.0, float(policy.get("response_hours") or 24))
     policy["warn_hours_before_due"] = max(0.0, float(policy.get("warn_hours_before_due") or 0))

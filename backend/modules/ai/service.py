@@ -6,7 +6,7 @@ from backend.core.config import settings
 from backend.modules.ai.documents.service import AiDocumentsMixin
 from backend.modules.ai.evaluations.service import AiEvaluationsMixin
 from backend.modules.ai.prompts.renderer import render_template
-from backend.modules.ai.prompts.service import AiPromptsMixin
+from backend.modules.ai.prompts.service import PromptService
 from backend.modules.ai.providers import AiProviderRegistry
 from backend.modules.ai.repository import AiRepository
 from backend.modules.ai.retrieval.service import AiRetrievalMixin
@@ -20,7 +20,6 @@ __all__ = ["AiService", "render_template", "settings"]
 
 
 class AiService(
-    AiPromptsMixin,
     AiDocumentsMixin,
     AiRetrievalMixin,
     AiRunsMixin,
@@ -31,6 +30,21 @@ class AiService(
         self.db = db
         self.repo = AiRepository(db)
         self.providers = AiProviderRegistry()
+        self.prompts = PromptService(db, self.repo)
+
+    def __getattr__(self, name: str):
+        """Compatibility bridge while callers migrate to ``service.prompts``."""
+        prompt_api = {
+            "list_prompt_templates",
+            "create_prompt_template",
+            "update_prompt_template",
+            "create_prompt_version",
+            "update_prompt_version",
+            "list_prompt_versions",
+        }
+        if name in prompt_api:
+            return getattr(self.prompts, name)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @staticmethod
     def list_provider_descriptors() -> list[AiProviderDescriptor]:
@@ -56,14 +70,10 @@ class AiService(
         ]
 
     async def get_overview(self, user: User):
-        prompt_templates = await self.repo.list_prompt_templates_for_user(user.id)
-        recent_runs = await self.repo.list_runs_for_user(user.id, limit=10)
-        documents = await self.repo.list_documents_for_user(user.id)
-        datasets = await self.repo.list_datasets_for_user(user.id)
+        counts = await self.repo.get_overview_counts_for_user(user.id)
+        recent_runs = await self.repo.list_runs_for_user(user.id, limit=5)
         return {
             "providers": self.list_provider_descriptors(),
-            "prompt_templates": prompt_templates,
             "recent_runs": recent_runs,
-            "documents": documents,
-            "datasets": datasets,
+            **counts,
         }

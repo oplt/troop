@@ -653,10 +653,6 @@ export async function listTriggerSubscriptions(): Promise<TriggerSubscription[]>
     }));
 }
 
-export async function renewTriggerSubscription(id: string): Promise<TriggerSubscription> {
-    return apiFetch(`/workforce/trigger-subscriptions/${encodeURIComponent(id)}/renew`, { method: "POST" });
-}
-
 export async function disableTriggerSubscription(id: string): Promise<TriggerSubscription> {
     return apiFetch(`/workforce/trigger-subscriptions/${encodeURIComponent(id)}`, {
         method: "DELETE",

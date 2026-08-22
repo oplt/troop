@@ -267,6 +267,10 @@ LLM_ATTEMPTS = "troop_llm_attempts_total"
 ACTIVATION_MILESTONES = "troop_activation_milestones_total"
 LLM_COST_MICROS = "troop_llm_cost_micros_total"
 EMBED_TOKENS = "troop_embed_tokens_total"
+EMBED_DURATION = "troop_embedding_duration_seconds"
+CONTEXT_TOKENS = "troop_context_tokens"
+RAG_RETRIEVAL_DURATION = "troop_rag_retrieval_duration_seconds"
+RAG_DEGRADED_TOTAL = "troop_rag_degraded_total"
 EXTERNAL_HTTP_CLIENTS = "troop_external_http_clients"
 EXTERNAL_HTTP_CLIENTS_CREATED = "troop_external_http_clients_created_total"
 EXTERNAL_HTTP_CLIENTS_CLOSED = "troop_external_http_clients_closed_total"
@@ -609,6 +613,46 @@ def record_embed_tokens(*, provider: str, tokens: int, outcome: str = "success")
     )
 
 
+def record_embedding_duration(*, provider: str, outcome: str, duration_seconds: float) -> None:
+    metrics_registry.observe(
+        EMBED_DURATION,
+        max(0.0, duration_seconds),
+        help_text="Embedding request duration in seconds.",
+        labels={
+            "provider": bounded_label(provider, fallback="unknown"),
+            "outcome": bounded_label(outcome, fallback="unknown"),
+        },
+    )
+
+
+def record_context_tokens(*, pipeline: str, tokens: int) -> None:
+    metrics_registry.observe(
+        CONTEXT_TOKENS,
+        float(max(0, tokens)),
+        help_text="Selected context token count before model invocation.",
+        labels={"pipeline": bounded_label(pipeline, fallback="unknown")},
+        buckets=(128, 256, 512, 1024, 2048, 4096, 8192, 16384),
+    )
+
+
+def record_rag_retrieval_duration(*, stage: str, outcome: str, duration_seconds: float) -> None:
+    """Observe retrieval work separately from embedding and generation providers."""
+    metrics_registry.observe(
+        RAG_RETRIEVAL_DURATION,
+        duration_seconds,
+        help_text="RAG retrieval-stage duration excluding provider generation.",
+        labels={"stage": bounded_label(stage), "outcome": bounded_label(outcome)},
+    )
+
+
+def record_rag_degraded(*, reason: str, fallback: str) -> None:
+    metrics_registry.increment(
+        RAG_DEGRADED_TOTAL,
+        help_text="RAG requests entering a controlled degraded retrieval mode.",
+        labels={"fallback": bounded_label(fallback), "reason": bounded_label(reason)},
+    )
+
+
 __all__ = [
     "CACHE_DURATION",
     "CACHE_OPERATIONS",
@@ -617,6 +661,8 @@ __all__ = [
     "DB_POOL_OVERFLOW",
     "DB_POOL_SIZE",
     "DISTRIBUTED_LOCKS",
+    "CONTEXT_TOKENS",
+    "EMBED_DURATION",
     "EMBED_TOKENS",
     "EXTERNAL_HTTP_CLIENTS",
     "EXTERNAL_HTTP_CLIENTS_CLOSED",
@@ -643,6 +689,8 @@ __all__ = [
     "HTTP_REQUESTS",
     "MetricsRegistry",
     "PROVIDER_DURATION",
+    "RAG_DEGRADED_TOTAL",
+    "RAG_RETRIEVAL_DURATION",
     "PROVIDER_REQUESTS",
     "WORKER_ACTIVE",
     "WORKER_DURATION",
@@ -656,6 +704,8 @@ __all__ = [
     "record_run_status_snapshot",
     "record_cache_operation",
     "record_distributed_lock",
+    "record_context_tokens",
+    "record_embedding_duration",
     "record_embed_tokens",
     "record_external_http_pool_state",
     "record_llm_attempt",
@@ -667,5 +717,7 @@ __all__ = [
     "record_queue_state",
     "record_run_outcome",
     "record_provider_call",
+    "record_rag_retrieval_duration",
+    "record_rag_degraded",
     "record_worker_task",
 ]

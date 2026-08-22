@@ -13,10 +13,12 @@ from backend.modules.memory.models import ProjectDocument
 from backend.modules.orchestration.repository import OrchestrationRepository
 from backend.modules.rag.retrieval import DocumentIngestionService
 from backend.modules.workforce.integrations.drive_acl import actor_can_read_acl
-from backend.modules.workforce.integrations.google_drive import GoogleDriveAdapter, GoogleDriveAPIError
+from backend.modules.workforce.integrations.google_drive import (
+    GoogleDriveAdapter,
+    GoogleDriveAPIError,
+)
 from backend.modules.workforce.integrations.microsoft_drive import (
     MicrosoftDriveAdapter,
-    MicrosoftDriveAPIError,
 )
 from backend.modules.workforce.models import ExternalDocumentSyncState, ExternalKnowledgeSource
 
@@ -51,7 +53,9 @@ class DriveSyncService:
             return await self._sync_microsoft(source, actor_user_id=actor_user_id)
         raise ValueError(f"Unsupported drive provider: {source.provider}")
 
-    async def _sync_google(self, source: ExternalKnowledgeSource, *, actor_user_id: str) -> dict[str, Any]:
+    async def _sync_google(
+        self, source: ExternalKnowledgeSource, *, actor_user_id: str
+    ) -> dict[str, Any]:
         adapter = await GoogleDriveAdapter.for_owner(
             self.db,
             owner_id=source.owner_id,
@@ -89,7 +93,9 @@ class DriveSyncService:
         await self.db.commit()
         return {"indexed": indexed, "deleted": deleted, "cursor": source.sync_cursor}
 
-    async def _sync_microsoft(self, source: ExternalKnowledgeSource, *, actor_user_id: str) -> dict[str, Any]:
+    async def _sync_microsoft(
+        self, source: ExternalKnowledgeSource, *, actor_user_id: str
+    ) -> dict[str, Any]:
         adapter = await MicrosoftDriveAdapter.for_owner(
             self.db,
             owner_id=source.owner_id,
@@ -113,10 +119,16 @@ class DriveSyncService:
                 file_id = str(item.get("id") or "")
                 if not file_id or item.get("folder"):
                     continue
-                if not _is_text_mime(str(item.get("file", {}).get("mimeType") or item.get("mimeType") or "")):
+                if not _is_text_mime(
+                    str(item.get("file", {}).get("mimeType") or item.get("mimeType") or "")
+                ):
                     continue
                 if await self._index_microsoft_file(
-                    source, adapter, file_id=file_id, actor_user_id=actor_user_id, root_config=root_config
+                    source,
+                    adapter,
+                    file_id=file_id,
+                    actor_user_id=actor_user_id,
+                    root_config=root_config,
                 ):
                     indexed += 1
             delta_link = str(body.get("@odata.deltaLink") or body.get("@odata.nextLink") or "")
@@ -200,7 +212,9 @@ class DriveSyncService:
             acl_snapshot=acl_snapshot,
             content=str(payload.get("content") or ""),
             actor_user_id=actor_user_id,
-            mime_type=str(meta.get("file", {}).get("mimeType") or meta.get("mimeType") or "text/plain"),
+            mime_type=str(
+                meta.get("file", {}).get("mimeType") or meta.get("mimeType") or "text/plain"
+            ),
         )
 
     async def _upsert_document(

@@ -8,18 +8,18 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.modules.orchestration.execution.hitl.approval_delegation import delegation_constraints
-from backend.modules.orchestration.execution.hitl.approval_sla import (
-    apply_sla_on_approval,
-    escalation_state,
-    normalize_approval_sla_policy,
-)
 from backend.modules.identity_access.workspace_permissions import (
     PERM_APPROVAL_DECIDE,
     role_has_permission,
 )
 from backend.modules.identity_access.workspace_repository import WorkspaceRepository
 from backend.modules.identity_access.workspace_roles import WORKSPACE_ROLES
+from backend.modules.orchestration.execution.hitl.approval_delegation import delegation_constraints
+from backend.modules.orchestration.execution.hitl.approval_sla import (
+    apply_sla_on_approval,
+    escalation_state,
+    normalize_approval_sla_policy,
+)
 from backend.modules.orchestration.models import ApprovalRequest
 from backend.modules.projects.orchestration_models import OrchestratorProject
 

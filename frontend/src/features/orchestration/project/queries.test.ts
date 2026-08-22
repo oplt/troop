@@ -7,6 +7,7 @@ describe("project detail query ownership", () => {
         const state = {
             tab: "memory" as const,
             workView: "board" as const,
+            teamView: "agents" as const,
             knowledgeView: "memory" as const,
             knowledgeQuery: "retention",
             includeDecisionRecall: true,
@@ -22,6 +23,7 @@ describe("project detail query ownership", () => {
         const state = {
             tab: "board" as const,
             workView: "dependencies" as const,
+            teamView: "agents" as const,
             knowledgeView: "search" as const,
             knowledgeQuery: "",
             includeDecisionRecall: false,
@@ -33,10 +35,11 @@ describe("project detail query ownership", () => {
         expect(isProjectDetailSectionActive(state, "runs")).toBe(false);
     });
 
-    it("activates settings integrations and team sections", () => {
+    it("only activates the selected settings sub-section", () => {
         const state = {
             tab: "settings" as const,
             workView: "board" as const,
+            teamView: "agents" as const,
             knowledgeView: "integrations" as const,
             knowledgeQuery: "",
             includeDecisionRecall: false,
@@ -44,14 +47,25 @@ describe("project detail query ownership", () => {
         };
         expect(isProjectDetailSectionActive(state, "settings")).toBe(true);
         expect(isProjectDetailSectionActive(state, "integrations")).toBe(true);
-        expect(isProjectDetailSectionActive(state, "team")).toBe(true);
+        expect(isProjectDetailSectionActive(state, "team")).toBe(false);
         expect(isProjectDetailSectionActive(state, "runs")).toBe(false);
+
+        expect(isProjectDetailSectionActive({
+            ...state,
+            knowledgeView: "sources",
+        }, "team")).toBe(true);
+        expect(isProjectDetailSectionActive({
+            ...state,
+            knowledgeView: "sources",
+            teamView: "settings",
+        }, "execution")).toBe(true);
     });
 
     it("activates runs and activity on the runs tab", () => {
         const state = {
             tab: "runs" as const,
             workView: "board" as const,
+            teamView: "agents" as const,
             knowledgeView: "memory" as const,
             knowledgeQuery: "",
             includeDecisionRecall: false,

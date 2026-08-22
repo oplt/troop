@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.pagination import apply_desc_time_id_cursor
 from backend.modules.audit.models import AuditLog
 from backend.modules.audit.repository import AuditRepository
 
@@ -46,8 +47,9 @@ class AuditExportService:
     async def list_filtered(
         self,
         *,
-        page: int = 1,
-        page_size: int = 50,
+        limit: int = 50,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
         action: str | None = None,
         user_id: str | None = None,
         resource_type: str | None = None,
@@ -77,9 +79,14 @@ class AuditExportService:
             count_query = count_query.where(*filters)
 
         total = int(await self.db.scalar(count_query) or 0)
-        offset = max(page - 1, 0) * page_size
+        query = apply_desc_time_id_cursor(
+            query,
+            AuditLog,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
         result = await self.db.execute(
-            query.order_by(AuditLog.created_at.desc()).offset(offset).limit(page_size)
+            query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limit)
         )
         return list(result.scalars().all()), total
 
@@ -95,8 +102,7 @@ class AuditExportService:
         limit: int = 5000,
     ) -> list[dict[str, Any]]:
         logs, _ = await self.list_filtered(
-            page=1,
-            page_size=limit,
+            limit=limit,
             action=action,
             user_id=user_id,
             resource_type=resource_type,

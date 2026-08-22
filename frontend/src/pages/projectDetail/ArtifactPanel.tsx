@@ -6,7 +6,7 @@ import { createTaskArtifact, listTaskArtifacts } from "../../api/orchestration";
 import { queryKeys } from "../../config/queryKeys";
 import { formatDateTime } from "../../utils/formatters";
 
-export function ArtifactPanel({ taskId }: { taskId: string }) {
+export function ArtifactPanel({ projectId, taskId }: { projectId: string; taskId: string }) {
     const queryClient = useQueryClient();
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -14,11 +14,11 @@ export function ArtifactPanel({ taskId }: { taskId: string }) {
 
     const { data: artifacts = [] } = useQuery({
         queryKey: queryKeys.orchestration.artifacts(taskId),
-        queryFn: () => listTaskArtifacts(taskId),
+        queryFn: () => listTaskArtifacts(projectId, taskId),
     });
 
     const createMutation = useMutation({
-        mutationFn: () => createTaskArtifact(taskId, { title, content, kind: "summary" }),
+        mutationFn: () => createTaskArtifact(projectId, taskId, { title, content, kind: "summary" }),
         onSuccess: async () => {
             setTitle(""); setContent("");
             await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.artifacts(taskId) });
@@ -27,7 +27,7 @@ export function ArtifactPanel({ taskId }: { taskId: string }) {
 
     async function handleFileUpload(file: File) {
         const text = await file.text();
-        await createTaskArtifact(taskId, { title: file.name, content: text, kind: "file" });
+        await createTaskArtifact(projectId, taskId, { title: file.name, content: text, kind: "file" });
         await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.artifacts(taskId) });
     }
 

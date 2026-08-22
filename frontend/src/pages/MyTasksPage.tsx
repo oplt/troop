@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
     Box,
     Button,
     CircularProgress,
-    Link,
+    Chip,
     MenuItem,
     Stack,
     Table,
@@ -14,20 +14,23 @@ import {
     TableHead,
     TableRow,
     TextField,
+    Typography,
 } from "@mui/material";
 import {
-    listOrchestrationProjects,
-    listOrchestrationTasks,
-    type TaskListItem,
+    listMyTasksPage,
+    type MyTaskListItem,
 } from "../api/orchestration";
+import type { CursorToken } from "../api/pagination";
 import { PageShell } from "../components/ui/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { StatusChip } from "../components/ui/StatusChip";
 import { FilterToolbar } from "../components/ui/FilterToolbar";
+import { InspectorDrawer } from "../components/ui/InspectorDrawer";
+import { formatDate, formatDateTime, humanizeKey } from "../utils/formatters";
 import { Assignment as TasksIcon } from "@mui/icons-material";
 
-type TaskRow = TaskListItem & { project_name: string; project_id: string };
+type TaskRow = MyTaskListItem;
 
 const CLOSED = new Set(["completed", "archived", "cancelled"]);
 
@@ -39,38 +42,28 @@ function displayStatus(status: string): string {
 export default function MyTasksPage() {
     const [projectFilter, setProjectFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
-    const { data: projects = [], isLoading: loadingProjects } = useQuery({
-        queryKey: ["orchestration", "projects"],
-        queryFn: listOrchestrationProjects,
-    });
-
-    const taskQueries = useQueries({
-        queries: projects.map((project) => ({
-            queryKey: ["orchestration", "project-tasks", project.id, "my-tasks"],
-            queryFn: () => listOrchestrationTasks(project.id),
-            enabled: Boolean(project.id),
-        })),
+    const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null);
+    const taskQuery = useInfiniteQuery({
+        queryKey: ["orchestration", "my-tasks"],
+        queryFn: ({ pageParam }) => listMyTasksPage({ limit: 50, cursor: pageParam }),
+        initialPageParam: null as CursorToken | null,
+        getNextPageParam: (page) => page.next_cursor ?? undefined,
     });
 
     const rows = useMemo(() => {
-        const out: TaskRow[] = [];
-        taskQueries.forEach((query, index) => {
-            const project = projects[index];
-            if (!project || !query.data) return;
-            for (const task of query.data) {
-                const status = displayStatus(String(task.status || ""));
-                if (CLOSED.has(status)) continue;
-                out.push({
-                    ...task,
-                    status,
-                    project_id: project.id,
-                    project_name: project.name,
-                });
-            }
-        });
+        const out: TaskRow[] = (taskQuery.data?.pages ?? []).flatMap((page) => page.items).map((task) => ({
+            ...task,
+            status: displayStatus(String(task.status || "")),
+        })).filter((task) => !CLOSED.has(task.status));
         out.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
         return out;
-    }, [projects, taskQueries]);
+    }, [taskQuery.data]);
+
+    const projects = useMemo(() => {
+        const byId = new Map<string, string>();
+        rows.forEach((task) => byId.set(task.project_id, task.project_name));
+        return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [rows]);
 
     const filteredRows = useMemo(() => {
         return rows.filter((task) => {
@@ -85,7 +78,7 @@ export default function MyTasksPage() {
         return Array.from(set).sort();
     }, [rows]);
 
-    const loading = loadingProjects || taskQueries.some((q) => q.isLoading);
+    const loading = taskQuery.isLoading;
 
     return (
         <PageShell variant="browse">
@@ -166,13 +159,14 @@ export default function MyTasksPage() {
                             {filteredRows.map((task) => (
                                 <TableRow key={task.id} hover>
                                     <TableCell>
-                                        <Link
-                                            component={RouterLink}
-                                            to={`/projects/${task.project_id}?tab=board&task=${task.id}`}
-                                            underline="hover"
+                                        <Button
+                                            variant="text"
+                                            color="inherit"
+                                            onClick={() => setSelectedTask(task)}
+                                            sx={{ justifyContent: "flex-start", px: 0, textAlign: "left" }}
                                         >
                                             {task.title}
-                                        </Link>
+                                        </Button>
                                     </TableCell>
                                     <TableCell>{task.project_name}</TableCell>
                                     <TableCell>
@@ -187,6 +181,62 @@ export default function MyTasksPage() {
                     </Table>
                 </Box>
             )}
+            {taskQuery.hasNextPage ? (
+                <Stack alignItems="center" sx={{ mt: 2 }}>
+                    <Button
+                        variant="outlined"
+                        disabled={taskQuery.isFetchingNextPage}
+                        onClick={() => taskQuery.fetchNextPage()}
+                    >
+                        {taskQuery.isFetchingNextPage ? "Loading…" : "Load more tasks"}
+                    </Button>
+                </Stack>
+            ) : null}
+            <InspectorDrawer
+                open={Boolean(selectedTask)}
+                onClose={() => setSelectedTask(null)}
+                title={selectedTask?.title ?? "Task"}
+                subtitle={selectedTask?.project_name}
+                actions={selectedTask ? (
+                    <Button
+                        component={RouterLink}
+                        to={`/projects/${selectedTask.project_id}?tab=board&task=${selectedTask.id}`}
+                        variant="contained"
+                    >
+                        Open task
+                    </Button>
+                ) : null}
+            >
+                {selectedTask ? (
+                    <Stack spacing={2}>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <StatusChip status={displayStatus(String(selectedTask.status))} kind="task" />
+                            <Chip size="small" variant="outlined" label={humanizeKey(selectedTask.priority)} />
+                            <Chip size="small" variant="outlined" label={humanizeKey(selectedTask.task_type)} />
+                        </Stack>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Assignee</Typography>
+                            <Typography variant="body2">{selectedTask.assigned_agent_id || "Unassigned"}</Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Due date</Typography>
+                            <Typography variant="body2">{selectedTask.due_date ? formatDate(selectedTask.due_date) : "No due date"}</Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Last updated</Typography>
+                            <Typography variant="body2">{formatDateTime(selectedTask.updated_at)}</Typography>
+                        </Box>
+                        {selectedTask.labels.length > 0 ? (
+                            <Box>
+                                <Typography variant="caption" color="text.secondary">Labels</Typography>
+                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                                    {selectedTask.labels.map((label) => <Chip key={label} size="small" label={label} />)}
+                                </Stack>
+                            </Box>
+                        ) : null}
+                    </Stack>
+                ) : null}
+            </InspectorDrawer>
         </PageShell>
     );
 }

@@ -40,6 +40,7 @@ import {
     type RunCostSummary,
     type RunEvent,
     type RunExecutionSnapshot,
+    type RunTraceSpan,
     type RunTraceStep,
     type TaskRun,
     type WorkingMemory,
@@ -66,6 +67,7 @@ import { safeRunValue } from "../features/workflows/builderState";
 import { RunTraceSummaryCard } from "../features/runInspector/RunTraceSummaryCard";
 import { RunTraceTimeline } from "../features/runInspector/RunTraceTimeline";
 import { computeTraceSummary } from "../features/runInspector/traceUtils";
+import { TraceToEvaluationAction } from "../features/runInspector/TraceToEvaluationAction";
 
 function RunStatusChip({ status }: { status: string }) {
     return <StatusChip status={status} kind="run" variant="filled" celebrate={status === "completed"} />;
@@ -398,11 +400,13 @@ function RunMeta({
     costSummary,
     selection,
     traceStats,
+    traceSpans,
 }: {
     run: TaskRun;
     costSummary?: RunCostSummary | null;
     selection: ReturnType<typeof readOrchestrationSelectionMeta>;
     traceStats?: ReturnType<typeof computeTraceSummary> | null;
+    traceSpans: RunTraceSpan[];
 }) {
     const costUsd = run.estimated_cost_micros > 0
         ? `$${(run.estimated_cost_micros / 1_000_000).toFixed(4)}`
@@ -429,6 +433,7 @@ function RunMeta({
                 description="Timeline-first inspector · status, cost, tools"
                 actions={
                     <>
+                        <TraceToEvaluationAction runId={run.id} spans={traceSpans} />
                         <Button
                             size="small"
                             variant="outlined"
@@ -684,7 +689,7 @@ export default function RunInspectorPage() {
             return 5000;
         },
     });
-    const traceSpans = tracePage?.items ?? [];
+    const traceSpans = useMemo(() => tracePage?.items ?? [], [tracePage?.items]);
     const traceStats = useMemo(
         () => (run ? computeTraceSummary(run, traceSpans, costSummary ?? null) : null),
         [run, traceSpans, costSummary],
@@ -787,7 +792,13 @@ export default function RunInspectorPage() {
         <PageShell variant="inspector">
             <DensePageMobileNotice surface="Run inspector" />
 
-            <RunMeta run={run} costSummary={costSummary ?? null} selection={selectionMeta} traceStats={traceStats} />
+            <RunMeta
+                run={run}
+                costSummary={costSummary ?? null}
+                selection={selectionMeta}
+                traceStats={traceStats}
+                traceSpans={traceSpans}
+            />
             {runExplanation && (
                 <SectionCard title="Explain this run" description="Plain-English narrative for stakeholders and audit reviews.">
                     <Typography variant="body2">{String(runExplanation.summary ?? "")}</Typography>

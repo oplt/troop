@@ -100,10 +100,7 @@ def validate_slack_request_signature(
     if abs(time.time() - request_ts) > 60 * 5:
         return False
     basestring = f"v0:{timestamp}:{body.decode()}"
-    expected = (
-        "v0="
-        + hmac.new(secret.encode(), basestring.encode(), hashlib.sha256).hexdigest()
-    )
+    expected = "v0=" + hmac.new(secret.encode(), basestring.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -189,14 +186,18 @@ class SlackOAuthService:
         bot_token = str(body.get("access_token") or "")
         user_token = str(authed_user.get("access_token") or "")
         if not bot_token:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Slack OAuth response missing bot token")
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Slack OAuth response missing bot token"
+            )
 
         definition_result = await self.db.execute(
             select(ConnectorDefinition).where(ConnectorDefinition.slug == "slack")
         )
         definition = definition_result.scalar_one_or_none()
         if definition is None:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Slack connector definition missing")
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Slack connector definition missing"
+            )
 
         existing_result = await self.db.execute(
             select(ConnectorInstallation).where(
@@ -359,7 +360,11 @@ class SlackAdapter:
                 return {"message": messages[0] if messages else None}
             history = await self._api(
                 "conversations.history",
-                params={"channel": channel, "limit": 1, "latest": str(arguments.get("latest") or "")},
+                params={
+                    "channel": channel,
+                    "limit": 1,
+                    "latest": str(arguments.get("latest") or ""),
+                },
             )
             messages = history.get("messages") or []
             return {"message": messages[0] if messages else None}

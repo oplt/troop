@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.external_http import external_headers
 from backend.core.http_clients import managed_http_client
+from backend.modules.identity_access.models import User
 from backend.modules.orchestration.execution.cpu_executor import execute_code_job_async
 from backend.modules.orchestration.filesystem_tools import (
     FilesystemToolError,
@@ -30,7 +31,6 @@ from backend.modules.orchestration.models import (
     TaskRun,
 )
 from backend.modules.orchestration.repository import OrchestrationRepository
-from backend.modules.identity_access.models import User
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -807,7 +807,6 @@ class OrchestrationToolbox:
                 for match in matches
             ],
         }
-
 
     async def _invoke_specialist(self, arguments: dict[str, Any]) -> dict[str, Any]:
         from backend.modules.orchestration.execution.execution_workflow import ensure_workflow_state

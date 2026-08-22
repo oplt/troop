@@ -21,7 +21,11 @@ from backend.core.http_clients import managed_http_client
 from backend.modules.audit.repository import AuditRepository
 from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
 from backend.modules.workforce.integrations.drive_acl import normalize_google_drive_acl
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 DRIVE_API_BASE = "https://www.googleapis.com/drive/v3"
@@ -71,9 +75,13 @@ class GoogleDriveOAuthService:
         scopes: list[str] | None = None,
         redirect_after: str | None = None,
     ) -> dict[str, Any]:
-        redirect_uri = settings.GOOGLE_DRIVE_OAUTH_REDIRECT_URI or settings.GOOGLE_OAUTH_REDIRECT_URI
+        redirect_uri = (
+            settings.GOOGLE_DRIVE_OAUTH_REDIRECT_URI or settings.GOOGLE_OAUTH_REDIRECT_URI
+        )
         if not settings.GOOGLE_CLIENT_ID or not redirect_uri or not settings.GOOGLE_CLIENT_SECRET:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Google Drive OAuth is not configured")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Google Drive OAuth is not configured"
+            )
         requested = list(dict.fromkeys(scopes or GOOGLE_DRIVE_SCOPES))
         state = secrets.token_urlsafe(32)
         verifier = secrets.token_urlsafe(64)
@@ -105,11 +113,16 @@ class GoogleDriveOAuthService:
         return {"authorization_url": f"{GOOGLE_AUTHORIZE_URL}?{query}", "scopes": requested}
 
     async def complete(self, *, code: str, state: str) -> tuple[ConnectorInstallation, str | None]:
-        redirect_uri = settings.GOOGLE_DRIVE_OAUTH_REDIRECT_URI or settings.GOOGLE_OAUTH_REDIRECT_URI
+        redirect_uri = (
+            settings.GOOGLE_DRIVE_OAUTH_REDIRECT_URI or settings.GOOGLE_OAUTH_REDIRECT_URI
+        )
         state_hash = _hash_secret(state)
         result = await self.db.execute(
             select(ConnectorOAuthState)
-            .where(ConnectorOAuthState.provider == "google_drive", ConnectorOAuthState.state_hash == state_hash)
+            .where(
+                ConnectorOAuthState.provider == "google_drive",
+                ConnectorOAuthState.state_hash == state_hash,
+            )
             .with_for_update()
         )
         oauth_state = result.scalar_one_or_none()
@@ -149,7 +162,9 @@ class GoogleDriveOAuthService:
                 "granted_scopes": str(token.get("scope") or "").split(),
             },
             secrets_ref=encrypt_secret(
-                json.dumps({"access_token": token["access_token"], "refresh_token": token["refresh_token"]})
+                json.dumps(
+                    {"access_token": token["access_token"], "refresh_token": token["refresh_token"]}
+                )
             ),
             metadata_json={"provider": "google_drive"},
         )
@@ -190,10 +205,15 @@ class GoogleDriveAdapter:
         self.installation = installation
 
     @classmethod
-    async def for_owner(cls, db: AsyncSession, *, owner_id: str, installation_id: str) -> GoogleDriveAdapter:
+    async def for_owner(
+        cls, db: AsyncSession, *, owner_id: str, installation_id: str
+    ) -> GoogleDriveAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -290,13 +310,17 @@ class GoogleDriveAdapter:
             body = await self.request(
                 "GET",
                 f"/files/{file_id}",
-                params={"fields": "id,name,mimeType,modifiedTime,parents,owners,permissions,trashed,webViewLink"},
+                params={
+                    "fields": "id,name,mimeType,modifiedTime,parents,owners,permissions,trashed,webViewLink"
+                },
             )
             if isinstance(body, dict):
                 body["acl_snapshot"] = normalize_google_drive_acl(file_body=body)
             return body if isinstance(body, dict) else {}
         if operation == "google_drive.get_file_content":
-            meta = await self.execute("google_drive.get_file_metadata", {"file_id": arguments["file_id"]})
+            meta = await self.execute(
+                "google_drive.get_file_metadata", {"file_id": arguments["file_id"]}
+            )
             mime = str(meta.get("mimeType") or "")
             export_mime = _EXPORT_MIME.get(mime)
             if export_mime:

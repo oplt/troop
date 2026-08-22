@@ -1,15 +1,12 @@
 {
-  "captured_at": "2026-07-14T23:03:59.621075+00:00",
+  "captured_at": "2026-08-22T13:29:35.436248+00:00",
   "database": {
     "skipped": "DATABASE_URL not set"
   },
   "endpoints": [
     {
-      "concurrency": 2,
+      "concurrency": 1,
       "errors": [
-        "ConnectError: All connection attempts failed",
-        "ConnectError: All connection attempts failed",
-        "ConnectError: All connection attempts failed",
         "ConnectError: All connection attempts failed"
       ],
       "latency": {
@@ -20,17 +17,14 @@
         "p95_ms": null,
         "p99_ms": null
       },
-      "requests": 4,
+      "requests": 1,
       "status_counts": {},
       "successful_samples": 0,
-      "url": "http://127.0.0.1:8000/health/live"
+      "url": "http://127.0.0.1:8000/api/v1/orchestration/overview"
     },
     {
-      "concurrency": 2,
+      "concurrency": 1,
       "errors": [
-        "ConnectError: All connection attempts failed",
-        "ConnectError: All connection attempts failed",
-        "ConnectError: All connection attempts failed",
         "ConnectError: All connection attempts failed"
       ],
       "latency": {
@@ -41,47 +35,164 @@
         "p95_ms": null,
         "p99_ms": null
       },
-      "requests": 4,
+      "requests": 1,
       "status_counts": {},
       "successful_samples": 0,
-      "url": "http://127.0.0.1:8000/health/ready"
+      "url": "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline/tasks/baseline"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/ai/overview"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline/semantic-memory"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/rag/projects/baseline/search"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/orchestration/runs/baseline"
+    },
+    {
+      "concurrency": 1,
+      "errors": [
+        "ConnectError: All connection attempts failed"
+      ],
+      "latency": {
+        "count": 0,
+        "max_ms": null,
+        "min_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "requests": 1,
+      "status_counts": {},
+      "successful_samples": 0,
+      "url": "http://127.0.0.1:8000/api/v1/ai/evaluation-datasets"
     }
   ],
-  "git_revision": "a5db83740428326314eb267fc48a4e556bcd2ae6",
+  "git_revision": "a8a15d8a3bcd549132e72e012d94e42f18462c4a",
+  "in_process": {
+    "skipped": "pass --in-process to enable"
+  },
   "parameters": {
-    "concurrency": 2,
-    "requests_per_url": 4,
-    "samples": 2,
-    "timeout_seconds": 0.5,
+    "concurrency": 1,
+    "in_process": false,
+    "owner_id": null,
+    "requests_per_url": 1,
+    "samples": 1,
+    "timeout_seconds": 0.25,
     "urls": [
-      "http://127.0.0.1:8000/health/live",
-      "http://127.0.0.1:8000/health/ready"
+      "http://127.0.0.1:8000/api/v1/orchestration/overview",
+      "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline",
+      "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline/tasks/baseline",
+      "http://127.0.0.1:8000/api/v1/ai/overview",
+      "http://127.0.0.1:8000/api/v1/orchestration/projects/baseline/semantic-memory",
+      "http://127.0.0.1:8000/api/v1/rag/projects/baseline/search",
+      "http://127.0.0.1:8000/api/v1/orchestration/runs/baseline",
+      "http://127.0.0.1:8000/api/v1/ai/evaluation-datasets"
     ]
   },
   "process": {
     "after": {
-      "cpu_seconds": 0.17,
-      "pid": 4,
-      "rss_bytes": 42340352,
+      "cpu_seconds": 0.11,
+      "pid": 3,
+      "rss_bytes": 34852864,
       "scope": "benchmark_process"
     },
     "before": {
-      "cpu_seconds": 0.07,
-      "pid": 4,
-      "rss_bytes": 29683712,
+      "cpu_seconds": 0.06,
+      "pid": 3,
+      "rss_bytes": 29720576,
       "scope": "benchmark_process"
     },
-    "cpu_percent_of_one_core": 97.762,
-    "elapsed_seconds": 0.102,
-    "rss_delta_bytes": 12656640
+    "cpu_percent_of_one_core": 94.491,
+    "elapsed_seconds": 0.053,
+    "rss_delta_bytes": 5132288
   },
   "queue_depth": {
-    "error": "ConnectionError: Error 1 connecting to 127.0.0.1:6379. Operation not permitted.",
-    "queues": {}
+    "skipped": "REDIS_URL not set"
   },
   "redis": {
-    "error": "ConnectionError: Error 1 connecting to 127.0.0.1:6379. Operation not permitted.",
-    "url": "redis://127.0.0.1:6379/0"
+    "skipped": "REDIS_URL not set"
   },
-  "schema_version": 1
+  "schema_version": 2
 }

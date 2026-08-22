@@ -126,7 +126,10 @@ class OutlookConnectorProvider:
         return ConnectorTriggerRegistration(
             trigger_slug=trigger_slug,
             subscription_id=subscription.id,
-            metadata={"subscription_id": created.get("id"), "expiration": created.get("expirationDateTime")},
+            metadata={
+                "subscription_id": created.get("id"),
+                "expiration": created.get("expirationDateTime"),
+            },
         )
 
     async def unregister_trigger(

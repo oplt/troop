@@ -42,9 +42,9 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
     });
 
     const createRunMutation = useMutation({
-        mutationFn: createAiRun,
+        mutationFn: (payload: Parameters<typeof createAiRun>[0]) => createAiRun(payload),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             await queryClient.invalidateQueries({ queryKey: ["ai", "reviews"] });
             showToast({ message: "AI run completed.", severity: "success" });
         },
@@ -54,7 +54,7 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
         mutationFn: (runId: string) => createAiReview(runId),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["ai", "reviews"] });
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({ message: "Review requested.", severity: "success" });
         },
     });
@@ -73,7 +73,7 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
         }) => decideAiReview(reviewId, { status, reviewer_notes, corrected_output }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["ai", "reviews"] });
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({ message: "Review decision saved.", severity: "success" });
         },
     });
@@ -100,7 +100,8 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
         onSuccess: async (dataset) => {
             setDatasetForm({ name: "", description: "" });
             onDatasetCreated?.(dataset.id);
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "evaluation-datasets"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({ message: "Evaluation dataset created.", severity: "success" });
         },
     });
@@ -135,7 +136,7 @@ export function useEvaluationMutations({ selectedDatasetId, onDatasetCreated }: 
             }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["ai", "evaluation-runs"] });
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({ message: "Evaluation run completed.", severity: "success" });
         },
     });

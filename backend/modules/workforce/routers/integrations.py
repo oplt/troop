@@ -17,6 +17,7 @@ from backend.core.config import settings
 from backend.core.schemas import RequestModel
 from backend.db.session import get_db
 from backend.modules.identity_access.models import User
+from backend.modules.workforce.integrations.drive_sync import DriveSyncService
 from backend.modules.workforce.integrations.events import (
     ExternalEventService,
     TriggerSubscriptionService,
@@ -37,24 +38,27 @@ from backend.modules.workforce.integrations.google_drive import (
     GoogleDriveAPIError,
     GoogleDriveOAuthService,
 )
-from backend.modules.workforce.integrations.microsoft_calendar import (
-    MicrosoftCalendarAdapter,
-    MicrosoftCalendarAPIError,
-    MicrosoftCalendarOAuthService,
+from backend.modules.workforce.integrations.hubspot import (
+    HubSpotAdapter,
+    HubSpotAPIError,
+    HubSpotOAuthService,
 )
-from backend.modules.workforce.integrations.hubspot import HubSpotAdapter, HubSpotAPIError, HubSpotOAuthService
 from backend.modules.workforce.integrations.jira import JiraAdapter, JiraAPIError, JiraOAuthService
 from backend.modules.workforce.integrations.linear import (
     LinearAdapter,
     LinearAPIError,
     LinearOAuthService,
 )
+from backend.modules.workforce.integrations.microsoft_calendar import (
+    MicrosoftCalendarAdapter,
+    MicrosoftCalendarAPIError,
+    MicrosoftCalendarOAuthService,
+)
 from backend.modules.workforce.integrations.microsoft_drive import (
     MicrosoftDriveAdapter,
     MicrosoftDriveAPIError,
     MicrosoftDriveOAuthService,
 )
-from backend.modules.workforce.integrations.drive_sync import DriveSyncService
 from backend.modules.workforce.integrations.outlook import (
     OutlookAdapter,
     OutlookAPIError,
@@ -833,7 +837,9 @@ async def google_drive_oauth_callback(
     state: str,
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
-    installation, redirect_after = await GoogleDriveOAuthService(db).complete(code=code, state=state)
+    installation, redirect_after = await GoogleDriveOAuthService(db).complete(
+        code=code, state=state
+    )
     target_path = (
         redirect_after if redirect_after and redirect_after.startswith("/") else "/integrations"
     )

@@ -7,10 +7,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from backend.modules.ai.evaluations.judge import run_qualitative_judge
-from backend.modules.ai.evaluations.metrics import aggregate_metrics, build_case_metrics
+from backend.core.config import settings
+from backend.modules.ai.evaluations.execution import execute_evaluation_cases
+from backend.modules.ai.evaluations.metrics import aggregate_metrics
 from backend.modules.ai.evaluations.scorecard import build_scorecard
-from backend.modules.ai.evaluations.scoring import score_evaluation_case
 from backend.modules.ai.evaluations.trace_case import (
     apply_correction,
     build_input_snapshot,
@@ -24,6 +24,12 @@ from backend.modules.orchestration.repository import OrchestrationRepository
 
 
 class AiEvaluationsMixin:
+    """Evaluation behavior. Requires ``self.db`` and ``self.repo``.
+
+    Evaluation execution creates an isolated session per case and calls the
+    composed run service through a fresh ``AiService`` instance.
+    """
+
     async def list_datasets(self, user: User):
         return await self.repo.list_datasets_for_user(user.id)
 
@@ -96,9 +102,8 @@ class AiEvaluationsMixin:
         trace_page = await trace_service.list_run_trace_spans(run, limit=200)
         spans = list(trace_page.items)
         source_trace_span_id = payload.get("source_trace_span_id")
-        if source_trace_span_id:
-            if not any(span.id == source_trace_span_id for span in spans):
-                raise HTTPException(status_code=422, detail="Trace span not found on run")
+        if source_trace_span_id and not any(span.id == source_trace_span_id for span in spans):
+            raise HTTPException(status_code=422, detail="Trace span not found on run")
 
         events = await orch_repo.list_run_events(run.id, limit=200)
         provenance = build_provenance(
@@ -152,7 +157,9 @@ class AiEvaluationsMixin:
         baseline_run = None
         baseline_run_id = payload.get("baseline_run_id")
         if baseline_run_id:
-            baseline_run = await self.repo.get_evaluation_run_for_user(user.id, str(baseline_run_id))
+            baseline_run = await self.repo.get_evaluation_run_for_user(
+                user.id, str(baseline_run_id)
+            )
             if baseline_run is None:
                 raise HTTPException(status_code=404, detail="Baseline evaluation run not found")
             if baseline_run.dataset_id != dataset.id:
@@ -184,59 +191,38 @@ class AiEvaluationsMixin:
             baseline_run_id=baseline_run.id if baseline_run else None,
             candidate_config_json=candidate_config,
         )
-        passed_cases = 0
-        scores: list[float] = []
-        item_metrics: list[dict[str, Any]] = []
-        judge_version_id: str | None = None
+        await self.db.commit()
+        await self.db.refresh(evaluation_run)
         judge_mode = "model_judge" if qualitative_rubric else "deterministic"
 
-        for case in cases:
-            ai_run = await self.run_prompt(
-                user,
-                prompt_template_key=template.key,
-                prompt_version_id=version.id,
-                variables=case.input_variables_json,
-                retrieval_query=None,
-                document_ids=[],
-                top_k=0,
-                review_required=False,
-                evaluation_dataset_id=dataset.id,
-                evaluation_case_id=case.id,
-                model_name=payload.get("model_name"),
-            )
-            score, passed, notes = score_evaluation_case(
-                ai_run.output_text, ai_run.output_json, case
-            )
-            qualitative_score, judge_notes, case_judge_version = run_qualitative_judge(
-                output_text=ai_run.output_text,
-                output_json=ai_run.output_json,
-                rubric=qualitative_rubric if isinstance(qualitative_rubric, dict) else None,
-            )
-            if case_judge_version:
-                judge_version_id = case_judge_version
-            if judge_notes:
-                notes = f"{notes}; {judge_notes}" if notes else judge_notes
-
-            metrics = build_case_metrics(
-                case=case,
-                ai_run=ai_run,
-                passed=passed,
-                response_format=version.response_format,
-                qualitative_score=qualitative_score,
-            )
-            item_metrics.append(metrics)
-            scores.append(score)
-            if passed:
-                passed_cases += 1
-            await self.repo.create_evaluation_run_item(
+        try:
+            results = await execute_evaluation_cases(
+                user=user,
+                case_ids=[case.id for case in cases],
                 evaluation_run_id=evaluation_run.id,
-                evaluation_case_id=case.id,
-                ai_run_id=ai_run.id,
-                score=score,
-                passed=passed,
-                notes=notes,
-                metrics_json=metrics,
+                dataset_id=dataset.id,
+                template_key=template.key,
+                prompt_version_id=version.id,
+                response_format=version.response_format,
+                model_name=payload.get("model_name"),
+                qualitative_rubric=(
+                    qualitative_rubric if isinstance(qualitative_rubric, dict) else None
+                ),
+                concurrency=settings.AI_EVAL_CONCURRENCY,
             )
+        except Exception:
+            evaluation_run.status = "failed"
+            evaluation_run.completed_at = datetime.now(UTC)
+            await self.db.commit()
+            raise
+
+        passed_cases = sum(1 for result in results if result.passed)
+        scores = [result.score for result in results]
+        item_metrics = [result.metrics for result in results]
+        judge_version_id = next(
+            (result.judge_version_id for result in results if result.judge_version_id),
+            None,
+        )
 
         aggregate = aggregate_metrics(item_metrics)
         baseline_metrics = dict(baseline_run.metrics_json or {}) if baseline_run else None
@@ -280,5 +266,5 @@ class AiEvaluationsMixin:
             )
         return scorecard
 
-    async def list_evaluation_runs(self, user: User):
-        return await self.repo.list_evaluation_runs_for_user(user.id)
+    async def list_evaluation_runs(self, user: User, **page):
+        return await self.repo.list_evaluation_runs_for_user(user.id, **page)

@@ -59,6 +59,17 @@ jobs:
           python -c "import backend.modules.workforce; print('backend import ok')"
         env:
           PYTHONPATH: .
+      - name: API / UI parity contract
+        run: python scripts/api_ui_parity.py --check
+        env:
+          PYTHONPATH: .
+      - name: RAG retrieval and grounding evaluation gate
+        run: >
+          python -m backend.tools.rag_eval_gate
+          backend/tests/fixtures/rag_eval_golden.json
+          --min-pass-rate 1.0
+        env:
+          PYTHONPATH: .
       - name: Ruff lint (backend production)
         working-directory: backend
         run: >
@@ -112,6 +123,10 @@ jobs:
           backend/tests/test_workflow_runtime.py
           backend/tests/test_task_orchestration_contract.py
           backend/tests/test_phase6_modularization.py
+          backend/tests/test_architecture_boundaries.py
+          backend/tests/test_ai_service_composition.py
+          backend/tests/test_procedural_memory_service.py
+          backend/tests/test_orchestration_router_decomposition.py
           -q
       - name: Backend unit tests
         run: >
@@ -155,6 +170,36 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Backend dependency audit
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+          python -m pip install -e "./backend[dev]"
+          pip-audit
+        env:
+          PYTHONPATH: .
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Frontend production dependency audit
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --prod --audit-level critical
 
   e2e-playwright:
     runs-on: ubuntu-latest
@@ -221,35 +266,6 @@ jobs:
       - name: Playwright E2E (critical flows)
         working-directory: frontend
         run: pnpm exec playwright test --project=chromium
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Backend dependency audit
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install pip-audit
-          python -m pip install -e "./backend[dev]"
-          pip-audit
-        env:
-          PYTHONPATH: .
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Frontend production dependency audit
-        working-directory: frontend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm audit --prod --audit-level critical
 
   container-smoke:
     runs-on: ubuntu-latest

@@ -54,7 +54,9 @@ class GoogleDriveConnectorProvider:
         try:
             await adapter._access_token()
             await db.commit()
-            return ConnectorAuthResult(status=str(installation.status or "active"), installation_id=installation_id)
+            return ConnectorAuthResult(
+                status=str(installation.status or "active"), installation_id=installation_id
+            )
         except GoogleDriveAPIError as exc:
             await db.commit()
             return ConnectorAuthResult(
@@ -96,7 +98,9 @@ class GoogleDriveConnectorProvider:
     ) -> None:
         _ = (db, installation_id, subscription_id)
 
-    async def normalize_event(self, raw_event: dict[str, Any], *, installation_id: str | None = None):
+    async def normalize_event(
+        self, raw_event: dict[str, Any], *, installation_id: str | None = None
+    ):
         _ = (raw_event, installation_id)
         raise ValueError("Google Drive webhooks are not supported yet")
 

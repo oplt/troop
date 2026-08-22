@@ -1,11 +1,14 @@
 import json
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps.auth import get_current_user
 from backend.core.config import settings
+from backend.core.pagination import build_cursor_page, fetch_limit, token_from_created_at_id
+from backend.core.schemas import CursorPageResponse
 from backend.db.session import get_db
 from backend.modules.github.schemas import (
     GithubAppInstallResponse,
@@ -292,17 +295,31 @@ async def refresh_github_issue_link(
     return _github_issue_link(await service.refresh_github_issue_link(current_user, issue_link_id))
 
 
-@router.get("/github/sync-events", response_model=list[GithubSyncEventResponse])
+@router.get(
+    "/github/sync-events",
+    response_model=CursorPageResponse[GithubSyncEventResponse],
+)
 async def list_github_sync_events(
     project_id: str | None = None,
+    limit: int = Query(settings.CURSOR_PAGE_DEFAULT_LIMIT, ge=1, le=settings.CURSOR_PAGE_MAX_LIMIT),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = OrchestrationService(db)
-    return [
-        _github_sync_event(item)
-        for item in await service.list_github_sync_events(current_user, project_id)
-    ]
+    rows = await service.list_github_sync_events(
+        current_user,
+        project_id,
+        limit=fetch_limit(limit),
+        cursor_created_at=cursor_created_at,
+        cursor_id=cursor_id,
+    )
+    page, next_cursor = build_cursor_page(rows, limit, token_from_row=token_from_created_at_id)
+    return CursorPageResponse(
+        items=[_github_sync_event(item) for item in page],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(

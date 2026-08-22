@@ -30,10 +30,15 @@ export const queryKeys = {
     ai: {
         root: ["ai"] as const,
         overview: ["ai", "overview"] as const,
+        datasets: ["ai", "evaluation-datasets"] as const,
         reviews: ["ai", "reviews"] as const,
         evaluationRuns: ["ai", "evaluation-runs"] as const,
         promptVersions: (templateId: string | null) => ["ai", "prompt-versions", templateId] as const,
         datasetCases: (datasetId: string | null) => ["ai", "dataset-cases", datasetId] as const,
+    },
+    rag: {
+        documents: (projectId: string) => ["rag", "project", projectId, "documents"] as const,
+        search: (projectId: string, query: string) => ["rag", "project", projectId, "search", query] as const,
     },
     settings: {
         database: ["settings", "database"] as const,

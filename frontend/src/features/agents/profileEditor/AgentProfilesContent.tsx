@@ -44,7 +44,7 @@ export function AgentProfilesContent() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [form, setForm] = useState<AgentProfileForm>(agentProfileForm(null));
     const [markdown, setMarkdown] = useState(defaultAgentMarkdown());
-    const [activeTab, setActiveTab] = useState<AgentEditorTab>("contract");
+    const [activeTab, setActiveTab] = useState<AgentEditorTab>("profile");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [validation, setValidation] = useState<AgentValidationState | null>(null);
@@ -96,9 +96,9 @@ export function AgentProfilesContent() {
     });
 
     // The selected server profile is the source of truth when switching registry entries.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (agent) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the draft when registry selection changes
             setForm(agentProfileForm(agent));
             setMarkdown(agent.source_markdown || defaultAgentMarkdown());
         }

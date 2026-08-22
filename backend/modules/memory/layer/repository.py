@@ -47,6 +47,15 @@ class MemoryRepository(Protocol):
         filters: MemoryFilters,
     ) -> SemanticMemoryEntry | None: ...
 
+    async def find_current_by_canonical_key(
+        self,
+        owner_id: str,
+        canonical_key: str,
+        *,
+        project_id: str | None,
+        company_id: str | None,
+    ) -> SemanticMemoryEntry | None: ...
+
     async def enqueue_embedding(
         self, owner_id: str, project_id: str | None, entry_id: str
     ) -> None: ...
@@ -67,7 +76,7 @@ def entry_to_record(entry: SemanticMemoryEntry, *, score: float | None = None) -
         task_id=entry.source_task_id,
         session_id=entry.source_run_id or metadata.get("session_id"),
         source=str(metadata.get("source") or entry.provenance_json.get("source") or "semantic"),
-        confidence=metadata.get("confidence"),
+        confidence=metadata.get("confidence", (entry.provenance_json or {}).get("confidence")),
         metadata=metadata,
         score=score,
         created_at=entry.created_at,
@@ -77,6 +86,11 @@ def entry_to_record(entry: SemanticMemoryEntry, *, score: float | None = None) -
         deleted_at=entry.deleted_at,
         retention_policy=entry.retention_policy,
         memory_version=entry.memory_version,
+        canonical_key=getattr(entry, "canonical_key", None),
+        valid_from=getattr(entry, "valid_from", entry.created_at),
+        valid_until=getattr(entry, "valid_until", None),
+        status=getattr(entry, "status", "current"),
+        supersedes_memory_id=getattr(entry, "supersedes_memory_id", None),
         embedding_model=entry.embedding_model,
         embedding_version=entry.embedding_version,
     )
@@ -205,6 +219,29 @@ class SqlMemoryRepository:
             if meta.get("content_hash") == content_hash:
                 return row
         return None
+
+    async def find_current_by_canonical_key(
+        self,
+        owner_id: str,
+        canonical_key: str,
+        *,
+        project_id: str | None,
+        company_id: str | None,
+    ) -> SemanticMemoryEntry | None:
+        stmt = select(SemanticMemoryEntry).where(
+            SemanticMemoryEntry.owner_id == owner_id,
+            SemanticMemoryEntry.canonical_key == canonical_key,
+            SemanticMemoryEntry.status == "current",
+            SemanticMemoryEntry.deleted_at.is_(None),
+        )
+        if project_id is not None:
+            stmt = stmt.where(SemanticMemoryEntry.project_id == project_id)
+        else:
+            stmt = stmt.where(SemanticMemoryEntry.project_id.is_(None))
+        if company_id is not None:
+            stmt = stmt.where(SemanticMemoryEntry.company_id == company_id)
+        result = await self._db.execute(stmt.limit(1))
+        return result.scalars().first()
 
     async def enqueue_embedding(self, owner_id: str, project_id: str | None, entry_id: str) -> None:
         if not project_id:

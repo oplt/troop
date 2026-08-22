@@ -321,7 +321,8 @@ class AiEvaluationRunResponse(BaseModel):
 
 class AiModuleOverviewResponse(BaseModel):
     providers: list[AiProviderDescriptor]
-    prompt_templates: list[AiPromptTemplateResponse]
     recent_runs: list[AiRunResponse]
-    documents: list[AiDocumentResponse]
-    datasets: list[AiEvaluationDatasetResponse]
+    prompt_template_count: int = 0
+    document_count: int = 0
+    pending_review_count: int = 0
+    dataset_count: int = 0

@@ -59,6 +59,7 @@ export function useApprovals({ initialTab = "approvals" }: UseApprovalsOptions =
 
     useEffect(() => {
         const nextTab = parseMainTab(searchParams.get("tab")) ?? initialTab;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror browser history changes into keyboard state
         setMainTabState((current) => (current === nextTab ? current : nextTab));
     }, [searchParams, initialTab]);
 
@@ -129,6 +130,7 @@ export function useApprovals({ initialTab = "approvals" }: UseApprovalsOptions =
     }, [filteredApprovals]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp selection when the server queue shrinks
         setQueueIndex((idx) => (pending.length === 0 ? 0 : Math.min(idx, pending.length - 1)));
     }, [pending.length]);
 

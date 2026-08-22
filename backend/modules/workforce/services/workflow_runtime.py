@@ -321,9 +321,12 @@ class WorkflowRuntimeService:
             )
 
             env_service = WorkflowEnvironmentService(self.db)
-            version, resolved_nodes, resolved_edges, resolved_entry = (
-                await env_service.resolved_graph_for_environment(definition, environment)
-            )
+            (
+                version,
+                resolved_nodes,
+                resolved_edges,
+                resolved_entry,
+            ) = await env_service.resolved_graph_for_environment(definition, environment)
 
         nodes = resolved_nodes
         edges = resolved_edges

@@ -45,13 +45,15 @@ type AgentEditorPanelProps = {
 };
 
 const TAB_INDEX: Record<AgentEditorTab, number> = {
-    contract: 0,
-    instructions: 1,
-    versions: 2,
-    validation: 3,
+    profile: 0,
+    skills: 1,
+    tools: 2,
+    memory: 3,
+    runs: 4,
+    evaluation: 5,
 };
 
-const INDEX_TAB: AgentEditorTab[] = ["contract", "instructions", "versions", "validation"];
+const INDEX_TAB: AgentEditorTab[] = ["profile", "skills", "tools", "memory", "runs", "evaluation"];
 
 export function AgentEditorPanel({
     agent,
@@ -124,22 +126,23 @@ export function AgentEditorPanel({
 
                 <Tabs
                     value={TAB_INDEX[activeTab]}
-                    onChange={(_, value) => onTabChange(INDEX_TAB[value] ?? "contract")}
+                    onChange={(_, value) => onTabChange(INDEX_TAB[value] ?? "profile")}
                     variant="scrollable"
+                    scrollButtons="auto"
                 >
-                    <Tab label="Contract" />
-                    <Tab label="Instructions" />
-                    <Tab label={`Versions (${versions.length})`} />
-                    <Tab label="Validation" />
+                    <Tab label="Profile" />
+                    <Tab label="Skills" />
+                    <Tab label="Tools" />
+                    <Tab label="Memory" />
+                    <Tab label="Runs" />
+                    <Tab label="Evaluation" />
                 </Tabs>
 
-                {activeTab === "contract" && (
+                {activeTab === "profile" && (
                     <FormFieldStack>
                         <Subsection title="Identity">
                             <AgentIdentityForm form={form} onChange={onFormChange} />
                         </Subsection>
-                        <AgentCapabilitiesForm form={form} onChange={onFormChange} />
-                        <AgentToolsSelector form={form} tools={tools} onChange={onFormChange} />
                         <Divider />
                         <Subsection
                             title="Model policy"
@@ -147,20 +150,56 @@ export function AgentEditorPanel({
                         >
                             <AgentModelPolicyForm form={form} onChange={onFormChange} />
                         </Subsection>
-                        <Subsection title="Memory, budget, and output">
-                            <AgentMemoryBudgetForm form={form} onChange={onFormChange} />
+                        <Subsection title="Instructions">
+                            <AgentMarkdownEditor markdown={markdown} onChange={onMarkdownChange} />
                         </Subsection>
                     </FormFieldStack>
                 )}
 
-                {activeTab === "instructions" && (
-                    <AgentMarkdownEditor markdown={markdown} onChange={onMarkdownChange} />
+                {activeTab === "skills" && (
+                    <AgentCapabilitiesForm form={form} onChange={onFormChange} />
                 )}
 
-                {activeTab === "versions" && <AgentVersionHistory versions={versions} />}
+                {activeTab === "tools" && (
+                    <AgentToolsSelector form={form} tools={tools} onChange={onFormChange} />
+                )}
 
-                {activeTab === "validation" && (
-                    <AgentValidationPanel validation={validation} dryRun={dryRun} />
+                {activeTab === "memory" && (
+                    <AgentMemoryBudgetForm form={form} onChange={onFormChange} />
+                )}
+
+                {activeTab === "runs" && (
+                    <Stack spacing={1.5}>
+                        <Typography color="text.secondary">
+                            Exercise this agent with a bounded dry run before assigning production work.
+                        </Typography>
+                        <Button
+                            variant="outlined"
+                            startIcon={<PlayArrow />}
+                            onClick={onDryRun}
+                            disabled={isRunningDryRun || !agent}
+                            sx={{ alignSelf: "flex-start" }}
+                        >
+                            {isRunningDryRun ? "Running…" : "Start dry run"}
+                        </Button>
+                        {dryRun ? (
+                            <Paper variant="outlined" sx={{ p: 2, whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 13 }}>
+                                {dryRun}
+                            </Paper>
+                        ) : null}
+                    </Stack>
+                )}
+
+                {activeTab === "evaluation" && (
+                    <Stack spacing={2}>
+                        <AgentValidationPanel validation={validation} dryRun="" />
+                        <Button variant="outlined" onClick={onValidate} disabled={isValidating} sx={{ alignSelf: "flex-start" }}>
+                            {isValidating ? "Validating…" : "Run contract evaluation"}
+                        </Button>
+                        <Divider />
+                        <Typography variant="subtitle2">Version evidence ({versions.length})</Typography>
+                        <AgentVersionHistory versions={versions} />
+                    </Stack>
                 )}
 
                 <Divider />

@@ -129,13 +129,30 @@ def _commit_check_for(
 def _reversibility_for(slug: str, side_effect: SideEffect) -> Reversibility:
     if side_effect == SideEffect.READ:
         return Reversibility.FULL
-    if slug in {"gmail.create_draft", "gmail.update_draft", "outlook.create_draft", "outlook.update_draft", "fs_write"}:
+    if slug in {
+        "gmail.create_draft",
+        "gmail.update_draft",
+        "outlook.create_draft",
+        "outlook.update_draft",
+        "fs_write",
+    }:
         return Reversibility.PARTIAL
     return Reversibility.NONE
 
 
 def _data_sensitivity_for(slug: str) -> DataSensitivity:
-    if slug.startswith(("gmail.", "outlook.", "google_calendar.", "microsoft_calendar.", "jira.", "linear.", "hubspot.", "salesforce.")):
+    if slug.startswith(
+        (
+            "gmail.",
+            "outlook.",
+            "google_calendar.",
+            "microsoft_calendar.",
+            "jira.",
+            "linear.",
+            "hubspot.",
+            "salesforce.",
+        )
+    ):
         return DataSensitivity.CONFIDENTIAL
     if slug.startswith("telegram."):
         return DataSensitivity.CONFIDENTIAL

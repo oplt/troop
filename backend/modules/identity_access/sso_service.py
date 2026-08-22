@@ -72,7 +72,9 @@ class SsoService:
             raise HTTPException(status_code=422, detail="identity provider missing client secret")
         raw = decrypt_secret(provider.secrets_ref)
         if not raw:
-            raise HTTPException(status_code=422, detail="identity provider client secret unavailable")
+            raise HTTPException(
+                status_code=422, detail="identity provider client secret unavailable"
+            )
         return raw
 
     async def _discover(self, issuer: str) -> dict[str, Any]:
@@ -178,7 +180,9 @@ class SsoService:
 
         allowlist = [str(item).lower() for item in (provider.domain_allowlist_json or [])]
         if allowlist and _email_domain(email) not in allowlist:
-            raise HTTPException(status_code=403, detail="email domain not allowed for this identity provider")
+            raise HTTPException(
+                status_code=403, detail="email domain not allowed for this identity provider"
+            )
 
         user = await self._resolve_user(provider, subject, email, name)
         external = await self._touch_external_identity(provider, subject, user, email, profile)

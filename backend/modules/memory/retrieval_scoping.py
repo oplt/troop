@@ -106,10 +106,6 @@ async def staged_semantic_vector_retrieval(
     increment_memory_metric(
         "retrieval_vec_semantic_task_hit" if n else "retrieval_vec_semantic_task_miss"
     )
-    if len(out) >= min_hits:
-        increment_memory_metric("retrieval_scope_early_exit_semantic")
-        return out, meta
-
     rows = await repo.search_semantic_memory_by_vector(
         owner_id, project_id, query_vec, limit=per_stage_limit
     )
@@ -119,10 +115,8 @@ async def staged_semantic_vector_retrieval(
     increment_memory_metric(
         "retrieval_vec_semantic_project_hit" if n else "retrieval_vec_semantic_project_miss"
     )
-    if len(out) >= min_hits:
-        increment_memory_metric("retrieval_scope_early_exit_semantic")
-        return out, meta
-
+    # Always inspect company memory before an early exit: authoritative policy
+    # must be able to override a task/project observation with the same key.
     if company_id:
         rows = await repo.search_semantic_memory_by_vector_company(
             owner_id, company_id, query_vec, limit=per_stage_limit

@@ -7,7 +7,7 @@ import { ConfirmDestructiveDialog } from "../../components/ui/ConfirmDestructive
 import { PageHeader } from "../../components/ui/PageHeader";
 import { PageShell } from "../../components/ui/PageShell";
 import { CompaniesPanel } from "../../pages/CompaniesPage";
-import { GithubSyncPanel } from "../../pages/GithubSyncPage";
+import { GithubSyncPanel } from "./github/GithubSyncPanel";
 import { ProviderSettingsPanel } from "../../pages/ProviderSettingsPanel";
 import { ProfileContent } from "../../pages/ProfilePage";
 import type { DatabaseSetting } from "../../api/settings";

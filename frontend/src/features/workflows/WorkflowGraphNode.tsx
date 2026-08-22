@@ -86,7 +86,3 @@ export function WorkflowGraphNode({ data, selected }: NodeProps<WorkflowCanvasNo
         </Paper>
     );
 }
-
-export const workflowNodeTypes = {
-    workflow: WorkflowGraphNode,
-};

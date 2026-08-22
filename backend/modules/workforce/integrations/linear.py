@@ -28,7 +28,11 @@ from backend.modules.orchestration.execution.hitl.commit_authorization import (
 )
 from backend.modules.orchestration.security import encrypt_secret
 from backend.modules.workforce.integrations.issue_tracking import linear_issue_arguments_hash
-from backend.modules.workforce.models import ConnectorDefinition, ConnectorInstallation, ConnectorOAuthState
+from backend.modules.workforce.models import (
+    ConnectorDefinition,
+    ConnectorInstallation,
+    ConnectorOAuthState,
+)
 from backend.modules.workforce.services.connector_service import resolve_installation_config
 
 LINEAR_AUTHORIZE_URL = "https://linear.app/oauth/authorize"
@@ -69,7 +73,9 @@ class LinearOAuthService:
         redirect_after: str | None = None,
     ) -> dict[str, Any]:
         if not settings.LINEAR_CLIENT_ID or not settings.LINEAR_OAUTH_REDIRECT_URI:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Linear OAuth is not configured")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Linear OAuth is not configured"
+            )
         requested = list(dict.fromkeys(scopes or LINEAR_SCOPES))
         state = secrets.token_urlsafe(32)
         row = ConnectorOAuthState(
@@ -99,7 +105,10 @@ class LinearOAuthService:
         state_hash = _hash_secret(state)
         result = await self.db.execute(
             select(ConnectorOAuthState)
-            .where(ConnectorOAuthState.provider == "linear", ConnectorOAuthState.state_hash == state_hash)
+            .where(
+                ConnectorOAuthState.provider == "linear",
+                ConnectorOAuthState.state_hash == state_hash,
+            )
             .with_for_update()
         )
         oauth_state = result.scalar_one_or_none()
@@ -181,10 +190,15 @@ class LinearAdapter:
         self.installation = installation
 
     @classmethod
-    async def for_owner(cls, db: AsyncSession, *, owner_id: str, installation_id: str) -> LinearAdapter:
+    async def for_owner(
+        cls, db: AsyncSession, *, owner_id: str, installation_id: str
+    ) -> LinearAdapter:
         result = await db.execute(
             select(ConnectorInstallation, ConnectorDefinition)
-            .join(ConnectorDefinition, ConnectorDefinition.id == ConnectorInstallation.connector_definition_id)
+            .join(
+                ConnectorDefinition,
+                ConnectorDefinition.id == ConnectorInstallation.connector_definition_id,
+            )
             .where(
                 ConnectorInstallation.id == installation_id,
                 ConnectorInstallation.owner_id == owner_id,
@@ -307,7 +321,9 @@ class LinearAdapter:
                         "teamId": str(arguments["team_id"]),
                         "title": str(arguments.get("title") or arguments.get("summary") or ""),
                         "description": str(arguments.get("description") or ""),
-                        "priority": int(arguments["priority"]) if str(arguments.get("priority") or "").isdigit() else None,
+                        "priority": int(arguments["priority"])
+                        if str(arguments.get("priority") or "").isdigit()
+                        else None,
                     }
                 },
             )

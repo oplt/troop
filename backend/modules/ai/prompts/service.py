@@ -5,11 +5,19 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.ai.repository import AiRepository
 from backend.modules.identity_access.models import User
 
 
-class AiPromptsMixin:
+class PromptService:
+    """Prompt/version domain service with explicit persistence dependencies."""
+
+    def __init__(self, db: AsyncSession, repo: AiRepository) -> None:
+        self.db = db
+        self.repo = repo
+
     async def list_prompt_templates(self, user: User):
         return await self.repo.list_prompt_templates_for_user(user.id)
 
@@ -108,3 +116,15 @@ class AiPromptsMixin:
         if not template:
             raise HTTPException(status_code=404, detail="Prompt template not found")
         return await self.repo.list_prompt_versions(template.id)
+
+
+class AiPromptsMixin(PromptService):
+    """Deprecated inheritance adapter for pre-composition callers.
+
+    Requires:
+      self.db: AsyncSession
+      self.repo: AiRepository
+
+    Calls:
+      No sibling mixin methods.
+    """

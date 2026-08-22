@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from backend.modules.workforce.email_approval_template import (
-    EMAIL_APPROVAL_FLAGSHIP_SLUG,
     flagship_email_approval_workflow,
 )
 

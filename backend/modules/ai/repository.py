@@ -1,7 +1,8 @@
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.pagination import apply_desc_time_id_cursor
 from backend.modules.ai.models import (
     AiDocument,
     AiDocumentChunk,
@@ -29,6 +30,44 @@ class AiRepository:
             .order_by(AiPromptTemplate.updated_at.desc())
         )
         return list(result.scalars().all())
+
+    async def get_overview_counts_for_user(self, user_id: str) -> dict[str, int]:
+        """Fetch all AI Studio summary counts in one database round trip."""
+        prompt_count = (
+            select(func.count(AiPromptTemplate.id))
+            .where(AiPromptTemplate.user_id == user_id)
+            .scalar_subquery()
+        )
+        document_count = (
+            select(func.count(AiDocument.id)).where(AiDocument.user_id == user_id).scalar_subquery()
+        )
+        dataset_count = (
+            select(func.count(AiEvaluationDataset.id))
+            .where(AiEvaluationDataset.user_id == user_id)
+            .scalar_subquery()
+        )
+        pending_review_count = (
+            select(func.count(AiReviewItem.id))
+            .where(
+                AiReviewItem.status == "pending",
+                or_(
+                    AiReviewItem.requested_by_user_id == user_id,
+                    AiReviewItem.assigned_to_user_id == user_id,
+                    AiReviewItem.reviewed_by_user_id == user_id,
+                ),
+            )
+            .scalar_subquery()
+        )
+        result = await self.db.execute(
+            select(
+                prompt_count.label("prompt_template_count"),
+                document_count.label("document_count"),
+                dataset_count.label("dataset_count"),
+                pending_review_count.label("pending_review_count"),
+            )
+        )
+        row = result.one()
+        return {key: int(value or 0) for key, value in row._mapping.items()}
 
     async def get_prompt_template_for_user(
         self, user_id: str, template_id: str
@@ -78,12 +117,24 @@ class AiRepository:
         await self.db.flush()
         return version
 
-    async def list_documents_for_user(self, user_id: str) -> list[AiDocument]:
-        result = await self.db.execute(
-            select(AiDocument)
-            .where(AiDocument.user_id == user_id)
-            .order_by(AiDocument.updated_at.desc())
-        )
+    async def list_documents_for_user(
+        self,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ) -> list[AiDocument]:
+        stmt = select(AiDocument).where(AiDocument.user_id == user_id)
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            AiDocument,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(AiDocument.created_at.desc(), AiDocument.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_document_for_user(self, user_id: str, document_id: str) -> AiDocument | None:
@@ -199,13 +250,22 @@ class AiRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_runs_for_user(self, user_id: str, limit: int = 50) -> list[AiRun]:
-        result = await self.db.execute(
-            select(AiRun)
-            .where(AiRun.user_id == user_id)
-            .order_by(AiRun.created_at.desc())
-            .limit(limit)
-        )
+    async def list_runs_for_user(
+        self,
+        user_id: str,
+        limit: int = 50,
+        *,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ) -> list[AiRun]:
+        stmt = select(AiRun).where(AiRun.user_id == user_id)
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            AiRun,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(AiRun.created_at.desc(), AiRun.id.desc())
+        result = await self.db.execute(stmt.limit(limit))
         return list(result.scalars().all())
 
     async def list_reviews_for_user(self, user_id: str) -> list[AiReviewItem]:
@@ -301,12 +361,24 @@ class AiRepository:
         await self.db.flush()
         return item
 
-    async def list_evaluation_runs_for_user(self, user_id: str) -> list[AiEvaluationRun]:
-        result = await self.db.execute(
-            select(AiEvaluationRun)
-            .where(AiEvaluationRun.user_id == user_id)
-            .order_by(AiEvaluationRun.created_at.desc())
-        )
+    async def list_evaluation_runs_for_user(
+        self,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ) -> list[AiEvaluationRun]:
+        stmt = select(AiEvaluationRun).where(AiEvaluationRun.user_id == user_id)
+        stmt = apply_desc_time_id_cursor(
+            stmt,
+            AiEvaluationRun,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        ).order_by(AiEvaluationRun.created_at.desc(), AiEvaluationRun.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_evaluation_run_for_user(
@@ -320,9 +392,7 @@ class AiRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_evaluation_run_items(
-        self, evaluation_run_id: str
-    ) -> list[AiEvaluationRunItem]:
+    async def list_evaluation_run_items(self, evaluation_run_id: str) -> list[AiEvaluationRunItem]:
         result = await self.db.execute(
             select(AiEvaluationRunItem)
             .where(AiEvaluationRunItem.evaluation_run_id == evaluation_run_id)

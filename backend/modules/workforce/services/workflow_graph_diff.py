@@ -13,9 +13,7 @@ from backend.modules.workforce.services.workflow_graph import (
 
 def _edge_key(edge: dict[str, Any]) -> tuple[str, str, str]:
     extra = {
-        key: edge[key]
-        for key in sorted(edge)
-        if key not in {"from", "to", "source", "target"}
+        key: edge[key] for key in sorted(edge) if key not in {"from", "to", "source", "target"}
     }
     return (
         str(edge.get("from") or edge.get("source") or ""),

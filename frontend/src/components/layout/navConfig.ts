@@ -42,6 +42,8 @@ export type NavItemDef = {
     icon: NavIconId;
     /** Personas that show this item in primary navigation (others land under Advanced). */
     primaryPersonas: NavPersona[];
+    /** Optional compact label used only in a persona's primary sidebar. */
+    personaLabels?: Partial<Record<NavPersona, string>>;
     adminOnly?: boolean;
     /** When true, only include if the AI module pack is enabled. */
     requiresAiModule?: boolean;
@@ -66,7 +68,7 @@ const ALL_PERSONAS: NavPersona[] = ["operator", "builder", "admin"];
 export const NAV_ITEM_DEFS: NavItemDef[] = [
     {
         id: "dashboard",
-        label: "Dashboard",
+        label: "Home",
         path: "/dashboard",
         group: "work",
         icon: "dashboard",
@@ -79,6 +81,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         group: "work",
         icon: "projects",
         primaryPersonas: ["builder", "admin"],
+        personaLabels: { admin: "Work" },
     },
     {
         id: "my-tasks",
@@ -94,7 +97,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/approvals",
         group: "work",
         icon: "approvals",
-        primaryPersonas: ["operator", "admin"],
+        primaryPersonas: ["operator"],
     },
     {
         id: "activity",
@@ -102,7 +105,8 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/activity",
         group: "work",
         icon: "activity",
-        primaryPersonas: ["operator", "admin"],
+        primaryPersonas: ["admin"],
+        personaLabels: { admin: "Observe" },
     },
     {
         id: "agents",
@@ -118,7 +122,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/skills",
         group: "build",
         icon: "skills",
-        primaryPersonas: ["builder"],
+        primaryPersonas: [],
     },
     {
         id: "marketplace",
@@ -150,7 +154,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/workflow-templates",
         group: "build",
         icon: "workflowTemplates",
-        primaryPersonas: ["builder"],
+        primaryPersonas: [],
     },
     {
         id: "integrations",
@@ -158,7 +162,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/integrations",
         group: "build",
         icon: "integrations",
-        primaryPersonas: ["builder", "admin"],
+        primaryPersonas: ["builder"],
     },
     {
         id: "portfolio",
@@ -166,7 +170,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/portfolio",
         group: "observe",
         icon: "portfolio",
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "cost",
@@ -174,7 +178,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/analytics/cost",
         group: "observe",
         icon: "cost",
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "execution",
@@ -182,7 +186,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/analytics/execution",
         group: "observe",
         icon: "execution",
-        primaryPersonas: ["builder", "admin"],
+        primaryPersonas: [],
     },
     {
         id: "brainstorms",
@@ -207,7 +211,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/departments",
         group: "org",
         icon: "departments",
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "companies",
@@ -216,6 +220,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         group: "org",
         icon: "companies",
         primaryPersonas: ["admin"],
+        personaLabels: { admin: "Organization" },
     },
     {
         id: "people",
@@ -224,7 +229,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         group: "org",
         icon: "people",
         adminOnly: true,
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "model-settings",
@@ -232,7 +237,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/model-settings",
         group: "org",
         icon: "modelSettings",
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "policies",
@@ -241,7 +246,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         group: "org",
         icon: "policies",
         adminOnly: true,
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "audit",
@@ -249,7 +254,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/audit",
         group: "admin",
         icon: "audit",
-        primaryPersonas: ["admin"],
+        primaryPersonas: [],
     },
     {
         id: "settings",

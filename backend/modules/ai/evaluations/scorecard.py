@@ -16,9 +16,7 @@ def build_scorecard(
 ) -> dict[str, Any]:
     candidate_pass_rate = float(metrics.get("task_success_rate") or 0.0)
     baseline_pass_rate = (
-        float(baseline_metrics.get("task_success_rate"))
-        if baseline_metrics is not None
-        else None
+        float(baseline_metrics.get("task_success_rate")) if baseline_metrics is not None else None
     )
     delta_pass_rate = (
         round(candidate_pass_rate - baseline_pass_rate, 4)

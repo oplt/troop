@@ -245,9 +245,7 @@ def normalize_outlook_message(
         "html_body": html_body,
         "received_at": str(received_at) if received_at else None,
         "headers": {
-            key: message.get(key)
-            for key in ("internetMessageId", "inReplyTo")
-            if message.get(key)
+            key: message.get(key) for key in ("internetMessageId", "inReplyTo") if message.get(key)
         },
         "attachments": attachments,
     }

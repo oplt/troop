@@ -35,8 +35,14 @@ class KnowledgeService:
     async def upload_document(self, user: User, project_id: str, **kwargs):
         return await self._memory.upload_document(user, project_id, **kwargs)
 
-    async def list_documents(self, user: User, project_id: str, task_id: str | None = None):
-        return await self._memory.list_documents(user, project_id, task_id=task_id)
+    async def list_documents(
+        self,
+        user: User,
+        project_id: str,
+        task_id: str | None = None,
+        **page,
+    ):
+        return await self._memory.list_documents(user, project_id, task_id=task_id, **page)
 
     async def delete_document(self, user: User, project_id: str, document_id: str) -> None:
         return await self._memory.delete_document(user, project_id, document_id)

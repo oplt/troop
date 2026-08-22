@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol
 
 from sqlalchemy import tuple_
 from sqlalchemy.sql import Select
-
-T = TypeVar("T")
 
 
 class _HasCreatedAtId(Protocol):
@@ -35,7 +33,7 @@ def fetch_limit(limit: int) -> int:
     return max(1, limit) + 1
 
 
-def paginate_rows(
+def paginate_rows[T](
     rows: list[T],
     limit: int,
     *,
@@ -67,9 +65,7 @@ def apply_desc_time_id_cursor(
     cursor_id: str | None,
 ) -> Select[Any]:
     if cursor_created_at is not None and cursor_id:
-        return stmt.where(
-            tuple_(model.created_at, model.id) < tuple_(cursor_created_at, cursor_id)
-        )
+        return stmt.where(tuple_(model.created_at, model.id) < tuple_(cursor_created_at, cursor_id))
     if cursor_created_at is not None:
         return stmt.where(model.created_at < cursor_created_at)
     return stmt
@@ -83,9 +79,7 @@ def apply_asc_time_id_cursor(
     cursor_id: str | None,
 ) -> Select[Any]:
     if cursor_created_at is not None and cursor_id:
-        return stmt.where(
-            tuple_(model.created_at, model.id) > tuple_(cursor_created_at, cursor_id)
-        )
+        return stmt.where(tuple_(model.created_at, model.id) > tuple_(cursor_created_at, cursor_id))
     if cursor_created_at is not None:
         return stmt.where(model.created_at > cursor_created_at)
     return stmt
@@ -130,9 +124,7 @@ def simulate_desc_time_id_pages(
         remaining = entities
         if cursor_created_at is not None and cursor_id:
             remaining = [
-                row
-                for row in entities
-                if (row.created_at, row.id) < (cursor_created_at, cursor_id)
+                row for row in entities if (row.created_at, row.id) < (cursor_created_at, cursor_id)
             ]
         elif cursor_created_at is not None:
             remaining = [row for row in entities if row.created_at < cursor_created_at]
@@ -153,7 +145,7 @@ def simulate_desc_time_id_pages(
     return pages
 
 
-def build_cursor_page(
+def build_cursor_page[T](
     rows: list[T],
     limit: int,
     *,

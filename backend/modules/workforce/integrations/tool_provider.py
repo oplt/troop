@@ -18,14 +18,17 @@ from backend.modules.workforce.integrations.google_calendar import (
     GoogleCalendarAdapter,
     GoogleCalendarAPIError,
 )
-from backend.modules.workforce.integrations.google_drive import GoogleDriveAdapter, GoogleDriveAPIError
-from backend.modules.workforce.integrations.microsoft_calendar import (
-    MicrosoftCalendarAdapter,
-    MicrosoftCalendarAPIError,
+from backend.modules.workforce.integrations.google_drive import (
+    GoogleDriveAdapter,
+    GoogleDriveAPIError,
 )
 from backend.modules.workforce.integrations.hubspot import HubSpotAdapter, HubSpotAPIError
 from backend.modules.workforce.integrations.jira import JiraAdapter, JiraAPIError
 from backend.modules.workforce.integrations.linear import LinearAdapter, LinearAPIError
+from backend.modules.workforce.integrations.microsoft_calendar import (
+    MicrosoftCalendarAdapter,
+    MicrosoftCalendarAPIError,
+)
 from backend.modules.workforce.integrations.microsoft_drive import (
     MicrosoftDriveAdapter,
     MicrosoftDriveAPIError,

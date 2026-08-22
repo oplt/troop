@@ -118,13 +118,13 @@ def test_delete_skill_pack_returns_410():
 
 def test_webhook_secret_encrypted_at_rest():
     from backend.modules.orchestration.security import decrypt_secret, encrypt_secret
-    from backend.modules.platform.service import PlatformService
+    from backend.modules.platform.webhooks.signing import webhook_signing_secret
 
     raw = "whsec-test-signing-key"
     stored = encrypt_secret(raw)
     assert stored != raw
-    assert PlatformService._webhook_signing_secret(stored) == raw
-    assert PlatformService._webhook_signing_secret(raw) == raw
+    assert webhook_signing_secret(stored) == raw
+    assert webhook_signing_secret(raw) == raw
 
 
 def test_compatibility_module_deleted():

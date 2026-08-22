@@ -31,7 +31,7 @@ vi.mock("../features/settings/database/DatabaseSettingsPanel", () => ({
 vi.mock("../pages/AdminPlatformPage", () => ({ default: () => <div>Platform panel</div> }));
 vi.mock("../pages/AdminUsersPage", () => ({ default: () => <div>Users panel</div> }));
 vi.mock("../pages/CompaniesPage", () => ({ CompaniesPanel: () => <div>Companies panel</div> }));
-vi.mock("../pages/GithubSyncPage", () => ({ GithubSyncPanel: () => <div>GitHub panel</div> }));
+vi.mock("../features/settings/github/GithubSyncPanel", () => ({ GithubSyncPanel: () => <div>GitHub panel</div> }));
 vi.mock("../pages/ProviderSettingsPanel", () => ({ ProviderSettingsPanel: () => <div>Providers panel</div> }));
 vi.mock("../pages/ProfilePage", () => ({ ProfileContent: () => <div>Profile panel</div> }));
 

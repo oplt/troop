@@ -21,7 +21,8 @@ export function useDocumentMutations() {
         mutationFn: createAiDocument,
         onSuccess: async (result) => {
             setTextDocumentForm({ title: "", description: "", content: "", content_type: "text/plain" });
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "documents"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({
                 message: result.queued ? "Document queued for indexing." : "Document ingested.",
                 severity: "success",
@@ -34,7 +35,8 @@ export function useDocumentMutations() {
             uploadAiDocument(file, description),
         onSuccess: async (result) => {
             setUploadDescription("");
-            await queryClient.invalidateQueries({ queryKey: ["ai"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "documents"] });
+            await queryClient.invalidateQueries({ queryKey: ["ai", "overview"] });
             showToast({
                 message: result.queued
                     ? "Document uploaded and queued for indexing."

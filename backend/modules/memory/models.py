@@ -185,6 +185,19 @@ class SemanticMemoryEntry(Base):
     )
     retention_policy: Mapped[str] = mapped_column(String(64), default="default")
     memory_version: Mapped[int] = mapped_column(Integer, default=1)
+    canonical_key: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    valid_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    valid_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="current", index=True)
+    supersedes_memory_id: Mapped[str | None] = mapped_column(
+        ForeignKey("semantic_memory_entries.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     embedding_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_vector: Mapped[list[float] | None] = mapped_column(

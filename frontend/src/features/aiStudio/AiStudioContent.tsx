@@ -12,6 +12,7 @@ import { AiStudioOverview } from "./AiStudioOverview";
 import { AiSectionPanel, AiStudioTabs } from "./AiStudioTabs";
 import { DatasetsPanel } from "./evaluations/DatasetsPanel";
 import { DocumentsPanel } from "./documents/DocumentsPanel";
+import { RetrievalInspectorPanel } from "./documents/RetrievalInspectorPanel";
 import { parseVariableDefinitions } from "./formatUtils";
 import { parseJsonObject } from "./formUtils";
 import { PlaygroundPanel } from "./playground/PlaygroundPanel";
@@ -42,10 +43,10 @@ export function AiStudioContent({ overview }: AiStudioContentProps) {
             />
 
             <AiStudioOverview
-                promptTemplateCount={studio.promptTemplates.length}
-                documentCount={studio.documents.length}
-                pendingReviewCount={studio.reviews.filter((item) => item.status === "pending").length}
-                datasetCount={studio.datasets.length}
+                promptTemplateCount={studio.counts.promptTemplates}
+                documentCount={studio.counts.documents}
+                pendingReviewCount={studio.counts.pendingReviews}
+                datasetCount={studio.counts.datasets}
             />
 
             <AiStudioTabs activeSection={studio.activeSection} onSectionChange={studio.setActiveSection}>
@@ -177,6 +178,10 @@ export function AiStudioContent({ overview }: AiStudioContentProps) {
                                 })
                             }
                         />
+                    </AiSectionPanel>
+
+                    <AiSectionPanel activeSection={studio.activeSection} value="retrieval">
+                        <RetrievalInspectorPanel documents={studio.documents} />
                     </AiSectionPanel>
 
                     <AiSectionPanel activeSection={studio.activeSection} value="reviews">

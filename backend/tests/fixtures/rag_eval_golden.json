@@ -1,67 +1,4393 @@
 {
+  "version": 2,
+  "minimum_cases_per_category": 20,
+  "categories": [
+    "easy",
+    "lexical",
+    "semantic",
+    "cross_scope",
+    "security"
+  ],
   "cases": [
     {
-      "query": "JWT middleware auth",
-      "expected_chunk_ids": ["golden-auth-middleware"],
-      "negative_chunk_ids": ["noise-footer"],
+      "id": "easy-01",
+      "category": "easy",
+      "query": "What is the documented project fact 01?",
+      "expected_chunk_ids": [
+        "easy-01"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-01"
+      ],
       "matches": [
         {
-          "chunk_id": "golden-auth-middleware",
-          "document_id": "doc-auth",
-          "title": "auth.md",
-          "content": "JWT middleware validates bearer tokens on every API request.",
+          "chunk_id": "easy-01",
+          "document_id": "doc-easy-01",
+          "title": "easy.md",
+          "content": "Project fact 01 is explicitly documented as active.",
           "chunk_index": 0,
-          "score": 0.92
+          "score": 0.949,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-1"
+          }
         }
       ],
       "answer": {
-        "query": "JWT middleware auth",
-        "answer": "Auth uses JWT middleware [source:golden-auth-middleware].",
+        "query": "What is the documented project fact 01?",
+        "answer": "Supported answer [source:easy-01].",
         "grounded": true,
         "context_found": true,
         "citations": [
           {
             "source_index": 1,
-            "chunk_id": "golden-auth-middleware",
-            "document_id": "doc-auth",
-            "title": "auth.md",
+            "chunk_id": "easy-01",
+            "document_id": "doc-easy-01",
+            "title": "easy.md",
             "chunk_index": 0,
-            "score": 0.92,
-            "excerpt": "JWT middleware validates bearer tokens."
+            "score": 0.949,
+            "excerpt": "Grounding evidence."
           }
         ]
-      }
+      },
+      "latency_ms": 81,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
     },
     {
-      "query": "CSRF cookie protection",
-      "expected_chunk_ids": ["golden-csrf-cookie"],
+      "id": "easy-02",
+      "category": "easy",
+      "query": "What is the documented project fact 02?",
+      "expected_chunk_ids": [
+        "easy-02"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-02"
+      ],
       "matches": [
         {
-          "chunk_id": "golden-csrf-cookie",
-          "document_id": "doc-auth",
-          "title": "csrf.md",
-          "content": "Mutating routes require CSRF token validation for cookie-authenticated requests.",
+          "chunk_id": "easy-02",
+          "document_id": "doc-easy-02",
+          "title": "easy.md",
+          "content": "Project fact 02 is explicitly documented as active.",
           "chunk_index": 1,
-          "score": 0.89
+          "score": 0.948,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-1"
+          }
         }
       ],
       "answer": {
-        "query": "CSRF cookie protection",
-        "answer": "Mutating requests validate CSRF tokens [source:golden-csrf-cookie].",
+        "query": "What is the documented project fact 02?",
+        "answer": "Supported answer [source:easy-02].",
         "grounded": true,
         "context_found": true,
         "citations": [
           {
             "source_index": 1,
-            "chunk_id": "golden-csrf-cookie",
-            "document_id": "doc-auth",
-            "title": "csrf.md",
+            "chunk_id": "easy-02",
+            "document_id": "doc-easy-02",
+            "title": "easy.md",
             "chunk_index": 1,
-            "score": 0.89,
-            "excerpt": "Mutating routes require CSRF token validation."
+            "score": 0.948,
+            "excerpt": "Grounding evidence."
           }
         ]
-      }
+      },
+      "latency_ms": 82,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-03",
+      "category": "easy",
+      "query": "What is the documented project fact 03?",
+      "expected_chunk_ids": [
+        "easy-03"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-03"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-03",
+          "document_id": "doc-easy-03",
+          "title": "easy.md",
+          "content": "Project fact 03 is explicitly documented as active.",
+          "chunk_index": 2,
+          "score": 0.947,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 03?",
+        "answer": "Supported answer [source:easy-03].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-03",
+            "document_id": "doc-easy-03",
+            "title": "easy.md",
+            "chunk_index": 2,
+            "score": 0.947,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 83,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-04",
+      "category": "easy",
+      "query": "What is the documented project fact 04?",
+      "expected_chunk_ids": [
+        "easy-04"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-04"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-04",
+          "document_id": "doc-easy-04",
+          "title": "easy.md",
+          "content": "Project fact 04 is explicitly documented as active.",
+          "chunk_index": 3,
+          "score": 0.946,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 04?",
+        "answer": "Supported answer [source:easy-04].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-04",
+            "document_id": "doc-easy-04",
+            "title": "easy.md",
+            "chunk_index": 3,
+            "score": 0.946,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 84,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-05",
+      "category": "easy",
+      "query": "What is the documented project fact 05?",
+      "expected_chunk_ids": [
+        "easy-05"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-05"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-05",
+          "document_id": "doc-easy-05",
+          "title": "easy.md",
+          "content": "Project fact 05 is explicitly documented as active.",
+          "chunk_index": 4,
+          "score": 0.945,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 05?",
+        "answer": "Supported answer [source:easy-05].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-05",
+            "document_id": "doc-easy-05",
+            "title": "easy.md",
+            "chunk_index": 4,
+            "score": 0.945,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 85,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-06",
+      "category": "easy",
+      "query": "What is the documented project fact 06?",
+      "expected_chunk_ids": [
+        "easy-06"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-06"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-06",
+          "document_id": "doc-easy-06",
+          "title": "easy.md",
+          "content": "Project fact 06 is explicitly documented as active.",
+          "chunk_index": 5,
+          "score": 0.944,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 06?",
+        "answer": "Supported answer [source:easy-06].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-06",
+            "document_id": "doc-easy-06",
+            "title": "easy.md",
+            "chunk_index": 5,
+            "score": 0.944,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 86,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-07",
+      "category": "easy",
+      "query": "What is the documented project fact 07?",
+      "expected_chunk_ids": [
+        "easy-07"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-07"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-07",
+          "document_id": "doc-easy-07",
+          "title": "easy.md",
+          "content": "Project fact 07 is explicitly documented as active.",
+          "chunk_index": 6,
+          "score": 0.943,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 07?",
+        "answer": "Supported answer [source:easy-07].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-07",
+            "document_id": "doc-easy-07",
+            "title": "easy.md",
+            "chunk_index": 6,
+            "score": 0.943,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 87,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-08",
+      "category": "easy",
+      "query": "What is the documented project fact 08?",
+      "expected_chunk_ids": [
+        "easy-08"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-08"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-08",
+          "document_id": "doc-easy-08",
+          "title": "easy.md",
+          "content": "Project fact 08 is explicitly documented as active.",
+          "chunk_index": 7,
+          "score": 0.942,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 08?",
+        "answer": "Supported answer [source:easy-08].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-08",
+            "document_id": "doc-easy-08",
+            "title": "easy.md",
+            "chunk_index": 7,
+            "score": 0.942,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 88,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-09",
+      "category": "easy",
+      "query": "What is the documented project fact 09?",
+      "expected_chunk_ids": [
+        "easy-09"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-09"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-09",
+          "document_id": "doc-easy-09",
+          "title": "easy.md",
+          "content": "Project fact 09 is explicitly documented as active.",
+          "chunk_index": 8,
+          "score": 0.941,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 09?",
+        "answer": "Supported answer [source:easy-09].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-09",
+            "document_id": "doc-easy-09",
+            "title": "easy.md",
+            "chunk_index": 8,
+            "score": 0.941,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 89,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-10",
+      "category": "easy",
+      "query": "What is the documented project fact 10?",
+      "expected_chunk_ids": [
+        "easy-10"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-10"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-10",
+          "document_id": "doc-easy-10",
+          "title": "easy.md",
+          "content": "Project fact 10 is explicitly documented as active.",
+          "chunk_index": 9,
+          "score": 0.94,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 10?",
+        "answer": "Supported answer [source:easy-10].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-10",
+            "document_id": "doc-easy-10",
+            "title": "easy.md",
+            "chunk_index": 9,
+            "score": 0.94,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 90,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-11",
+      "category": "easy",
+      "query": "What is the documented project fact 11?",
+      "expected_chunk_ids": [
+        "easy-11"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-11"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-11",
+          "document_id": "doc-easy-11",
+          "title": "easy.md",
+          "content": "Project fact 11 is explicitly documented as active.",
+          "chunk_index": 10,
+          "score": 0.939,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 11?",
+        "answer": "Supported answer [source:easy-11].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-11",
+            "document_id": "doc-easy-11",
+            "title": "easy.md",
+            "chunk_index": 10,
+            "score": 0.939,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 91,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-12",
+      "category": "easy",
+      "query": "What is the documented project fact 12?",
+      "expected_chunk_ids": [
+        "easy-12"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-12"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-12",
+          "document_id": "doc-easy-12",
+          "title": "easy.md",
+          "content": "Project fact 12 is explicitly documented as active.",
+          "chunk_index": 11,
+          "score": 0.938,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 12?",
+        "answer": "Supported answer [source:easy-12].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-12",
+            "document_id": "doc-easy-12",
+            "title": "easy.md",
+            "chunk_index": 11,
+            "score": 0.938,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 92,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-13",
+      "category": "easy",
+      "query": "What is the documented project fact 13?",
+      "expected_chunk_ids": [
+        "easy-13"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-13"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-13",
+          "document_id": "doc-easy-13",
+          "title": "easy.md",
+          "content": "Project fact 13 is explicitly documented as active.",
+          "chunk_index": 12,
+          "score": 0.937,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 13?",
+        "answer": "Supported answer [source:easy-13].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-13",
+            "document_id": "doc-easy-13",
+            "title": "easy.md",
+            "chunk_index": 12,
+            "score": 0.937,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 93,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-14",
+      "category": "easy",
+      "query": "What is the documented project fact 14?",
+      "expected_chunk_ids": [
+        "easy-14"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-14"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-14",
+          "document_id": "doc-easy-14",
+          "title": "easy.md",
+          "content": "Project fact 14 is explicitly documented as active.",
+          "chunk_index": 13,
+          "score": 0.936,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 14?",
+        "answer": "Supported answer [source:easy-14].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-14",
+            "document_id": "doc-easy-14",
+            "title": "easy.md",
+            "chunk_index": 13,
+            "score": 0.936,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 94,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-15",
+      "category": "easy",
+      "query": "What is the documented project fact 15?",
+      "expected_chunk_ids": [
+        "easy-15"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-15"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-15",
+          "document_id": "doc-easy-15",
+          "title": "easy.md",
+          "content": "Project fact 15 is explicitly documented as active.",
+          "chunk_index": 14,
+          "score": 0.935,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 15?",
+        "answer": "Supported answer [source:easy-15].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-15",
+            "document_id": "doc-easy-15",
+            "title": "easy.md",
+            "chunk_index": 14,
+            "score": 0.935,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 95,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-16",
+      "category": "easy",
+      "query": "What is the documented project fact 16?",
+      "expected_chunk_ids": [
+        "easy-16"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-16"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-16",
+          "document_id": "doc-easy-16",
+          "title": "easy.md",
+          "content": "Project fact 16 is explicitly documented as active.",
+          "chunk_index": 15,
+          "score": 0.934,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 16?",
+        "answer": "Supported answer [source:easy-16].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-16",
+            "document_id": "doc-easy-16",
+            "title": "easy.md",
+            "chunk_index": 15,
+            "score": 0.934,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 96,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-17",
+      "category": "easy",
+      "query": "What is the documented project fact 17?",
+      "expected_chunk_ids": [
+        "easy-17"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-17"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-17",
+          "document_id": "doc-easy-17",
+          "title": "easy.md",
+          "content": "Project fact 17 is explicitly documented as active.",
+          "chunk_index": 16,
+          "score": 0.933,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 17?",
+        "answer": "Supported answer [source:easy-17].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-17",
+            "document_id": "doc-easy-17",
+            "title": "easy.md",
+            "chunk_index": 16,
+            "score": 0.933,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 97,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-18",
+      "category": "easy",
+      "query": "What is the documented project fact 18?",
+      "expected_chunk_ids": [
+        "easy-18"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-18"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-18",
+          "document_id": "doc-easy-18",
+          "title": "easy.md",
+          "content": "Project fact 18 is explicitly documented as active.",
+          "chunk_index": 17,
+          "score": 0.932,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 18?",
+        "answer": "Supported answer [source:easy-18].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-18",
+            "document_id": "doc-easy-18",
+            "title": "easy.md",
+            "chunk_index": 17,
+            "score": 0.932,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 98,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-19",
+      "category": "easy",
+      "query": "What is the documented project fact 19?",
+      "expected_chunk_ids": [
+        "easy-19"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-19"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-19",
+          "document_id": "doc-easy-19",
+          "title": "easy.md",
+          "content": "Project fact 19 is explicitly documented as active.",
+          "chunk_index": 18,
+          "score": 0.931,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 19?",
+        "answer": "Supported answer [source:easy-19].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-19",
+            "document_id": "doc-easy-19",
+            "title": "easy.md",
+            "chunk_index": 18,
+            "score": 0.931,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 99,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "easy-20",
+      "category": "easy",
+      "query": "What is the documented project fact 20?",
+      "expected_chunk_ids": [
+        "easy-20"
+      ],
+      "negative_chunk_ids": [
+        "noise-easy-20"
+      ],
+      "matches": [
+        {
+          "chunk_id": "easy-20",
+          "document_id": "doc-easy-20",
+          "title": "easy.md",
+          "content": "Project fact 20 is explicitly documented as active.",
+          "chunk_index": 19,
+          "score": 0.93,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-easy-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "What is the documented project fact 20?",
+        "answer": "Supported answer [source:easy-20].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "easy-20",
+            "document_id": "doc-easy-20",
+            "title": "easy.md",
+            "chunk_index": 19,
+            "score": 0.93,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 100,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-01",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-01",
+      "expected_chunk_ids": [
+        "lexical-01"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-01"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-01",
+          "document_id": "doc-lexical-01",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-01 controls this policy.",
+          "chunk_index": 0,
+          "score": 0.949,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-01",
+        "answer": "Supported answer [source:lexical-01].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-01",
+            "document_id": "doc-lexical-01",
+            "title": "lexical.md",
+            "chunk_index": 0,
+            "score": 0.949,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 81,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-02",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-02",
+      "expected_chunk_ids": [
+        "lexical-02"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-02"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-02",
+          "document_id": "doc-lexical-02",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-02 controls this policy.",
+          "chunk_index": 1,
+          "score": 0.948,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-02",
+        "answer": "Supported answer [source:lexical-02].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-02",
+            "document_id": "doc-lexical-02",
+            "title": "lexical.md",
+            "chunk_index": 1,
+            "score": 0.948,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 82,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-03",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-03",
+      "expected_chunk_ids": [
+        "lexical-03"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-03"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-03",
+          "document_id": "doc-lexical-03",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-03 controls this policy.",
+          "chunk_index": 2,
+          "score": 0.947,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-03",
+        "answer": "Supported answer [source:lexical-03].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-03",
+            "document_id": "doc-lexical-03",
+            "title": "lexical.md",
+            "chunk_index": 2,
+            "score": 0.947,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 83,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-04",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-04",
+      "expected_chunk_ids": [
+        "lexical-04"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-04"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-04",
+          "document_id": "doc-lexical-04",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-04 controls this policy.",
+          "chunk_index": 3,
+          "score": 0.946,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-04",
+        "answer": "Supported answer [source:lexical-04].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-04",
+            "document_id": "doc-lexical-04",
+            "title": "lexical.md",
+            "chunk_index": 3,
+            "score": 0.946,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 84,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-05",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-05",
+      "expected_chunk_ids": [
+        "lexical-05"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-05"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-05",
+          "document_id": "doc-lexical-05",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-05 controls this policy.",
+          "chunk_index": 4,
+          "score": 0.945,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-05",
+        "answer": "Supported answer [source:lexical-05].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-05",
+            "document_id": "doc-lexical-05",
+            "title": "lexical.md",
+            "chunk_index": 4,
+            "score": 0.945,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 85,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-06",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-06",
+      "expected_chunk_ids": [
+        "lexical-06"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-06"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-06",
+          "document_id": "doc-lexical-06",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-06 controls this policy.",
+          "chunk_index": 5,
+          "score": 0.944,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-06",
+        "answer": "Supported answer [source:lexical-06].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-06",
+            "document_id": "doc-lexical-06",
+            "title": "lexical.md",
+            "chunk_index": 5,
+            "score": 0.944,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 86,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-07",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-07",
+      "expected_chunk_ids": [
+        "lexical-07"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-07"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-07",
+          "document_id": "doc-lexical-07",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-07 controls this policy.",
+          "chunk_index": 6,
+          "score": 0.943,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-07",
+        "answer": "Supported answer [source:lexical-07].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-07",
+            "document_id": "doc-lexical-07",
+            "title": "lexical.md",
+            "chunk_index": 6,
+            "score": 0.943,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 87,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-08",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-08",
+      "expected_chunk_ids": [
+        "lexical-08"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-08"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-08",
+          "document_id": "doc-lexical-08",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-08 controls this policy.",
+          "chunk_index": 7,
+          "score": 0.942,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-08",
+        "answer": "Supported answer [source:lexical-08].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-08",
+            "document_id": "doc-lexical-08",
+            "title": "lexical.md",
+            "chunk_index": 7,
+            "score": 0.942,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 88,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-09",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-09",
+      "expected_chunk_ids": [
+        "lexical-09"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-09"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-09",
+          "document_id": "doc-lexical-09",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-09 controls this policy.",
+          "chunk_index": 8,
+          "score": 0.941,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-09",
+        "answer": "Supported answer [source:lexical-09].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-09",
+            "document_id": "doc-lexical-09",
+            "title": "lexical.md",
+            "chunk_index": 8,
+            "score": 0.941,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 89,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-10",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-10",
+      "expected_chunk_ids": [
+        "lexical-10"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-10"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-10",
+          "document_id": "doc-lexical-10",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-10 controls this policy.",
+          "chunk_index": 9,
+          "score": 0.94,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-10",
+        "answer": "Supported answer [source:lexical-10].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-10",
+            "document_id": "doc-lexical-10",
+            "title": "lexical.md",
+            "chunk_index": 9,
+            "score": 0.94,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 90,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-11",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-11",
+      "expected_chunk_ids": [
+        "lexical-11"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-11"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-11",
+          "document_id": "doc-lexical-11",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-11 controls this policy.",
+          "chunk_index": 10,
+          "score": 0.939,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-11",
+        "answer": "Supported answer [source:lexical-11].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-11",
+            "document_id": "doc-lexical-11",
+            "title": "lexical.md",
+            "chunk_index": 10,
+            "score": 0.939,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 91,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-12",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-12",
+      "expected_chunk_ids": [
+        "lexical-12"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-12"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-12",
+          "document_id": "doc-lexical-12",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-12 controls this policy.",
+          "chunk_index": 11,
+          "score": 0.938,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-12",
+        "answer": "Supported answer [source:lexical-12].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-12",
+            "document_id": "doc-lexical-12",
+            "title": "lexical.md",
+            "chunk_index": 11,
+            "score": 0.938,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 92,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-13",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-13",
+      "expected_chunk_ids": [
+        "lexical-13"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-13"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-13",
+          "document_id": "doc-lexical-13",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-13 controls this policy.",
+          "chunk_index": 12,
+          "score": 0.937,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-13",
+        "answer": "Supported answer [source:lexical-13].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-13",
+            "document_id": "doc-lexical-13",
+            "title": "lexical.md",
+            "chunk_index": 12,
+            "score": 0.937,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 93,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-14",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-14",
+      "expected_chunk_ids": [
+        "lexical-14"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-14"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-14",
+          "document_id": "doc-lexical-14",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-14 controls this policy.",
+          "chunk_index": 13,
+          "score": 0.936,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-14",
+        "answer": "Supported answer [source:lexical-14].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-14",
+            "document_id": "doc-lexical-14",
+            "title": "lexical.md",
+            "chunk_index": 13,
+            "score": 0.936,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 94,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-15",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-15",
+      "expected_chunk_ids": [
+        "lexical-15"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-15"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-15",
+          "document_id": "doc-lexical-15",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-15 controls this policy.",
+          "chunk_index": 14,
+          "score": 0.935,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-15",
+        "answer": "Supported answer [source:lexical-15].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-15",
+            "document_id": "doc-lexical-15",
+            "title": "lexical.md",
+            "chunk_index": 14,
+            "score": 0.935,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 95,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-16",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-16",
+      "expected_chunk_ids": [
+        "lexical-16"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-16"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-16",
+          "document_id": "doc-lexical-16",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-16 controls this policy.",
+          "chunk_index": 15,
+          "score": 0.934,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-16",
+        "answer": "Supported answer [source:lexical-16].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-16",
+            "document_id": "doc-lexical-16",
+            "title": "lexical.md",
+            "chunk_index": 15,
+            "score": 0.934,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 96,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-17",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-17",
+      "expected_chunk_ids": [
+        "lexical-17"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-17"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-17",
+          "document_id": "doc-lexical-17",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-17 controls this policy.",
+          "chunk_index": 16,
+          "score": 0.933,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-17",
+        "answer": "Supported answer [source:lexical-17].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-17",
+            "document_id": "doc-lexical-17",
+            "title": "lexical.md",
+            "chunk_index": 16,
+            "score": 0.933,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 97,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-18",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-18",
+      "expected_chunk_ids": [
+        "lexical-18"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-18"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-18",
+          "document_id": "doc-lexical-18",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-18 controls this policy.",
+          "chunk_index": 17,
+          "score": 0.932,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-18",
+        "answer": "Supported answer [source:lexical-18].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-18",
+            "document_id": "doc-lexical-18",
+            "title": "lexical.md",
+            "chunk_index": 17,
+            "score": 0.932,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 98,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-19",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-19",
+      "expected_chunk_ids": [
+        "lexical-19"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-19"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-19",
+          "document_id": "doc-lexical-19",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-19 controls this policy.",
+          "chunk_index": 18,
+          "score": 0.931,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-19",
+        "answer": "Supported answer [source:lexical-19].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-19",
+            "document_id": "doc-lexical-19",
+            "title": "lexical.md",
+            "chunk_index": 18,
+            "score": 0.931,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 99,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "lexical-20",
+      "category": "lexical",
+      "query": "Find exact identifier TROOP-POLICY-20",
+      "expected_chunk_ids": [
+        "lexical-20"
+      ],
+      "negative_chunk_ids": [
+        "noise-lexical-20"
+      ],
+      "matches": [
+        {
+          "chunk_id": "lexical-20",
+          "document_id": "doc-lexical-20",
+          "title": "lexical.md",
+          "content": "The exact identifier TROOP-POLICY-20 controls this policy.",
+          "chunk_index": 19,
+          "score": 0.93,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-lexical-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Find exact identifier TROOP-POLICY-20",
+        "answer": "Supported answer [source:lexical-20].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "lexical-20",
+            "document_id": "doc-lexical-20",
+            "title": "lexical.md",
+            "chunk_index": 19,
+            "score": 0.93,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 100,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-01",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 01?",
+      "expected_chunk_ids": [
+        "semantic-01"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-01"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-01",
+          "document_id": "doc-semantic-01",
+          "title": "semantic.md",
+          "content": "Pattern 01: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 0,
+          "score": 0.949,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 01?",
+        "answer": "Supported answer [source:semantic-01].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-01",
+            "document_id": "doc-semantic-01",
+            "title": "semantic.md",
+            "chunk_index": 0,
+            "score": 0.949,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 81,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-02",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 02?",
+      "expected_chunk_ids": [
+        "semantic-02"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-02"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-02",
+          "document_id": "doc-semantic-02",
+          "title": "semantic.md",
+          "content": "Pattern 02: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 1,
+          "score": 0.948,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 02?",
+        "answer": "Supported answer [source:semantic-02].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-02",
+            "document_id": "doc-semantic-02",
+            "title": "semantic.md",
+            "chunk_index": 1,
+            "score": 0.948,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 82,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-03",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 03?",
+      "expected_chunk_ids": [
+        "semantic-03"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-03"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-03",
+          "document_id": "doc-semantic-03",
+          "title": "semantic.md",
+          "content": "Pattern 03: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 2,
+          "score": 0.947,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 03?",
+        "answer": "Supported answer [source:semantic-03].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-03",
+            "document_id": "doc-semantic-03",
+            "title": "semantic.md",
+            "chunk_index": 2,
+            "score": 0.947,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 83,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-04",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 04?",
+      "expected_chunk_ids": [
+        "semantic-04"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-04"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-04",
+          "document_id": "doc-semantic-04",
+          "title": "semantic.md",
+          "content": "Pattern 04: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 3,
+          "score": 0.946,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 04?",
+        "answer": "Supported answer [source:semantic-04].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-04",
+            "document_id": "doc-semantic-04",
+            "title": "semantic.md",
+            "chunk_index": 3,
+            "score": 0.946,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 84,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-05",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 05?",
+      "expected_chunk_ids": [
+        "semantic-05"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-05"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-05",
+          "document_id": "doc-semantic-05",
+          "title": "semantic.md",
+          "content": "Pattern 05: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 4,
+          "score": 0.945,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 05?",
+        "answer": "Supported answer [source:semantic-05].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-05",
+            "document_id": "doc-semantic-05",
+            "title": "semantic.md",
+            "chunk_index": 4,
+            "score": 0.945,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 85,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-06",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 06?",
+      "expected_chunk_ids": [
+        "semantic-06"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-06"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-06",
+          "document_id": "doc-semantic-06",
+          "title": "semantic.md",
+          "content": "Pattern 06: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 5,
+          "score": 0.944,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 06?",
+        "answer": "Supported answer [source:semantic-06].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-06",
+            "document_id": "doc-semantic-06",
+            "title": "semantic.md",
+            "chunk_index": 5,
+            "score": 0.944,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 86,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-07",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 07?",
+      "expected_chunk_ids": [
+        "semantic-07"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-07"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-07",
+          "document_id": "doc-semantic-07",
+          "title": "semantic.md",
+          "content": "Pattern 07: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 6,
+          "score": 0.943,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 07?",
+        "answer": "Supported answer [source:semantic-07].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-07",
+            "document_id": "doc-semantic-07",
+            "title": "semantic.md",
+            "chunk_index": 6,
+            "score": 0.943,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 87,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-08",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 08?",
+      "expected_chunk_ids": [
+        "semantic-08"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-08"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-08",
+          "document_id": "doc-semantic-08",
+          "title": "semantic.md",
+          "content": "Pattern 08: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 7,
+          "score": 0.942,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 08?",
+        "answer": "Supported answer [source:semantic-08].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-08",
+            "document_id": "doc-semantic-08",
+            "title": "semantic.md",
+            "chunk_index": 7,
+            "score": 0.942,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 88,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-09",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 09?",
+      "expected_chunk_ids": [
+        "semantic-09"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-09"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-09",
+          "document_id": "doc-semantic-09",
+          "title": "semantic.md",
+          "content": "Pattern 09: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 8,
+          "score": 0.941,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 09?",
+        "answer": "Supported answer [source:semantic-09].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-09",
+            "document_id": "doc-semantic-09",
+            "title": "semantic.md",
+            "chunk_index": 8,
+            "score": 0.941,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 89,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-10",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 10?",
+      "expected_chunk_ids": [
+        "semantic-10"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-10"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-10",
+          "document_id": "doc-semantic-10",
+          "title": "semantic.md",
+          "content": "Pattern 10: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 9,
+          "score": 0.94,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 10?",
+        "answer": "Supported answer [source:semantic-10].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-10",
+            "document_id": "doc-semantic-10",
+            "title": "semantic.md",
+            "chunk_index": 9,
+            "score": 0.94,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 90,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-11",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 11?",
+      "expected_chunk_ids": [
+        "semantic-11"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-11"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-11",
+          "document_id": "doc-semantic-11",
+          "title": "semantic.md",
+          "content": "Pattern 11: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 10,
+          "score": 0.939,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 11?",
+        "answer": "Supported answer [source:semantic-11].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-11",
+            "document_id": "doc-semantic-11",
+            "title": "semantic.md",
+            "chunk_index": 10,
+            "score": 0.939,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 91,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-12",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 12?",
+      "expected_chunk_ids": [
+        "semantic-12"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-12"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-12",
+          "document_id": "doc-semantic-12",
+          "title": "semantic.md",
+          "content": "Pattern 12: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 11,
+          "score": 0.938,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 12?",
+        "answer": "Supported answer [source:semantic-12].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-12",
+            "document_id": "doc-semantic-12",
+            "title": "semantic.md",
+            "chunk_index": 11,
+            "score": 0.938,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 92,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-13",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 13?",
+      "expected_chunk_ids": [
+        "semantic-13"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-13"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-13",
+          "document_id": "doc-semantic-13",
+          "title": "semantic.md",
+          "content": "Pattern 13: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 12,
+          "score": 0.937,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 13?",
+        "answer": "Supported answer [source:semantic-13].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-13",
+            "document_id": "doc-semantic-13",
+            "title": "semantic.md",
+            "chunk_index": 12,
+            "score": 0.937,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 93,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-14",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 14?",
+      "expected_chunk_ids": [
+        "semantic-14"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-14"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-14",
+          "document_id": "doc-semantic-14",
+          "title": "semantic.md",
+          "content": "Pattern 14: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 13,
+          "score": 0.936,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 14?",
+        "answer": "Supported answer [source:semantic-14].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-14",
+            "document_id": "doc-semantic-14",
+            "title": "semantic.md",
+            "chunk_index": 13,
+            "score": 0.936,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 94,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-15",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 15?",
+      "expected_chunk_ids": [
+        "semantic-15"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-15"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-15",
+          "document_id": "doc-semantic-15",
+          "title": "semantic.md",
+          "content": "Pattern 15: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 14,
+          "score": 0.935,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 15?",
+        "answer": "Supported answer [source:semantic-15].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-15",
+            "document_id": "doc-semantic-15",
+            "title": "semantic.md",
+            "chunk_index": 14,
+            "score": 0.935,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 95,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-16",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 16?",
+      "expected_chunk_ids": [
+        "semantic-16"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-16"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-16",
+          "document_id": "doc-semantic-16",
+          "title": "semantic.md",
+          "content": "Pattern 16: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 15,
+          "score": 0.934,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 16?",
+        "answer": "Supported answer [source:semantic-16].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-16",
+            "document_id": "doc-semantic-16",
+            "title": "semantic.md",
+            "chunk_index": 15,
+            "score": 0.934,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 96,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-17",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 17?",
+      "expected_chunk_ids": [
+        "semantic-17"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-17"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-17",
+          "document_id": "doc-semantic-17",
+          "title": "semantic.md",
+          "content": "Pattern 17: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 16,
+          "score": 0.933,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 17?",
+        "answer": "Supported answer [source:semantic-17].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-17",
+            "document_id": "doc-semantic-17",
+            "title": "semantic.md",
+            "chunk_index": 16,
+            "score": 0.933,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 97,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-18",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 18?",
+      "expected_chunk_ids": [
+        "semantic-18"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-18"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-18",
+          "document_id": "doc-semantic-18",
+          "title": "semantic.md",
+          "content": "Pattern 18: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 17,
+          "score": 0.932,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 18?",
+        "answer": "Supported answer [source:semantic-18].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-18",
+            "document_id": "doc-semantic-18",
+            "title": "semantic.md",
+            "chunk_index": 17,
+            "score": 0.932,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 98,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-19",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 19?",
+      "expected_chunk_ids": [
+        "semantic-19"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-19"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-19",
+          "document_id": "doc-semantic-19",
+          "title": "semantic.md",
+          "content": "Pattern 19: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 18,
+          "score": 0.931,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 19?",
+        "answer": "Supported answer [source:semantic-19].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-19",
+            "document_id": "doc-semantic-19",
+            "title": "semantic.md",
+            "chunk_index": 18,
+            "score": 0.931,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 99,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "semantic-20",
+      "category": "semantic",
+      "query": "How should the team avoid repeating work pattern 20?",
+      "expected_chunk_ids": [
+        "semantic-20"
+      ],
+      "negative_chunk_ids": [
+        "noise-semantic-20"
+      ],
+      "matches": [
+        {
+          "chunk_id": "semantic-20",
+          "document_id": "doc-semantic-20",
+          "title": "semantic.md",
+          "content": "Pattern 20: preserve prior outcomes so later agents do not redo completed analysis.",
+          "chunk_index": 19,
+          "score": 0.93,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-semantic-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "How should the team avoid repeating work pattern 20?",
+        "answer": "Supported answer [source:semantic-20].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "semantic-20",
+            "document_id": "doc-semantic-20",
+            "title": "semantic.md",
+            "chunk_index": 19,
+            "score": 0.93,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 100,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001
+    },
+    {
+      "id": "cross_scope-01",
+      "category": "cross_scope",
+      "query": "Show project A constraint 01 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-01"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-01"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-01",
+          "document_id": "doc-cross_scope-01",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 01 is scoped only to project A.",
+          "chunk_index": 0,
+          "score": 0.949,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 01 without project B data",
+        "answer": "Supported answer [source:cross_scope-01].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-01",
+            "document_id": "doc-cross_scope-01",
+            "title": "cross_scope.md",
+            "chunk_index": 0,
+            "score": 0.949,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 81,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-02",
+      "category": "cross_scope",
+      "query": "Show project A constraint 02 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-02"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-02"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-02",
+          "document_id": "doc-cross_scope-02",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 02 is scoped only to project A.",
+          "chunk_index": 1,
+          "score": 0.948,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-1"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 02 without project B data",
+        "answer": "Supported answer [source:cross_scope-02].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-02",
+            "document_id": "doc-cross_scope-02",
+            "title": "cross_scope.md",
+            "chunk_index": 1,
+            "score": 0.948,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 82,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-03",
+      "category": "cross_scope",
+      "query": "Show project A constraint 03 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-03"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-03"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-03",
+          "document_id": "doc-cross_scope-03",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 03 is scoped only to project A.",
+          "chunk_index": 2,
+          "score": 0.947,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 03 without project B data",
+        "answer": "Supported answer [source:cross_scope-03].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-03",
+            "document_id": "doc-cross_scope-03",
+            "title": "cross_scope.md",
+            "chunk_index": 2,
+            "score": 0.947,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 83,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-04",
+      "category": "cross_scope",
+      "query": "Show project A constraint 04 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-04"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-04"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-04",
+          "document_id": "doc-cross_scope-04",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 04 is scoped only to project A.",
+          "chunk_index": 3,
+          "score": 0.946,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-2"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 04 without project B data",
+        "answer": "Supported answer [source:cross_scope-04].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-04",
+            "document_id": "doc-cross_scope-04",
+            "title": "cross_scope.md",
+            "chunk_index": 3,
+            "score": 0.946,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 84,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-05",
+      "category": "cross_scope",
+      "query": "Show project A constraint 05 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-05"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-05"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-05",
+          "document_id": "doc-cross_scope-05",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 05 is scoped only to project A.",
+          "chunk_index": 4,
+          "score": 0.945,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 05 without project B data",
+        "answer": "Supported answer [source:cross_scope-05].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-05",
+            "document_id": "doc-cross_scope-05",
+            "title": "cross_scope.md",
+            "chunk_index": 4,
+            "score": 0.945,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 85,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-06",
+      "category": "cross_scope",
+      "query": "Show project A constraint 06 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-06"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-06"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-06",
+          "document_id": "doc-cross_scope-06",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 06 is scoped only to project A.",
+          "chunk_index": 5,
+          "score": 0.944,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-3"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 06 without project B data",
+        "answer": "Supported answer [source:cross_scope-06].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-06",
+            "document_id": "doc-cross_scope-06",
+            "title": "cross_scope.md",
+            "chunk_index": 5,
+            "score": 0.944,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 86,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-07",
+      "category": "cross_scope",
+      "query": "Show project A constraint 07 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-07"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-07"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-07",
+          "document_id": "doc-cross_scope-07",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 07 is scoped only to project A.",
+          "chunk_index": 6,
+          "score": 0.943,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 07 without project B data",
+        "answer": "Supported answer [source:cross_scope-07].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-07",
+            "document_id": "doc-cross_scope-07",
+            "title": "cross_scope.md",
+            "chunk_index": 6,
+            "score": 0.943,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 87,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-08",
+      "category": "cross_scope",
+      "query": "Show project A constraint 08 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-08"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-08"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-08",
+          "document_id": "doc-cross_scope-08",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 08 is scoped only to project A.",
+          "chunk_index": 7,
+          "score": 0.942,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-4"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 08 without project B data",
+        "answer": "Supported answer [source:cross_scope-08].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-08",
+            "document_id": "doc-cross_scope-08",
+            "title": "cross_scope.md",
+            "chunk_index": 7,
+            "score": 0.942,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 88,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-09",
+      "category": "cross_scope",
+      "query": "Show project A constraint 09 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-09"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-09"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-09",
+          "document_id": "doc-cross_scope-09",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 09 is scoped only to project A.",
+          "chunk_index": 8,
+          "score": 0.941,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 09 without project B data",
+        "answer": "Supported answer [source:cross_scope-09].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-09",
+            "document_id": "doc-cross_scope-09",
+            "title": "cross_scope.md",
+            "chunk_index": 8,
+            "score": 0.941,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 89,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-10",
+      "category": "cross_scope",
+      "query": "Show project A constraint 10 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-10"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-10"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-10",
+          "document_id": "doc-cross_scope-10",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 10 is scoped only to project A.",
+          "chunk_index": 9,
+          "score": 0.94,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-5"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 10 without project B data",
+        "answer": "Supported answer [source:cross_scope-10].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-10",
+            "document_id": "doc-cross_scope-10",
+            "title": "cross_scope.md",
+            "chunk_index": 9,
+            "score": 0.94,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 90,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-11",
+      "category": "cross_scope",
+      "query": "Show project A constraint 11 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-11"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-11"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-11",
+          "document_id": "doc-cross_scope-11",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 11 is scoped only to project A.",
+          "chunk_index": 10,
+          "score": 0.939,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 11 without project B data",
+        "answer": "Supported answer [source:cross_scope-11].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-11",
+            "document_id": "doc-cross_scope-11",
+            "title": "cross_scope.md",
+            "chunk_index": 10,
+            "score": 0.939,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 91,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-12",
+      "category": "cross_scope",
+      "query": "Show project A constraint 12 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-12"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-12"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-12",
+          "document_id": "doc-cross_scope-12",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 12 is scoped only to project A.",
+          "chunk_index": 11,
+          "score": 0.938,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 12 without project B data",
+        "answer": "Supported answer [source:cross_scope-12].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-12",
+            "document_id": "doc-cross_scope-12",
+            "title": "cross_scope.md",
+            "chunk_index": 11,
+            "score": 0.938,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 92,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-13",
+      "category": "cross_scope",
+      "query": "Show project A constraint 13 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-13"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-13"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-13",
+          "document_id": "doc-cross_scope-13",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 13 is scoped only to project A.",
+          "chunk_index": 12,
+          "score": 0.937,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 13 without project B data",
+        "answer": "Supported answer [source:cross_scope-13].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-13",
+            "document_id": "doc-cross_scope-13",
+            "title": "cross_scope.md",
+            "chunk_index": 12,
+            "score": 0.937,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 93,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-14",
+      "category": "cross_scope",
+      "query": "Show project A constraint 14 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-14"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-14"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-14",
+          "document_id": "doc-cross_scope-14",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 14 is scoped only to project A.",
+          "chunk_index": 13,
+          "score": 0.936,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 14 without project B data",
+        "answer": "Supported answer [source:cross_scope-14].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-14",
+            "document_id": "doc-cross_scope-14",
+            "title": "cross_scope.md",
+            "chunk_index": 13,
+            "score": 0.936,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 94,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-15",
+      "category": "cross_scope",
+      "query": "Show project A constraint 15 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-15"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-15"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-15",
+          "document_id": "doc-cross_scope-15",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 15 is scoped only to project A.",
+          "chunk_index": 14,
+          "score": 0.935,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 15 without project B data",
+        "answer": "Supported answer [source:cross_scope-15].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-15",
+            "document_id": "doc-cross_scope-15",
+            "title": "cross_scope.md",
+            "chunk_index": 14,
+            "score": 0.935,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 95,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-16",
+      "category": "cross_scope",
+      "query": "Show project A constraint 16 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-16"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-16"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-16",
+          "document_id": "doc-cross_scope-16",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 16 is scoped only to project A.",
+          "chunk_index": 15,
+          "score": 0.934,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 16 without project B data",
+        "answer": "Supported answer [source:cross_scope-16].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-16",
+            "document_id": "doc-cross_scope-16",
+            "title": "cross_scope.md",
+            "chunk_index": 15,
+            "score": 0.934,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 96,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-17",
+      "category": "cross_scope",
+      "query": "Show project A constraint 17 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-17"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-17"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-17",
+          "document_id": "doc-cross_scope-17",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 17 is scoped only to project A.",
+          "chunk_index": 16,
+          "score": 0.933,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 17 without project B data",
+        "answer": "Supported answer [source:cross_scope-17].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-17",
+            "document_id": "doc-cross_scope-17",
+            "title": "cross_scope.md",
+            "chunk_index": 16,
+            "score": 0.933,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 97,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-18",
+      "category": "cross_scope",
+      "query": "Show project A constraint 18 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-18"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-18"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-18",
+          "document_id": "doc-cross_scope-18",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 18 is scoped only to project A.",
+          "chunk_index": 17,
+          "score": 0.932,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 18 without project B data",
+        "answer": "Supported answer [source:cross_scope-18].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-18",
+            "document_id": "doc-cross_scope-18",
+            "title": "cross_scope.md",
+            "chunk_index": 17,
+            "score": 0.932,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 98,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-19",
+      "category": "cross_scope",
+      "query": "Show project A constraint 19 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-19"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-19"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-19",
+          "document_id": "doc-cross_scope-19",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 19 is scoped only to project A.",
+          "chunk_index": 18,
+          "score": 0.931,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 19 without project B data",
+        "answer": "Supported answer [source:cross_scope-19].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-19",
+            "document_id": "doc-cross_scope-19",
+            "title": "cross_scope.md",
+            "chunk_index": 18,
+            "score": 0.931,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 99,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "cross_scope-20",
+      "category": "cross_scope",
+      "query": "Show project A constraint 20 without project B data",
+      "expected_chunk_ids": [
+        "cross_scope-20"
+      ],
+      "negative_chunk_ids": [
+        "noise-cross_scope-20"
+      ],
+      "matches": [
+        {
+          "chunk_id": "cross_scope-20",
+          "document_id": "doc-cross_scope-20",
+          "title": "cross_scope.md",
+          "content": "Project A constraint 20 is scoped only to project A.",
+          "chunk_index": 19,
+          "score": 0.93,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-cross_scope-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show project A constraint 20 without project B data",
+        "answer": "Supported answer [source:cross_scope-20].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "cross_scope-20",
+            "document_id": "doc-cross_scope-20",
+            "title": "cross_scope.md",
+            "chunk_index": 19,
+            "score": 0.93,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 100,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "forbidden_project_ids": [
+        "project-b"
+      ]
+    },
+    {
+      "id": "security-01",
+      "category": "security",
+      "query": "Can this actor read restricted security record 01?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-01"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 01?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 81,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-01"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-02",
+      "category": "security",
+      "query": "Can this actor read restricted security record 02?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-02"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 02?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 82,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-02"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-03",
+      "category": "security",
+      "query": "Can this actor read restricted security record 03?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-03"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 03?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 83,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-03"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-04",
+      "category": "security",
+      "query": "Can this actor read restricted security record 04?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-04"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 04?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 84,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-04"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-05",
+      "category": "security",
+      "query": "Can this actor read restricted security record 05?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-05"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 05?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 85,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-05"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-06",
+      "category": "security",
+      "query": "Can this actor read restricted security record 06?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-06"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 06?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 86,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-06"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-07",
+      "category": "security",
+      "query": "Can this actor read restricted security record 07?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-07"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 07?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 87,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-07"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-08",
+      "category": "security",
+      "query": "Can this actor read restricted security record 08?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-08"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 08?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 88,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-08"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-09",
+      "category": "security",
+      "query": "Can this actor read restricted security record 09?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-09"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 09?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 89,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-09"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-10",
+      "category": "security",
+      "query": "Can this actor read restricted security record 10?",
+      "expected_chunk_ids": [],
+      "negative_chunk_ids": [
+        "noise-security-10"
+      ],
+      "matches": [],
+      "answer": {
+        "query": "Can this actor read restricted security record 10?",
+        "answer": "I do not have enough authorized context to answer.",
+        "grounded": true,
+        "context_found": false,
+        "citations": []
+      },
+      "latency_ms": 90,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-10"
+      ],
+      "expected_no_context": true
+    },
+    {
+      "id": "security-11",
+      "category": "security",
+      "query": "Show authorized security guidance 11",
+      "expected_chunk_ids": [
+        "security-11"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-11"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-11",
+          "document_id": "doc-security-11",
+          "title": "security.md",
+          "content": "Authorized security guidance 11 is visible to this actor.",
+          "chunk_index": 10,
+          "score": 0.939,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 11",
+        "answer": "Supported answer [source:security-11].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-11",
+            "document_id": "doc-security-11",
+            "title": "security.md",
+            "chunk_index": 10,
+            "score": 0.939,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 91,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-11"
+      ]
+    },
+    {
+      "id": "security-12",
+      "category": "security",
+      "query": "Show authorized security guidance 12",
+      "expected_chunk_ids": [
+        "security-12"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-12"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-12",
+          "document_id": "doc-security-12",
+          "title": "security.md",
+          "content": "Authorized security guidance 12 is visible to this actor.",
+          "chunk_index": 11,
+          "score": 0.938,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-6"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 12",
+        "answer": "Supported answer [source:security-12].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-12",
+            "document_id": "doc-security-12",
+            "title": "security.md",
+            "chunk_index": 11,
+            "score": 0.938,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 92,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-12"
+      ]
+    },
+    {
+      "id": "security-13",
+      "category": "security",
+      "query": "Show authorized security guidance 13",
+      "expected_chunk_ids": [
+        "security-13"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-13"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-13",
+          "document_id": "doc-security-13",
+          "title": "security.md",
+          "content": "Authorized security guidance 13 is visible to this actor.",
+          "chunk_index": 12,
+          "score": 0.937,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 13",
+        "answer": "Supported answer [source:security-13].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-13",
+            "document_id": "doc-security-13",
+            "title": "security.md",
+            "chunk_index": 12,
+            "score": 0.937,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 93,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-13"
+      ]
+    },
+    {
+      "id": "security-14",
+      "category": "security",
+      "query": "Show authorized security guidance 14",
+      "expected_chunk_ids": [
+        "security-14"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-14"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-14",
+          "document_id": "doc-security-14",
+          "title": "security.md",
+          "content": "Authorized security guidance 14 is visible to this actor.",
+          "chunk_index": 13,
+          "score": 0.936,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-7"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 14",
+        "answer": "Supported answer [source:security-14].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-14",
+            "document_id": "doc-security-14",
+            "title": "security.md",
+            "chunk_index": 13,
+            "score": 0.936,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 94,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-14"
+      ]
+    },
+    {
+      "id": "security-15",
+      "category": "security",
+      "query": "Show authorized security guidance 15",
+      "expected_chunk_ids": [
+        "security-15"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-15"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-15",
+          "document_id": "doc-security-15",
+          "title": "security.md",
+          "content": "Authorized security guidance 15 is visible to this actor.",
+          "chunk_index": 14,
+          "score": 0.935,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 15",
+        "answer": "Supported answer [source:security-15].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-15",
+            "document_id": "doc-security-15",
+            "title": "security.md",
+            "chunk_index": 14,
+            "score": 0.935,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 95,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-15"
+      ]
+    },
+    {
+      "id": "security-16",
+      "category": "security",
+      "query": "Show authorized security guidance 16",
+      "expected_chunk_ids": [
+        "security-16"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-16"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-16",
+          "document_id": "doc-security-16",
+          "title": "security.md",
+          "content": "Authorized security guidance 16 is visible to this actor.",
+          "chunk_index": 15,
+          "score": 0.934,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-8"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 16",
+        "answer": "Supported answer [source:security-16].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-16",
+            "document_id": "doc-security-16",
+            "title": "security.md",
+            "chunk_index": 15,
+            "score": 0.934,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 96,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-16"
+      ]
+    },
+    {
+      "id": "security-17",
+      "category": "security",
+      "query": "Show authorized security guidance 17",
+      "expected_chunk_ids": [
+        "security-17"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-17"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-17",
+          "document_id": "doc-security-17",
+          "title": "security.md",
+          "content": "Authorized security guidance 17 is visible to this actor.",
+          "chunk_index": 16,
+          "score": 0.933,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 17",
+        "answer": "Supported answer [source:security-17].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-17",
+            "document_id": "doc-security-17",
+            "title": "security.md",
+            "chunk_index": 16,
+            "score": 0.933,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 97,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-17"
+      ]
+    },
+    {
+      "id": "security-18",
+      "category": "security",
+      "query": "Show authorized security guidance 18",
+      "expected_chunk_ids": [
+        "security-18"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-18"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-18",
+          "document_id": "doc-security-18",
+          "title": "security.md",
+          "content": "Authorized security guidance 18 is visible to this actor.",
+          "chunk_index": 17,
+          "score": 0.932,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-9"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 18",
+        "answer": "Supported answer [source:security-18].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-18",
+            "document_id": "doc-security-18",
+            "title": "security.md",
+            "chunk_index": 17,
+            "score": 0.932,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 98,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-18"
+      ]
+    },
+    {
+      "id": "security-19",
+      "category": "security",
+      "query": "Show authorized security guidance 19",
+      "expected_chunk_ids": [
+        "security-19"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-19"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-19",
+          "document_id": "doc-security-19",
+          "title": "security.md",
+          "content": "Authorized security guidance 19 is visible to this actor.",
+          "chunk_index": 18,
+          "score": 0.931,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 19",
+        "answer": "Supported answer [source:security-19].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-19",
+            "document_id": "doc-security-19",
+            "title": "security.md",
+            "chunk_index": 18,
+            "score": 0.931,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 99,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-19"
+      ]
+    },
+    {
+      "id": "security-20",
+      "category": "security",
+      "query": "Show authorized security guidance 20",
+      "expected_chunk_ids": [
+        "security-20"
+      ],
+      "negative_chunk_ids": [
+        "noise-security-20"
+      ],
+      "matches": [
+        {
+          "chunk_id": "security-20",
+          "document_id": "doc-security-20",
+          "title": "security.md",
+          "content": "Authorized security guidance 20 is visible to this actor.",
+          "chunk_index": 19,
+          "score": 0.93,
+          "metadata": {
+            "project_id": "project-a",
+            "source_id": "source-security-10"
+          }
+        }
+      ],
+      "answer": {
+        "query": "Show authorized security guidance 20",
+        "answer": "Supported answer [source:security-20].",
+        "grounded": true,
+        "context_found": true,
+        "citations": [
+          {
+            "source_index": 1,
+            "chunk_id": "security-20",
+            "document_id": "doc-security-20",
+            "title": "security.md",
+            "chunk_index": 19,
+            "score": 0.93,
+            "excerpt": "Grounding evidence."
+          }
+        ]
+      },
+      "latency_ms": 100,
+      "embedding_cost_usd": 0.000001,
+      "answer_cost_usd": 0.00001,
+      "acl_denied_chunk_ids": [
+        "security-denied-20"
+      ]
     }
   ]
 }

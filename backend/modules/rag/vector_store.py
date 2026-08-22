@@ -31,6 +31,19 @@ class VectorStoreRepository(Protocol):
         limit: int,
     ) -> list[dict[str, Any]]: ...
 
+    async def text_search(
+        self,
+        project_id: str,
+        query: str,
+        *,
+        filters: RagSearchFilters,
+        limit: int,
+    ) -> list[dict[str, Any]]: ...
+
+    async def list_document_chunks_for_document(
+        self, document_id: str
+    ) -> list[ProjectDocumentChunk]: ...
+
     async def delete_document_vectors(self, project_id: str, document_id: str) -> None: ...
 
     async def list_chunks_fallback(
@@ -53,7 +66,7 @@ class PgVectorStoreRepository:
         document: ProjectDocument,
         chunks: list[tuple[int, str, int, list[float], dict[str, Any]]],
     ) -> None:
-        await self._repo.replace_document_chunks(document, chunks)
+        await self._repo.sync_document_chunks(document, chunks)
 
     async def search(
         self,
@@ -70,6 +83,27 @@ class PgVectorStoreRepository:
             source_kind=filters.source_kind,
             top_k=limit,
         )
+
+    async def text_search(
+        self,
+        project_id: str,
+        query: str,
+        *,
+        filters: RagSearchFilters,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        return await self._repo.search_document_chunks_by_text(
+            project_id,
+            query,
+            task_id=filters.task_id,
+            source_kind=filters.source_kind,
+            top_k=limit,
+        )
+
+    async def list_document_chunks_for_document(
+        self, document_id: str
+    ) -> list[ProjectDocumentChunk]:
+        return await self._repo.list_document_chunks_for_document(document_id)
 
     async def delete_document_vectors(self, project_id: str, document_id: str) -> None:
         document = await self._repo.get_document(project_id, document_id)

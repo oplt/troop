@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-from backend.core.schemas import RequestModel
+from backend.core.schemas import CursorTokenResponse, RequestModel
 
 
 class AdminUserResponse(BaseModel):
@@ -43,8 +43,7 @@ class AuditLogResponse(BaseModel):
 class AuditLogListResponse(BaseModel):
     items: list[AuditLogResponse]
     total: int
-    page: int
-    page_size: int
+    next_cursor: CursorTokenResponse | None = None
 
 
 class IdentityProviderResponse(BaseModel):

@@ -1,6 +1,6 @@
 import { useForm, useWatch } from "react-hook-form";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCompanies } from "../api/companies";
 import { listDepartments, analyzeProject } from "../api/workforce";
 import {
@@ -43,9 +43,9 @@ import {
     createTeamProfileFromTemplate,
     createOrchestrationProject,
     deleteOrchestrationProject,
+    getOrchestrationPortfolio,
+    getOrchestrationProject,
     listOrchestrationProjects,
-    listProjectAgents,
-    listRuns,
     listTeamProfiles,
     listTeamTemplates,
     updateOrchestrationProject,
@@ -61,6 +61,8 @@ import { ResponsiveRowCard, ResponsiveTable } from "../components/ui/ResponsiveT
 import { CreateProjectDrawer } from "./projects/CreateProjectDrawer";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusChip } from "../components/ui/StatusChip";
+import { InspectorDrawer } from "../components/ui/InspectorDrawer";
+import { queryKeys } from "../config/queryKeys";
 import { formatDate, formatDateTime, humanizeKey } from "../utils/formatters";
 
 type ProjectForm = {
@@ -82,6 +84,8 @@ type ProjectForm = {
 
 type SortKey = "last_active" | "name" | "created";
 type StatusFilter = "all" | "active" | "running" | "completed" | "archived" | "attention";
+
+const PROJECT_PORTFOLIO_QUERY_KEY = ["orchestration", "portfolio", "summary"] as const;
 
 function splitList(value: string) {
     return value
@@ -177,14 +181,15 @@ export default function OrchestrationProjectsPage() {
     const [analyzeProjectTarget, setAnalyzeProjectTarget] = useState<{ id: string } | null>(null);
     const [analyzePending, setAnalyzePending] = useState(false);
     const [advancedRepoOpen, setAdvancedRepoOpen] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
     const { data: projects = [], isLoading: projectsLoading } = useQuery({
-        queryKey: ["orchestration", "projects"],
+        queryKey: queryKeys.orchestration.projects,
         queryFn: listOrchestrationProjects,
     });
-    const { data: runs = [] } = useQuery({
-        queryKey: ["orchestration", "runs"],
-        queryFn: () => listRuns(),
+    const { data: portfolio = [] } = useQuery({
+        queryKey: PROJECT_PORTFOLIO_QUERY_KEY,
+        queryFn: getOrchestrationPortfolio,
     });
     const { data: teamTemplates = [] } = useQuery({
         queryKey: ["orchestration", "team-templates"],
@@ -196,60 +201,22 @@ export default function OrchestrationProjectsPage() {
     });
     const [selectedTeamTemplateId, setSelectedTeamTemplateId] = useState("");
 
-    const membershipQueries = useQueries({
-        queries: projects.map((project) => ({
-            queryKey: ["orchestration", "project", project.id, "agents"],
-            queryFn: () => listProjectAgents(project.id),
-            enabled: projects.length > 0,
-        })),
-    });
-
-    const agentCountByProject = useMemo(() => {
-        const map = new Map<string, number>();
-        projects.forEach((project, index) => {
-            map.set(project.id, membershipQueries[index]?.data?.length ?? 0);
-        });
-        return map;
-    }, [projects, membershipQueries]);
+    const portfolioByProject = useMemo(
+        () => new Map(portfolio.map((item) => [item.project_id, item])),
+        [portfolio],
+    );
 
     const activeRunCountByProject = useMemo(() => {
-        const map = new Map<string, number>();
-        for (const run of runs) {
-            if (!["queued", "in_progress"].includes(run.status)) continue;
-            map.set(run.project_id, (map.get(run.project_id) ?? 0) + 1);
-        }
-        return map;
-    }, [runs]);
+        return new Map(portfolio.map((item) => [item.project_id, item.active_runs]));
+    }, [portfolio]);
 
     const failedRunCountByProject = useMemo(() => {
         const map = new Map<string, number>();
-        for (const run of runs) {
-            if (!["failed", "error", "cancelled"].includes(run.status)) continue;
-            map.set(run.project_id, (map.get(run.project_id) ?? 0) + 1);
+        for (const project of projects) {
+            if (["blocked", "failed", "error"].includes(project.status)) map.set(project.id, 1);
         }
         return map;
-    }, [runs]);
-
-    const latestRunByProject = useMemo(() => {
-        const map = new Map<string, typeof runs[number]>();
-        for (const run of runs) {
-            const prev = map.get(run.project_id);
-            if (!prev || new Date(run.created_at).getTime() > new Date(prev.created_at).getTime()) {
-                map.set(run.project_id, run);
-            }
-        }
-        return map;
-    }, [runs]);
-
-    const lastRunAtByProject = useMemo(() => {
-        const map = new Map<string, number>();
-        for (const run of runs) {
-            const t = new Date(run.created_at).getTime();
-            const prev = map.get(run.project_id) ?? 0;
-            if (t > prev) map.set(run.project_id, t);
-        }
-        return map;
-    }, [runs]);
+    }, [projects]);
 
     const attentionProjects = useMemo(
         () =>
@@ -293,29 +260,44 @@ export default function OrchestrationProjectsPage() {
             if (sortKey === "created") {
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             }
-            const tb = lastRunAtByProject.get(b.id) ?? new Date(b.updated_at).getTime();
-            const ta = lastRunAtByProject.get(a.id) ?? new Date(a.updated_at).getTime();
-            return tb - ta;
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         });
         return list;
-    }, [filteredProjects, sortKey, lastRunAtByProject]);
+    }, [filteredProjects, sortKey]);
 
     const dashboardStats = useMemo(() => {
         const activeProjects = projects.filter((project) => !["archived", "completed"].includes(project.status)).length;
-        const runningRuns = runs.filter((run) => ["queued", "in_progress"].includes(run.status)).length;
-        const failedRuns = runs.filter((run) => ["failed", "error", "cancelled"].includes(run.status)).length;
+        const runningRuns = portfolio.reduce((sum, item) => sum + item.active_runs, 0);
+        const failedRuns = attentionProjects.length;
         return { activeProjects, runningRuns, failedRuns };
-    }, [projects, runs]);
+    }, [projects, portfolio, attentionProjects]);
+
+    const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+
+    function prefetchProject(projectId: string) {
+        void queryClient.prefetchQuery({
+            queryKey: queryKeys.orchestration.project(projectId),
+            queryFn: () => getOrchestrationProject(projectId),
+            staleTime: 30_000,
+        });
+    }
 
     function selectStatusFilter(nextFilter: StatusFilter) {
         setStatusFilter(nextFilter);
         setStatusFilterTouched(true);
     }
 
+    async function refreshProjectBrowseData() {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projects, exact: true }),
+            queryClient.invalidateQueries({ queryKey: PROJECT_PORTFOLIO_QUERY_KEY, exact: true }),
+        ]);
+    }
+
     const mutation = useMutation({
         mutationFn: createOrchestrationProject,
         onSuccess: async (project) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            await refreshProjectBrowseData();
             reset();
             showToast({ message: "Project created.", severity: "success" });
             setAnalyzeProjectTarget({ id: project.id });
@@ -328,7 +310,7 @@ export default function OrchestrationProjectsPage() {
     const applyBootstrapMutation = useMutation({
         mutationFn: () => applyBootstrappedProject(bootstrapDraft ?? {}),
         onSuccess: async (project) => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            await refreshProjectBrowseData();
             showToast({ message: "Project created from draft.", severity: "success" });
             navigate(`/projects/${project.id}`);
         },
@@ -336,14 +318,14 @@ export default function OrchestrationProjectsPage() {
     const archiveProjectMutation = useMutation({
         mutationFn: (projectId: string) => updateOrchestrationProject(projectId, { status: "archived" }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            await refreshProjectBrowseData();
             showToast({ message: "Project archived.", severity: "success" });
         },
     });
     const deleteProjectMutation = useMutation({
         mutationFn: (projectId: string) => deleteOrchestrationProject(projectId),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["orchestration", "projects"] });
+            await refreshProjectBrowseData();
             showToast({ message: "Project deleted.", severity: "success" });
         },
     });
@@ -446,7 +428,7 @@ export default function OrchestrationProjectsPage() {
                     description="Find active work, resume runs, and spot projects that need attention."
                     actions={
                         <>
-                            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => queryClient.invalidateQueries({ queryKey: ["orchestration"] })}>
+                            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refreshProjectBrowseData}>
                                 Refresh
                             </Button>
                             <Button variant="contained" startIcon={<ProjectIcon />} onClick={() => setDrawerOpen(true)}>
@@ -588,9 +570,7 @@ export default function OrchestrationProjectsPage() {
                             {sortedProjects.map((project) => {
                                 const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
                                 const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
-                                const lastRun = latestRunByProject.get(project.id);
-                                const lastRunMs = lastRunAtByProject.get(project.id);
-                                const localRepo = project.settings?.local_repo as { enabled?: boolean; repo_path?: string } | undefined;
+                                const summary = portfolioByProject.get(project.id);
                                 const statusKey = failedRuns > 0 ? "needs_attention" : activeRuns > 0 ? "running" : project.status;
                                 const actionLabel = activeRuns > 0 ? "Resume" : "Open";
                                 return (
@@ -616,9 +596,15 @@ export default function OrchestrationProjectsPage() {
                                             }}
                                         >
                                             <Box sx={{ minWidth: 0 }}>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 500 }} noWrap>
-                                                    {project.name}
-                                                </Typography>
+                                                <Button
+                                                    variant="text"
+                                                    color="inherit"
+                                                    onClick={() => setSelectedProjectId(project.id)}
+                                                    onMouseEnter={() => prefetchProject(project.id)}
+                                                    sx={{ justifyContent: "flex-start", p: 0, fontWeight: 500, maxWidth: "100%" }}
+                                                >
+                                                    <Typography variant="subtitle2" noWrap>{project.name}</Typography>
+                                                </Button>
                                                 <Typography
                                                     variant="body2"
                                                     color="text.secondary"
@@ -640,15 +626,15 @@ export default function OrchestrationProjectsPage() {
                                             />
 
                                             <Typography variant="body2" color={activeRuns > 0 ? "warning.main" : "text.secondary"}>
-                                                {activeRuns > 0 ? `${activeRuns} running` : lastRun ? humanizeKey(lastRun.status) : "No runs"}
+                                                {activeRuns > 0 ? `${activeRuns} running` : "No active runs"}
                                             </Typography>
 
                                             <Typography variant="body2" color="text.secondary">
-                                                {lastRunMs != null ? formatDateTime(new Date(lastRunMs).toISOString()) : formatDate(project.updated_at)}
+                                                {formatDateTime(project.updated_at)}
                                             </Typography>
 
                                             <Typography variant="body2" color="text.secondary" noWrap>
-                                                {localRepo?.enabled ? localRepo.repo_path ?? "Local repo" : "None"}
+                                                {summary?.repository_links ? `${summary.repository_links} connected` : "None"}
                                             </Typography>
 
                                             <Button size="small" variant={activeRuns > 0 ? "contained" : "outlined"} startIcon={<PlayArrowIcon />} onClick={() => navigate(`/projects/${project.id}`)}>
@@ -675,17 +661,25 @@ export default function OrchestrationProjectsPage() {
                             cards={
                                 <>
                                     {sortedProjects.map((project) => {
-                                        const agentCount = agentCountByProject.get(project.id) ?? 0;
                                         const activeRuns = activeRunCountByProject.get(project.id) ?? 0;
                                         const failedRuns = failedRunCountByProject.get(project.id) ?? 0;
-                                        const lastRun = latestRunByProject.get(project.id);
-                                        const lastRunMs = lastRunAtByProject.get(project.id);
+                                        const summary = portfolioByProject.get(project.id);
                                         const statusKey = failedRuns > 0 ? "needs_attention" : activeRuns > 0 ? "running" : project.status;
                                         const actionLabel = activeRuns > 0 ? "Resume" : "Open";
                                         return (
                                             <ResponsiveRowCard
                                                 key={project.id}
-                                                title={project.name}
+                                                title={
+                                                    <Button
+                                                        variant="text"
+                                                        color="inherit"
+                                                        onClick={() => setSelectedProjectId(project.id)}
+                                                        onMouseEnter={() => prefetchProject(project.id)}
+                                                        sx={{ p: 0, justifyContent: "flex-start" }}
+                                                    >
+                                                        {project.name}
+                                                    </Button>
+                                                }
                                                 meta={project.description || "No description"}
                                                 actions={
                                                     <Stack direction="row" spacing={0.5} alignItems="center">
@@ -712,15 +706,12 @@ export default function OrchestrationProjectsPage() {
                                                         variant={failedRuns > 0 || activeRuns > 0 ? "filled" : "outlined"}
                                                     />
                                                     <Chip size="small" variant="outlined" label={`${activeRuns} active`} />
-                                                    <Chip size="small" variant="outlined" label={`${agentCount} agents`} />
+                                                    <Chip size="small" variant="outlined" label={`${summary?.open_tasks ?? 0} open tasks`} />
                                                     <Chip
                                                         size="small"
                                                         variant="outlined"
-                                                        label={lastRunMs != null ? formatDateTime(new Date(lastRunMs).toISOString()) : formatDate(project.updated_at)}
+                                                        label={formatDate(project.updated_at)}
                                                     />
-                                                    {lastRun ? (
-                                                        <Chip size="small" variant="outlined" label={humanizeKey(lastRun.status)} />
-                                                    ) : null}
                                                 </Stack>
                                             </ResponsiveRowCard>
                                         );
@@ -731,6 +722,39 @@ export default function OrchestrationProjectsPage() {
                     )}
                 </SectionCard>
             </Stack>
+            <InspectorDrawer
+                open={Boolean(selectedProject)}
+                onClose={() => setSelectedProjectId(null)}
+                title={selectedProject?.name ?? "Project"}
+                subtitle={selectedProject?.description || "No description"}
+                actions={selectedProject ? (
+                    <Button variant="contained" onClick={() => navigate(`/projects/${selectedProject.id}`)}>
+                        Open project
+                    </Button>
+                ) : null}
+            >
+                {selectedProject ? (
+                    <Stack spacing={2}>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <StatusChip status={selectedProject.status} kind="project" />
+                            <Chip size="small" variant="outlined" label={`${portfolioByProject.get(selectedProject.id)?.active_runs ?? 0} active runs`} />
+                            <Chip size="small" variant="outlined" label={`${portfolioByProject.get(selectedProject.id)?.open_tasks ?? 0} open tasks`} />
+                        </Stack>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Last activity</Typography>
+                            <Typography variant="body2">{formatDateTime(selectedProject.updated_at)}</Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Repositories</Typography>
+                            <Typography variant="body2">{portfolioByProject.get(selectedProject.id)?.repository_links ?? 0} connected</Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">Memory scope</Typography>
+                            <Typography variant="body2">{humanizeKey(selectedProject.memory_scope)}</Typography>
+                        </Box>
+                    </Stack>
+                ) : null}
+            </InspectorDrawer>
             <Menu
                 anchorEl={projectMenuAnchor}
                 open={Boolean(projectMenuAnchor)}

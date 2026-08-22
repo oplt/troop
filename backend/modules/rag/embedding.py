@@ -6,6 +6,7 @@ import time
 from backend.core.config import settings
 from backend.core.logging import get_logger
 from backend.modules.ai.providers import AiProviderRegistry
+from backend.modules.observability.metrics import record_embedding_duration
 from backend.modules.rag.config import RagConfig
 from backend.modules.rag.observability import log_rag_event
 
@@ -38,10 +39,24 @@ class EmbeddingService:
         out: list[list[float]] = []
         timer = time.perf_counter()
 
-        for start in range(0, len(texts), size):
-            batch = texts[start : start + size]
-            vectors = await self._embed_batch_with_retry(batch, model_name)
-            out.extend(vectors)
+        try:
+            for start in range(0, len(texts), size):
+                batch = texts[start : start + size]
+                vectors = await self._embed_batch_with_retry(batch, model_name)
+                out.extend(vectors)
+        except Exception:
+            record_embedding_duration(
+                provider=settings.AI_EMBEDDING_PROVIDER,
+                outcome="error",
+                duration_seconds=time.perf_counter() - timer,
+            )
+            raise
+
+        record_embedding_duration(
+            provider=settings.AI_EMBEDDING_PROVIDER,
+            outcome="success",
+            duration_seconds=time.perf_counter() - timer,
+        )
 
         log_rag_event(
             "embed_complete",

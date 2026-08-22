@@ -75,7 +75,9 @@ class WorkflowVersionService:
                     definition,
                     nodes=list(nodes or draft.nodes_json or []),
                     edges=list(edges or draft.edges_json or []),
-                    entry_node_id=entry_node_id if entry_node_id is not None else draft.entry_node_id,
+                    entry_node_id=entry_node_id
+                    if entry_node_id is not None
+                    else draft.entry_node_id,
                     actor_user_id=created_by,
                 )
                 draft = await self.get_draft(definition)

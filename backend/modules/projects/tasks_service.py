@@ -32,4 +32,8 @@ class OrchestrationTasksServiceMixin(
 
     The host service is expected to provide ``self.db`` and ``self.repo``, plus
     execution/github/memory helpers used by task lifecycle transitions.
+
+    Requires ``self.db``, ``self.repo``, and the host's audit/provider
+    dependencies. Calls execution, GitHub, and memory helpers during lifecycle
+    transitions.
     """

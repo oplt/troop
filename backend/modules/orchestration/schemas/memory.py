@@ -51,12 +51,18 @@ class SemanticMemoryEntryResponse(BaseModel):
     source_task_id: str | None
     source_run_id: str | None
     provenance: dict[str, Any]
+    confidence: float = 0.5
     created_by_user_id: str | None
     ttl_days: int | None = None
     expires_at: datetime | None = None
     deleted_at: datetime | None = None
     retention_policy: str = "default"
     memory_version: int = 1
+    canonical_key: str | None = None
+    valid_from: datetime
+    valid_until: datetime | None = None
+    status: str = "current"
+    supersedes_memory_id: str | None = None
     embedding_model: str | None = None
     embedding_version: str | None = None
     created_at: datetime
@@ -77,6 +83,7 @@ class SemanticMemoryEntryCreate(RequestModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
     ttl_days: int | None = Field(default=None, ge=1, le=3650)
     retention_policy: str = Field(default="default", min_length=1, max_length=64)
+    canonical_key: str | None = Field(default=None, min_length=1, max_length=512)
 
 
 class SemanticMemoryEntryUpdate(RequestModel):

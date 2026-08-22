@@ -60,12 +60,10 @@ def tool_call_parallel_eligible(tool_slug: str) -> bool:
         return False
     if governance.side_effect != SideEffect.READ:
         return False
-    if governance.idempotency_strategy not in {
+    return governance.idempotency_strategy in {
         IdempotencyStrategy.NONE,
         IdempotencyStrategy.APPROVAL_DEDUP_ONLY,
-    }:
-        return False
-    return True
+    }
 
 
 def parallel_group_eligible(calls: Sequence[dict[str, Any]]) -> bool:
@@ -149,7 +147,9 @@ class ParallelGroupLimiter:
             return sem
 
     @classmethod
-    async def _get_provider_semaphore(cls, workspace_key: str, provider_key: str) -> asyncio.Semaphore:
+    async def _get_provider_semaphore(
+        cls, workspace_key: str, provider_key: str
+    ) -> asyncio.Semaphore:
         key = (workspace_key, provider_key)
         async with cls._lock:
             sem = cls._provider_limiters.get(key)
@@ -174,7 +174,9 @@ async def run_parallel_group(
         tool_name = str(call.get("tool") or "").strip()
         provider_key = provider_key_for_tool(tool_name)
         async with semaphore:
-            await ParallelGroupLimiter.acquire(workspace_key=workspace_key, provider_key=provider_key)
+            await ParallelGroupLimiter.acquire(
+                workspace_key=workspace_key, provider_key=provider_key
+            )
             try:
                 result = await execute_call(index, call)
             finally:

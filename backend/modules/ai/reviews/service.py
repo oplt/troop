@@ -10,6 +10,8 @@ from backend.modules.identity_access.models import User
 
 
 class AiReviewsMixin:
+    """Human review behavior. Requires ``self.db`` and ``self.repo``."""
+
     async def create_review(self, user: User, run_id: str, assigned_to_user_id: str | None):
         run = await self.repo.get_run_for_user(user.id, run_id)
         if not run:

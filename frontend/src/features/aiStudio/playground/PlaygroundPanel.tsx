@@ -1,14 +1,28 @@
 import {
     AutoAwesome as AiIcon,
+    ExpandMore as ExpandMoreIcon,
     FolderOpen as ProjectsIcon,
     PlayCircleOutline as RunIcon,
 } from "@mui/icons-material";
-import { Button, Chip, FormControlLabel, MenuItem, Stack, Switch, TextField } from "@mui/material";
+import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
+    Button,
+    Chip,
+    FormControlLabel,
+    MenuItem,
+    Stack,
+    Switch,
+    TextField,
+    Typography,
+} from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
 import type { AiDocument, AiRun } from "../../../api/ai";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
+import { JsonObjectEditor } from "../../../components/ui/JsonObjectEditor";
 import type { RunFormState, TemplateKeyOption } from "../types";
 import { RunResultCard } from "./RunResultCard";
 
@@ -70,52 +84,59 @@ export function PlaygroundPanel({
                         </MenuItem>
                     ))}
                 </TextField>
-                <TextField
+                <JsonObjectEditor
                     label="Variables JSON"
                     value={runForm.variables_json}
-                    onChange={(event) =>
-                        onRunFormChange((current) => ({ ...current, variables_json: event.target.value }))
+                    onChange={(value) =>
+                        onRunFormChange((current) => ({ ...current, variables_json: value }))
                     }
-                    fullWidth
-                    multiline
                     minRows={8}
                 />
-                <TextField
-                    label="Retrieval query"
-                    value={runForm.retrieval_query}
-                    onChange={(event) =>
-                        onRunFormChange((current) => ({ ...current, retrieval_query: event.target.value }))
-                    }
-                    fullWidth
-                />
-                <TextField
-                    label="Top K chunks"
-                    value={runForm.top_k}
-                    onChange={(event) => onRunFormChange((current) => ({ ...current, top_k: event.target.value }))}
-                    fullWidth
-                />
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {documents.map((document) => (
-                        <Chip
-                            key={document.id}
-                            label={document.title}
-                            color={selectedDocumentIds.includes(document.id) ? "primary" : "default"}
-                            variant={selectedDocumentIds.includes(document.id) ? "filled" : "outlined"}
-                            onClick={() => onToggleDocument(document.id)}
-                        />
-                    ))}
-                </Stack>
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={runForm.review_required}
-                            onChange={(event) =>
-                                onRunFormChange((current) => ({ ...current, review_required: event.target.checked }))
-                            }
-                        />
-                    }
-                    label="Request human review after this run"
-                />
+                <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="subtitle2">Advanced run configuration</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack spacing={2}>
+                            <TextField
+                                label="Retrieval query"
+                                value={runForm.retrieval_query}
+                                onChange={(event) =>
+                                    onRunFormChange((current) => ({ ...current, retrieval_query: event.target.value }))
+                                }
+                                fullWidth
+                            />
+                            <TextField
+                                label="Top K chunks"
+                                value={runForm.top_k}
+                                onChange={(event) => onRunFormChange((current) => ({ ...current, top_k: event.target.value }))}
+                                fullWidth
+                            />
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                {documents.map((document) => (
+                                    <Chip
+                                        key={document.id}
+                                        label={document.title}
+                                        color={selectedDocumentIds.includes(document.id) ? "primary" : "default"}
+                                        variant={selectedDocumentIds.includes(document.id) ? "filled" : "outlined"}
+                                        onClick={() => onToggleDocument(document.id)}
+                                    />
+                                ))}
+                            </Stack>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={runForm.review_required}
+                                        onChange={(event) =>
+                                            onRunFormChange((current) => ({ ...current, review_required: event.target.checked }))
+                                        }
+                                    />
+                                }
+                                label="Request human review after this run"
+                            />
+                        </Stack>
+                    </AccordionDetails>
+                </Accordion>
                 <Button
                     variant="contained"
                     startIcon={<RunIcon />}

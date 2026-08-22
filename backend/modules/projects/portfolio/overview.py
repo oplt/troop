@@ -17,7 +17,7 @@ class PortfolioOverviewMixin:
         return {
             "projects": projects[:20],
             "agents": (await self.repo.list_agents(user.id))[:20],
-            "active_runs": await self.repo.list_runs(user.id, limit=10),
+            "active_runs": (await self.repo.list_runs(user.id, limit=10))[:10],
             "pending_approvals": (await self.repo.list_approvals(user.id, "pending"))[:10],
             "github_events": (await self.repo.list_sync_events(user.id))[:10],
         }

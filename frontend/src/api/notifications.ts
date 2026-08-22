@@ -1,10 +1,11 @@
 import { apiFetch } from "./client";
+import { appendCursorParams, assertCursorPage, type CursorPage, type CursorToken } from "./pagination";
 
-export type Notification = {
+export type NotificationListItem = {
     id: string;
     type: string;
     title: string;
-    body: string | null;
+    body_preview: string | null;
     is_read: boolean;
     created_at: string;
 };
@@ -15,8 +16,21 @@ export type NotificationPreferences = {
     marketing_enabled: boolean;
 };
 
-export async function getNotifications(): Promise<Notification[]> {
-    return apiFetch("/notifications");
+export async function getNotificationsPage(
+    options: { limit?: number; cursor?: CursorToken | null } = {},
+): Promise<CursorPage<NotificationListItem>> {
+    const params = new URLSearchParams();
+    appendCursorParams(params, options);
+    const query = params.toString();
+    const payload = await apiFetch<unknown>(`/notifications${query ? `?${query}` : ""}`);
+    return assertCursorPage<NotificationListItem>(payload, "/notifications");
+}
+
+export async function getNotifications(
+    options: { limit?: number; cursor?: CursorToken | null } = {},
+): Promise<NotificationListItem[]> {
+    const page = await getNotificationsPage(options);
+    return page.items;
 }
 
 export async function getUnreadNotificationsCount(): Promise<{ count: number }> {

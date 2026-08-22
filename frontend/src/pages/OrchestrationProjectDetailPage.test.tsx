@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import OrchestrationProjectDetailView from "./projectDetail/OrchestrationProjectDetailView";
-import { buildOrchestrationTaskFixture } from "../features/orchestration/project/viewModel.fixtures";
+import { buildTaskListItemFixture } from "../features/orchestration/project/viewModel.fixtures";
 import {
     getGateConfig,
     getOrchestrationProject,
@@ -44,6 +44,7 @@ vi.mock("../api/orchestration", () => {
         getGateConfig: fn(),
         getMergeResolutionPreview: fn(),
         getOrchestrationProject: fn(),
+        getOrchestrationTask: fn(),
         getProjectMemorySettings: fn(),
         getProjectRepositoryIndexStatus: fn(),
         getRunWorkingMemory: fn(),
@@ -175,7 +176,7 @@ describe("OrchestrationProjectDetailPage", () => {
     it("switches to the board tab and loads task data", async () => {
         const user = userEvent.setup();
         vi.mocked(listOrchestrationTasks).mockResolvedValue([
-            buildOrchestrationTaskFixture(),
+            buildTaskListItemFixture(),
         ]);
 
         renderProjectDetail();

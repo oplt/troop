@@ -4,13 +4,13 @@ import {
     listOrchestrationTasks,
     listProjectMilestones,
     type OrchestrationProject,
-    type OrchestrationTask,
     type ProjectMilestone,
+    type TaskListItem,
 } from "../../../api/orchestration";
 
 export type ProjectDetailResources = {
     project: OrchestrationProject;
-    tasks: OrchestrationTask[];
+    tasks: TaskListItem[];
     milestones: ProjectMilestone[];
 };
 
@@ -33,7 +33,7 @@ export type ProjectTaskPayload = {
 /** Normalize the three primary project-detail reads into one view-model bundle. */
 export function buildProjectDetailResources(
     project: OrchestrationProject,
-    tasks: OrchestrationTask[],
+    tasks: TaskListItem[],
     milestones: ProjectMilestone[],
 ): ProjectDetailResources {
     return { project, tasks, milestones };

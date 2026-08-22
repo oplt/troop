@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
-import type { NavPersona } from "./navConfig";
+import type { NavPersona } from "../components/layout/navConfig";
 import {
     deriveNavPersona,
     NAV_PERSONA_STORAGE_KEY,
@@ -8,16 +8,12 @@ import {
     resolveNavPersona,
     writeNavPersonaPreference,
     type NavPersonaContext,
-} from "./navPersona";
+} from "../components/layout/navPersona";
 
 export function useNavPersona(ctx: NavPersonaContext) {
-    const derived = useMemo(() => deriveNavPersona(ctx), [ctx.isAdmin, ctx.workspaceRole]);
+    const derived = deriveNavPersona(ctx);
     const [preference, setPreference] = useState<NavPersona | null>(() => readNavPersonaPreference());
-
-    const persona = useMemo(
-        () => preference ?? resolveNavPersona(ctx),
-        [preference, ctx.isAdmin, ctx.workspaceRole],
-    );
+    const persona = preference ?? resolveNavPersona(ctx);
 
     const setPersona = useCallback(
         (next: NavPersona) => {

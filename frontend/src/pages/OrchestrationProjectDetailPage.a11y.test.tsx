@@ -43,6 +43,7 @@ vi.mock("../api/orchestration", () => {
         getGateConfig: fn(),
         getMergeResolutionPreview: fn(),
         getOrchestrationProject: fn(),
+        getOrchestrationTask: fn(),
         getProjectMemorySettings: fn(),
         getProjectRepositoryIndexStatus: fn(),
         getRunWorkingMemory: fn(),

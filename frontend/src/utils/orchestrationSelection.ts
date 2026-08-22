@@ -1,5 +1,3 @@
-import type { TaskRun } from "../api/orchestration";
-
 export type OrchestrationSelectionMeta = {
     worker_agent_rationale?: string;
     model_rationale?: string;
@@ -9,9 +7,11 @@ export type OrchestrationSelectionMeta = {
     routing_policy_snapshot?: Record<string, unknown>;
 };
 
-export function readOrchestrationSelectionMeta(run: TaskRun | null | undefined): OrchestrationSelectionMeta {
-    if (!run?.input_payload) return {};
-    const raw = run.input_payload.orchestration_meta;
+export function readOrchestrationSelectionMeta(run: unknown): OrchestrationSelectionMeta {
+    if (!run || typeof run !== "object") return {};
+    const inputPayload = "input_payload" in run ? (run as { input_payload?: unknown }).input_payload : undefined;
+    if (!inputPayload || typeof inputPayload !== "object") return {};
+    const raw = (inputPayload as Record<string, unknown>).orchestration_meta;
     if (!raw || typeof raw !== "object") return {};
     const m = raw as Record<string, unknown>;
     return {

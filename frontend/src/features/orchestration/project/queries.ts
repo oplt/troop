@@ -178,7 +178,7 @@ export function useProjectDetailQueries(projectId: string, state: ProjectDetailQ
     });
     const approvals = useQuery({
         queryKey: queryKeys.orchestration.approvals,
-        queryFn: listApprovals,
+        queryFn: () => listApprovals(),
         enabled: active("overview", "runs", "activity", "board"),
     });
     const issueLinks = useQuery({

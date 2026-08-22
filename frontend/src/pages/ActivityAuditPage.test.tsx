@@ -9,6 +9,7 @@ import { lightTheme } from "../app/theme";
 import { ActivityAuditContent } from "../features/activityAudit/ActivityAuditContent";
 import {
     decideApproval,
+    getApproval,
     listAgents,
     listApprovals,
     listGithubSyncEvents,
@@ -23,6 +24,7 @@ vi.mock("../app/snackbarContext", () => ({
 
 vi.mock("../api/orchestration", () => ({
     decideApproval: vi.fn(),
+    getApproval: vi.fn(),
     listAgents: vi.fn(),
     listApprovals: vi.fn(),
     listGithubSyncEvents: vi.fn(),
@@ -40,12 +42,11 @@ const pendingApprovals = [
         task_id: "task-1",
         run_id: "run-1",
         issue_link_id: null,
-        requested_by_user_id: "user-1",
-        approved_by_user_id: null,
         reason: "Needs review",
-        payload: {},
+        effect_hash: null,
+        effect_version: 1,
+        expires_at: null,
         created_at: "2026-01-01T00:00:00Z",
-        updated_at: "2026-01-01T00:00:00Z",
         resolved_at: null,
     },
     {
@@ -56,12 +57,11 @@ const pendingApprovals = [
         task_id: "task-2",
         run_id: "run-2",
         issue_link_id: null,
-        requested_by_user_id: "user-1",
-        approved_by_user_id: null,
         reason: "Escalated",
-        payload: {},
+        effect_hash: null,
+        effect_version: 1,
+        expires_at: null,
         created_at: "2026-01-02T00:00:00Z",
-        updated_at: "2026-01-02T00:00:00Z",
         resolved_at: null,
     },
 ];
@@ -90,6 +90,22 @@ describe("ActivityAuditContent keyboard queue", () => {
         vi.clearAllMocks();
         Element.prototype.scrollIntoView = vi.fn();
         vi.mocked(listApprovals).mockResolvedValue(pendingApprovals);
+        vi.mocked(getApproval).mockImplementation(async (id: string) => ({
+            ...(pendingApprovals.find((item) => item.id === id) ?? pendingApprovals[0]),
+            requested_by_user_id: "user-1",
+            approved_by_user_id: null,
+            payload: {},
+            precondition_fingerprint: null,
+            proposed_effect: null,
+            workspace_id: null,
+            eligible_approvers: [],
+            routing_snapshot: {},
+            decided_eligibility_reason: null,
+            due_at: null,
+            sla_policy: {},
+            delegations: [],
+            escalation_state: {},
+        }));
         vi.mocked(listRuns).mockResolvedValue([]);
         vi.mocked(listOrchestrationProjects).mockResolvedValue([]);
         vi.mocked(listAgents).mockResolvedValue([]);
@@ -97,6 +113,19 @@ describe("ActivityAuditContent keyboard queue", () => {
         vi.mocked(listHITLAuditLogs).mockResolvedValue([]);
         vi.mocked(decideApproval).mockResolvedValue({
             ...pendingApprovals[0],
+            requested_by_user_id: "user-1",
+            approved_by_user_id: null,
+            payload: {},
+            precondition_fingerprint: null,
+            proposed_effect: null,
+            workspace_id: null,
+            eligible_approvers: [],
+            routing_snapshot: {},
+            decided_eligibility_reason: null,
+            due_at: null,
+            sla_policy: {},
+            delegations: [],
+            escalation_state: {},
             status: "approved",
         });
     });
@@ -111,8 +140,8 @@ describe("ActivityAuditContent keyboard queue", () => {
 
         await waitFor(() => {
             expect(decideApproval).toHaveBeenCalled();
-            expect(decideApproval.mock.calls[0][0]).toBe("appr-1");
-            expect(decideApproval.mock.calls[0][1]).toEqual({ status: "approved", reason: undefined });
+            expect(vi.mocked(decideApproval).mock.calls[0][0]).toBe("appr-1");
+            expect(vi.mocked(decideApproval).mock.calls[0][1]).toEqual({ status: "approved", reason: undefined });
         });
     });
 

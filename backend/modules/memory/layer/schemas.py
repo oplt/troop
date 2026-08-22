@@ -79,6 +79,7 @@ class MemoryRecord:
     project_id: str | None = None
     company_id: str | None = None
     agent_id: str | None = None
+    task_id: str | None = None
     session_id: str | None = None
     source: str = "api"
     confidence: float | None = None

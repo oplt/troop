@@ -1,7 +1,16 @@
-import type { ConnectorDefinition, ConnectorManifest, ConnectorOperationManifest, ConnectorScopeManifest } from "../../api/integrations";
+import type { ConnectorManifest, ConnectorOperationManifest } from "../../api/integrations";
 import { humanizeKey } from "../../utils/formatters";
 
 type JsonSchema = Record<string, unknown>;
+type ConnectorDefinitionLike = {
+    id?: string;
+    slug: string;
+    name: string;
+    description: string;
+    provider_type: string;
+    config_schema_json: Record<string, unknown>;
+    metadata_json?: Record<string, unknown>;
+};
 
 export function schemaProperties(schema: JsonSchema | undefined): Record<string, JsonSchema> {
     const properties = schema?.properties;
@@ -65,7 +74,7 @@ export function secretFieldNames(schema: JsonSchema | undefined): Set<string> {
     return names;
 }
 
-export function manifestFromDefinition(definition: ConnectorDefinition | undefined): ConnectorManifest | undefined {
+export function manifestFromDefinition(definition: ConnectorDefinitionLike | undefined): ConnectorManifest | undefined {
     if (!definition) return undefined;
     return {
         provider_slug: definition.slug,
@@ -85,13 +94,13 @@ export function manifestFromDefinition(definition: ConnectorDefinition | undefin
         webhook: null,
         health: null,
         rate_limits: null,
-        metadata: definition.metadata_json,
+        metadata: definition.metadata_json ?? {},
     };
 }
 
 export function resolveSetupManifest(
     manifests: ConnectorManifest[] | undefined,
-    definitions: ConnectorDefinition[] | undefined,
+    definitions: ConnectorDefinitionLike[] | undefined,
     providerSlug: string,
 ): ConnectorManifest | undefined {
     return manifestForProvider(manifests, providerSlug)

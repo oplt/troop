@@ -60,8 +60,27 @@ export function isTelegramConnected(status: string | undefined): boolean {
     return Boolean(status && ["connected", "active", "healthy", "linked"].includes(status));
 }
 
-export function findFlagshipWorkflow<T extends { slug?: string; template_pack?: EmailApprovalTemplatePack }>(
+export function isEmailApprovalTemplatePack(value: unknown): value is EmailApprovalTemplatePack {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const pack = value as Partial<EmailApprovalTemplatePack>;
+    return (
+        typeof pack.flagship === "boolean" &&
+        typeof pack.title === "string" &&
+        typeof pack.summary === "string" &&
+        Array.isArray(pack.steps) &&
+        Boolean(pack.requirements) &&
+        Array.isArray(pack.requirements?.connectors) &&
+        Array.isArray(pack.requirements?.optional_connectors) &&
+        Array.isArray(pack.requirements?.skill_slugs)
+    );
+}
+
+export function findFlagshipWorkflow<T extends { slug?: unknown; template_pack?: unknown }>(
     workflows: T[],
 ): T | undefined {
-    return workflows.find((item) => item.slug === EMAIL_APPROVAL_FLAGSHIP_SLUG || item.template_pack?.flagship);
+    return workflows.find(
+        (item) =>
+            item.slug === EMAIL_APPROVAL_FLAGSHIP_SLUG ||
+            (isEmailApprovalTemplatePack(item.template_pack) && item.template_pack.flagship),
+    );
 }

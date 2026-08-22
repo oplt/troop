@@ -1,4 +1,3 @@
-from backend.modules.orchestration.services.application import OrchestrationApplicationService
 from backend.modules.orchestration.services.approvals_domain import ApprovalsService
 from backend.modules.orchestration.services.base import (
     GITHUB_WEBHOOK_EVENT_ALLOWLIST,
@@ -17,7 +16,6 @@ from backend.modules.orchestration.services.service import OrchestrationService
 
 __all__ = [
     "ApprovalsService",
-    "OrchestrationApplicationService",
     "BrainstormService",
     "EvalsService",
     "ExecutionService",

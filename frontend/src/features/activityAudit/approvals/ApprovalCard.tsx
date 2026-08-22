@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
     Alert,
@@ -22,8 +22,8 @@ import {
     RateReviewOutlined as RequestChangesIcon,
 } from "@mui/icons-material";
 
-import type { Approval } from "../../../api/orchestration";
-import { decideApproval } from "../../../api/orchestration";
+import type { ApprovalListItem } from "../../../api/orchestration";
+import { decideApproval, getApproval } from "../../../api/orchestration";
 import { editEmailApprovalPayload, requestApprovalChanges } from "../../../api/integrations";
 import { useSnackbar } from "../../../app/snackbarContext";
 import { StatusChip } from "../../../components/ui/StatusChip";
@@ -35,7 +35,7 @@ import { EmailApprovalDetails } from "../email/EmailApprovalDetails";
 import { EmailApprovalEditor } from "../email/EmailApprovalEditor";
 
 type ApprovalCardProps = {
-    approval: Approval;
+    approval: ApprovalListItem;
     focused?: boolean;
     onFocusCard?: () => void;
 };
@@ -43,7 +43,12 @@ type ApprovalCardProps = {
 export function ApprovalCard({ approval, focused = false, onFocusCard }: ApprovalCardProps) {
     const [reason, setReason] = useState("");
     const [editOpen, setEditOpen] = useState(false);
-    const email = normalizeEmailApproval(approval.payload, approval.approval_type);
+    const { data: detail } = useQuery({
+        queryKey: queryKeys.orchestration.approval(approval.id),
+        queryFn: () => getApproval(approval.id),
+    });
+    const payload = detail?.payload ?? {};
+    const email = normalizeEmailApproval(payload, approval.approval_type);
     const [emailDraft, setEmailDraft] = useState(email.draft);
     const queryClient = useQueryClient();
     const { showToast } = useSnackbar();
@@ -98,8 +103,8 @@ export function ApprovalCard({ approval, focused = false, onFocusCard }: Approva
     });
 
     const isPending = approval.status === "pending";
-    const actionDescription = describeAction(approval);
-    const consequence = emailConsequenceLine(approval);
+    const actionDescription = describeAction({ approval_type: approval.approval_type, payload });
+    const consequence = emailConsequenceLine({ approval_type: approval.approval_type, payload });
 
     return (
         <Paper
@@ -175,10 +180,10 @@ export function ApprovalCard({ approval, focused = false, onFocusCard }: Approva
                     </Typography>
                 </Stack>
 
-                {email.isEmail ? (
-                    <EmailApprovalDetails approval={approval} />
+                {detail && email.isEmail ? (
+                    <EmailApprovalDetails approval={detail} />
                 ) : (
-                    Object.keys(approval.payload).length > 0 && (
+                    Object.keys(payload).length > 0 && (
                         <Box
                             sx={{
                                 p: 1.25,
@@ -193,7 +198,7 @@ export function ApprovalCard({ approval, focused = false, onFocusCard }: Approva
                                 whiteSpace: "pre-wrap",
                             }}
                         >
-                            {JSON.stringify(approval.payload, null, 2)}
+                            {JSON.stringify(payload, null, 2)}
                         </Box>
                     )
                 )}
@@ -239,7 +244,10 @@ export function ApprovalCard({ approval, focused = false, onFocusCard }: Approva
                                     variant="outlined"
                                     startIcon={<EditIcon />}
                                     disabled={mutation.isPending}
-                                    onClick={() => setEditOpen(true)}
+                                    onClick={() => {
+                                        setEmailDraft(email.draft);
+                                        setEditOpen(true);
+                                    }}
                                 >
                                     Edit
                                 </Button>

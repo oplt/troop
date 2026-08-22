@@ -43,6 +43,7 @@ import { GovernanceStepLegend } from "../features/templates/emailApproval/Govern
 import {
     EMAIL_APPROVAL_FLAGSHIP_SLUG,
     findFlagshipWorkflow,
+    isEmailApprovalTemplatePack,
     type EmailApprovalTemplatePack,
 } from "../features/templates/emailApproval/types";
 
@@ -183,7 +184,11 @@ export default function MarketplacePage() {
         () => findFlagshipWorkflow(catalog?.workflows ?? []),
         [catalog?.workflows],
     );
-    const flagshipPack = flagshipWorkflow?.template_pack as EmailApprovalTemplatePack | undefined;
+    const flagshipPack: EmailApprovalTemplatePack | undefined = isEmailApprovalTemplatePack(
+        flagshipWorkflow?.template_pack,
+    )
+        ? flagshipWorkflow.template_pack
+        : undefined;
 
     const items = useMemo(() => {
         if (!catalog) return [];
@@ -433,16 +438,14 @@ export default function MarketplacePage() {
                                         onClick: () => installMutation.mutate({ kind: tab, slug }),
                                     }}
                                     secondaryAction={
-                                        tab !== "workspace" ? (
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                disabled={importPackageMutation.isPending}
-                                                onClick={() => importPackageMutation.mutate({ kind: tab, slug })}
-                                            >
-                                                Save to workspace
-                                            </Button>
-                                        ) : undefined
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            disabled={importPackageMutation.isPending}
+                                            onClick={() => importPackageMutation.mutate({ kind: tab, slug })}
+                                        >
+                                            Save to workspace
+                                        </Button>
                                     }
                                 />
                             );

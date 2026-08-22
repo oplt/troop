@@ -281,7 +281,6 @@ export default function AgentLibraryPage() {
 
     const hierarchyQueries = useHierarchyQueries(selectedHierarchyProjectId);
     const { data: agents = [], isLoading: agentsLoading } = hierarchyQueries.agents;
-    const { data: runs = [] } = hierarchyQueries.runs;
     const { data: templates = [], isLoading: templatesLoading } = hierarchyQueries.templates;
     const { data: skills = [] } = hierarchyQueries.skills;
     const { data: teamTemplates = [] } = hierarchyQueries.teamTemplates;
@@ -404,25 +403,8 @@ export default function AgentLibraryPage() {
     }, [selectedTeamAgentTemplates]);
 
     const agentLiveStatus = useMemo(() => {
-        const map = new Map<string, "running" | "blocked" | "queued" | "idle">();
-        for (const run of runs) {
-            const status = String((run as { status?: string }).status || "");
-            const worker = String((run as { worker_agent_id?: string | null }).worker_agent_id || "");
-            if (!worker) continue;
-            if (status === "blocked") {
-                map.set(worker, "blocked");
-                continue;
-            }
-            if (status === "in_progress" && map.get(worker) !== "blocked") {
-                map.set(worker, "running");
-                continue;
-            }
-            if (status === "queued" && !map.has(worker)) {
-                map.set(worker, "queued");
-            }
-        }
-        return map;
-    }, [runs]);
+        return new Map<string, "running" | "blocked" | "queued" | "idle">();
+    }, []);
 
     const initialGraph = useMemo(() => buildInitialTeamGraph(hierarchyAgents, agentLiveStatus), [agentLiveStatus, hierarchyAgents]);
     const { nodes, setNodes, onNodesChange, edges, setEdges, onEdgesChange } =

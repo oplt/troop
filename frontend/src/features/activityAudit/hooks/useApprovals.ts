@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { Approval } from "../../../api/orchestration";
+import type { ApprovalListItem } from "../../../api/orchestration";
 import {
     decideApproval,
     listAgents,
@@ -64,7 +64,7 @@ export function useApprovals({ initialTab = "approvals" }: UseApprovalsOptions =
 
     const { data: approvals = [], isLoading: approvalsLoading } = useQuery({
         queryKey: queryKeys.orchestration.approvals,
-        queryFn: listApprovals,
+        queryFn: () => listApprovals(),
     });
     const { data: runs = [], isLoading: runsLoading } = useQuery({
         queryKey: queryKeys.orchestration.runsRoot,
@@ -100,41 +100,25 @@ export function useApprovals({ initialTab = "approvals" }: UseApprovalsOptions =
         return approvals.filter((a) => {
             if (!filterByDate(a.created_at)) return false;
             if (projectFilter && a.project_id !== projectFilter) return false;
-            if (agentFilter) {
-                const payloadAgent =
-                    (a.payload?.agent_id as string | undefined) ||
-                    (a.payload?.worker_agent_id as string | undefined) ||
-                    (a.payload?.orchestrator_agent_id as string | undefined);
-                const run = a.run_id ? runs.find((r) => r.id === a.run_id) : undefined;
-                const runAgents = [run?.worker_agent_id, run?.orchestrator_agent_id, run?.reviewer_agent_id].filter(
-                    Boolean,
-                );
-                const hit = payloadAgent === agentFilter || runAgents.includes(agentFilter);
-                if (!hit) return false;
-            }
             return true;
         });
-    }, [approvals, agentFilter, projectFilter, filterByDate, runs]);
+    }, [approvals, projectFilter, filterByDate]);
 
     const filteredRuns = useMemo(() => {
         return runs.filter((run) => {
             if (!filterByDate(run.created_at)) return false;
             if (projectFilter && run.project_id !== projectFilter) return false;
-            if (agentFilter) {
-                const ids = [run.worker_agent_id, run.orchestrator_agent_id, run.reviewer_agent_id];
-                if (!ids.includes(agentFilter)) return false;
-            }
             return true;
         });
-    }, [runs, projectFilter, agentFilter, filterByDate]);
+    }, [runs, projectFilter, filterByDate]);
 
     const filteredSync = useMemo(() => {
         return syncEvents.filter((e) => filterByDate(e.created_at));
     }, [syncEvents, filterByDate]);
 
     const { pending, resolved } = useMemo(() => {
-        const pendingList: Approval[] = [];
-        const resolvedList: Approval[] = [];
+        const pendingList: ApprovalListItem[] = [];
+        const resolvedList: ApprovalListItem[] = [];
         for (const a of filteredApprovals) {
             if (a.status === "pending") pendingList.push(a);
             else resolvedList.push(a);

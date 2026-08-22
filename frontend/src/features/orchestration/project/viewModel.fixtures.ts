@@ -2,6 +2,7 @@ import type {
     OrchestrationProject,
     OrchestrationTask,
     ProjectMilestone,
+    TaskListItem,
 } from "../../../api/orchestration";
 
 import type { ProjectDetailResources, ProjectTaskPayload } from "./api";
@@ -64,6 +65,35 @@ export const PROJECT_DETAIL_PROJECT_FIXTURE: OrchestrationProject = {
 
 export const PROJECT_DETAIL_TASK_FIXTURE = buildOrchestrationTaskFixture();
 
+export function buildTaskListItemFixture(
+    overrides: Partial<TaskListItem> = {},
+): TaskListItem {
+    return {
+        id: "task-1",
+        project_id: "project-1",
+        title: "Verify rollout checklist",
+        status: "backlog",
+        priority: "normal",
+        task_type: "general",
+        position: 0,
+        assigned_agent_id: null,
+        human_assignee_id: null,
+        parent_task_id: null,
+        github_issue_number: null,
+        github_issue_url: null,
+        github_repository_full_name: null,
+        due_date: null,
+        labels: [],
+        dependency_ids: [],
+        has_result: false,
+        created_at: "2026-06-18T00:00:00.000Z",
+        updated_at: "2026-06-18T00:00:00.000Z",
+        ...overrides,
+    };
+}
+
+export const PROJECT_DETAIL_TASK_LIST_FIXTURE = buildTaskListItemFixture();
+
 export const PROJECT_DETAIL_MILESTONE_FIXTURE: ProjectMilestone = {
     id: "milestone-1",
     project_id: "project-1",
@@ -78,7 +108,7 @@ export const PROJECT_DETAIL_MILESTONE_FIXTURE: ProjectMilestone = {
 
 export const PROJECT_DETAIL_RESOURCES_FIXTURE: ProjectDetailResources = {
     project: PROJECT_DETAIL_PROJECT_FIXTURE,
-    tasks: [PROJECT_DETAIL_TASK_FIXTURE],
+    tasks: [PROJECT_DETAIL_TASK_LIST_FIXTURE],
     milestones: [PROJECT_DETAIL_MILESTONE_FIXTURE],
 };
 

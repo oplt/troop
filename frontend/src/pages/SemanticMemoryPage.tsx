@@ -45,7 +45,7 @@ import {
     patchProjectMemorySettings,
     reindexEpisodicMemory,
     searchEpisodicMemory,
-    type Approval,
+    type ApprovalListItem,
     type SemanticMemoryEntry,
 } from "../api/orchestration";
 import { CollapsibleSectionCard } from "../components/ui/CollapsibleSectionCard";
@@ -163,8 +163,8 @@ export default function SemanticMemoryPage() {
     });
     const semanticApprovals = useMemo(
         () =>
-            (allApprovals as Approval[]).filter(
-                (a) => a.status === "pending" && a.project_id === projectId && a.approval_type === "semantic_memory_write",
+            allApprovals.filter(
+                (a: ApprovalListItem) => a.status === "pending" && a.project_id === projectId && a.approval_type === "semantic_memory_write",
             ),
         [allApprovals, projectId],
     );
@@ -605,9 +605,7 @@ export default function SemanticMemoryPage() {
                                         </Typography>
                                     </Stack>
                                     <Typography variant="body2" color="text.secondary">
-                                        {String((a.payload as Record<string, unknown>)?.title
-                                            ?? (a.payload as Record<string, unknown>)?.summary
-                                            ?? a.approval_type)}
+                                        {a.reason?.trim() || a.approval_type}
                                     </Typography>
                                     <TextField
                                         size="small"

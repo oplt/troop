@@ -82,9 +82,9 @@ export default function NotificationsPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
     const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
-    const { data: notifications, isLoading, error } = useQuery({
+    const { data: notifications = [], isLoading, error } = useQuery({
         queryKey: queryKeys.notifications.root,
-        queryFn: getNotifications,
+        queryFn: () => getNotifications(),
     });
     const { data: prefs } = useQuery({
         queryKey: queryKeys.notifications.preferences,
@@ -100,8 +100,8 @@ export default function NotificationsPage() {
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.preferences }),
     });
 
-    const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
-    const totalCount = notifications?.length ?? 0;
+    const unreadCount = notifications.filter((item) => !item.is_read).length;
+    const totalCount = notifications.length;
     const enabledChannels = [
         prefs?.email_enabled,
         prefs?.push_enabled,
@@ -109,13 +109,12 @@ export default function NotificationsPage() {
     ].filter(Boolean).length;
 
     const filteredNotifications = useMemo(() => {
-        const items = notifications ?? [];
         const q = search.trim().toLowerCase();
-        return items.filter((notification) => {
+        return notifications.filter((notification) => {
             if (readFilter === "unread" && notification.is_read) return false;
             if (readFilter === "read" && !notification.is_read) return false;
             if (!q) return true;
-            return [notification.title, notification.body, notification.type]
+            return [notification.title, notification.body_preview, notification.type]
                 .some((value) => String(value ?? "").toLowerCase().includes(q));
         });
     }, [notifications, readFilter, search]);
@@ -194,7 +193,7 @@ export default function NotificationsPage() {
                                 void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root });
                             }}
                         >
-                            {notifications && notifications.length > 0 ? (
+                            {notifications.length > 0 ? (
                                 filteredNotifications.length > 0 ? (
                                     <Stack spacing={1.5}>
                                         {filteredNotifications.map((notification) => {
@@ -230,9 +229,9 @@ export default function NotificationsPage() {
                                                                 {formatDateTime(notification.created_at)}
                                                             </Typography>
                                                         </Stack>
-                                                        {notification.body && (
+                                                        {notification.body_preview && (
                                                             <Typography variant="body2" color="text.secondary">
-                                                                {notification.body}
+                                                                {notification.body_preview}
                                                             </Typography>
                                                         )}
                                                         {!notification.is_read && (

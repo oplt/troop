@@ -57,6 +57,12 @@ class MemoryService:
     def enabled(self) -> bool:
         return self._config.enabled
 
+    async def get_memory(self, user_id: str, memory_id: str) -> MemoryRecord | None:
+        """Return one memory through the canonical provider boundary."""
+        if not self._config.enabled:
+            return None
+        return await self._provider.get(user_id, memory_id)
+
     async def add_memory(
         self,
         user_id: str,
@@ -187,6 +193,37 @@ class MemoryService:
             duration_ms=timer.elapsed_ms,
         )
         increment_memory_metric("memory_layer_search")
+        return records
+
+    async def list_memories(
+        self,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        filters: MemoryFilters | None = None,
+    ) -> list[MemoryRecord]:
+        """List scoped memories without generating an embedding for an empty query."""
+        if not self._config.enabled:
+            return []
+
+        timer = MemoryTimer()
+        effective_limit = limit or self._config.default_search_limit
+        effective_filters = filters or MemoryFilters(user_id=user_id)
+        effective_filters.user_id = user_id
+        records = await self._provider.search(
+            user_id,
+            "",
+            query_vec=None,
+            filters=effective_filters,
+            limit=effective_limit,
+        )
+        log_memory_event(
+            "list",
+            user_id=user_id,
+            count=len(records),
+            duration_ms=timer.elapsed_ms,
+        )
+        increment_memory_metric("memory_layer_list")
         return records
 
     async def update_memory(

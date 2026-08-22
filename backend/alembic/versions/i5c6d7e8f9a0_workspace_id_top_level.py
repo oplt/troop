@@ -56,10 +56,18 @@ def _assert_zero_null_workspace_ids(bind, table_name: str) -> None:
 
 def upgrade() -> None:
     bind = op.get_bind()
+    inspector = sa.inspect(bind)
     targets = workspace_fk_targets()
 
     for target in targets:
-        _add_workspace_id(target.table_name)
+        columns = {col["name"] for col in inspector.get_columns(target.table_name)}
+        if target.owner_column not in columns:
+            raise RuntimeError(
+                f"RBAC-001C cannot backfill {target.table_name}: "
+                f"owner column {target.owner_column!r} does not exist"
+            )
+        if "workspace_id" not in columns:
+            _add_workspace_id(target.table_name)
 
     for target in targets:
         bind.execute(text(direct_backfill_sql(table_name=target.table_name, owner_column=target.owner_column)))

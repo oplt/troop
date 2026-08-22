@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_PACKAGES = ("api", "app", "core", "db", "modules", "workers")
+RUNTIME_PACKAGES = ("api", "core", "db", "modules", "workers")
 PRINT_CALL = re.compile(r"\bprint\s*\(")
 
 

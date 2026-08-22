@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-
 from backend.modules.memory.layer.config import MemoryConfig
 from backend.modules.memory.layer.context import build_memory_context
 from backend.modules.memory.layer.dedup import content_hash, is_duplicate
@@ -149,6 +148,11 @@ class _FakeSession:
         return None
 
 
+class _FakeEmbedder:
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0] * 32 for _ in texts]
+
+
 @pytest.mark.asyncio
 async def test_memory_service_disabled_is_noop():
     provider = _FakeProvider()
@@ -169,6 +173,7 @@ async def test_memory_service_add_search_update_delete():
         _FakeSession(),  # type: ignore[arg-type]
         config=MemoryConfig(enabled=True, dedup_enabled=True),
         provider=provider,
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
     )
     created = await service.add_memory(
         "u1",
@@ -178,6 +183,13 @@ async def test_memory_service_add_search_update_delete():
     )
     assert created is not None
     assert created.id in provider.stored
+    assert await service.get_memory("u1", created.id) is created
+
+    listed = await service.list_memories(
+        "u1",
+        filters=MemoryFilters(user_id="u1", project_id="p1"),
+    )
+    assert listed == [created]
 
     blocked = await service.add_memory("u1", "password: super-secret-value-that-should-never-be-stored")
     assert blocked is None

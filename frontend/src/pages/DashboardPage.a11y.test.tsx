@@ -10,6 +10,7 @@ import { expectNoA11yViolations } from "../test/a11y";
 import { VISUAL_BASELINES } from "../test/visualBaselines";
 import DashboardPage from "./DashboardPage";
 import {
+    getActivationStatus,
     getExecutionInsights,
     getOrchestrationOverview,
 } from "../api/orchestration";
@@ -18,6 +19,7 @@ import { listCompanies } from "../api/companies";
 import { getGmailStatus, getTelegramStatus } from "../api/integrations";
 
 vi.mock("../api/orchestration", () => ({
+    getActivationStatus: vi.fn(),
     getExecutionInsights: vi.fn(),
     getOrchestrationOverview: vi.fn(),
 }));
@@ -57,6 +59,16 @@ function renderDashboard() {
 describe("Dashboard accessibility + visual baseline", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getActivationStatus).mockResolvedValue({
+            workspace_id: "workspace-1",
+            baseline_at: "2026-06-18T00:00:00.000Z",
+            milestones: [],
+            completed_count: 0,
+            total_count: 0,
+            activated: true,
+            seconds_to_activate: null,
+            next_step: null,
+        });
         vi.mocked(getNotifications).mockResolvedValue([]);
         vi.mocked(listCompanies).mockResolvedValue([]);
         vi.mocked(getGmailStatus).mockResolvedValue({

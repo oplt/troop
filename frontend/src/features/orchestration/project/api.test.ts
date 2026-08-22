@@ -13,6 +13,7 @@ import {
     PROJECT_DETAIL_PROJECT_FIXTURE,
     PROJECT_DETAIL_RESOURCES_FIXTURE,
     PROJECT_DETAIL_TASK_FIXTURE,
+    PROJECT_DETAIL_TASK_LIST_FIXTURE,
     PROJECT_TASK_PAYLOAD_FIXTURE,
 } from "./viewModel.fixtures";
 
@@ -32,7 +33,7 @@ describe("project detail api façade", () => {
         expect(
             buildProjectDetailResources(
                 PROJECT_DETAIL_PROJECT_FIXTURE,
-                [PROJECT_DETAIL_TASK_FIXTURE],
+                [PROJECT_DETAIL_TASK_LIST_FIXTURE],
                 [PROJECT_DETAIL_MILESTONE_FIXTURE],
             ),
         ).toEqual(PROJECT_DETAIL_RESOURCES_FIXTURE);
@@ -40,12 +41,12 @@ describe("project detail api façade", () => {
 
     it("delegates reads and writes to the legacy orchestration client", async () => {
         vi.mocked(getOrchestrationProject).mockResolvedValue(PROJECT_DETAIL_PROJECT_FIXTURE);
-        vi.mocked(listOrchestrationTasks).mockResolvedValue([PROJECT_DETAIL_TASK_FIXTURE]);
+        vi.mocked(listOrchestrationTasks).mockResolvedValue([PROJECT_DETAIL_TASK_LIST_FIXTURE]);
         vi.mocked(listProjectMilestones).mockResolvedValue([PROJECT_DETAIL_MILESTONE_FIXTURE]);
         vi.mocked(createOrchestrationTask).mockResolvedValue(PROJECT_DETAIL_TASK_FIXTURE);
 
         await expect(projectDetailApi.getProject("project-1")).resolves.toEqual(PROJECT_DETAIL_PROJECT_FIXTURE);
-        await expect(projectDetailApi.listTasks("project-1")).resolves.toEqual([PROJECT_DETAIL_TASK_FIXTURE]);
+        await expect(projectDetailApi.listTasks("project-1")).resolves.toEqual([PROJECT_DETAIL_TASK_LIST_FIXTURE]);
         await expect(projectDetailApi.listMilestones("project-1")).resolves.toEqual([PROJECT_DETAIL_MILESTONE_FIXTURE]);
         await expect(projectDetailApi.createTask("project-1", PROJECT_TASK_PAYLOAD_FIXTURE)).resolves.toEqual(
             PROJECT_DETAIL_TASK_FIXTURE,

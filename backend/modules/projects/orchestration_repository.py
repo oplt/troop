@@ -19,6 +19,7 @@ from backend.modules.projects.orchestration_models import (
 
 class OrchestrationProjectsRepositoryMixin:
     async def list_projects(self, owner_id: str) -> list[OrchestratorProject]:
+        """Return fully loaded projects for detail responses and domain operations."""
         result = await self.db.execute(
             select(OrchestratorProject)
             .where(OrchestratorProject.owner_id == owner_id)

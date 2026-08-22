@@ -67,7 +67,7 @@ def upgrade() -> None:
                 ),
                 precondition_fingerprint = NULLIF(payload_json->>'precondition_fingerprint', ''),
                 expires_at = CASE
-                    WHEN payload_json ? 'expires_at'
+                    WHEN (payload_json::jsonb) ? 'expires_at'
                          AND NULLIF(payload_json->>'expires_at', '') IS NOT NULL
                     THEN (payload_json->>'expires_at')::timestamptz
                     ELSE NULL
@@ -78,10 +78,10 @@ def upgrade() -> None:
                 )
             WHERE payload_json IS NOT NULL
               AND (
-                    payload_json ? 'arguments_hash'
-                 OR payload_json ? 'effect_hash'
-                 OR payload_json ? 'draft_arguments'
-                 OR payload_json ? 'proposed_effect'
+                    (payload_json::jsonb) ? 'arguments_hash'
+                 OR (payload_json::jsonb) ? 'effect_hash'
+                 OR (payload_json::jsonb) ? 'draft_arguments'
+                 OR (payload_json::jsonb) ? 'proposed_effect'
               )
             """
         )

@@ -95,6 +95,9 @@ describe("AiStudioPage", () => {
             {
                 id: "review-1",
                 run_id: "run-1",
+                requested_by_user_id: "user-1",
+                assigned_to_user_id: null,
+                reviewed_by_user_id: null,
                 status: "pending",
                 reviewer_notes: null,
                 corrected_output: null,
@@ -130,7 +133,7 @@ describe("AiStudioPage", () => {
 
         await waitFor(() => {
             expect(createPromptTemplate).toHaveBeenCalled();
-            expect(createPromptTemplate.mock.calls[0][0]).toEqual({
+            expect(vi.mocked(createPromptTemplate).mock.calls[0][0]).toEqual({
                 key: "support-reply",
                 name: "Support reply",
                 description: "",
@@ -141,15 +144,21 @@ describe("AiStudioPage", () => {
     it("creates a text document from the documents panel", async () => {
         const user = userEvent.setup();
         vi.mocked(createAiDocument).mockResolvedValue({
-            id: "doc-new",
-            title: "Return policy",
-            description: "",
-            content_type: "text/plain",
-            ingestion_status: "completed",
-            chunk_count: 2,
+            document: {
+                id: "doc-new",
+                title: "Return policy",
+                description: "",
+                filename: null,
+                content_type: "text/plain",
+                size_bytes: 38,
+                ingestion_status: "completed",
+                metadata: {},
+                chunk_count: 2,
+                created_at: "",
+                updated_at: "",
+            },
+            ingest_job_id: null,
             queued: false,
-            created_at: "",
-            updated_at: "",
         });
 
         renderPage("/ai-studio?studio=documents");
@@ -161,7 +170,7 @@ describe("AiStudioPage", () => {
 
         await waitFor(() => {
             expect(createAiDocument).toHaveBeenCalled();
-            expect(createAiDocument.mock.calls[0][0]).toEqual({
+            expect(vi.mocked(createAiDocument).mock.calls[0][0]).toEqual({
                 title: "Return policy",
                 description: "",
                 content: "Returns accepted within 30 days.",

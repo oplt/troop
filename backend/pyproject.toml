@@ -45,13 +45,12 @@ dev = [
 ]
 
 [tool.setuptools.package-dir]
-"" = "."
-"backend" = "."
+"" = ".."
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["api*", "app*", "core*", "db*", "modules*", "workers*", "backend*"]
-namespaces = true
+where = [".."]
+include = ["backend*"]
+namespaces = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

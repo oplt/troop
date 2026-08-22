@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, lazy, Suspense } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
     Box,
@@ -39,7 +39,9 @@ import {
     Upload as UploadIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import type { ProviderConfig, TaskRun } from "../../api/orchestration";
+import type { ProviderConfig, RunListItem } from "../../api/orchestration";
+import { getOrchestrationTask } from "../../api/orchestration";
+import { queryKeys } from "../../config/queryKeys";
 import { useSnackbar } from "../../app/snackbarContext";
 import { PageShell } from "../../components/ui/PageShell";
 import { DensePageMobileNotice } from "../../components/ui/DensePageMobileNotice";
@@ -244,7 +246,7 @@ export function ProjectDetailWorkspace() {
     const { data: brainstorms = [] } = projectDetailQueries.brainstorms;
     const { data: runs = [] } = projectDetailQueries.runs;
     const lastRunByTaskId = useMemo(() => {
-        const m: Record<string, TaskRun> = {};
+        const m: Record<string, RunListItem> = {};
         for (const r of runs) {
             if (r.task_id && m[r.task_id] === undefined) {
                 m[r.task_id] = r;
@@ -301,6 +303,11 @@ export function ProjectDetailWorkspace() {
         () => (dagDrawerTaskId ? tasks.find((t) => t.id === dagDrawerTaskId) ?? null : null),
         [tasks, dagDrawerTaskId],
     );
+    const { data: dagTaskDetail } = useQuery({
+        queryKey: queryKeys.orchestration.projectTask(projectId, dagDrawerTaskId || ""),
+        queryFn: () => getOrchestrationTask(projectId, dagDrawerTaskId as string),
+        enabled: Boolean(projectId && dagDrawerTaskId),
+    });
     const dagTaskLatestRun = useMemo(() => {
         if (!dagTask) return null;
         const forTask = [...runs].filter((r) => r.task_id === dagTask.id);
@@ -317,15 +324,15 @@ export function ProjectDetailWorkspace() {
     }, [tasks, dagTask]);
     const dagBlockedSuggestion = useMemo(() => {
         if (!dagTask) return null;
-        const targetId = typeof dagTask.metadata?.suggested_handoff_agent_id === "string" ? dagTask.metadata.suggested_handoff_agent_id : "";
+        const targetId = typeof dagTaskDetail?.metadata?.suggested_handoff_agent_id === "string" ? dagTaskDetail.metadata.suggested_handoff_agent_id : "";
         if (!targetId) return null;
         const targetAgent = allAgents.find((agent) => agent.id === targetId);
         return {
             agentName: targetAgent?.name || targetId,
-            via: String(dagTask.metadata?.handoff_suggested_via || "handoff rule"),
-            reason: String(dagTask.metadata?.handoff_blocked_reason || ""),
+            via: String(dagTaskDetail?.metadata?.handoff_suggested_via || "handoff rule"),
+            reason: String(dagTaskDetail?.metadata?.handoff_blocked_reason || ""),
         };
-    }, [allAgents, dagTask]);
+    }, [allAgents, dagTask, dagTaskDetail]);
     const dagDescendantIds = useMemo(() => {
         if (!dagTask) return new Set<string>();
         const dependentsById = new Map<string, string[]>();
@@ -941,7 +948,7 @@ export function ProjectDetailWorkspace() {
                                     <Typography variant="caption" color="text.secondary">Next best action</Typography>
                                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} justifyContent="space-between">
                                         <Box sx={{ minWidth: 0 }}>
-                                            <Typography variant="subtitle2">{nextAction.label}</Typography>
+                                            <Typography variant="subtitle2" component="p">{nextAction.label}</Typography>
                                             <Typography variant="body2" color="text.secondary" noWrap>{nextAction.detail}</Typography>
                                         </Box>
                                         <Button size="small" variant="contained" onClick={nextAction.action}>Open</Button>
@@ -2847,9 +2854,9 @@ export function ProjectDetailWorkspace() {
                                     <Typography variant="subtitle2">Pending memory writes</Typography>
                                     {pendingMemoryApprovals.map((approval) => (
                                         <Paper key={approval.id} sx={{ p: 2, borderRadius: 4 }}>
-                                            <Typography variant="body2">{String(approval.payload.key ?? "memory write")}</Typography>
+                                            <Typography variant="body2">{approval.reason?.trim() || humanizeKey(approval.approval_type)}</Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
-                                                {String(approval.payload.value_text ?? "")}
+                                                Open the approval queue to review the full write details.
                                             </Typography>
                                             <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
                                                 <Button size="small" variant="contained" onClick={() => memoryApprovalMutation.mutate({ approvalId: approval.id, status: "approved" })}>
@@ -2998,9 +3005,9 @@ export function ProjectDetailWorkspace() {
                             <StatusChip status={dagTask.status} kind="task" size="small" />
                             <Chip label={dagTask.priority} size="small" variant="outlined" />
                         </Stack>
-                        {dagTask.description ? (
+                        {dagTaskDetail?.description ? (
                             <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
-                                {dagTask.description}
+                                {dagTaskDetail.description}
                             </Typography>
                         ) : null}
                         <TextField
@@ -3098,7 +3105,7 @@ export function ProjectDetailWorkspace() {
                                     Merge completed subtasks (resolution run)
                                 </Button>
                             ) : null}
-                            {dagTask.metadata?.latest_reopen ? (
+                            {dagTaskDetail?.metadata?.latest_reopen ? (
                                 <Alert severity="warning">
                                     Latest rework checklist recorded. Re-run after addressing reviewer items.
                                 </Alert>
@@ -3191,4 +3198,3 @@ export function ProjectDetailWorkspace() {
         </PageShell>
     );
 }
-

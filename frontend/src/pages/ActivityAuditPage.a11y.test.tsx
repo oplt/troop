@@ -22,6 +22,7 @@ vi.mock("../app/snackbarContext", () => ({
 vi.mock("../api/orchestration", () => ({
     listAgents: vi.fn(),
     listApprovals: vi.fn(),
+    getApproval: vi.fn(),
     listGithubSyncEvents: vi.fn(),
     listHITLAuditLogs: vi.fn(),
     listOrchestrationProjects: vi.fn(),

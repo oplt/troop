@@ -64,6 +64,7 @@ def entry_to_record(entry: SemanticMemoryEntry, *, score: float | None = None) -
         project_id=entry.project_id,
         company_id=entry.company_id,
         agent_id=entry.agent_id,
+        task_id=entry.source_task_id,
         session_id=entry.source_run_id or metadata.get("session_id"),
         source=str(metadata.get("source") or entry.provenance_json.get("source") or "semantic"),
         confidence=metadata.get("confidence"),
@@ -134,10 +135,10 @@ class SqlMemoryRepository:
                 limit=limit,
                 include_expired=filters.include_expired,
             )
-        if filters.scope == "company" and filters.user_id:
+        if filters.scope == "company" and filters.company_id:
             company_rows = await self._repo.list_semantic_memory_entries_for_company(
                 owner_id,
-                filters.user_id,
+                filters.company_id,
                 search=query,
                 limit=limit,
             )

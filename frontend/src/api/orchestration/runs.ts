@@ -1,4 +1,34 @@
 import { apiFetch } from "../client";
+import {
+    appendCursorParams,
+    assertCursorPage,
+    type CursorPage,
+    type CursorToken,
+} from "../pagination";
+
+export type { CursorPage, CursorToken } from "../pagination";
+
+export type RunListItem = {
+    id: string;
+    parent_run_id: string | null;
+    project_id: string;
+    task_id: string | null;
+    run_mode: string;
+    status: string;
+    model_name: string | null;
+    attempt_number: number;
+    token_input: number;
+    token_output: number;
+    token_total: number;
+    estimated_cost_micros: number;
+    latency_ms: number | null;
+    error_message: string | null;
+    retry_count: number;
+    created_at: string;
+    started_at: string | null;
+    completed_at: string | null;
+    cancelled_at: string | null;
+};
 
 export type TaskRun = {
     id: string;
@@ -64,17 +94,6 @@ export type RunTraceSpan = {
     tokens_input: number;
     tokens_output: number;
     cost_usd_micros: number;
-};
-
-export type CursorToken = {
-    created_at: string;
-    id: string;
-    position?: number | null;
-};
-
-export type CursorPage<T> = {
-    items: T[];
-    next_cursor: CursorToken | null;
 };
 
 export type RunTracePage = CursorPage<RunTraceSpan> & {
@@ -248,16 +267,28 @@ export type RunExecutionSnapshot = {
     resumable: boolean;
 };
 
+export async function listRunsPage(
+    options: {
+        projectId?: string;
+        limit?: number;
+        cursor?: CursorToken | null;
+    } = {},
+): Promise<CursorPage<RunListItem>> {
+    const params = new URLSearchParams();
+    appendCursorParams(params, { limit: options.limit, cursor: options.cursor });
+    if (options.projectId) params.set("project_id", options.projectId);
+    const query = params.toString();
+    const payload = await apiFetch<unknown>(`/orchestration/runs${query ? `?${query}` : ""}`);
+    return assertCursorPage<RunListItem>(payload, "/orchestration/runs");
+}
+
 export async function listRuns(
     projectId?: string,
     limit = 50,
-    cursor?: { created_at: string; id: string },
-): Promise<TaskRun[]> {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (projectId) params.set("project_id", projectId);
-    if (cursor?.created_at) params.set("cursor_created_at", cursor.created_at);
-    if (cursor?.id) params.set("cursor_id", cursor.id);
-    return apiFetch(`/orchestration/runs?${params.toString()}`);
+    cursor?: CursorToken | null,
+): Promise<RunListItem[]> {
+    const page = await listRunsPage({ projectId, limit, cursor });
+    return page.items;
 }
 
 export async function getRun(runId: string): Promise<TaskRun> {
@@ -309,7 +340,10 @@ export async function listRunEventsPage(
     if (options.cursor?.created_at) params.set("cursor_created_at", options.cursor.created_at);
     if (options.cursor?.id) params.set("cursor_id", options.cursor.id);
     const query = params.toString();
-    return apiFetch(`/orchestration/runs/${runId}/events${query ? `?${query}` : ""}`);
+    const payload = await apiFetch<unknown>(
+        `/orchestration/runs/${runId}/events${query ? `?${query}` : ""}`,
+    );
+    return assertCursorPage<RunEventListItem>(payload, `/orchestration/runs/${runId}/events`);
 }
 
 export async function listRunEvents(runId: string, limit = 100): Promise<RunEvent[]> {

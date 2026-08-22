@@ -276,7 +276,7 @@ export function normalizeConnectorOperation(value: unknown): ConnectorOperation 
 }
 
 export function normalizeConnectorStatus(
-    provider: "gmail" | "outlook" | "google_calendar" | "microsoft_calendar" | "google_drive" | "microsoft_drive" | "jira" | "linear" | "telegram" | "slack" | "teams",
+    provider: ConnectorStatus["provider"],
     value: unknown,
 ): ConnectorStatus {
     const raw = record(value);

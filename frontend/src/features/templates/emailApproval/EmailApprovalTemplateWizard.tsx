@@ -35,6 +35,7 @@ import { GovernanceStepLegend } from "./GovernanceStepLegend";
 import {
     EMAIL_APPROVAL_FLAGSHIP_SLUG,
     findFlagshipWorkflow,
+    isEmailApprovalTemplatePack,
     isGmailConnected,
     isTelegramConnected,
     type EmailApprovalTemplatePack,
@@ -71,7 +72,9 @@ export function EmailApprovalTemplateWizard() {
 
     const templatePack = useMemo<EmailApprovalTemplatePack | undefined>(() => {
         const workflow = findFlagshipWorkflow(catalog?.workflows ?? []);
-        return workflow?.template_pack;
+        return isEmailApprovalTemplatePack(workflow?.template_pack)
+            ? workflow.template_pack
+            : undefined;
     }, [catalog?.workflows]);
 
     const gmailReady = isGmailConnected(gmailStatus?.status);
@@ -106,8 +109,8 @@ export function EmailApprovalTemplateWizard() {
     });
 
     async function connectGmail() {
-        const { authorize_url } = await getGmailAuthorizeUrl();
-        window.location.assign(authorize_url);
+        const { authorization_url } = await getGmailAuthorizeUrl();
+        window.location.assign(authorization_url);
     }
 
     function goNext() {

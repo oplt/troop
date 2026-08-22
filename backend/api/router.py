@@ -1,12 +1,6 @@
 from fastapi import APIRouter
 
-from backend.app.agents.router import (
-    agents_router,
-    memory_router,
-    runs_router,
-    tasks_router,
-    tools_router,
-)
+from backend.api.compat.router import compat_router
 from backend.modules.admin.router import router as admin_router
 from backend.modules.ai.router import router as ai_router
 from backend.modules.calendar.router import router as calendar_router
@@ -37,9 +31,5 @@ api_router.include_router(notifications_router, prefix="/notifications", tags=["
 api_router.include_router(platform_router, prefix="/platform", tags=["platform"])
 api_router.include_router(settings_router, prefix="/settings", tags=["settings"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
-api_router.include_router(agents_router, prefix="/agents", tags=["agents"])
-api_router.include_router(tools_router, prefix="/tools", tags=["tools"])
-api_router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
-api_router.include_router(runs_router, prefix="/runs", tags=["runs"])
-api_router.include_router(memory_router, prefix="/memory", tags=["memory"])
+api_router.include_router(compat_router)
 api_router.include_router(workforce_router, prefix="/workforce", tags=["workforce"])

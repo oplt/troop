@@ -1,13 +1,13 @@
 import { Box, Button, Chip, Paper, Skeleton, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
-import type { GithubSyncEvent, OrchestrationProject, TaskRun } from "../../../api/orchestration";
+import type { GithubSyncEvent, OrchestrationProject, RunListItem } from "../../../api/orchestration";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { StatusChip } from "../../../components/ui/StatusChip";
 import { formatDateTime, humanizeKey } from "../../../utils/formatters";
 
 type RunLedgerPanelProps = {
-    runs: TaskRun[];
+    runs: RunListItem[];
     syncEvents: GithubSyncEvent[];
     projects: OrchestrationProject[];
     isRunsLoading: boolean;

@@ -42,6 +42,7 @@ export function JsonSchemaFields({
                 const type = fieldType(property);
                 const label = String(property.title ?? humanizeKey(key));
                 const helperText = typeof property.description === "string" ? property.description : undefined;
+                const example = Array.isArray(property.examples) ? property.examples[0] : undefined;
                 const value = values[key];
 
                 if (type === "boolean") {
@@ -110,7 +111,7 @@ export function JsonSchemaFields({
                         label={label}
                         value={value === undefined || value === null ? "" : String(value)}
                         onChange={(event) => onChange(key, event.target.value)}
-                        helperText={helperText ?? (String(property.examples?.[0] ?? "").includes("$") ? "Literal value or JSONPath such as $.email.thread_id" : undefined)}
+                        helperText={helperText ?? (String(example ?? "").includes("$") ? "Literal value or JSONPath such as $.email.thread_id" : undefined)}
                         required={required.has(key)}
                         fullWidth
                         size={size}

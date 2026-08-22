@@ -84,9 +84,9 @@ export default function DashboardPage() {
         retry: false,
         ...queryPolicies.userScoped,
     });
-    const { data: notifications, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
+    const { data: notifications = [], isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
         queryKey: queryKeys.notifications.root,
-        queryFn: getNotifications,
+        queryFn: () => getNotifications(),
         ...queryPolicies.operational,
     });
 
@@ -123,7 +123,7 @@ export default function DashboardPage() {
 
     const pendingApprovals = orchestrationOverview?.pending_approvals ?? [];
     const activeRuns = orchestrationOverview?.active_runs ?? [];
-    const unreadCount = notifications?.filter((item) => !item.is_read).length ?? 0;
+    const unreadCount = notifications.filter((item) => !item.is_read).length;
     const attentionProjects = useMemo(
         () =>
             (projects ?? [])
@@ -190,7 +190,7 @@ export default function DashboardPage() {
         }
         return nextActions[0] ?? null;
     }, [activationStatus, nextActions]);
-    const visibleNotifications = useMemo(() => notifications?.slice(0, 5) ?? [], [notifications]);
+    const visibleNotifications = useMemo(() => notifications.slice(0, 5), [notifications]);
     const hasIntegration =
         Boolean(gmailStatus && ["connected", "active", "healthy"].includes(String(gmailStatus.status))) ||
         Boolean(telegramStatus && ["connected", "active", "healthy", "linked"].includes(String(telegramStatus.status)));

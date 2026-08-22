@@ -1,15 +1,15 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Alert, Box, Button, Chip, Divider, Drawer, FormControlLabel, IconButton, Link, MenuItem,
+    Alert, Box, Button, Chip, CircularProgress, Divider, Drawer, FormControlLabel, IconButton, Link, MenuItem,
     Paper, Stack, Switch, TextField, Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Close as CloseIcon, Check as CheckSimpleIcon, PlayArrow as RunIcon } from "@mui/icons-material";
 import {
-    deleteOrchestrationTask, getTaskBlockers, getTaskExecutionState, getTaskTimeline,
+    deleteOrchestrationTask, getOrchestrationTask, getTaskBlockers, getTaskExecutionState, getTaskTimeline,
     listTaskArtifacts, updateOrchestrationTask,
-    type OrchestrationTask, type TaskRun,
+    type OrchestrationTask, type RunListItem, type TaskListItem,
 } from "../../api/orchestration";
 import { useSnackbar } from "../../app/snackbarContext";
 import { queryKeys } from "../../config/queryKeys";
@@ -38,9 +38,9 @@ import {
 
 type KanbanTaskDrawerProps = {
     projectId: string;
-    tasks: OrchestrationTask[];
+    tasks: TaskListItem[];
     allAgents: Array<{ id: string; name: string }>;
-    lastRunByTaskId: Record<string, TaskRun>;
+    lastRunByTaskId: Record<string, RunListItem>;
     expandedTask: string | null;
     setExpandedTask: (id: string | null) => void;
     taskRunModes: Record<string, ExecutionMode>;
@@ -79,8 +79,9 @@ export function KanbanTaskDrawer({
     const taskUpdateMutation = useMutation({
         mutationFn: ({ taskId, payload }: { taskId: string; payload: Record<string, unknown> }) =>
             updateOrchestrationTask(projectId, taskId, payload),
-        onSuccess: async () => {
+        onSuccess: async (_data, vars) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTask(projectId, vars.taskId) });
         },
         onError: (error) => {
             showToast({ message: extractApiErrorMessage(error, "Couldn't update task. Try again."), severity: "error" });
@@ -92,6 +93,9 @@ export function KanbanTaskDrawer({
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTasks(projectId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTaskExecution(projectId, expandedTask || undefined) });
+            if (expandedTask) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.orchestration.projectTask(projectId, expandedTask) });
+            }
             showToast({ message: "Acceptance checker updated.", severity: "success" });
         },
         onError: (error) => {
@@ -112,6 +116,11 @@ export function KanbanTaskDrawer({
     const { data: timeline = [] } = useQuery({
         queryKey: queryKeys.orchestration.projectTaskTimeline(projectId, expandedTask || ""),
         queryFn: () => (expandedTask ? getTaskTimeline(projectId, expandedTask) : Promise.resolve([])),
+        enabled: Boolean(expandedTask),
+    });
+    const { data: detailedTask } = useQuery({
+        queryKey: queryKeys.orchestration.projectTask(projectId, expandedTask || ""),
+        queryFn: () => getOrchestrationTask(projectId, expandedTask as string),
         enabled: Boolean(expandedTask),
     });
     const { data: expandedExecSnapshot } = useQuery({
@@ -154,8 +163,19 @@ export function KanbanTaskDrawer({
             >
                 <Box ref={panelRef} sx={{ height: "100%" }}>
                 {(() => {
-                    const drawerTask = expandedTask ? tasks.find((t) => t.id === expandedTask) : null;
-                    if (!drawerTask) return null;
+                    const listTask = expandedTask ? tasks.find((t) => t.id === expandedTask) : null;
+                    if (!listTask) return null;
+                    const drawerTask = detailedTask;
+                    if (!drawerTask) {
+                        return (
+                            <Stack alignItems="center" spacing={1.5} sx={{ py: 6 }} role="status" aria-live="polite">
+                                <CircularProgress />
+                                <Typography variant="body2" color="text.secondary">
+                                    Loading {listTask.title}…
+                                </Typography>
+                            </Stack>
+                        );
+                    }
 
                     const agent = allAgents.find((a) => a.id === drawerTask.assigned_agent_id);
                     const lastRun = lastRunByTaskId[drawerTask.id];

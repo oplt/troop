@@ -69,7 +69,6 @@ jobs:
           modules
           workers
           db
-          app
       - name: Ruff format check (backend production)
         working-directory: backend
         run: >
@@ -79,7 +78,6 @@ jobs:
           modules
           workers
           db
-          app
       - name: Alembic upgrade to head
         working-directory: backend
         run: alembic upgrade head
@@ -118,7 +116,6 @@ jobs:
       - name: Backend unit tests
         run: >
           python -m pytest backend/tests -m "not integration" -q
-          --ignore=backend/tests/test_deerflow_adapters.py
       - name: Workforce PostgreSQL E2E
         env:
           TROOP_RUN_PG_E2E: "1"

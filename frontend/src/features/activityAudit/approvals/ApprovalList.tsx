@@ -1,6 +1,6 @@
 import { Alert, Paper, Skeleton, Stack, Tab, Tabs, Typography } from "@mui/material";
 
-import type { Approval } from "../../../api/orchestration";
+import type { ApprovalListItem } from "../../../api/orchestration";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { ApprovalCard } from "./ApprovalCard";
 
@@ -8,8 +8,8 @@ type ApprovalSubTab = "pending" | "history";
 
 type ApprovalListProps = {
     subTab: ApprovalSubTab;
-    pending: Approval[];
-    resolved: Approval[];
+    pending: ApprovalListItem[];
+    resolved: ApprovalListItem[];
     isLoading: boolean;
     queueIndex: number;
     onSubTabChange: (tab: ApprovalSubTab) => void;

@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Box } from "@mui/material";
-import type { OrchestrationTask } from "../../api/orchestration";
+import type { TaskListItem } from "../../api/orchestration";
 import { useTheme } from "@mui/material/styles";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { AccountTree as DagIcon } from "@mui/icons-material";
@@ -10,7 +10,7 @@ export const DagView = memo(function DagView({
     selectedDagTaskId,
     onSelectTask,
 }: {
-    tasks: OrchestrationTask[];
+    tasks: TaskListItem[];
     selectedDagTaskId: string | null;
     onSelectTask: (taskId: string) => void;
 }) {

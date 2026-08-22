@@ -48,6 +48,27 @@ class OrchestrationApprovalsServiceMixin:
             cursor_id=cursor_id,
         )
 
+    async def list_approval_summaries(
+        self,
+        user: User,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ):
+        return await self.repo.list_approval_summaries(
+            user.id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
+
+    async def get_approval(self, user: User, approval_id: str):
+        approval = await self.repo.get_approval(user.id, approval_id)
+        if not approval:
+            raise HTTPException(status_code=404, detail="Approval request not found")
+        return approval
+
     async def decide_approval(self, user: User, approval_id: str, status: str, reason: str | None):
         from backend.modules.orchestration.execution.hitl.approver_resolver import (
             ApproverEligibilityError,

@@ -31,7 +31,7 @@ from backend.modules.projects.orchestration_models import (
 
 class ProjectCrudMixin:
     async def list_projects(self, user: User):
-        return await self.repo.list_projects(user.id)
+        return await self.repo.list_project_summaries(user.id)
 
     async def _resolve_default_company_id(self, owner_id: str) -> str:
         from backend.modules.companies.service import CompanyService

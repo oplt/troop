@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DashboardPage from "./DashboardPage";
 import {
+    getActivationStatus,
     getExecutionInsights,
     getOrchestrationOverview,
 } from "../api/orchestration";
@@ -15,6 +16,7 @@ import { listCompanies } from "../api/companies";
 import { getGmailStatus, getTelegramStatus } from "../api/integrations";
 
 vi.mock("../api/orchestration", () => ({
+    getActivationStatus: vi.fn(),
     getExecutionInsights: vi.fn(),
     getOrchestrationOverview: vi.fn(),
 }));
@@ -56,6 +58,16 @@ function renderDashboard() {
 describe("DashboardPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getActivationStatus).mockResolvedValue({
+            workspace_id: "workspace-1",
+            baseline_at: "2026-06-18T00:00:00.000Z",
+            milestones: [],
+            completed_count: 0,
+            total_count: 0,
+            activated: true,
+            seconds_to_activate: null,
+            next_step: null,
+        });
         vi.mocked(getNotifications).mockResolvedValue([]);
         vi.mocked(listCompanies).mockResolvedValue([]);
         vi.mocked(getGmailStatus).mockResolvedValue({
@@ -118,5 +130,33 @@ describe("DashboardPage", () => {
 
         expect(await screen.findByText("insights unavailable")).toBeInTheDocument();
         expect(screen.getAllByRole("button", { name: /retry/i }).length).toBeGreaterThan(0);
+    });
+
+    it("filters unread notifications and renders the latest items", async () => {
+        vi.mocked(getNotifications).mockResolvedValue([
+            {
+                id: "n1",
+                type: "test",
+                title: "Hello",
+                body_preview: "Preview",
+                is_read: false,
+                created_at: "2026-08-14T10:00:00Z",
+            },
+            {
+                id: "n2",
+                type: "test",
+                title: "Already seen",
+                body_preview: "Old",
+                is_read: true,
+                created_at: "2026-08-13T10:00:00Z",
+            },
+        ]);
+
+        renderDashboard();
+
+        expect(await screen.findByText("Hello")).toBeInTheDocument();
+        expect(screen.getByText("Already seen")).toBeInTheDocument();
+        expect(screen.getByText("New")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /mark all read/i })).toBeInTheDocument();
     });
 });

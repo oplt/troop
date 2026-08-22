@@ -95,7 +95,7 @@ async def list_approvals(
         default=settings.APPROVALS_LIST_DEFAULT_LIMIT,
         maximum=settings.APPROVALS_LIST_MAX_LIMIT,
     )
-    rows = await service.list_approvals(
+    rows = await service.list_approval_summaries(
         current_user,
         limit=effective_limit,
         cursor_created_at=cursor_created_at,
@@ -201,3 +201,12 @@ async def pending_approvals_count(
     service: ApprovalsService = Depends(get_approvals_service),
 ):
     return {"count": await service.get_pending_approvals_count(current_user)}
+
+
+@router.get("/approvals/{approval_id}", response_model=ApprovalResponse)
+async def get_approval(
+    approval_id: str,
+    current_user: User = Depends(get_current_user),
+    service: ApprovalsService = Depends(get_approvals_service),
+):
+    return _approval_response(await service.get_approval(current_user, approval_id))

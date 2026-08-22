@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { ProtectedRoute } from "../components/guards/ProtectedRoute";
 import { RouteErrorBoundary } from "../components/guards/RouteErrorBoundary";
 import { AppLayout } from "../components/layout/AppLayout";
@@ -54,8 +54,10 @@ function SuspensePage({
     children: React.ReactNode;
     variant?: PageSkeletonVariant;
 }) {
+    const location = useLocation();
+
     return (
-        <RouteErrorBoundary>
+        <RouteErrorBoundary resetKey={location.key}>
             <Suspense fallback={<PageLoader variant={variant} />}>{children}</Suspense>
         </RouteErrorBoundary>
     );

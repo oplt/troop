@@ -13,7 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
     assignOrchestrationTask, updateOrchestrationTask,
-    type OrchestrationTask, type TaskRun,
+    type RunListItem, type TaskListItem,
 } from "../../api/orchestration";
 import { ApiRequestError } from "../../api/client";
 import { useSnackbar } from "../../app/snackbarContext";
@@ -46,9 +46,9 @@ export const KanbanBoard = memo(function KanbanBoard({
     onPrModeChange,
 }: {
     projectId: string;
-    tasks: OrchestrationTask[];
+    tasks: TaskListItem[];
     allAgents: Array<{ id: string; name: string }>;
-    lastRunByTaskId: Record<string, TaskRun>;
+    lastRunByTaskId: Record<string, RunListItem>;
     onRunTask: (taskId: string, mode: ExecutionMode, createPr: boolean) => void;
     onAcceptanceCheck: (taskId: string) => void;
     isRunPending: boolean;
@@ -223,7 +223,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     );
 
     const tasksByStatus = useMemo(() => {
-        const map: Record<string, OrchestrationTask[]> = {};
+        const map: Record<string, TaskListItem[]> = {};
         for (const col of MAIN_KANBAN_COLUMNS) map[col.status] = [];
         for (const task of tasks) {
             const col = MAIN_KANBAN_COLUMNS.find((c) => c.statuses.includes(task.status));

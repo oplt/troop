@@ -18,7 +18,7 @@ import {
 import {
     listOrchestrationProjects,
     listOrchestrationTasks,
-    type OrchestrationTask,
+    type TaskListItem,
 } from "../api/orchestration";
 import { PageShell } from "../components/ui/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -27,7 +27,7 @@ import { StatusChip } from "../components/ui/StatusChip";
 import { FilterToolbar } from "../components/ui/FilterToolbar";
 import { Assignment as TasksIcon } from "@mui/icons-material";
 
-type TaskRow = OrchestrationTask & { project_name: string; project_id: string };
+type TaskRow = TaskListItem & { project_name: string; project_id: string };
 
 const CLOSED = new Set(["completed", "archived", "cancelled"]);
 

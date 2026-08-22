@@ -78,6 +78,8 @@ export const queryKeys = {
         project: (projectId: string) => ["orchestration", "project", projectId] as const,
         projectRoot: ["orchestration", "project"] as const,
         projectTasks: (projectId: string) => ["orchestration", "project", projectId, "tasks"] as const,
+        projectTask: (projectId: string, taskId: string) =>
+            ["orchestration", "project", projectId, "task", taskId] as const,
         projectTaskTimeline: (projectId: string, taskId: string) =>
             ["orchestration", "project", projectId, "tasks", taskId, "timeline"] as const,
         projectTaskExecution: (projectId: string, taskId?: string) =>
@@ -165,6 +167,7 @@ export const queryKeys = {
         runWorkingMemory: (runId: string) => ["orchestration", "run-wm", runId] as const,
         runWorkingMemoryRoot: ["orchestration", "run-wm"] as const,
         approvals: ["orchestration", "approvals"] as const,
+        approval: (approvalId: string) => ["orchestration", "approvals", approvalId] as const,
         approvalsPendingCount: ["orchestration", "approvals", "pending-count"] as const,
         tools: ["orchestration", "tools"] as const,
         agentVersions: (agentId: string) => ["orchestration", "agent-versions", agentId] as const,

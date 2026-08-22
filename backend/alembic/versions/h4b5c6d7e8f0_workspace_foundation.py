@@ -23,59 +23,68 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "workspaces",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("owner_user_id", sa.String(), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("slug", sa.String(length=64), nullable=False),
-        sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("settings_json", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("owner_user_id", "slug", name="uq_workspaces_owner_slug"),
-    )
-    op.create_index("ix_workspaces_owner_user_id", "workspaces", ["owner_user_id"])
-    op.create_index("ix_workspaces_slug", "workspaces", ["slug"])
-    op.create_index("ix_workspaces_is_default", "workspaces", ["is_default"])
-    op.create_index(
-        "uq_workspaces_one_default_per_owner",
-        "workspaces",
-        ["owner_user_id"],
-        unique=True,
-        postgresql_where=sa.text("is_default = true"),
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = set(inspector.get_table_names())
 
-    op.create_table(
-        "workspace_memberships",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("workspace_id", sa.String(), nullable=False),
-        sa.Column("user_id", sa.String(), nullable=False),
-        sa.Column("role", sa.String(length=32), nullable=False, server_default="owner"),
-        sa.Column("status", sa.String(length=32), nullable=False, server_default="active"),
-        sa.Column("invited_by_user_id", sa.String(), nullable=True),
-        sa.Column("metadata_json", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["invited_by_user_id"], ["users.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["workspace_id"], ["workspaces.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "workspace_id", "user_id", name="uq_workspace_memberships_workspace_user"
-        ),
-    )
-    op.create_index("ix_workspace_memberships_workspace_id", "workspace_memberships", ["workspace_id"])
-    op.create_index("ix_workspace_memberships_user_id", "workspace_memberships", ["user_id"])
-    op.create_index("ix_workspace_memberships_role", "workspace_memberships", ["role"])
-    op.create_index("ix_workspace_memberships_status", "workspace_memberships", ["status"])
-    op.create_index(
-        "ix_workspace_memberships_invited_by_user_id",
-        "workspace_memberships",
-        ["invited_by_user_id"],
-    )
+    if "workspaces" not in existing_tables:
+        op.create_table(
+            "workspaces",
+            sa.Column("id", sa.String(), nullable=False),
+            sa.Column("owner_user_id", sa.String(), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("slug", sa.String(length=64), nullable=False),
+            sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
+            sa.Column("settings_json", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("owner_user_id", "slug", name="uq_workspaces_owner_slug"),
+        )
+        op.create_index("ix_workspaces_owner_user_id", "workspaces", ["owner_user_id"])
+        op.create_index("ix_workspaces_slug", "workspaces", ["slug"])
+        op.create_index("ix_workspaces_is_default", "workspaces", ["is_default"])
+
+    workspace_indexes = {idx["name"] for idx in inspector.get_indexes("workspaces")}
+    if "uq_workspaces_one_default_per_owner" not in workspace_indexes:
+        op.create_index(
+            "uq_workspaces_one_default_per_owner",
+            "workspaces",
+            ["owner_user_id"],
+            unique=True,
+            postgresql_where=sa.text("is_default = true"),
+        )
+
+    if "workspace_memberships" not in existing_tables:
+        op.create_table(
+            "workspace_memberships",
+            sa.Column("id", sa.String(), nullable=False),
+            sa.Column("workspace_id", sa.String(), nullable=False),
+            sa.Column("user_id", sa.String(), nullable=False),
+            sa.Column("role", sa.String(length=32), nullable=False, server_default="owner"),
+            sa.Column("status", sa.String(length=32), nullable=False, server_default="active"),
+            sa.Column("invited_by_user_id", sa.String(), nullable=True),
+            sa.Column("metadata_json", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.ForeignKeyConstraint(["invited_by_user_id"], ["users.id"], ondelete="SET NULL"),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["workspace_id"], ["workspaces.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint(
+                "workspace_id", "user_id", name="uq_workspace_memberships_workspace_user"
+            ),
+        )
+        op.create_index("ix_workspace_memberships_workspace_id", "workspace_memberships", ["workspace_id"])
+        op.create_index("ix_workspace_memberships_user_id", "workspace_memberships", ["user_id"])
+        op.create_index("ix_workspace_memberships_role", "workspace_memberships", ["role"])
+        op.create_index("ix_workspace_memberships_status", "workspace_memberships", ["status"])
+        op.create_index(
+            "ix_workspace_memberships_invited_by_user_id",
+            "workspace_memberships",
+            ["invited_by_user_id"],
+        )
 
     from backend.modules.identity_access.workspace_backfill import (
         default_workspace_name,

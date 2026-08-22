@@ -29,6 +29,6 @@ def test_agent_routes_use_public_presenters() -> None:
     from pathlib import Path
 
     backend_root = Path(__file__).resolve().parents[1]
-    source = (backend_root / "app/agents/router.py").read_text()
+    source = (backend_root / "api/compat/agents.py").read_text()
     assert "from backend.modules.orchestration.router import" not in source
     assert "to_agent_response" in source

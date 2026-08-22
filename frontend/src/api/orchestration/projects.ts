@@ -1,4 +1,5 @@
 import { apiFetch } from "../client";
+import { appendCursorParams, assertCursorPage, type CursorPage, type CursorToken } from "../pagination";
 import type { Approval } from "./approvals";
 import type { TaskRun } from "./runs";
 
@@ -79,6 +80,28 @@ export type OrchestrationTask = {
     position: number;
     metadata: Record<string, unknown>;
     dependency_ids: string[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type TaskListItem = {
+    id: string;
+    project_id: string;
+    title: string;
+    status: string;
+    priority: string;
+    task_type: string;
+    position: number;
+    assigned_agent_id: string | null;
+    human_assignee_id: string | null;
+    parent_task_id: string | null;
+    github_issue_number: number | null;
+    github_issue_url: string | null;
+    github_repository_full_name: string | null;
+    due_date: string | null;
+    labels: string[];
+    dependency_ids: string[];
+    has_result: boolean;
     created_at: string;
     updated_at: string;
 };
@@ -458,11 +481,25 @@ export async function removeProjectAgent(projectId: string, membershipId: string
     return apiFetch(`/orchestration/projects/${projectId}/agents/${membershipId}`, { method: "DELETE" });
 }
 
+export async function listOrchestrationTasksPage(
+    projectId: string,
+    options: { limit?: number; cursor?: CursorToken | null } = {},
+): Promise<CursorPage<TaskListItem>> {
+    const params = new URLSearchParams();
+    appendCursorParams(params, options);
+    const query = params.toString();
+    const payload = await apiFetch<unknown>(
+        `/orchestration/projects/${projectId}/tasks${query ? `?${query}` : ""}`,
+    );
+    return assertCursorPage<TaskListItem>(payload, `/orchestration/projects/${projectId}/tasks`);
+}
+
 export async function listOrchestrationTasks(
     projectId: string,
-    limit = 500,
-): Promise<OrchestrationTask[]> {
-    return apiFetch(`/orchestration/projects/${projectId}/tasks?limit=${encodeURIComponent(limit)}`);
+    limit = 100,
+): Promise<TaskListItem[]> {
+    const page = await listOrchestrationTasksPage(projectId, { limit });
+    return page.items;
 }
 
 export async function getOrchestrationTask(projectId: string, taskId: string): Promise<OrchestrationTask> {

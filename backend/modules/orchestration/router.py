@@ -2701,7 +2701,7 @@ async def list_runs(
         default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
         maximum=settings.ORCHESTRATION_LIST_RUNS_MAX_LIMIT,
     )
-    rows = await execution.list_task_runs(
+    rows = await execution.list_task_run_summaries(
         current_user,
         project_id,
         limit=effective_limit,
@@ -2756,7 +2756,7 @@ async def list_run_events(
         default=settings.RUN_EVENTS_DEFAULT_LIMIT,
         maximum=settings.RUN_EVENTS_MAX_LIMIT,
     )
-    items = await OrchestrationService(db).list_run_events(
+    items = await OrchestrationService(db).list_run_event_summaries(
         current_user,
         run_id,
         limit=effective_limit,

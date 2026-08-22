@@ -18,15 +18,14 @@ from backend.core.pagination import (
 from backend.modules.audit.models import AuditLog
 from backend.modules.github.repository import GithubRepositoryMixin
 from backend.modules.memory.repository import MemoryRepositoryMixin
+from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.orchestration.list_load_options import (
     approval_list_load,
-    notification_list_load,
     project_list_load,
     run_event_list_load,
     task_list_load,
     task_run_list_load,
 )
-from backend.modules.orchestration._helpers import resolve_query_limit
 from backend.modules.orchestration.models import (
     AgentMemoryEntry,
     AgentProfile,
@@ -77,7 +76,8 @@ class OrchestrationRepository(
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_projects(self, owner_id: str) -> list[OrchestratorProject]:
+    async def list_project_summaries(self, owner_id: str) -> list[OrchestratorProject]:
+        """Return the narrow projection used by project list responses."""
         result = await self.db.execute(
             select(OrchestratorProject)
             .where(OrchestratorProject.owner_id == owner_id)
@@ -458,6 +458,14 @@ class OrchestrationRepository(
         )
         return list(result.scalars().all())
 
+    async def list_run_artifacts(self, run_id: str) -> list[TaskArtifact]:
+        result = await self.db.execute(
+            select(TaskArtifact)
+            .where(TaskArtifact.run_id == run_id)
+            .order_by(TaskArtifact.created_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def create_task_artifact(self, **kwargs) -> TaskArtifact:
         item = TaskArtifact(**kwargs)
         self.db.add(item)
@@ -502,7 +510,9 @@ class OrchestrationRepository(
         limit: int | None = None,
         cursor_created_at: datetime | None = None,
         cursor_id: str | None = None,
+        _summary_only: bool = False,
     ) -> list[TaskRun]:
+        """Return runs, fully loaded unless explicitly requested for a list response."""
         stmt = (
             select(TaskRun)
             .join(OrchestratorProject, TaskRun.project_id == OrchestratorProject.id)
@@ -516,7 +526,9 @@ class OrchestrationRepository(
             cursor_created_at=cursor_created_at,
             cursor_id=cursor_id,
         )
-        stmt = stmt.order_by(TaskRun.created_at.desc(), TaskRun.id.desc()).options(task_run_list_load())
+        stmt = stmt.order_by(TaskRun.created_at.desc(), TaskRun.id.desc())
+        if _summary_only:
+            stmt = stmt.options(task_run_list_load())
         cap = resolve_query_limit(
             limit,
             default=settings.ORCHESTRATION_LIST_RUNS_DEFAULT_LIMIT,
@@ -525,6 +537,25 @@ class OrchestrationRepository(
         stmt = stmt.limit(fetch_limit(cap))
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_run_summaries(
+        self,
+        owner_id: str,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
+    ) -> list[TaskRun]:
+        """Return the narrow projection used by paginated run list responses."""
+        return await self.list_runs(
+            owner_id,
+            project_id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+            _summary_only=True,
+        )
 
     async def list_runs_for_owner_since(
         self, owner_id: str, since: datetime, *, limit: int = 2000
@@ -652,7 +683,9 @@ class OrchestrationRepository(
         descending: bool = False,
         cursor_created_at: datetime | None = None,
         cursor_id: str | None = None,
+        _summary_only: bool = False,
     ) -> list[RunEvent]:
+        """Return events, including payloads unless requested for a list response."""
         cap = resolve_query_limit(
             limit,
             default=settings.RUN_EVENTS_DEFAULT_LIMIT,
@@ -678,13 +711,35 @@ class OrchestrationRepository(
             order_cols = (RunEvent.created_at.asc(), RunEvent.id.asc())
         if cursor_created_at is None and cursor_id is None and offset:
             stmt = stmt.offset(offset)
-        result = await self.db.execute(
-            stmt.order_by(*order_cols).limit(fetch_limit(cap)).options(run_event_list_load())
-        )
+        stmt = stmt.order_by(*order_cols).limit(fetch_limit(cap))
+        if _summary_only:
+            stmt = stmt.options(run_event_list_load())
+        result = await self.db.execute(stmt)
         events = list(result.scalars().all())
         if descending:
             events.reverse()
         return events
+
+    async def list_run_event_summaries(
+        self,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+        descending: bool = False,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
+    ) -> list[RunEvent]:
+        """Return the narrow projection used by paginated event list responses."""
+        return await self.list_run_events(
+            run_id,
+            limit=limit,
+            offset=offset,
+            descending=descending,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+            _summary_only=True,
+        )
 
     async def list_run_events_tail(self, run_id: str, *, limit: int = 12) -> list[RunEvent]:
         cap = min(max(int(limit), 1), settings.RUN_EVENTS_MAX_LIMIT)
@@ -1578,7 +1633,9 @@ class OrchestrationRepository(
         limit: int | None = None,
         cursor_created_at: datetime | None = None,
         cursor_id: str | None = None,
+        _summary_only: bool = False,
     ) -> list[ApprovalRequest]:
+        """Return approvals, fully loaded unless requested for a list response."""
         from backend.modules.identity_access.workspace_permissions import (
             PERM_APPROVAL_DECIDE,
             role_has_permission,
@@ -1607,11 +1664,12 @@ class OrchestrationRepository(
             default=settings.APPROVALS_LIST_DEFAULT_LIMIT,
             maximum=settings.APPROVALS_LIST_MAX_LIMIT,
         )
-        result = await self.db.execute(
-            stmt.order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc())
-            .limit(fetch_limit(cap))
-            .options(approval_list_load())
-        )
+        owner_stmt = stmt.order_by(
+            ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc()
+        ).limit(fetch_limit(cap))
+        if _summary_only:
+            owner_stmt = owner_stmt.options(approval_list_load())
+        result = await self.db.execute(owner_stmt)
         owner_rows = list(result.scalars().all())
 
         ws_repo = WorkspaceRepository(self.db)
@@ -1635,14 +1693,13 @@ class OrchestrationRepository(
             cursor_created_at=cursor_created_at,
             cursor_id=cursor_id,
         )
-        approver_result = await self.db.execute(
-            approver_stmt.order_by(
-                ApprovalRequest.created_at.desc(),
-                ApprovalRequest.id.desc(),
-            )
-            .limit(fetch_limit(cap))
-            .options(approval_list_load())
-        )
+        approver_stmt = approver_stmt.order_by(
+            ApprovalRequest.created_at.desc(),
+            ApprovalRequest.id.desc(),
+        ).limit(fetch_limit(cap))
+        if _summary_only:
+            approver_stmt = approver_stmt.options(approval_list_load())
+        approver_result = await self.db.execute(approver_stmt)
         approver_rows = list(approver_result.scalars().all())
 
         seen = {row.id for row in owner_rows}
@@ -1654,6 +1711,25 @@ class OrchestrationRepository(
             merged.append(row)
         merged.sort(key=lambda item: (item.created_at, item.id), reverse=True)
         return merged[:cap]
+
+    async def list_approval_summaries(
+        self,
+        owner_id: str,
+        status: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at: datetime | None = None,
+        cursor_id: str | None = None,
+    ) -> list[ApprovalRequest]:
+        """Return the narrow projection used by paginated approval list responses."""
+        return await self.list_approvals(
+            owner_id,
+            status,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+            _summary_only=True,
+        )
 
     async def get_approval(self, owner_id: str, approval_id: str) -> ApprovalRequest | None:
         from backend.modules.orchestration.execution.hitl.approver_resolver import (

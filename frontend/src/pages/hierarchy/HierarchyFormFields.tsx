@@ -130,25 +130,20 @@ export function ExpandableSection({
                 }}
             >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.25, py: 0.5 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ width: "100%", pr: 1 }}>
-                        <Stack spacing={0.25}>
-                            <Typography variant="subtitle2">{title}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                {description}
-                            </Typography>
-                        </Stack>
-                        {action ? (
-                            <Box onClick={(event) => event.stopPropagation()}>
-                                {action}
-                            </Box>
-                        ) : null}
+                    <Stack spacing={0.25} sx={{ width: "100%", pr: 1 }}>
+                        <Typography variant="subtitle2">{title}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {description}
+                        </Typography>
                     </Stack>
                 </AccordionSummary>
                 <AccordionDetails sx={{ px: 2.25, pb: 2.25, pt: 0 }}>
-                    <Stack spacing={2}>{children}</Stack>
+                    <Stack spacing={2}>
+                        {action ? <Box sx={{ alignSelf: "flex-end" }}>{action}</Box> : null}
+                        {children}
+                    </Stack>
                 </AccordionDetails>
             </Accordion>
         </SectionCard>
     );
 }
-

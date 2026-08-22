@@ -16,6 +16,11 @@ function recommendationColor(
     return "default";
 }
 
+function numericMetric(metrics: Record<string, unknown>, key: string): number {
+    const value = metrics[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 export function EvaluationResults({ evaluationRuns }: EvaluationResultsProps) {
     if (evaluationRuns.length === 0) {
         return null;
@@ -38,9 +43,10 @@ export function EvaluationResults({ evaluationRuns }: EvaluationResultsProps) {
                             </Typography>
                             {metrics && (
                                 <Typography variant="caption" color="text.secondary">
-                                    Success {Math.round((metrics.task_success_rate ?? 0) * 100)}% · schema{" "}
-                                    {Math.round((metrics.schema_validity_rate ?? 0) * 100)}% · latency{" "}
-                                    {metrics.avg_latency_ms ?? 0} ms · tokens {metrics.total_tokens ?? 0}
+                                    Success {Math.round(numericMetric(metrics, "task_success_rate") * 100)}% · schema{" "}
+                                    {Math.round(numericMetric(metrics, "schema_validity_rate") * 100)}% · latency{" "}
+                                    {numericMetric(metrics, "avg_latency_ms")} ms · tokens{" "}
+                                    {numericMetric(metrics, "total_tokens")}
                                 </Typography>
                             )}
                             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>

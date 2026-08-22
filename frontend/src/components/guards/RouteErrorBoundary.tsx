@@ -7,6 +7,7 @@ import { PageShell } from "../ui/PageShell";
 type Props = {
     children: React.ReactNode;
     title?: string;
+    resetKey?: string;
 };
 
 type State = {
@@ -63,6 +64,12 @@ export class RouteErrorBoundary extends React.Component<Props, State> {
     componentDidCatch(error: Error, info: React.ErrorInfo) {
         console.error("route_error_boundary", error, info.componentStack);
         reportRouteError(error, info);
+    }
+
+    componentDidUpdate(previousProps: Props) {
+        if (this.state.error && previousProps.resetKey !== this.props.resetKey) {
+            this.setState({ error: null });
+        }
     }
 
     private handleRetry = () => {

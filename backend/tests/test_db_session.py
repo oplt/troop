@@ -1,7 +1,9 @@
-from sqlalchemy.pool import NullPool
+import asyncio
 
+import pytest
 from backend.core.config import settings
-from backend.db.session import engine
+from backend.db.session import _close_session_safely, engine
+from sqlalchemy.pool import NullPool
 
 
 def test_engine_uses_connection_pool_not_null_pool():
@@ -24,3 +26,27 @@ def test_vector_write_and_fallback_flags_default_off():
     assert settings.VECTOR_WRITE_EMBEDDING_JSON is False
     assert settings.vector_python_fallback_enabled is False
     assert settings.PROJECT_DECISIONS_MERGE_LIMIT >= 1
+
+
+@pytest.mark.asyncio
+async def test_session_close_finishes_when_request_cleanup_is_cancelled():
+    close_started = asyncio.Event()
+    allow_close = asyncio.Event()
+    close_finished = False
+
+    class SlowSession:
+        async def close(self):
+            nonlocal close_finished
+            close_started.set()
+            await allow_close.wait()
+            close_finished = True
+
+    cleanup = asyncio.create_task(_close_session_safely(SlowSession()))  # type: ignore[arg-type]
+    await close_started.wait()
+    cleanup.cancel()
+    allow_close.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await cleanup
+
+    assert close_finished is True

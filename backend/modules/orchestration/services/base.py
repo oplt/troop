@@ -73,6 +73,23 @@ class OrchestrationRunQueryMixin:
             cursor_id=cursor_id,
         )
 
+    async def list_task_run_summaries(
+        self,
+        user: User,
+        project_id: str | None = None,
+        *,
+        limit: int | None = None,
+        cursor_created_at=None,
+        cursor_id: str | None = None,
+    ):
+        return await self.repo.list_run_summaries(
+            user.id,
+            project_id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_id,
+        )
+
     async def get_run(self, user: User, run_id: str):
         run = await self.repo.get_run(user.id, run_id)
         if not run:

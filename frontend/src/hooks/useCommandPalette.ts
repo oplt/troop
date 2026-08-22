@@ -31,7 +31,7 @@ export function useCommandPalette({
 
     const { data: paletteApprovals = [] } = useQuery({
         queryKey: queryKeys.orchestration.approvals,
-        queryFn: listApprovals,
+        queryFn: () => listApprovals(),
         ...queryPolicies.operational,
         enabled: authReady && open,
         retry: false,

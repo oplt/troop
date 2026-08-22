@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -26,9 +27,19 @@ SessionLocal = async_sessionmaker(
 )
 
 
+async def _close_session_safely(session: AsyncSession) -> None:
+    """Return a checked-out connection even when its request is cancelled."""
+    close_task = asyncio.create_task(session.close())
+    try:
+        await asyncio.shield(close_task)
+    except asyncio.CancelledError:
+        await close_task
+        raise
+
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     session = SessionLocal()
     try:
         yield session
     finally:
-        await session.close()
+        await _close_session_safely(session)
